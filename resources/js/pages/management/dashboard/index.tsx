@@ -139,7 +139,7 @@ export default function Dashboard() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
-            <div className="min-h-screen bg-gray-50 p-6">
+            <div className="min-h-screen bg-background p-6">
                 {/* <div className="mb-8">
                     <h1 className="mb-2 text-3xl font-bold text-gray-900">Dashboard</h1>
                     <p className="text-gray-500">Welcome back! Here's an overview of your store.</p>
@@ -151,9 +151,9 @@ export default function Dashboard() {
                     <Card className="shadow-sm transition-shadow hover:shadow-md">
                         <CardHeader className="pb-2">
                             <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Total Products</CardTitle>
-                                <div className="rounded-lg bg-blue-100 p-2">
-                                    <Package2 size={18} className="text-blue-600" />
+                                <CardTitle className="text-sm font-medium text-muted-foreground">Total Products</CardTitle>
+                                <div className="rounded-lg bg-primary/10 p-2">
+                                    <Package2 size={18} className="text-primary" />
                                 </div>
                             </div>
                         </CardHeader>
@@ -161,7 +161,7 @@ export default function Dashboard() {
                             <div className="text-2xl font-bold">{analyticsData.totalProducts}</div>
                         </CardContent>
                         <CardFooter className="pt-0">
-                            <Button variant="link" className="flex h-auto items-center p-0 text-blue-600">
+                            <Button variant="link" className="flex h-auto items-center p-0 text-primary">
                                 View details <ArrowRight size={16} className="ml-1" />
                             </Button>
                         </CardFooter>
@@ -171,9 +171,9 @@ export default function Dashboard() {
                     <Card className="shadow-sm transition-shadow hover:shadow-md">
                         <CardHeader className="pb-2">
                             <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Total Users</CardTitle>
-                                <div className="rounded-lg bg-green-100 p-2">
-                                    <Users size={18} className="text-green-600" />
+                                <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
+                                <div className="rounded-lg bg-primary/10 p-2">
+                                    <Users size={18} className="text-primary" />
                                 </div>
                             </div>
                         </CardHeader>
@@ -181,7 +181,7 @@ export default function Dashboard() {
                             <div className="text-2xl font-bold">{analyticsData.totalUsers}</div>
                         </CardContent>
                         <CardFooter className="pt-0">
-                            <Button variant="link" className="flex h-auto items-center p-0 text-green-600">
+                            <Button variant="link" className="flex h-auto items-center p-0 text-primary">
                                 View details <ArrowRight size={16} className="ml-1" />
                             </Button>
                         </CardFooter>
@@ -191,9 +191,9 @@ export default function Dashboard() {
                     <Card className="shadow-sm transition-shadow hover:shadow-md">
                         <CardHeader className="pb-2">
                             <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Total Categories</CardTitle>
-                                <div className="rounded-lg bg-purple-100 p-2">
-                                    <BarChart3 size={18} className="text-purple-600" />
+                                <CardTitle className="text-sm font-medium text-muted-foreground">Total Categories</CardTitle>
+                                <div className="rounded-lg bg-primary/10 p-2">
+                                    <BarChart3 size={18} className="text-primary" />
                                 </div>
                             </div>
                         </CardHeader>
@@ -201,7 +201,7 @@ export default function Dashboard() {
                             <div className="text-2xl font-bold">{analyticsData.totalCategories}</div>
                         </CardContent>
                         <CardFooter className="pt-0">
-                            <Button variant="link" className="flex h-auto items-center p-0 text-purple-600">
+                            <Button variant="link" className="flex h-auto items-center p-0 text-primary">
                                 View details <ArrowRight size={16} className="ml-1" />
                             </Button>
                         </CardFooter>
@@ -211,9 +211,9 @@ export default function Dashboard() {
                     <Card className="shadow-sm transition-shadow hover:shadow-md">
                         <CardHeader className="pb-2">
                             <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Total Inventory Value</CardTitle>
-                                <div className="rounded-lg bg-amber-100 p-2">
-                                    <DollarSign size={18} className="text-amber-600" />
+                                <CardTitle className="text-sm font-medium text-muted-foreground">Total Inventory Value</CardTitle>
+                                <div className="rounded-lg bg-primary/10 p-2">
+                                    <DollarSign size={18} className="text-primary" />
                                 </div>
                             </div>
                         </CardHeader>
@@ -221,7 +221,7 @@ export default function Dashboard() {
                             <div className="text-2xl font-bold">{formatCurrency(analyticsData.totalInventoryValue)}</div>
                         </CardContent>
                         <CardFooter className="pt-0">
-                            <Button variant="link" className="flex h-auto items-center p-0 text-amber-600">
+                            <Button variant="link" className="flex h-auto items-center p-0 text-primary">
                                 View details <ArrowRight size={16} className="ml-1" />
                             </Button>
                         </CardFooter>
@@ -236,7 +236,7 @@ export default function Dashboard() {
                                 <CardTitle>Recent Products</CardTitle>
                                 <div className="flex gap-2">
                                     <div className="relative">
-                                        <Search className="absolute top-2.5 left-2 h-4 w-4 text-gray-500" />
+                                        <Search className="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground" />
                                         <Input placeholder="Search products..." className="w-64 pl-8" />
                                     </div>
                                     <Button>Add Product</Button>
@@ -303,7 +303,7 @@ export default function Dashboard() {
                             </Table>
                         </CardContent>
                         <CardFooter className="flex justify-between">
-                            <div className="text-sm text-gray-500">Showing 5 of {analyticsData.totalProducts} products</div>
+                            <div className="text-sm text-muted-foreground">Showing 5 of {analyticsData.totalProducts} products</div>
                             <div className="flex gap-2">
                                 <Button variant="outline" size="sm" disabled>
                                     Previous
@@ -324,7 +324,7 @@ export default function Dashboard() {
                                 <CardTitle>Recent Sales</CardTitle>
                                 <div className="flex gap-2">
                                     <div className="relative">
-                                        <Search className="absolute top-2.5 left-2 h-4 w-4 text-gray-500" />
+                                        <Search className="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground" />
                                         <Input placeholder="Search sales..." className="w-64 pl-8" />
                                     </div>
                                     <Button variant="outline">
@@ -394,7 +394,7 @@ export default function Dashboard() {
                             </Table>
                         </CardContent>
                         <CardFooter className="flex justify-between">
-                            <div className="text-sm text-gray-500">Showing 5 recent sales</div>
+                            <div className="text-sm text-muted-foreground">Showing 5 recent sales</div>
                             <div className="flex gap-2">
                                 <Button variant="outline" size="sm" disabled>
                                     Previous
