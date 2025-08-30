@@ -21,6 +21,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
+        'is_active',
+        'employee_id',
     ];
 
     /**
@@ -43,6 +46,65 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * Check if user has a specific role
+     */
+    public function hasRole(string $role): bool
+    {
+        return $this->role === $role;
+    }
+
+    /**
+     * Check if user has any of the specified roles
+     */
+    public function hasAnyRole(array $roles): bool
+    {
+        return in_array($this->role, $roles);
+    }
+
+    /**
+     * Check if user is a patient
+     */
+    public function isPatient(): bool
+    {
+        return $this->role === 'patient';
+    }
+
+    /**
+     * Check if user is clinic staff
+     */
+    public function isStaff(): bool
+    {
+        return in_array($this->role, [
+            'laboratory_technologist',
+            'medtech',
+            'cashier',
+            'doctor',
+            'admin'
+        ]);
+    }
+
+    /**
+     * Check if user is admin
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    /**
+     * Get the appropriate redirect path based on role
+     */
+    public function getRedirectPath(): string
+    {
+        if ($this->isPatient()) {
+            return route('patient.dashboard');
+        }
+
+        return route('admin.dashboard');
     }
 }

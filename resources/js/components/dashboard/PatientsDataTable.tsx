@@ -109,13 +109,13 @@ export const columns: ColumnDef<PatientItem>[] = [
             return (
                 <div className="flex items-center gap-2">
                     <Button asChild variant="ghost" size="icon" className="h-8 w-8">
-                        <Link href={`/management/patient/${id}`}>
+                        <Link href={`/admin/patient/${id}`}>
                             <Pencil className="h-4 w-4" />
                             <span className="sr-only">View</span>
                         </Link>
                     </Button>
                     <Button asChild variant="ghost" size="icon" className="h-8 w-8">
-                        <Link href={`/management/patient/${id}/edit`}>
+                        <Link href={`/admin/patient/${id}/edit`}>
                             <Pencil className="h-4 w-4" />
                             <span className="sr-only">Edit</span>
                         </Link>
@@ -126,7 +126,7 @@ export const columns: ColumnDef<PatientItem>[] = [
                         className="h-8 w-8 text-destructive"
                         onClick={() => {
                             if (confirm('Are you sure you want to delete this patient?')) {
-                                router.delete(`/management/patient/${id}`);
+                                router.delete(`/admin/patient/${id}`);
                             }
                         }}
                     >
@@ -201,7 +201,7 @@ export default function PatientsDataTable({ patients }: { patients: PatientItem[
                             <RefreshCw className="h-4 w-4" />
                         </Button>
                         <Button asChild className="bg-blue-600 hover:bg-blue-700">
-                            <Link href="/management/patient/create">
+                            <Link href="/admin/patient/create">
                                 <Plus className="mr-2 h-4 w-4" />
                                 Add New Patient
                             </Link>

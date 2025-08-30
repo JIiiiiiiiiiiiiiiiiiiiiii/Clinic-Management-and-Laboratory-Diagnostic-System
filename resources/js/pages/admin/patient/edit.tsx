@@ -13,11 +13,11 @@ import { ArrowLeft, Save } from 'lucide-react';
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Patient Management',
-        href: '/management/patient',
+        href: '/admin/patient',
     },
     {
         title: 'Edit Patient',
-        href: '/management/patient/edit',
+        href: '/admin/patient/edit',
     },
 ];
 
@@ -94,7 +94,7 @@ export default function EditPatient({ patient }: EditPatientProps) {
 
     const submit: React.FormEventHandler = (e) => {
         e.preventDefault();
-        router.put(`/management/patient/${patient.id}`, data, {
+        router.put(`/admin/patient/${patient.id}`, data, {
             onFinish: () => {
                 reset();
             },
@@ -108,7 +108,7 @@ export default function EditPatient({ patient }: EditPatientProps) {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Button asChild variant="outline" size="icon">
-                            <Link href="/management/patient">
+                            <Link href="/admin/patient">
                                 <ArrowLeft className="h-4 w-4" />
                             </Link>
                         </Button>
@@ -650,7 +650,7 @@ export default function EditPatient({ patient }: EditPatientProps) {
 
                     <div className="flex items-center justify-end gap-4">
                         <Button asChild variant="outline">
-                            <Link href="/management/patient">Cancel</Link>
+                            <Link href="/admin/patient">Cancel</Link>
                         </Button>
                         <Button disabled={processing} type="submit">
                             <Save className="mr-2 h-4 w-4" />

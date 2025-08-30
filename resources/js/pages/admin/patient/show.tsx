@@ -11,11 +11,11 @@ import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Patient Management',
-        href: '/management/patient',
+        href: '/admin/patient',
     },
     {
         title: 'Patient Details',
-        href: '/management/patient/show',
+        href: '/admin/patient/show',
     },
 ];
 
@@ -74,7 +74,7 @@ export default function ShowPatient({ patient }: ShowPatientProps) {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Button asChild variant="outline" size="icon">
-                            <Link href="/management/patient">
+                            <Link href="/admin/patient">
                                 <ArrowLeft className="h-4 w-4" />
                             </Link>
                         </Button>
@@ -87,7 +87,7 @@ export default function ShowPatient({ patient }: ShowPatientProps) {
                     </div>
                     <div className="flex items-center gap-2">
                         <Button asChild variant="outline">
-                            <Link href={`/management/patient/${patient.id}/edit`}>
+                            <Link href={`/admin/patient/${patient.id}/edit`}>
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit
                             </Link>

@@ -7,7 +7,7 @@ import { Head } from '@inertiajs/react';
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Patient Management',
-        href: '/management/patient',
+        href: '/admin/patient',
     },
 ];
 

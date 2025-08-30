@@ -10,32 +10,32 @@ import AppLogo from './app-logo';
 const mainNavItems: NavItem[] = [
     {
         title: 'Dashboard',
-        href: '/management/dashboard',
+        href: '/admin/dashboard',
         icon: LayoutGrid,
     },
     {
         title: 'Patient Management',
-        href: '/management/patient',
+        href: '/admin/patient',
         icon: BookUser,
     },
     {
         title: 'Laboratory Diagnostics',
-        href: '/management/laboratory',
+        href: '/admin/laboratory',
         icon: Table2,
     },
     {
         title: 'Inventory Management',
-        href: '/management/inventory',
+        href: '/admin/inventory',
         icon: BriefcaseMedical,
     },
     {
         title: 'Financial Management',
-        href: '/management/financial',
+        href: '/admin/financial',
         icon: Wallet,
     },
     {
         title: 'Appointment Management',
-        href: '/management/appointments',
+        href: '/admin/appointments',
         icon: CalendarClock,
     },
 ];
@@ -61,7 +61,7 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href="/management/dashboard" prefetch>
+                            <Link href="/admin/dashboard" prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>

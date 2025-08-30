@@ -40,12 +40,15 @@ class RegisteredUserController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'role' => 'patient', // Default role for new registrations
+            'is_active' => true,
         ]);
 
         event(new Registered($user));
 
         Auth::login($user);
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        // Redirect to patient dashboard for new patients
+        return redirect()->intended(route('patient.dashboard', absolute: false));
     }
 }
