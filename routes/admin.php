@@ -3,13 +3,13 @@
 use App\Http\Controllers\PatientController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\Auth;
 
 // Admin routes for all clinic staff roles
 Route::middleware(['auth', 'verified'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
+        // Dashboard - All authenticated staff can access
         Route::get('/dashboard', function () {
             return Inertia::render('admin/dashboard');
         })->name('dashboard');

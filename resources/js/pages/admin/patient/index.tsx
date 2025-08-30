@@ -11,8 +11,8 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function Patient({ patients }: { patients: PatientItem[] }) {
-    console.log(patients);
+export default function Patient(props: { patients: PatientItem[] }) {
+    const { patients } = props;
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Patient Management" />

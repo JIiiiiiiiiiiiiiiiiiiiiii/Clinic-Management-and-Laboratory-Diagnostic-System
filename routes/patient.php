@@ -3,7 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::middleware(['auth', 'verified'])
+// Patient routes - Only authenticated patients can access
+Route::middleware(['auth', 'verified', 'role:patient'])
     ->prefix('patient')
     ->name('patient.')
     ->group(function () {

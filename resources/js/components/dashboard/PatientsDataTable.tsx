@@ -176,16 +176,16 @@ export default function PatientsDataTable({ patients }: { patients: PatientItem[
     }, [rowsPerPage, table]);
 
     const handleDeleteSelected = () => {
-        // In a real application, you would delete the selected rows here
-        console.log('Deleting selected patients:', table.getFilteredSelectedRowModel().rows);
-        setShowDeleteDialog(false);
-        setRowSelection({});
+        const selectedRows = table.getFilteredSelectedRowModel().rows;
+        if (selectedRows.length === 0) return;
+
+        // Delete selected patients logic here
+        // Implementation depends on your backend API
     };
 
-    const handleExportToExcel = () => {
-        // Excel export functionality commented out - requires xlsx library
-        console.log('Export functionality requires xlsx library');
-        // Export would include: Patient No, Last Name, First Name, Age, Sex, Mobile, Arrival Date
+    const handleExport = () => {
+        // Export functionality requires xlsx library
+        // Implementation depends on your export requirements
     };
 
     return (
@@ -221,7 +221,7 @@ export default function PatientsDataTable({ patients }: { patients: PatientItem[
                         />
                     </div>
                     <div className="flex items-center gap-2">
-                        <Button variant="outline" onClick={handleExportToExcel} className="flex items-center gap-1">
+                        <Button variant="outline" onClick={handleExport} className="flex items-center gap-1">
                             <FileDown className="h-4 w-4" />
                             Export
                         </Button>
