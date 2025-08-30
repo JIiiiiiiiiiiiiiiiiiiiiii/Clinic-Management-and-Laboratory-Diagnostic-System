@@ -2,9 +2,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { Calendar, Clock, FileText, Heart, MapPin, User } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -39,6 +40,15 @@ const patientData = {
 };
 
 export default function PatientDashboard() {
+    const { isPatient, shouldRedirectToPatient } = useRoleAccess();
+
+    // If user is not a patient, redirect them to appropriate dashboard
+    if (!isPatient) {
+        // Redirect non-patient users to admin dashboard
+        router.visit('/admin/dashboard');
+        return null;
+    }
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Patient Dashboard" />

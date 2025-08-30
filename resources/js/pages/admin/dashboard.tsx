@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -9,484 +9,149 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, usePage } from '@inertiajs/react';
-import {
-    ArrowRight,
-    BarChart3,
-    ChevronDown,
-    CreditCard,
-    DollarSign,
-    FlaskConical,
-    MoreHorizontal,
-    Package2,
-    Search,
-    Stethoscope,
-    UserCheck,
-    Users,
-} from 'lucide-react';
-
-// Role-based data
-const roleBasedData = {
-    laboratory_technologist: {
-        title: 'Laboratory Dashboard',
-        description: 'Manage lab tests, patient results, and laboratory operations',
-        analytics: {
-            totalTests: 156,
-            pendingResults: 23,
-            completedTests: 133,
-            totalPatients: 89,
-        },
-        recentTests: [
-            { id: 1, patient: 'John Doe', test: 'Blood Test', status: 'Completed', date: '2025-04-24' },
-            { id: 2, patient: 'Jane Smith', test: 'Urinalysis', status: 'Pending', date: '2025-04-24' },
-            { id: 3, patient: 'Bob Johnson', test: 'CBC', status: 'Completed', date: '2025-04-23' },
-        ],
-    },
-    medtech: {
-        title: 'Medical Technology Dashboard',
-        description: 'Manage lab tests, patient results, and medical technology operations',
-        analytics: {
-            totalTests: 156,
-            pendingResults: 23,
-            completedTests: 133,
-            totalPatients: 89,
-        },
-        recentTests: [
-            { id: 1, patient: 'John Doe', test: 'Blood Test', status: 'Completed', date: '2025-04-24' },
-            { id: 2, patient: 'Jane Smith', test: 'Urinalysis', status: 'Pending', date: '2025-04-24' },
-            { id: 3, patient: 'Bob Johnson', test: 'CBC', status: 'Completed', date: '2025-04-23' },
-        ],
-    },
-    cashier: {
-        title: 'Cashier Dashboard',
-        description: 'Manage billing, payments, and patient accounts',
-        analytics: {
-            totalTransactions: 245,
-            totalRevenue: 45678.9,
-            pendingPayments: 12,
-            totalPatients: 156,
-        },
-        recentTransactions: [
-            { id: 1, patient: 'John Doe', service: 'Consultation', amount: 500.0, status: 'Paid', date: '2025-04-24' },
-            { id: 2, patient: 'Jane Smith', service: 'Laboratory Test', amount: 1200.0, status: 'Pending', date: '2025-04-24' },
-            { id: 3, patient: 'Bob Johnson', service: 'Medicine', amount: 350.0, status: 'Paid', date: '2025-04-23' },
-        ],
-    },
-    doctor: {
-        title: 'Doctor Dashboard',
-        description: 'Manage patient records, medical history, and prescriptions',
-        analytics: {
-            totalPatients: 89,
-            appointmentsToday: 12,
-            pendingReports: 5,
-            totalConsultations: 234,
-        },
-        recentPatients: [
-            { id: 1, name: 'John Doe', lastVisit: '2025-04-24', diagnosis: 'Hypertension', status: 'Under Treatment' },
-            { id: 2, name: 'Jane Smith', lastVisit: '2025-04-23', diagnosis: 'Diabetes', status: 'Under Treatment' },
-            { id: 3, name: 'Bob Johnson', lastVisit: '2025-04-22', diagnosis: 'Check-up', status: 'Healthy' },
-        ],
-    },
-    admin: {
-        title: 'Admin Dashboard',
-        description: 'Complete system overview and management',
-        analytics: {
-            totalProducts: 254,
-            totalUsers: 1823,
-            totalCategories: 32,
-            totalInventoryValue: 543920,
-        },
-        recentProducts: [
-            { id: 1, name: 'Ergonomic Chair', category: 'Furniture', price: 199.99, stock: 24, status: 'In Stock' },
-            { id: 2, name: 'MacBook Pro M3', category: 'Electronics', price: 1999.99, stock: 12, status: 'Low Stock' },
-            { id: 3, name: 'Wireless Earbuds', category: 'Audio', price: 129.99, stock: 45, status: 'In Stock' },
-        ],
-        recentSales: [
-            {
-                id: 1,
-                customer: 'John Doe',
-                email: 'john@example.com',
-                product: 'Ergonomic Chair',
-                date: '2025-04-24',
-                amount: 199.99,
-                status: 'Completed',
-            },
-            {
-                id: 2,
-                customer: 'Jane Smith',
-                email: 'jane@example.com',
-                product: 'MacBook Pro M3',
-                date: '2025-04-23',
-                amount: 1999.99,
-                status: 'Processing',
-            },
-            {
-                id: 3,
-                customer: 'Robert Johnson',
-                email: 'robert@example.com',
-                product: 'Wireless Earbuds',
-                date: '2025-04-22',
-                amount: 129.99,
-                status: 'Completed',
-            },
-        ],
-    },
-};
-
-const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2,
-    }).format(value);
-};
+import { Head, Link, usePage } from '@inertiajs/react';
+import { BarChart3, Calendar, CreditCard, DollarSign, FlaskConical, MoreHorizontal, Package2, TrendingUp, UserCheck, Users } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Dashboard',
-        href: '/dashboard',
+        href: '/admin/dashboard',
     },
 ];
 
+// Role-based data
+const roleBasedData = {
+    admin: {
+        title: 'Admin Dashboard',
+        description: 'Complete overview of clinic operations and management',
+        analytics: [
+            { label: 'Total Patients', value: '1,234', change: '+12%', icon: Users },
+            { label: 'Total Revenue', value: '₱2,456,789', change: '+8%', icon: DollarSign },
+            { label: 'Lab Tests', value: '456', change: '+15%', icon: FlaskConical },
+            { label: 'Appointments', value: '89', change: '+5%', icon: Calendar },
+        ],
+        recentPatients: [
+            { id: 1, name: 'John Doe', lastVisit: '2025-04-24', status: 'Active' },
+            { id: 2, name: 'Jane Smith', lastVisit: '2025-04-23', status: 'Active' },
+            { id: 3, name: 'Bob Johnson', lastVisit: '2025-04-22', status: 'Inactive' },
+        ],
+        recentProducts: [
+            { id: 1, name: 'Paracetamol 500mg', stock: 150, status: 'In Stock' },
+            { id: 2, name: 'Amoxicillin 250mg', stock: 75, status: 'Low Stock' },
+            { id: 3, name: 'Ibuprofen 400mg', stock: 200, status: 'In Stock' },
+        ],
+        recentSales: [
+            { id: 1, product: 'Paracetamol 500mg', quantity: 50, revenue: '₱2,500' },
+            { id: 2, product: 'Amoxicillin 250mg', quantity: 30, revenue: '₱4,500' },
+            { id: 3, product: 'Ibuprofen 400mg', quantity: 25, revenue: '₱1,875' },
+        ],
+    },
+    laboratory_technologist: {
+        title: 'Laboratory Dashboard',
+        description: 'Manage laboratory tests and results',
+        analytics: [
+            { label: 'Total Tests', value: '156', change: '+8%', icon: FlaskConical },
+            { label: 'Pending Results', value: '23', change: '-5%', icon: BarChart3 },
+            { label: 'Completed Today', value: '45', change: '+12%', icon: TrendingUp },
+            { label: 'Equipment Status', value: 'All OK', change: '0%', icon: Package2 },
+        ],
+        recentTests: [
+            { id: 1, patient: 'John Doe', test: 'Blood Test', status: 'Completed', date: '2025-04-24' },
+            { id: 2, patient: 'Jane Smith', test: 'Urinalysis', status: 'In Progress', date: '2025-04-24' },
+            { id: 3, patient: 'Bob Johnson', test: 'CBC', status: 'Pending', date: '2025-04-23' },
+        ],
+    },
+    medtech: {
+        title: 'Medical Technology Dashboard',
+        description: 'Manage laboratory tests and medical technology operations',
+        analytics: [
+            { label: 'Total Tests', value: '156', change: '+8%', icon: FlaskConical },
+            { label: 'Pending Results', value: '23', change: '-5%', icon: BarChart3 },
+            { label: 'Completed Today', value: '45', change: '+12%', icon: TrendingUp },
+            { label: 'Equipment Status', value: 'All OK', change: '0%', icon: Package2 },
+        ],
+        recentTests: [
+            { id: 1, patient: 'John Doe', test: 'Blood Test', status: 'Completed', date: '2025-04-24' },
+            { id: 2, patient: 'Jane Smith', test: 'Urinalysis', status: 'In Progress', date: '2025-04-24' },
+            { id: 3, patient: 'Bob Johnson', test: 'CBC', status: 'Pending', date: '2025-04-23' },
+        ],
+    },
+    cashier: {
+        title: 'Cashier Dashboard',
+        description: 'Manage billing, payments, and financial transactions',
+        analytics: [
+            { label: 'Total Revenue', value: '₱45,678', change: '+15%', icon: DollarSign },
+            { label: 'Pending Payments', value: '12', change: '+3%', icon: CreditCard },
+            { label: "Today's Transactions", value: '34', change: '+8%', icon: TrendingUp },
+            { label: 'Overdue Amount', value: '₱8,900', change: '-2%', icon: BarChart3 },
+        ],
+        recentTransactions: [
+            { id: 1, patient: 'John Doe', service: 'Consultation', amount: '₱500', status: 'Paid', date: '2025-04-24' },
+            { id: 2, patient: 'Jane Smith', service: 'Lab Test', amount: '₱1,200', status: 'Pending', date: '2025-04-24' },
+            { id: 3, patient: 'Bob Johnson', service: 'Medicine', amount: '₱350', status: 'Paid', date: '2025-04-23' },
+        ],
+    },
+    doctor: {
+        title: 'Doctor Dashboard',
+        description: 'Manage patient appointments and medical records',
+        analytics: [
+            { label: "Today's Appointments", value: '8', change: '+2%', icon: Calendar },
+            { label: 'Total Patients', value: '156', change: '+5%', icon: Users },
+            { label: 'Pending Consultations', value: '3', change: '-1%', icon: UserCheck },
+            { label: 'Completed Today', value: '5', change: '+1%', icon: TrendingUp },
+        ],
+        recentPatients: [
+            { id: 1, name: 'John Doe', lastVisit: '2025-04-24', diagnosis: 'Hypertension', status: 'Under Treatment' },
+            { id: 2, name: 'Jane Smith', lastVisit: '2025-04-23', diagnosis: 'Diabetes', status: 'Stable' },
+            { id: 3, name: 'Bob Johnson', lastVisit: '2025-04-22', diagnosis: 'Check-up', status: 'Healthy' },
+        ],
+    },
+};
+
+const formatCurrency = (amount: string) => {
+    return amount;
+};
+
 export default function Dashboard() {
-    const { user } = usePage().props as { user?: { role: string } };
-    const role = user?.role || 'admin';
+    const { permissions, canAccessModule, isPatient } = useRoleAccess();
+    const { auth } = usePage().props as any;
+    const role = auth?.user?.role || 'admin';
     const data = roleBasedData[role as keyof typeof roleBasedData] || roleBasedData.admin;
 
-    // Render role-specific analytics cards
+    // If user is a patient, redirect them to patient dashboard
+    if (isPatient) {
+        return null; // This should not happen due to middleware, but safety check
+    }
+
     const renderAnalyticsCards = () => {
-        if (role === 'laboratory_technologist' || role === 'medtech') {
-            const labData = data as typeof roleBasedData.laboratory_technologist;
-            return (
-                <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-                    <Card className="shadow-sm transition-shadow hover:shadow-md">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Total Tests</CardTitle>
-                                <div className="rounded-lg bg-blue-100 p-2">
-                                    <FlaskConical size={18} className="text-blue-600" />
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{labData.analytics.totalTests}</div>
-                        </CardContent>
-                        <CardFooter className="pt-0">
-                            <Button variant="link" className="flex h-auto items-center p-0 text-blue-600">
-                                View details <ArrowRight size={16} className="ml-1" />
-                            </Button>
-                        </CardFooter>
-                    </Card>
-
-                    <Card className="shadow-sm transition-shadow hover:shadow-md">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Pending Results</CardTitle>
-                                <div className="rounded-lg bg-yellow-100 p-2">
-                                    <FlaskConical size={18} className="text-yellow-600" />
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{labData.analytics.pendingResults}</div>
-                        </CardContent>
-                        <CardFooter className="pt-0">
-                            <Button variant="link" className="flex h-auto items-center p-0 text-yellow-600">
-                                View details <ArrowRight size={16} className="ml-1" />
-                            </Button>
-                        </CardFooter>
-                    </Card>
-
-                    <Card className="shadow-sm transition-shadow hover:shadow-md">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Completed Tests</CardTitle>
-                                <div className="rounded-lg bg-green-100 p-2">
-                                    <FlaskConical size={18} className="text-green-600" />
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{labData.analytics.completedTests}</div>
-                        </CardContent>
-                        <CardFooter className="pt-0">
-                            <Button variant="link" className="flex h-auto items-center p-0 text-green-600">
-                                View details <ArrowRight size={16} className="ml-1" />
-                            </Button>
-                        </CardFooter>
-                    </Card>
-
-                    <Card className="shadow-sm transition-shadow hover:shadow-md">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Total Patients</CardTitle>
-                                <div className="rounded-lg bg-purple-100 p-2">
-                                    <Users size={18} className="text-purple-600" />
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{labData.analytics.totalPatients}</div>
-                        </CardContent>
-                        <CardFooter className="pt-0">
-                            <Button variant="link" className="flex h-auto items-center p-0 text-purple-600">
-                                View details <ArrowRight size={16} className="ml-1" />
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                </div>
-            );
-        }
-
-        if (role === 'cashier') {
-            const cashierData = data as typeof roleBasedData.cashier;
-            return (
-                <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-                    <Card className="shadow-sm transition-shadow hover:shadow-md">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Total Transactions</CardTitle>
-                                <div className="rounded-lg bg-blue-100 p-2">
-                                    <CreditCard size={18} className="text-blue-600" />
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{cashierData.analytics.totalTransactions}</div>
-                        </CardContent>
-                        <CardFooter className="pt-0">
-                            <Button variant="link" className="flex h-auto items-center p-0 text-blue-600">
-                                View details <ArrowRight size={16} className="ml-1" />
-                            </Button>
-                        </CardFooter>
-                    </Card>
-
-                    <Card className="shadow-sm transition-shadow hover:shadow-md">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Total Revenue</CardTitle>
-                                <div className="rounded-lg bg-green-100 p-2">
-                                    <DollarSign size={18} className="text-green-600" />
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{formatCurrency(cashierData.analytics.totalRevenue)}</div>
-                        </CardContent>
-                        <CardFooter className="pt-0">
-                            <Button variant="link" className="flex h-auto items-center p-0 text-green-600">
-                                View details <ArrowRight size={16} className="ml-1" />
-                            </Button>
-                        </CardFooter>
-                    </Card>
-
-                    <Card className="shadow-sm transition-shadow hover:shadow-md">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Pending Payments</CardTitle>
-                                <div className="rounded-lg bg-yellow-100 p-2">
-                                    <CreditCard size={18} className="text-yellow-600" />
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{cashierData.analytics.pendingPayments}</div>
-                        </CardContent>
-                        <CardFooter className="pt-0">
-                            <Button variant="link" className="flex h-auto items-center p-0 text-yellow-600">
-                                View details <ArrowRight size={16} className="ml-1" />
-                            </Button>
-                        </CardFooter>
-                    </Card>
-
-                    <Card className="shadow-sm transition-shadow hover:shadow-md">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Total Patients</CardTitle>
-                                <div className="rounded-lg bg-purple-100 p-2">
-                                    <Users size={18} className="text-purple-600" />
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{cashierData.analytics.totalPatients}</div>
-                        </CardContent>
-                        <CardFooter className="pt-0">
-                            <Button variant="link" className="flex h-auto items-center p-0 text-purple-600">
-                                View details <ArrowRight size={16} className="ml-1" />
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                </div>
-            );
-        }
-
-        if (role === 'doctor') {
-            const doctorData = data as typeof roleBasedData.doctor;
-            return (
-                <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-                    <Card className="shadow-sm transition-shadow hover:shadow-md">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Total Patients</CardTitle>
-                                <div className="rounded-lg bg-blue-100 p-2">
-                                    <Users size={18} className="text-blue-600" />
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{doctorData.analytics.totalPatients}</div>
-                        </CardContent>
-                        <CardFooter className="pt-0">
-                            <Button variant="link" className="flex h-auto items-center p-0 text-blue-600">
-                                View details <ArrowRight size={16} className="ml-1" />
-                            </Button>
-                        </CardFooter>
-                    </Card>
-
-                    <Card className="shadow-sm transition-shadow hover:shadow-md">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Appointments Today</CardTitle>
-                                <div className="rounded-lg bg-green-100 p-2">
-                                    <UserCheck size={18} className="text-green-600" />
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{doctorData.analytics.appointmentsToday}</div>
-                        </CardContent>
-                        <CardFooter className="pt-0">
-                            <Button variant="link" className="flex h-auto items-center p-0 text-green-600">
-                                View details <ArrowRight size={16} className="ml-1" />
-                            </Button>
-                        </CardFooter>
-                    </Card>
-
-                    <Card className="shadow-sm transition-shadow hover:shadow-md">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Pending Reports</CardTitle>
-                                <div className="rounded-lg bg-yellow-100 p-2">
-                                    <Stethoscope size={18} className="text-yellow-600" />
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{doctorData.analytics.pendingReports}</div>
-                        </CardContent>
-                        <CardFooter className="pt-0">
-                            <Button variant="link" className="flex h-auto items-center p-0 text-yellow-600">
-                                View details <ArrowRight size={16} className="ml-1" />
-                            </Button>
-                        </CardFooter>
-                    </Card>
-
-                    <Card className="shadow-sm transition-shadow hover:shadow-md">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-medium text-gray-500">Total Consultations</CardTitle>
-                                <div className="rounded-lg bg-purple-100 p-2">
-                                    <Stethoscope size={18} className="text-purple-600" />
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{doctorData.analytics.totalConsultations}</div>
-                        </CardContent>
-                        <CardFooter className="pt-0">
-                            <Button variant="link" className="flex h-auto items-center p-0 text-purple-600">
-                                View details <ArrowRight size={16} className="ml-1" />
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                </div>
-            );
-        }
-
-        // Default admin analytics cards
-        const adminData = data as typeof roleBasedData.admin;
         return (
-            <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-                <Card className="shadow-sm transition-shadow hover:shadow-md">
-                    <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                            <CardTitle className="text-sm font-medium text-gray-500">Total Products</CardTitle>
-                            <div className="rounded-lg bg-blue-100 p-2">
-                                <Package2 size={18} className="text-blue-600" />
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{adminData.analytics.totalProducts}</div>
-                    </CardContent>
-                    <CardFooter className="pt-0">
-                        <Button variant="link" className="flex h-auto items-center p-0 text-blue-600">
-                            View details <ArrowRight size={16} className="ml-1" />
-                        </Button>
-                    </CardFooter>
-                </Card>
-
-                <Card className="shadow-sm transition-shadow hover:shadow-md">
-                    <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                            <CardTitle className="text-sm font-medium text-gray-500">Total Users</CardTitle>
-                            <div className="rounded-lg bg-green-100 p-2">
-                                <Users size={18} className="text-green-600" />
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{adminData.analytics.totalUsers}</div>
-                    </CardContent>
-                    <CardFooter className="pt-0">
-                        <Button variant="link" className="flex h-auto items-center p-0 text-green-600">
-                            View details <ArrowRight size={16} className="ml-1" />
-                        </Button>
-                    </CardFooter>
-                </Card>
-
-                <Card className="shadow-sm transition-shadow hover:shadow-md">
-                    <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                            <CardTitle className="text-sm font-medium text-gray-500">Total Categories</CardTitle>
-                            <div className="rounded-lg bg-purple-100 p-2">
-                                <BarChart3 size={18} className="text-purple-600" />
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{adminData.analytics.totalCategories}</div>
-                    </CardContent>
-                    <CardFooter className="pt-0">
-                        <Button variant="link" className="flex h-auto items-center p-0 text-purple-600">
-                            View details <ArrowRight size={16} className="ml-1" />
-                        </Button>
-                    </CardFooter>
-                </Card>
-
-                <Card className="shadow-sm transition-shadow hover:shadow-md">
-                    <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                            <CardTitle className="text-sm font-medium text-gray-500">Total Inventory Value</CardTitle>
-                            <div className="rounded-lg bg-amber-100 p-2">
-                                <DollarSign size={18} className="text-amber-600" />
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(adminData.analytics.totalInventoryValue)}</div>
-                    </CardContent>
-                    <CardFooter className="pt-0">
-                        <Button variant="link" className="flex h-auto items-center p-0 text-amber-600">
-                            View details <ArrowRight size={16} className="ml-1" />
-                        </Button>
-                    </CardFooter>
-                </Card>
+            <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
+                {data.analytics.map((item, index) => {
+                    const Icon = item.icon;
+                    return (
+                        <Card key={index} className="shadow-sm transition-shadow hover:shadow-md">
+                            <CardHeader className="pb-2">
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="text-sm font-medium text-gray-500">{item.label}</CardTitle>
+                                    <div className="rounded-lg bg-blue-100 p-2">
+                                        <Icon size={18} className="text-blue-600" />
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{item.value}</div>
+                                <div className="flex items-center text-sm text-gray-500">
+                                    <span className={item.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}>{item.change}</span>
+                                    <span className="ml-1">from last month</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    );
+                })}
             </div>
         );
     };
@@ -503,22 +168,196 @@ export default function Dashboard() {
                 {/* Role-based Analytics Cards */}
                 {renderAnalyticsCards()}
 
-                {/* Role-based Content */}
-                {(role === 'laboratory_technologist' || role === 'medtech') && (
+                {/* Role-based Module Cards - Completely hidden if no access */}
+                {Object.keys(permissions).some((key) => permissions[key as keyof typeof permissions]) && (
+                    <div className="mb-8">
+                        <h2 className="mb-4 text-xl font-semibold text-gray-900">Quick Access Modules</h2>
+                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                            {/* Laboratory Module - Lab Staff Only */}
+                            {permissions.canAccessLaboratory && (
+                                <Card className="shadow-sm transition-shadow hover:shadow-md">
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <FlaskConical className="h-5 w-5 text-blue-500" />
+                                            Laboratory
+                                        </CardTitle>
+                                        <CardDescription>Manage laboratory tests and results</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-2">
+                                            <div className="text-sm text-gray-600">Recent tests: 23</div>
+                                            <div className="text-sm text-gray-600">Pending results: 5</div>
+                                        </div>
+                                    </CardContent>
+                                    <CardContent className="pt-0">
+                                        <Button asChild className="w-full">
+                                            <Link href="/admin/laboratory">Manage Laboratory</Link>
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Billing Module - Cashier Only */}
+                            {permissions.canAccessBilling && (
+                                <Card className="shadow-sm transition-shadow hover:shadow-md">
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <CreditCard className="h-5 w-5 text-green-500" />
+                                            Billing & Payments
+                                        </CardTitle>
+                                        <CardDescription>Manage patient billing and payments</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-2">
+                                            <div className="text-sm text-gray-600">Pending payments: 12</div>
+                                            <div className="text-sm text-gray-600">Today's revenue: ₱45,678</div>
+                                        </div>
+                                    </CardContent>
+                                    <CardContent className="pt-0">
+                                        <Button asChild className="w-full">
+                                            <Link href="/admin/billing">Manage Billing</Link>
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Appointments Module - Doctor Only */}
+                            {permissions.canAccessAppointments && (
+                                <Card className="shadow-sm transition-shadow hover:shadow-md">
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Calendar className="h-5 w-5 text-purple-500" />
+                                            Appointments
+                                        </CardTitle>
+                                        <CardDescription>Manage patient appointments</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-2">
+                                            <div className="text-sm text-gray-600">Today's appointments: 8</div>
+                                            <div className="text-sm text-gray-600">Pending confirmations: 3</div>
+                                        </div>
+                                    </CardContent>
+                                    <CardContent className="pt-0">
+                                        <Button asChild className="w-full">
+                                            <Link href="/admin/appointments">Manage Appointments</Link>
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Patients Module - All Staff */}
+                            {permissions.canAccessPatients && (
+                                <Card className="shadow-sm transition-shadow hover:shadow-md">
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Users className="h-5 w-5 text-indigo-500" />
+                                            Patient Management
+                                        </CardTitle>
+                                        <CardDescription>Manage patient records and information</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-2">
+                                            <div className="text-sm text-gray-600">Total patients: 1,234</div>
+                                            <div className="text-sm text-gray-600">New this month: 45</div>
+                                        </div>
+                                    </CardContent>
+                                    <CardContent className="pt-0">
+                                        <Button asChild className="w-full">
+                                            <Link href="/admin/patient">Manage Patients</Link>
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Inventory Module - Admin Only */}
+                            {permissions.canAccessInventory && (
+                                <Card className="shadow-sm transition-shadow hover:shadow-md">
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Package2 className="h-5 w-5 text-orange-500" />
+                                            Inventory Management
+                                        </CardTitle>
+                                        <CardDescription>Manage clinic inventory and supplies</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-2">
+                                            <div className="text-sm text-gray-600">Total items: 156</div>
+                                            <div className="text-sm text-gray-600">Low stock items: 8</div>
+                                        </div>
+                                    </CardContent>
+                                    <CardContent className="pt-0">
+                                        <Button asChild className="w-full">
+                                            <Link href="/admin/inventory">Manage Inventory</Link>
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Reports Module - Admin Only */}
+                            {permissions.canAccessReports && (
+                                <Card className="shadow-sm transition-shadow hover:shadow-md">
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <BarChart3 className="h-5 w-5 text-red-500" />
+                                            Reports & Analytics
+                                        </CardTitle>
+                                        <CardDescription>Generate comprehensive reports</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-2">
+                                            <div className="text-sm text-gray-600">Monthly reports: 12</div>
+                                            <div className="text-sm text-gray-600">Custom reports: 5</div>
+                                        </div>
+                                    </CardContent>
+                                    <CardContent className="pt-0">
+                                        <Button asChild className="w-full">
+                                            <Link href="/admin/reports">View Reports</Link>
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Roles & Permissions Module - Admin Only */}
+                            {permissions.canAccessSettings && (
+                                <Card className="shadow-sm transition-shadow hover:shadow-md">
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Users className="h-5 w-5 text-purple-500" />
+                                            Roles & Permissions
+                                        </CardTitle>
+                                        <CardDescription>Manage user roles and system permissions</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-2">
+                                            <div className="text-sm text-gray-600">Total roles: 5</div>
+                                            <div className="text-sm text-gray-600">Active users: 23</div>
+                                        </div>
+                                    </CardContent>
+                                    <CardContent className="pt-0">
+                                        <Button asChild className="w-full">
+                                            <Link href="/admin/roles">Manage Roles</Link>
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Role-based Content - Completely hidden if no access */}
+                {permissions.canAccessLaboratory && (
                     <div className="mb-8">
                         <Card>
                             <CardHeader className="pb-2">
                                 <div className="flex items-center justify-between">
                                     <CardTitle>Recent Lab Tests</CardTitle>
                                     <div className="flex gap-2">
-                                        <div className="relative">
-                                            <Search className="absolute top-2.5 left-2 h-4 w-4 text-gray-500" />
-                                            <Input placeholder="Search tests..." className="w-64 pl-8" />
-                                        </div>
-                                        <Button>Add Test</Button>
+                                        <Button asChild>
+                                            <Link href="/admin/laboratory">View All Tests</Link>
+                                        </Button>
                                     </div>
                                 </div>
-                                <CardDescription>A list of recent laboratory tests</CardDescription>
+                                <CardDescription>A list of recent laboratory test requests</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <Table>
@@ -532,40 +371,49 @@ export default function Dashboard() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {(data as typeof roleBasedData.laboratory_technologist).recentTests.map((test) => (
-                                            <TableRow key={test.id}>
-                                                <TableCell className="font-medium">{test.patient}</TableCell>
-                                                <TableCell>{test.test}</TableCell>
-                                                <TableCell>
-                                                    <Badge
-                                                        className={
-                                                            test.status === 'Completed'
-                                                                ? 'bg-green-100 text-green-800 hover:bg-green-100'
-                                                                : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100'
-                                                        }
-                                                    >
-                                                        {test.status}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>{test.date}</TableCell>
-                                                <TableCell>
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="icon">
-                                                                <MoreHorizontal className="h-4 w-4" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                            <DropdownMenuItem>View details</DropdownMenuItem>
-                                                            <DropdownMenuItem>Update status</DropdownMenuItem>
-                                                            <DropdownMenuSeparator />
-                                                            <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                        {(() => {
+                                            const labData = roleBasedData.laboratory_technologist;
+                                            return (
+                                                labData.recentTests?.map((test) => (
+                                                    <TableRow key={test.id}>
+                                                        <TableCell>
+                                                            <div className="font-medium">{test.patient}</div>
+                                                        </TableCell>
+                                                        <TableCell>{test.test}</TableCell>
+                                                        <TableCell>
+                                                            <Badge
+                                                                className={
+                                                                    test.status === 'Completed'
+                                                                        ? 'bg-green-100 text-green-800 hover:bg-green-100'
+                                                                        : test.status === 'In Progress'
+                                                                          ? 'bg-blue-100 text-blue-800 hover:bg-green-100'
+                                                                          : 'bg-yellow-100 text-yellow-800 hover:bg-green-100'
+                                                                }
+                                                            >
+                                                                {test.status}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell>{test.date}</TableCell>
+                                                        <TableCell>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="icon">
+                                                                        <MoreHorizontal className="h-4 w-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                                    <DropdownMenuItem>View details</DropdownMenuItem>
+                                                                    <DropdownMenuItem>Edit test</DropdownMenuItem>
+                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )) || []
+                                            );
+                                        })()}
                                     </TableBody>
                                 </Table>
                             </CardContent>
@@ -573,21 +421,19 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {role === 'cashier' && (
+                {permissions.canAccessBilling && (
                     <div className="mb-8">
                         <Card>
                             <CardHeader className="pb-2">
                                 <div className="flex items-center justify-between">
                                     <CardTitle>Recent Transactions</CardTitle>
                                     <div className="flex gap-2">
-                                        <div className="relative">
-                                            <Search className="absolute top-2.5 left-2 h-4 w-4 text-gray-500" />
-                                            <Input placeholder="Search transactions..." className="w-64 pl-8" />
-                                        </div>
-                                        <Button>New Transaction</Button>
+                                        <Button asChild>
+                                            <Link href="/admin/billing">View All Transactions</Link>
+                                        </Button>
                                     </div>
                                 </div>
-                                <CardDescription>A list of recent financial transactions</CardDescription>
+                                <CardDescription>A list of recent billing transactions</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <Table>
@@ -602,41 +448,50 @@ export default function Dashboard() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {(data as typeof roleBasedData.cashier).recentTransactions.map((transaction) => (
-                                            <TableRow key={transaction.id}>
-                                                <TableCell className="font-medium">{transaction.patient}</TableCell>
-                                                <TableCell>{transaction.service}</TableCell>
-                                                <TableCell>{formatCurrency(transaction.amount)}</TableCell>
-                                                <TableCell>
-                                                    <Badge
-                                                        className={
-                                                            transaction.status === 'Paid'
-                                                                ? 'bg-green-100 text-green-800 hover:bg-green-100'
-                                                                : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100'
-                                                        }
-                                                    >
-                                                        {transaction.status}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>{transaction.date}</TableCell>
-                                                <TableCell>
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="icon">
-                                                                <MoreHorizontal className="h-4 w-4" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                            <DropdownMenuItem>View details</DropdownMenuItem>
-                                                            <DropdownMenuItem>Process payment</DropdownMenuItem>
-                                                            <DropdownMenuSeparator />
-                                                            <DropdownMenuItem className="text-red-600">Cancel</DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                        {(() => {
+                                            const billingData = roleBasedData.cashier;
+                                            return (
+                                                billingData.recentTransactions?.map((transaction) => (
+                                                    <TableRow key={transaction.id}>
+                                                        <TableCell>
+                                                            <div className="font-medium">{transaction.patient}</div>
+                                                        </TableCell>
+                                                        <TableCell>{transaction.service}</TableCell>
+                                                        <TableCell>{transaction.amount}</TableCell>
+                                                        <TableCell>
+                                                            <Badge
+                                                                className={
+                                                                    transaction.status === 'Paid'
+                                                                        ? 'bg-green-100 text-green-800 hover:bg-green-100'
+                                                                        : transaction.status === 'Pending'
+                                                                          ? 'bg-yellow-100 text-yellow-800 hover:bg-green-100'
+                                                                          : 'bg-red-100 text-red-800 hover:bg-green-100'
+                                                                }
+                                                            >
+                                                                {transaction.status}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell>{transaction.date}</TableCell>
+                                                        <TableCell>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="icon">
+                                                                        <MoreHorizontal className="h-4 w-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                                    <DropdownMenuItem>View details</DropdownMenuItem>
+                                                                    <DropdownMenuItem>Process payment</DropdownMenuItem>
+                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem className="text-red-600">Refund</DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )) || []
+                                            );
+                                        })()}
                                     </TableBody>
                                 </Table>
                             </CardContent>
@@ -644,21 +499,19 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {role === 'doctor' && (
+                {permissions.canAccessAppointments && (
                     <div className="mb-8">
                         <Card>
                             <CardHeader className="pb-2">
                                 <div className="flex items-center justify-between">
                                     <CardTitle>Recent Patients</CardTitle>
                                     <div className="flex gap-2">
-                                        <div className="relative">
-                                            <Search className="absolute top-2.5 left-2 h-4 w-4 text-gray-500" />
-                                            <Input placeholder="Search patients..." className="w-64 pl-8" />
-                                        </div>
-                                        <Button>Add Patient</Button>
+                                        <Button asChild>
+                                            <Link href="/admin/appointments">View All Appointments</Link>
+                                        </Button>
                                     </div>
                                 </div>
-                                <CardDescription>A list of recent patient consultations</CardDescription>
+                                <CardDescription>A list of recent patients and their last visit details</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <Table>
@@ -672,40 +525,47 @@ export default function Dashboard() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {(data as typeof roleBasedData.doctor).recentPatients.map((patient) => (
-                                            <TableRow key={patient.id}>
-                                                <TableCell className="font-medium">{patient.name}</TableCell>
-                                                <TableCell>{patient.lastVisit}</TableCell>
-                                                <TableCell>{patient.diagnosis}</TableCell>
-                                                <TableCell>
-                                                    <Badge
-                                                        className={
-                                                            patient.status === 'Healthy'
-                                                                ? 'bg-green-100 text-green-800 hover:bg-green-100'
-                                                                : 'bg-blue-100 text-blue-800 hover:bg-blue-100'
-                                                        }
-                                                    >
-                                                        {patient.status}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="icon">
-                                                                <MoreHorizontal className="h-4 w-4" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                            <DropdownMenuItem>View medical record</DropdownMenuItem>
-                                                            <DropdownMenuItem>Schedule follow-up</DropdownMenuItem>
-                                                            <DropdownMenuSeparator />
-                                                            <DropdownMenuItem className="text-red-600">Archive</DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                        {(() => {
+                                            const doctorData = roleBasedData.doctor;
+                                            return (
+                                                doctorData.recentPatients?.map((patient) => (
+                                                    <TableRow key={patient.id}>
+                                                        <TableCell className="font-medium">{patient.name}</TableCell>
+                                                        <TableCell>{patient.lastVisit}</TableCell>
+                                                        <TableCell>{patient.diagnosis}</TableCell>
+                                                        <TableCell>
+                                                            <Badge
+                                                                className={
+                                                                    patient.status === 'Under Treatment'
+                                                                        ? 'bg-red-100 text-red-800 hover:bg-green-100'
+                                                                        : patient.status === 'Stable'
+                                                                          ? 'bg-green-100 text-green-800 hover:bg-green-100'
+                                                                          : 'bg-blue-100 text-blue-800 hover:bg-green-100'
+                                                                }
+                                                            >
+                                                                {patient.status}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="icon">
+                                                                        <MoreHorizontal className="h-4 w-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                                    <DropdownMenuItem>View record</DropdownMenuItem>
+                                                                    <DropdownMenuItem>Schedule follow-up</DropdownMenuItem>
+                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem className="text-red-600">Archive</DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )) || []
+                                            );
+                                        })()}
                                     </TableBody>
                                 </Table>
                             </CardContent>
@@ -713,190 +573,134 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {/* Admin-specific content */}
-                {role === 'admin' && (
-                    <>
-                        <div className="mb-8">
-                            <Card>
-                                <CardHeader className="pb-2">
-                                    <div className="flex items-center justify-between">
-                                        <CardTitle>Recent Products</CardTitle>
-                                        <div className="flex gap-2">
-                                            <div className="relative">
-                                                <Search className="absolute top-2.5 left-2 h-4 w-4 text-gray-500" />
-                                                <Input placeholder="Search products..." className="w-64 pl-8" />
-                                            </div>
-                                            <Button>Add Product</Button>
-                                        </div>
-                                    </div>
-                                    <CardDescription>A list of your recent products</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Product</TableHead>
-                                                <TableHead>Category</TableHead>
-                                                <TableHead>Price</TableHead>
-                                                <TableHead>Stock</TableHead>
-                                                <TableHead>Status</TableHead>
-                                                <TableHead></TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {(data as typeof roleBasedData.admin).recentProducts.map((product) => (
-                                                <TableRow key={product.id}>
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-gray-200">
-                                                                <Package2 className="h-5 w-5 text-gray-500" />
-                                                            </div>
-                                                            <span className="font-medium">{product.name}</span>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>{product.category}</TableCell>
-                                                    <TableCell>{formatCurrency(product.price)}</TableCell>
-                                                    <TableCell>{product.stock}</TableCell>
-                                                    <TableCell>
-                                                        <Badge
-                                                            className={
-                                                                product.status === 'In Stock'
-                                                                    ? 'bg-green-100 text-green-800 hover:bg-green-100'
-                                                                    : product.status === 'Low Stock'
-                                                                      ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100'
-                                                                      : 'bg-red-100 text-red-800 hover:bg-red-100'
-                                                            }
-                                                        >
-                                                            {product.status}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" size="icon">
-                                                                    <MoreHorizontal className="h-4 w-4" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end">
-                                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                                <DropdownMenuItem>Edit</DropdownMenuItem>
-                                                                <DropdownMenuItem>View details</DropdownMenuItem>
-                                                                <DropdownMenuSeparator />
-                                                                <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </CardContent>
-                                <CardFooter className="flex justify-between">
-                                    <div className="text-sm text-gray-500">
-                                        Showing 3 of {(data as typeof roleBasedData.admin).analytics.totalProducts} products
-                                    </div>
+                {permissions.canAccessInventory && (
+                    <div className="mb-8">
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <div className="flex items-center justify-between">
+                                    <CardTitle>Recent Products</CardTitle>
                                     <div className="flex gap-2">
-                                        <Button variant="outline" size="sm" disabled>
-                                            Previous
-                                        </Button>
-                                        <Button variant="outline" size="sm">
-                                            Next
+                                        <Button asChild>
+                                            <Link href="/admin/inventory">View All Products</Link>
                                         </Button>
                                     </div>
-                                </CardFooter>
-                            </Card>
-                        </div>
+                                </div>
+                                <CardDescription>A list of recent inventory products</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Product Name</TableHead>
+                                            <TableHead>Stock</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead></TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {(() => {
+                                            const adminData = roleBasedData.admin;
+                                            return (
+                                                adminData.recentProducts?.map((product) => (
+                                                    <TableRow key={product.id}>
+                                                        <TableCell className="font-medium">{product.name}</TableCell>
+                                                        <TableCell>{product.stock}</TableCell>
+                                                        <TableCell>
+                                                            <Badge
+                                                                className={
+                                                                    product.status === 'In Stock'
+                                                                        ? 'bg-green-100 text-green-800 hover:bg-green-100'
+                                                                        : 'bg-yellow-100 text-yellow-800 hover:bg-green-100'
+                                                                }
+                                                            >
+                                                                {product.status}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="icon">
+                                                                        <MoreHorizontal className="h-4 w-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                                    <DropdownMenuItem>View details</DropdownMenuItem>
+                                                                    <DropdownMenuItem>Edit product</DropdownMenuItem>
+                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )) || []
+                                            );
+                                        })()}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
 
-                        <div>
-                            <Card>
-                                <CardHeader className="pb-2">
-                                    <div className="flex items-center justify-between">
-                                        <CardTitle>Recent Sales</CardTitle>
-                                        <div className="flex gap-2">
-                                            <div className="relative">
-                                                <Search className="absolute top-2.5 left-2 h-4 w-4 text-gray-500" />
-                                                <Input placeholder="Search sales..." className="w-64 pl-8" />
-                                            </div>
-                                            <Button variant="outline">
-                                                Filter
-                                                <ChevronDown className="ml-2 h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                    <CardDescription>A list of your recent sales</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Customer</TableHead>
-                                                <TableHead>Product</TableHead>
-                                                <TableHead>Date</TableHead>
-                                                <TableHead>Amount</TableHead>
-                                                <TableHead>Status</TableHead>
-                                                <TableHead></TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {(data as typeof roleBasedData.admin).recentSales.map((sale) => (
-                                                <TableRow key={sale.id}>
-                                                    <TableCell>
-                                                        <div>
-                                                            <div className="font-medium">{sale.customer}</div>
-                                                            <div className="text-sm text-gray-500">{sale.email}</div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>{sale.product}</TableCell>
-                                                    <TableCell>{sale.date}</TableCell>
-                                                    <TableCell>{formatCurrency(sale.amount)}</TableCell>
-                                                    <TableCell>
-                                                        <Badge
-                                                            className={
-                                                                sale.status === 'Completed'
-                                                                    ? 'bg-green-100 text-green-800 hover:bg-green-100'
-                                                                    : sale.status === 'Processing'
-                                                                      ? 'bg-blue-100 text-blue-800 hover:bg-blue-100'
-                                                                      : 'bg-red-100 text-red-800 hover:bg-red-100'
-                                                            }
-                                                        >
-                                                            {sale.status}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" size="icon">
-                                                                    <MoreHorizontal className="h-4 w-4" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end">
-                                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                                <DropdownMenuItem>View details</DropdownMenuItem>
-                                                                <DropdownMenuItem>Send invoice</DropdownMenuItem>
-                                                                <DropdownMenuSeparator />
-                                                                <DropdownMenuItem className="text-red-600">Cancel order</DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </CardContent>
-                                <CardFooter className="flex justify-between">
-                                    <div className="text-sm text-gray-500">Showing 3 recent sales</div>
+                {permissions.canAccessReports && (
+                    <div className="mb-8">
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <div className="flex items-center justify-between">
+                                    <CardTitle>Recent Sales</CardTitle>
                                     <div className="flex gap-2">
-                                        <Button variant="outline" size="sm" disabled>
-                                            Previous
-                                        </Button>
-                                        <Button variant="outline" size="sm">
-                                            Next
+                                        <Button asChild>
+                                            <Link href="/admin/reports">View All Reports</Link>
                                         </Button>
                                     </div>
-                                </CardFooter>
-                            </Card>
-                        </div>
-                    </>
+                                </div>
+                                <CardDescription>A list of recent sales transactions</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Product</TableHead>
+                                            <TableHead>Quantity</TableHead>
+                                            <TableHead>Revenue</TableHead>
+                                            <TableHead></TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {(() => {
+                                            const adminData = roleBasedData.admin;
+                                            return (
+                                                adminData.recentSales?.map((sale) => (
+                                                    <TableRow key={sale.id}>
+                                                        <TableCell className="font-medium">{sale.product}</TableCell>
+                                                        <TableCell>{sale.quantity}</TableCell>
+                                                        <TableCell>{formatCurrency(sale.revenue)}</TableCell>
+                                                        <TableCell>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="icon">
+                                                                        <MoreHorizontal className="h-4 w-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                                    <DropdownMenuItem>View details</DropdownMenuItem>
+                                                                    <DropdownMenuItem>Generate invoice</DropdownMenuItem>
+                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem className="text-red-600">Void</DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )) || []
+                                            );
+                                        })()}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
+                    </div>
                 )}
             </div>
         </AppLayout>
