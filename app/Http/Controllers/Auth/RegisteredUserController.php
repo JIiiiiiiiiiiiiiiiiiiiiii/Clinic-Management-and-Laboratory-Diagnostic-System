@@ -36,10 +36,31 @@ class RegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
+        // Generate a username from the email prefix and ensure uniqueness
+        $base = substr((string) str($request->email)->before('@')->slug('_'), 0, 50);
+        $username = $base ?: substr((string) str($request->email)->slug('_'), 0, 50);
+        if ($username === '') {
+            $username = 'user_'.str()->random(6);
+        }
+        $original = $username;
+        $i = 1;
+        while (User::where('username', $username)->exists()) {
+            $suffix = '_'.($i++);
+            $username = substr($original, 0, max(1, 50 - strlen($suffix))).$suffix;
+        }
+
         $user = User::create([
-            'name' => $request->name,
+            'username' => $username,
+            'full_name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            // Default role to Patient on self-registration
+            'role' => 'Patient',
+            // Optional fields left null
+            'gender' => null,
+            'contact_number' => null,
+            'address' => null,
+            'birth_date' => null,
         ]);
 
         event(new Registered($user));

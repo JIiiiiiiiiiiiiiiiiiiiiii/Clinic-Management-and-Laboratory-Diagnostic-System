@@ -12,7 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('patients', function (Blueprint $table) {
-            $table->id();
+            $table->id('patient_id');
+
+            $table->unsignedBigInteger('user_id')->nullable();
 
             // Arrival Information
             $table->date('arrival_date');
@@ -80,6 +82,7 @@ return new class extends Migration
 
             $table->timestamps();
             $table->softDeletes();
+            $table->foreign('user_id')->references('user_id')->on('users');
         });
     }
 

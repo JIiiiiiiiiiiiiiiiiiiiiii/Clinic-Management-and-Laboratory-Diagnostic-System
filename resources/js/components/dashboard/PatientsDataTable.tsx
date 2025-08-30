@@ -37,9 +37,9 @@ import { Link, router } from '@inertiajs/react';
 
 export const columns: ColumnDef<PatientItem>[] = [
     {
-        accessorKey: 'id',
+        accessorKey: 'patient_id',
         header: 'ID',
-        cell: ({ row }) => <div className="font-medium">#{row.getValue('id')}</div>,
+        cell: ({ row }) => <div className="font-medium">#{row.getValue('patient_id')}</div>,
     },
     {
         accessorKey: 'patient_no',
@@ -105,7 +105,7 @@ export const columns: ColumnDef<PatientItem>[] = [
         header: 'Actions',
         enableHiding: false,
         cell: ({ row }) => {
-            const id = row.original.id;
+            const id = (row.original as any).patient_id;
             return (
                 <div className="flex items-center gap-2">
                     <Button asChild variant="ghost" size="icon" className="h-8 w-8">

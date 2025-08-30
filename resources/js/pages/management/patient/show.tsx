@@ -87,7 +87,7 @@ export default function ShowPatient({ patient }: ShowPatientProps) {
                     </div>
                     <div className="flex items-center gap-2">
                         <Button asChild variant="outline">
-                            <Link href={`/management/patient/${patient.id}/edit`}>
+                            <Link href={`/management/patient/${patient.patient_no}/edit`}>
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit
                             </Link>
