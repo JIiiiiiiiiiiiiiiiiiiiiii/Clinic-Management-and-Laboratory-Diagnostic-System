@@ -1,59 +1,98 @@
-import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, BookUser, Table2, BriefcaseMedical, Wallet, CalendarClock } from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
+import { BarChart3, BookOpen, BookUser, BriefcaseMedical, CalendarClock, Folder, LayoutGrid, Settings, Shield, Table2, Wallet } from 'lucide-react';
 import AppLogo from './app-logo';
 
-const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: '/management/dashboard',
-        icon: LayoutGrid,
-    },
-    {
-        title: 'Patient Management',
-        href: '/management/patient',
-        icon: BookUser,
-    },
-    {
-        title: 'Laboratory Diagnostics',
-        href: '/management/laboratory',
-        icon: Table2,
-    },
-    {
-        title: 'Inventory Management',
-        href: '/management/inventory',
-        icon: BriefcaseMedical,
-    },
-    {
-        title: 'Financial Management',
-        href: '/management/financial',
-        icon: Wallet,
-    },
-    {
-        title: 'Appointment Management',
-        href: '/management/appointments',
-        icon: CalendarClock,
-    },
-];
-
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: Folder,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
-    },
-];
-
 export function AppSidebar() {
+    const { permissions } = useRoleAccess();
+    const { auth } = usePage().props as any;
+
+    // Define all possible navigation items with their access requirements
+    const allNavItems: NavItem[] = [
+        {
+            title: 'Dashboard',
+            href: '/admin/dashboard',
+            icon: LayoutGrid,
+            requiredPermission: 'canAccessAdminPanel',
+        },
+        {
+            title: 'Patient Management',
+            href: '/admin/patient',
+            icon: BookUser,
+            requiredPermission: 'canAccessPatients',
+        },
+        {
+            title: 'Laboratory Diagnostics',
+            href: '/admin/laboratory',
+            icon: Table2,
+            requiredPermission: 'canAccessLaboratory',
+        },
+        {
+            title: 'Inventory Management',
+            href: '/admin/inventory',
+            icon: BriefcaseMedical,
+            requiredPermission: 'canAccessInventory',
+        },
+        {
+            title: 'Billing Management',
+            href: '/admin/billing',
+            icon: Wallet,
+            requiredPermission: 'canAccessBilling',
+        },
+        {
+            title: 'Appointment Management',
+            href: '/admin/appointments',
+            icon: CalendarClock,
+            requiredPermission: 'canAccessAppointments',
+        },
+        {
+            title: 'Reports & Analytics',
+            href: '/admin/reports',
+            icon: BarChart3,
+            requiredPermission: 'canAccessReports',
+        },
+        {
+            title: 'Roles & Permissions',
+            href: '/admin/roles',
+            icon: Shield,
+            requiredPermission: 'canAccessSettings',
+        },
+        {
+            title: 'System Settings',
+            href: '/admin/settings',
+            icon: Settings,
+            requiredPermission: 'canAccessSettings',
+        },
+    ];
+
+    // Filter navigation items based on user permissions
+    const visibleNavItems = allNavItems.filter((item) => {
+        if (!item.requiredPermission) return true;
+        return permissions[item.requiredPermission as keyof typeof permissions];
+    });
+
+    // If no navigation items are visible, don't render the sidebar
+    if (visibleNavItems.length === 0) {
+        return null;
+    }
+
+    const footerNavItems: NavItem[] = [
+        {
+            title: 'Repository',
+            href: 'https://github.com/laravel/react-starter-kit',
+            icon: Folder,
+        },
+        {
+            title: 'Documentation',
+            href: 'https://laravel.com/docs/starter-kits#react',
+            icon: BookOpen,
+        },
+    ];
+
     return (
         // <Sidebar collapsible="icon" variant="sidebar">
         <Sidebar collapsible="icon" variant="inset">
@@ -61,7 +100,7 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href="/management/dashboard" prefetch>
+                            <Link href="/admin/dashboard" prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -70,7 +109,7 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={visibleNavItems} />
             </SidebarContent>
 
             <SidebarFooter>

@@ -7,12 +7,12 @@ import { Head } from '@inertiajs/react';
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Patient Management',
-        href: '/management/patient',
+        href: '/admin/patient',
     },
 ];
 
-export default function Patient({ patients }: { patients: PatientItem[] }) {
-    console.log(patients);
+export default function Patient(props: { patients: PatientItem[] }) {
+    const { patients } = props;
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Patient Management" />

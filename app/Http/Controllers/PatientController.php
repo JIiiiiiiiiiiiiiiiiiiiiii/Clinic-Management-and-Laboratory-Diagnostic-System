@@ -21,7 +21,7 @@ class PatientController extends Controller
         // Pagination
         $patients = $query->orderBy('created_at', 'desc')->paginate(10);
 
-        return Inertia::render('management/patient/index', [
+        return Inertia::render('admin/patient/index', [
             'patients' => $patients->items(),
             'pagination' => [
                 'current_page' => $patients->currentPage(),
@@ -34,7 +34,7 @@ class PatientController extends Controller
 
     public function create()
     {
-        return Inertia::render('management/patient/create');
+        return Inertia::render('admin/patient/create');
     }
 
     public function store(Request $request)
@@ -114,14 +114,14 @@ class PatientController extends Controller
 
     public function show(Patient $patient)
     {
-        return Inertia::render('management/patient/show', [
+        return Inertia::render('admin/patient/show', [
             'patient' => $patient
         ]);
     }
 
     public function edit(Patient $patient)
     {
-        return Inertia::render('management/patient/edit', [
+        return Inertia::render('admin/patient/edit', [
             'patient' => $patient
         ]);
     }

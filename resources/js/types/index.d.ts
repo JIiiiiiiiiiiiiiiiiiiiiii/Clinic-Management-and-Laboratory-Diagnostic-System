@@ -20,6 +20,7 @@ export interface NavItem {
     href: string;
     icon?: LucideIcon | null;
     isActive?: boolean;
+    requiredPermission?: string; // Permission key required to show this navigation item
 }
 
 export interface SharedData {
