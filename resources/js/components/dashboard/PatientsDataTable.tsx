@@ -70,17 +70,17 @@ export const columns: ColumnDef<PatientItem>[] = [
         },
         cell: ({ row }) => <div className="font-medium">{row.getValue('first_name')}</div>,
     },
-    {
-        id: 'full_name',
-        header: 'Name',
-        accessorFn: (row) => `${row.last_name} ${row.first_name}`,
-        cell: ({ row }) => (
-            <div className="hidden" aria-hidden>
-                {row.original.last_name} {row.original.first_name}
-            </div>
-        ),
-        enableHiding: true,
-    },
+    // {
+    //     id: 'full_name',
+    //     header: 'Name',
+    //     accessorFn: (row) => `${row.last_name} ${row.first_name}`,
+    //     cell: ({ row }) => (
+    //         <div className="hidden" aria-hidden>
+    //             {row.original.last_name} {row.original.first_name}
+    //         </div>
+    //     ),
+    //     enableHiding: true,
+    // },
     {
         accessorKey: 'age',
         header: 'Age',
