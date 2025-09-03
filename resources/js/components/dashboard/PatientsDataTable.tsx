@@ -71,6 +71,17 @@ export const columns: ColumnDef<PatientItem>[] = [
         cell: ({ row }) => <div className="font-medium">{row.getValue('first_name')}</div>,
     },
     {
+        id: 'full_name',
+        header: 'Name',
+        accessorFn: (row) => `${row.last_name} ${row.first_name}`,
+        cell: ({ row }) => (
+            <div className="hidden" aria-hidden>
+                {row.original.last_name} {row.original.first_name}
+            </div>
+        ),
+        enableHiding: true,
+    },
+    {
         accessorKey: 'age',
         header: 'Age',
         cell: ({ row }) => <div className="text-sm">{row.getValue('age')} years</div>,
@@ -146,6 +157,7 @@ export default function PatientsDataTable({ patients }: { patients: PatientItem[
     const [rowSelection, setRowSelection] = React.useState({});
     const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
     const [rowsPerPage, setRowsPerPage] = React.useState(10);
+    const [globalFilter, setGlobalFilter] = React.useState('');
 
     const table = useReactTable({
         data: patients,
@@ -157,18 +169,21 @@ export default function PatientsDataTable({ patients }: { patients: PatientItem[
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
         onColumnVisibilityChange: setColumnVisibility,
+        onGlobalFilterChange: setGlobalFilter,
         onRowSelectionChange: setRowSelection,
         state: {
             sorting,
             columnFilters,
             columnVisibility,
             rowSelection,
+            globalFilter,
         },
         initialState: {
             pagination: {
                 pageSize: rowsPerPage,
             },
         },
+        globalFilterFn: 'includesString',
     });
 
     React.useEffect(() => {
@@ -215,8 +230,8 @@ export default function PatientsDataTable({ patients }: { patients: PatientItem[
                         <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Search patients..."
-                            value={(table.getColumn('patient_no')?.getFilterValue() as string) ?? ''}
-                            onChange={(event) => table.getColumn('patient_no')?.setFilterValue(event.target.value)}
+                            value={globalFilter}
+                            onChange={(e) => setGlobalFilter(e.target.value)}
                             className="pl-8"
                         />
                     </div>

@@ -34,13 +34,29 @@ class PatientController extends Controller
 
     public function create()
     {
-        return Inertia::render('admin/patient/create');
+        $doctors = \App\Models\User::query()
+            ->where('role', 'doctor')
+            ->where(function ($q) {
+                // Some setups may not have is_active; guard with exists check
+                try {
+                    $q->where('is_active', true);
+                } catch (\Throwable $e) {
+                    // ignore
+                }
+            })
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return Inertia::render('admin/patient/create', [
+            'doctors' => $doctors,
+        ]);
     }
 
     public function store(Request $request)
     {
-        // Validate the request data
-        $validated = $request->validate([
+        try {
+            // Validate the request data
+            $validated = $request->validate([
             // Arrival Information
             'arrival_date' => 'required|date',
             'arrival_time' => 'required',
@@ -52,7 +68,7 @@ class PatientController extends Controller
             'birthdate' => 'required|date',
             'age' => 'required|integer|min:0|max:150',
             'sex' => 'required|in:male,female',
-            'patient_no' => 'required|string|unique:patients,patient_no',
+            'patient_no' => 'nullable|string|unique:patients,patient_no',
 
             // Demographics
             'occupation' => 'nullable|string|max:255',
@@ -78,7 +94,7 @@ class PatientController extends Controller
             'validity' => 'nullable|string|max:255',
 
             // Emergency Staff Nurse Section
-            'mode_of_arrival' => 'required|string|max:255',
+            'mode_of_arrival' => 'nullable|string|max:255',
             'drug_allergies' => 'nullable|string|max:255',
             'food_allergies' => 'nullable|string|max:255',
 
@@ -93,7 +109,7 @@ class PatientController extends Controller
             'oxygen_saturation' => 'nullable|string|max:255',
 
             // Medical Assessment
-            'reason_for_consult' => 'required|string',
+            'reason_for_consult' => 'nullable|string',
             'time_seen' => 'required',
             'history_of_present_illness' => 'nullable|string',
             'pertinent_physical_findings' => 'nullable|string',
@@ -104,12 +120,22 @@ class PatientController extends Controller
             'obstetrics_gynecology_history' => 'nullable|string',
             'lmp' => 'nullable|string|max:255',
             'assessment_diagnosis' => 'nullable|string',
-        ]);
+            ]);
 
-        // Create the patient
-        Patient::create($validated);
+            // Compute age from birthdate to ensure consistency
+            if (isset($validated['birthdate'])) {
+                $validated['age'] = now()->parse($validated['birthdate'])->age;
+            }
 
-        return redirect()->route('patient.index')->with('success', 'Patient created successfully!');
+            // Create the patient
+            Patient::create($validated);
+
+            return redirect()->route('patient.index')->with('success', 'Patient created successfully!');
+        } catch (\Throwable $e) {
+            return back()
+                ->with('error', 'Failed to create patient: '.($e->getMessage()))
+                ->withInput();
+        }
     }
 
     public function show(Patient $patient)
@@ -121,15 +147,22 @@ class PatientController extends Controller
 
     public function edit(Patient $patient)
     {
+        $doctors = \App\Models\User::query()
+            ->where('role', 'doctor')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         return Inertia::render('admin/patient/edit', [
-            'patient' => $patient
+            'patient' => $patient,
+            'doctors' => $doctors,
         ]);
     }
 
     public function update(Request $request, Patient $patient)
     {
-        // Validate the request data
-        $validated = $request->validate([
+        try {
+            // Validate the request data
+            $validated = $request->validate([
             // Arrival Information
             'arrival_date' => 'required|date',
             'arrival_time' => 'required',
@@ -141,7 +174,7 @@ class PatientController extends Controller
             'birthdate' => 'required|date',
             'age' => 'required|integer|min:0|max:150',
             'sex' => 'required|in:male,female',
-            'patient_no' => ['required', 'string', Rule::unique('patients')->ignore($patient->id)],
+            'patient_no' => ['nullable', 'string', Rule::unique('patients')->ignore($patient->id)],
 
             // Demographics
             'occupation' => 'nullable|string|max:255',
@@ -167,7 +200,7 @@ class PatientController extends Controller
             'validity' => 'nullable|string|max:255',
 
             // Emergency Staff Nurse Section
-            'mode_of_arrival' => 'required|string|max:255',
+            'mode_of_arrival' => 'nullable|string|max:255',
             'drug_allergies' => 'nullable|string|max:255',
             'food_allergies' => 'nullable|string|max:255',
 
@@ -182,7 +215,7 @@ class PatientController extends Controller
             'oxygen_saturation' => 'nullable|string|max:255',
 
             // Medical Assessment
-            'reason_for_consult' => 'required|string',
+            'reason_for_consult' => 'nullable|string',
             'time_seen' => 'required',
             'history_of_present_illness' => 'nullable|string',
             'pertinent_physical_findings' => 'nullable|string',
@@ -193,12 +226,22 @@ class PatientController extends Controller
             'obstetrics_gynecology_history' => 'nullable|string',
             'lmp' => 'nullable|string|max:255',
             'assessment_diagnosis' => 'nullable|string',
-        ]);
+            ]);
 
-        // Update the patient
-        $patient->update($validated);
+            // Compute age from birthdate to ensure consistency
+            if (isset($validated['birthdate'])) {
+                $validated['age'] = now()->parse($validated['birthdate'])->age;
+            }
 
-        return redirect()->route('patient.index')->with('success', 'Patient updated successfully!');
+            // Update the patient
+            $patient->update($validated);
+
+            return redirect()->route('patient.index')->with('success', 'Patient updated successfully!');
+        } catch (\Throwable $e) {
+            return back()
+                ->with('error', 'Failed to update patient: '.($e->getMessage()))
+                ->withInput();
+        }
     }
 
     public function destroy(Patient $patient)
