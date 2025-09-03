@@ -38,14 +38,21 @@ import { Link, router } from '@inertiajs/react';
 export const columns: ColumnDef<PatientItem>[] = [
     {
         accessorKey: 'id',
-        header: 'ID',
+        header: ({ column }) => {
+            return (
+                <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+                    Patient No.
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            );
+        },
         cell: ({ row }) => <div className="font-medium">#{row.getValue('id')}</div>,
     },
-    {
-        accessorKey: 'patient_no',
-        header: 'Patient No.',
-        cell: ({ row }) => <div className="font-medium">{row.getValue('patient_no')}</div>,
-    },
+    // {
+    //     accessorKey: 'patient_no',
+    //     header: 'Patient No.',
+    //     cell: ({ row }) => <div className="font-medium">{row.getValue('patient_no')}</div>,
+    // },
     {
         accessorKey: 'last_name',
         header: ({ column }) => {
@@ -121,7 +128,7 @@ export const columns: ColumnDef<PatientItem>[] = [
                 <div className="flex items-center gap-2">
                     <Button asChild variant="ghost" size="icon" className="h-8 w-8">
                         <Link href={`/admin/patient/${id}`}>
-                            <Pencil className="h-4 w-4" />
+                            <Search className="h-4 w-4" />
                             <span className="sr-only">View</span>
                         </Link>
                     </Button>

@@ -1,3 +1,12 @@
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -5,8 +14,9 @@ import { Separator } from '@/components/ui/separator';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { PatientItem } from '@/types/patients';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
+import * as React from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -24,6 +34,7 @@ interface ShowPatientProps {
 }
 
 export default function ShowPatient({ patient }: ShowPatientProps) {
+    const [confirmOpen, setConfirmOpen] = React.useState(false);
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('en-US', {
             year: 'numeric',
@@ -33,10 +44,10 @@ export default function ShowPatient({ patient }: ShowPatientProps) {
     };
 
     const formatTime = (timeString: string) => {
-        return new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-        });
+        if (!timeString) return '—';
+        const match = String(timeString).match(/\d{2}:\d{2}/);
+        const hhmm = match ? match[0] : timeString;
+        return hhmm;
     };
 
     const getSexBadgeVariant = (sex: string) => {
@@ -92,12 +103,30 @@ export default function ShowPatient({ patient }: ShowPatientProps) {
                                 Edit
                             </Link>
                         </Button>
-                        <Button variant="destructive">
+                        <Button variant="destructive" onClick={() => setConfirmOpen(true)}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete
                         </Button>
                     </div>
                 </div>
+
+                <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete patient?</AlertDialogTitle>
+                        </AlertDialogHeader>
+                        <p className="text-sm text-muted-foreground">This action cannot be undone.</p>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                                className="bg-destructive text-white hover:bg-red-700"
+                                onClick={() => router.delete(`/admin/patient/${patient.id}`, { onSuccess: () => router.visit('/admin/patient') })}
+                            >
+                                Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
 
                 <div className="grid gap-6 md:grid-cols-2">
                     {/* Arrival Information */}

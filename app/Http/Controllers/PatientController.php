@@ -128,9 +128,17 @@ class PatientController extends Controller
             }
 
             // Create the patient
-            Patient::create($validated);
+            $patient = Patient::create($validated);
 
-            return redirect()->route('patient.index')->with('success', 'Patient created successfully!');
+            return redirect()->route('patient.index')
+                ->with('success', 'Patient created successfully!')
+                ->with('created_patient', [
+                    'id' => $patient->id,
+                    'last_name' => $patient->last_name,
+                    'first_name' => $patient->first_name,
+                    'age' => $patient->age,
+                    'sex' => $patient->sex,
+                ]);
         } catch (\Throwable $e) {
             return back()
                 ->with('error', 'Failed to create patient: '.($e->getMessage()))

@@ -1,3 +1,12 @@
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,6 +18,7 @@ import { type BreadcrumbItem } from '@/types';
 import { PatientItem } from '@/types/patients';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, Save } from 'lucide-react';
+import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -117,8 +127,36 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
         }
     };
 
+    const [showMissingModal, setShowMissingModal] = useState(false);
+    const [missingFields, setMissingFields] = useState<string[]>([]);
+
     const submit: React.FormEventHandler = (e) => {
         e.preventDefault();
+        const requiredChecks: Array<{ key: keyof typeof data; label: string; isValid: (v: any) => boolean }> = [
+            { key: 'arrival_date', label: 'Arrival Date', isValid: (v) => Boolean(v) },
+            { key: 'arrival_time', label: 'Arrival Time', isValid: (v) => Boolean(v) },
+            { key: 'last_name', label: 'Last Name', isValid: (v) => Boolean(v) },
+            { key: 'first_name', label: 'First Name', isValid: (v) => Boolean(v) },
+            { key: 'birthdate', label: 'Birthdate', isValid: (v) => Boolean(v) },
+            { key: 'age', label: 'Age', isValid: (v) => Number(v) > 0 },
+            { key: 'sex', label: 'Sex', isValid: (v) => Boolean(v) },
+            { key: 'attending_physician', label: 'Attending Physician', isValid: (v) => Boolean(v) },
+            { key: 'civil_status', label: 'Civil Status', isValid: (v) => Boolean(v) },
+            { key: 'present_address', label: 'Present Address', isValid: (v) => Boolean(v) },
+            { key: 'mobile_no', label: 'Mobile No.', isValid: (v) => Boolean(v) },
+            { key: 'informant_name', label: 'Informant Name', isValid: (v) => Boolean(v) },
+            { key: 'relationship', label: 'Relationship', isValid: (v) => Boolean(v) },
+            { key: 'time_seen', label: 'Time Seen', isValid: (v) => Boolean(v) },
+        ];
+        const missing = requiredChecks.filter((c) => !c.isValid((data as any)[c.key]));
+        if (missing.length > 0) {
+            setMissingFields(missing.map((m) => m.label));
+            setShowMissingModal(true);
+            const el = document.getElementById(missing[0].key as string);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) el.focus();
+            return;
+        }
         router.put(`/admin/patient/${patient.id}`, data, {
             onError: (errs) => {
                 const keys = Object.keys(errs || {});
@@ -158,6 +196,27 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                         {String((usePage().props as any).flash?.error as string)}
                     </div>
                 )}
+
+                {/* Required fields missing modal */}
+                <AlertDialog open={showMissingModal} onOpenChange={setShowMissingModal}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Missing required information</AlertDialogTitle>
+                        </AlertDialogHeader>
+                        <p className="text-sm" data-slot="description">
+                            Please complete the following required field(s):
+                        </p>
+                        <ul className="list-disc pl-6 text-sm">
+                            {missingFields.map((f) => (
+                                <li key={f}>{f}</li>
+                            ))}
+                        </ul>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Close</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => setShowMissingModal(false)}>OK</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
 
                 <form onSubmit={submit} className="space-y-6">
                     {/* Arrival Information */}
