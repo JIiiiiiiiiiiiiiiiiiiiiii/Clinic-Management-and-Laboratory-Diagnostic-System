@@ -25,7 +25,7 @@ return new class extends Migration
             $table->date('birthdate');
             $table->integer('age');
             $table->enum('sex', ['male', 'female']);
-            $table->string('patient_no')->unique();
+            $table->string('patient_no')->nullable()->unique();
 
             // Demographics
             $table->string('occupation')->nullable();
@@ -51,7 +51,7 @@ return new class extends Migration
             $table->string('validity')->nullable();
 
             // Emergency Staff Nurse Section
-            $table->string('mode_of_arrival');
+            $table->string('mode_of_arrival')->nullable();
             $table->string('drug_allergies')->default('NONE');
             $table->string('food_allergies')->default('NONE');
 
@@ -66,7 +66,7 @@ return new class extends Migration
             $table->string('oxygen_saturation')->nullable();
 
             // Medical Assessment
-            $table->text('reason_for_consult');
+            $table->text('reason_for_consult')->nullable();
             $table->time('time_seen');
             $table->text('history_of_present_illness')->nullable();
             $table->text('pertinent_physical_findings')->nullable();

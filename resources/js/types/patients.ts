@@ -61,7 +61,7 @@ export interface PatientItem {
     family_history: string;
     social_personal_history: string;
     obstetrics_gynecology_history: string;
-    lmp: string;
+    lmp: string; // required
     assessment_diagnosis: string;
 
     // System Fields
@@ -131,6 +131,6 @@ export interface CreatePatientItem {
     family_history: string;
     social_personal_history: string;
     obstetrics_gynecology_history: string;
-    lmp: string;
+    lmp: string; // required
     assessment_diagnosis: string;
 }

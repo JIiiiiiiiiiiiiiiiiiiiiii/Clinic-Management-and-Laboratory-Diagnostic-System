@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { PatientItem } from '@/types/patients';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, Save } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -21,82 +21,115 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
+type Doctor = { id: number; name: string };
+
 interface EditPatientProps {
     patient: PatientItem;
+    doctors?: Doctor[];
 }
 
-export default function EditPatient({ patient }: EditPatientProps) {
+export default function EditPatient({ patient, doctors = [] }: EditPatientProps) {
+    const normalizeDate = (value: string | null | undefined) => (value ? String(value).slice(0, 10) : '');
+    const normalizeTime = (value: string | null | undefined) => {
+        if (!value) return '';
+        const str = String(value);
+        const match = str.match(/\d{2}:\d{2}/);
+        return match ? match[0] : str;
+    };
+    const nv = (v?: string | null) => v ?? '';
+    const nn = (v?: number | null) => v ?? 0;
     const { data, setData, processing, errors, reset } = useForm({
         // Arrival Information
-        arrival_date: patient.arrival_date,
-        arrival_time: patient.arrival_time,
+        arrival_date: normalizeDate(patient.arrival_date),
+        arrival_time: normalizeTime(patient.arrival_time),
 
         // Patient Identification
-        last_name: patient.last_name,
-        first_name: patient.first_name,
-        middle_name: patient.middle_name,
-        birthdate: patient.birthdate,
+        last_name: nv(patient.last_name),
+        first_name: nv(patient.first_name),
+        middle_name: nv(patient.middle_name),
+        birthdate: normalizeDate(patient.birthdate),
         age: patient.age,
         sex: patient.sex,
-        patient_no: patient.patient_no,
+        patient_no: nv(patient.patient_no),
 
         // Demographics
-        occupation: patient.occupation,
-        religion: patient.religion,
-        attending_physician: patient.attending_physician,
-        civil_status: patient.civil_status,
-        nationality: patient.nationality,
+        occupation: nv(patient.occupation),
+        religion: nv(patient.religion),
+        attending_physician: nv(patient.attending_physician),
+        civil_status: nv(patient.civil_status),
+        nationality: nv(patient.nationality),
 
         // Contact Information
-        present_address: patient.present_address,
-        telephone_no: patient.telephone_no,
-        mobile_no: patient.mobile_no,
+        present_address: nv(patient.present_address),
+        telephone_no: nv(patient.telephone_no),
+        mobile_no: nv(patient.mobile_no),
 
         // Emergency Contact
-        informant_name: patient.informant_name,
-        relationship: patient.relationship,
+        informant_name: nv(patient.informant_name),
+        relationship: nv(patient.relationship),
 
         // Financial/Insurance
-        company_name: patient.company_name,
-        hmo_name: patient.hmo_name,
-        hmo_company_id_no: patient.hmo_company_id_no,
-        validation_approval_code: patient.validation_approval_code,
-        validity: patient.validity,
+        company_name: nv(patient.company_name),
+        hmo_name: nv(patient.hmo_name),
+        hmo_company_id_no: nv(patient.hmo_company_id_no),
+        validation_approval_code: nv(patient.validation_approval_code),
+        validity: nv(patient.validity),
 
         // Emergency Staff Nurse Section
-        mode_of_arrival: patient.mode_of_arrival,
-        drug_allergies: patient.drug_allergies,
-        food_allergies: patient.food_allergies,
+        mode_of_arrival: nv(patient.mode_of_arrival),
+        drug_allergies: nv(patient.drug_allergies),
+        food_allergies: nv(patient.food_allergies),
 
         // Vital Signs
-        blood_pressure: patient.blood_pressure,
-        heart_rate: patient.heart_rate,
-        respiratory_rate: patient.respiratory_rate,
-        temperature: patient.temperature,
-        weight_kg: patient.weight_kg,
-        height_cm: patient.height_cm,
-        pain_assessment_scale: patient.pain_assessment_scale,
-        oxygen_saturation: patient.oxygen_saturation,
+        blood_pressure: nv(patient.blood_pressure),
+        heart_rate: nv(patient.heart_rate),
+        respiratory_rate: nv(patient.respiratory_rate),
+        temperature: nv(patient.temperature),
+        weight_kg: nn(patient.weight_kg as unknown as number),
+        height_cm: nn(patient.height_cm as unknown as number),
+        pain_assessment_scale: nv(patient.pain_assessment_scale),
+        oxygen_saturation: nv(patient.oxygen_saturation),
 
         // Medical Assessment
-        reason_for_consult: patient.reason_for_consult,
-        time_seen: patient.time_seen,
-        history_of_present_illness: patient.history_of_present_illness,
-        pertinent_physical_findings: patient.pertinent_physical_findings,
-        plan_management: patient.plan_management,
-        past_medical_history: patient.past_medical_history,
-        family_history: patient.family_history,
-        social_personal_history: patient.social_personal_history,
-        obstetrics_gynecology_history: patient.obstetrics_gynecology_history,
-        lmp: patient.lmp,
-        assessment_diagnosis: patient.assessment_diagnosis,
+        reason_for_consult: nv(patient.reason_for_consult),
+        time_seen: normalizeTime(patient.time_seen),
+        history_of_present_illness: nv(patient.history_of_present_illness),
+        pertinent_physical_findings: nv(patient.pertinent_physical_findings),
+        plan_management: nv(patient.plan_management),
+        past_medical_history: nv(patient.past_medical_history),
+        family_history: nv(patient.family_history),
+        social_personal_history: nv(patient.social_personal_history),
+        obstetrics_gynecology_history: nv(patient.obstetrics_gynecology_history),
+        lmp: nv(patient.lmp),
+        assessment_diagnosis: nv(patient.assessment_diagnosis),
     });
+
+    // Keep age consistent if birthdate changes
+    const onBirthdateChange = (value: string) => {
+        setData('birthdate', value);
+        if (value) {
+            const today = new Date();
+            const b = new Date(value);
+            let age = today.getFullYear() - b.getFullYear();
+            const m = today.getMonth() - b.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < b.getDate())) age--;
+            setData('age', Math.max(0, age));
+        }
+    };
 
     const submit: React.FormEventHandler = (e) => {
         e.preventDefault();
         router.put(`/admin/patient/${patient.id}`, data, {
-            onFinish: () => {
-                reset();
+            onError: (errs) => {
+                const keys = Object.keys(errs || {});
+                if (keys.length > 0) {
+                    const el = document.getElementById(keys[0]);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) el.focus();
+                }
+            },
+            onSuccess: () => {
+                router.visit('/admin/patient');
             },
         });
     };
@@ -118,6 +151,13 @@ export default function EditPatient({ patient }: EditPatientProps) {
                         </div>
                     </div>
                 </div>
+
+                {/* Error alert */}
+                {((usePage().props as any).flash?.error as string | undefined) && (
+                    <div className="rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-700">
+                        {String((usePage().props as any).flash?.error as string)}
+                    </div>
+                )}
 
                 <form onSubmit={submit} className="space-y-6">
                     {/* Arrival Information */}
@@ -164,6 +204,8 @@ export default function EditPatient({ patient }: EditPatientProps) {
                                     <Label htmlFor="last_name">Last Name *</Label>
                                     <Input
                                         id="last_name"
+                                        name="last_name"
+                                        autoComplete="family-name"
                                         value={data.last_name}
                                         onChange={(e) => setData('last_name', e.target.value)}
                                         className={errors.last_name ? 'border-red-500' : ''}
@@ -174,6 +216,8 @@ export default function EditPatient({ patient }: EditPatientProps) {
                                     <Label htmlFor="first_name">First Name *</Label>
                                     <Input
                                         id="first_name"
+                                        name="first_name"
+                                        autoComplete="given-name"
                                         value={data.first_name}
                                         onChange={(e) => setData('first_name', e.target.value)}
                                         className={errors.first_name ? 'border-red-500' : ''}
@@ -184,15 +228,23 @@ export default function EditPatient({ patient }: EditPatientProps) {
                             <div className="mt-6 grid gap-6 md:grid-cols-3">
                                 <div className="space-y-2">
                                     <Label htmlFor="middle_name">Middle Name</Label>
-                                    <Input id="middle_name" value={data.middle_name} onChange={(e) => setData('middle_name', e.target.value)} />
+                                    <Input
+                                        id="middle_name"
+                                        name="middle_name"
+                                        autoComplete="additional-name"
+                                        value={data.middle_name}
+                                        onChange={(e) => setData('middle_name', e.target.value)}
+                                    />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="birthdate">Birthdate *</Label>
                                     <Input
                                         id="birthdate"
+                                        name="birthdate"
+                                        autoComplete="bday"
                                         type="date"
                                         value={data.birthdate}
-                                        onChange={(e) => setData('birthdate', e.target.value)}
+                                        onChange={(e) => onBirthdateChange(e.target.value)}
                                         className={errors.birthdate ? 'border-red-500' : ''}
                                     />
                                     {errors.birthdate && <p className="text-sm text-red-500">{errors.birthdate}</p>}
@@ -201,6 +253,7 @@ export default function EditPatient({ patient }: EditPatientProps) {
                                     <Label htmlFor="age">Age *</Label>
                                     <Input
                                         id="age"
+                                        name="age"
                                         type="number"
                                         value={data.age}
                                         onChange={(e) => setData('age', Number(e.target.value))}
@@ -213,7 +266,7 @@ export default function EditPatient({ patient }: EditPatientProps) {
                                 <div className="space-y-2">
                                     <Label htmlFor="sex">Sex *</Label>
                                     <Select onValueChange={(value: 'male' | 'female') => setData('sex', value)} defaultValue={data.sex}>
-                                        <SelectTrigger className={errors.sex ? 'border-red-500' : ''}>
+                                        <SelectTrigger id="sex" className={errors.sex ? 'border-red-500' : ''}>
                                             <SelectValue placeholder="Select sex" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -224,9 +277,10 @@ export default function EditPatient({ patient }: EditPatientProps) {
                                     {errors.sex && <p className="text-sm text-red-500">{errors.sex}</p>}
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="patient_no">Patient No. *</Label>
+                                    <Label htmlFor="patient_no">Patient No.</Label>
                                     <Input
                                         id="patient_no"
+                                        name="patient_no"
                                         value={data.patient_no}
                                         onChange={(e) => setData('patient_no', e.target.value)}
                                         className={errors.patient_no ? 'border-red-500' : ''}
@@ -235,7 +289,13 @@ export default function EditPatient({ patient }: EditPatientProps) {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="nationality">Nationality</Label>
-                                    <Input id="nationality" value={data.nationality} onChange={(e) => setData('nationality', e.target.value)} />
+                                    <Input
+                                        id="nationality"
+                                        name="nationality"
+                                        autoComplete="country-name"
+                                        value={data.nationality}
+                                        onChange={(e) => setData('nationality', e.target.value)}
+                                    />
                                 </div>
                             </div>
                         </CardContent>
@@ -250,28 +310,57 @@ export default function EditPatient({ patient }: EditPatientProps) {
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="occupation">Occupation</Label>
-                                    <Input id="occupation" value={data.occupation} onChange={(e) => setData('occupation', e.target.value)} />
+                                    <Input
+                                        id="occupation"
+                                        name="occupation"
+                                        value={data.occupation}
+                                        onChange={(e) => setData('occupation', e.target.value)}
+                                    />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="religion">Religion</Label>
-                                    <Input id="religion" value={data.religion} onChange={(e) => setData('religion', e.target.value)} />
+                                    <Input
+                                        id="religion"
+                                        name="religion"
+                                        value={data.religion}
+                                        onChange={(e) => setData('religion', e.target.value)}
+                                    />
                                 </div>
                             </div>
                             <div className="mt-6 grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="attending_physician">Attending Physician *</Label>
-                                    <Input
-                                        id="attending_physician"
-                                        value={data.attending_physician}
-                                        onChange={(e) => setData('attending_physician', e.target.value)}
-                                        className={errors.attending_physician ? 'border-red-500' : ''}
-                                    />
+                                    {doctors.length > 0 ? (
+                                        <Select
+                                            onValueChange={(value: string) => setData('attending_physician', value)}
+                                            defaultValue={data.attending_physician || undefined}
+                                        >
+                                            <SelectTrigger id="attending_physician" className={errors.attending_physician ? 'border-red-500' : ''}>
+                                                <SelectValue placeholder="Select doctor" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {doctors.map((d) => (
+                                                    <SelectItem key={d.id} value={d.name}>
+                                                        {d.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    ) : (
+                                        <Input
+                                            id="attending_physician"
+                                            name="attending_physician"
+                                            value={data.attending_physician}
+                                            onChange={(e) => setData('attending_physician', e.target.value)}
+                                            className={errors.attending_physician ? 'border-red-500' : ''}
+                                        />
+                                    )}
                                     {errors.attending_physician && <p className="text-sm text-red-500">{errors.attending_physician}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="civil_status">Civil Status *</Label>
                                     <Select onValueChange={(value: any) => setData('civil_status', value)} defaultValue={data.civil_status}>
-                                        <SelectTrigger className={errors.civil_status ? 'border-red-500' : ''}>
+                                        <SelectTrigger id="civil_status" className={errors.civil_status ? 'border-red-500' : ''}>
                                             <SelectValue placeholder="Select civil status" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -298,6 +387,9 @@ export default function EditPatient({ patient }: EditPatientProps) {
                                 <div className="space-y-2">
                                     <Label htmlFor="present_address">Present Address *</Label>
                                     <Textarea
+                                        id="present_address"
+                                        name="present_address"
+                                        autoComplete="street-address"
                                         value={data.present_address}
                                         onChange={(e) => setData('present_address', e.target.value)}
                                         placeholder="Enter complete address"
@@ -310,6 +402,8 @@ export default function EditPatient({ patient }: EditPatientProps) {
                                         <Label htmlFor="telephone_no">Telephone No.</Label>
                                         <Input
                                             id="telephone_no"
+                                            name="telephone_no"
+                                            autoComplete="tel"
                                             value={data.telephone_no}
                                             onChange={(e) => setData('telephone_no', e.target.value)}
                                         />
@@ -318,6 +412,8 @@ export default function EditPatient({ patient }: EditPatientProps) {
                                         <Label htmlFor="mobile_no">Mobile No. *</Label>
                                         <Input
                                             id="mobile_no"
+                                            name="mobile_no"
+                                            autoComplete="tel"
                                             value={data.mobile_no}
                                             onChange={(e) => setData('mobile_no', e.target.value)}
                                             className={errors.mobile_no ? 'border-red-500' : ''}
@@ -409,7 +505,7 @@ export default function EditPatient({ patient }: EditPatientProps) {
                         <CardContent>
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="mode_of_arrival">Mode of Arrival *</Label>
+                                    <Label htmlFor="mode_of_arrival">Mode of Arrival</Label>
                                     <Input
                                         id="mode_of_arrival"
                                         value={data.mode_of_arrival}
@@ -539,7 +635,7 @@ export default function EditPatient({ patient }: EditPatientProps) {
                             <div className="space-y-6">
                                 <div className="grid gap-6 md:grid-cols-2">
                                     <div className="space-y-2">
-                                        <Label htmlFor="reason_for_consult">Reason for Consult *</Label>
+                                        <Label htmlFor="reason_for_consult">Reason for Consult</Label>
                                         <Textarea
                                             value={data.reason_for_consult}
                                             onChange={(e) => setData('reason_for_consult', e.target.value)}
@@ -633,6 +729,7 @@ export default function EditPatient({ patient }: EditPatientProps) {
                                             onChange={(e) => setData('lmp', e.target.value)}
                                             placeholder="Date of last period"
                                         />
+                                        {errors.lmp && <p className="text-sm text-red-500">{errors.lmp}</p>}
                                     </div>
                                 </div>
 
