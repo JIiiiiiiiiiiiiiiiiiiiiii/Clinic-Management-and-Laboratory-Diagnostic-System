@@ -18,21 +18,21 @@ const patientNavItems: NavItem[] = [
         href: '/patient/records',
         icon: FileText,
     },
-    {
-        title: 'Appointments',
-        href: '/patient/appointments',
-        icon: Calendar,
-    },
-    {
-        title: 'Test Results',
-        href: '/patient/test-results',
-        icon: Heart,
-    },
-    {
-        title: 'Profile',
-        href: '/patient/profile',
-        icon: User,
-    },
+    // {
+    //     title: 'Appointments',
+    //     href: '/patient/appointments',
+    //     icon: Calendar,
+    // },
+    // {
+    //     title: 'Test Results',
+    //     href: '/patient/test-results',
+    //     icon: Heart,
+    // },
+    // {
+    //     title: 'Profile',
+    //     href: '/patient/profile',
+    //     icon: User,
+    // },
 ];
 
 const footerNavItems: NavItem[] = [
@@ -63,7 +63,7 @@ export function PatientSidebar() {
             </SidebarContent>
 
             <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
+                {/* <NavFooter items={footerNavItems} className="mt-auto" /> */}
                 <NavUser />
             </SidebarFooter>
         </Sidebar>

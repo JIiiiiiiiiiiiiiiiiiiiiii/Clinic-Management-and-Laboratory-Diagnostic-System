@@ -10,7 +10,7 @@ import { Calendar, Clock, FileText, Heart, MapPin, User } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Patient Dashboard',
+        title: 'Dashboard',
         href: '/patient/dashboard',
     },
 ];
@@ -51,10 +51,10 @@ export default function PatientDashboard() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Patient Dashboard" />
+            <Head title="Dashboard" />
             <div className="min-h-screen bg-gray-50 p-6">
                 <div className="mb-8">
-                    <h1 className="mb-2 text-3xl font-bold text-gray-900">Welcome back, {patientData.name}!</h1>
+                    <h1 className="mb-2 text-3xl font-bold text-gray-900">Welcome back! {/*, {patientData.name}!*/ } </h1>
                     <p className="text-gray-500">Here's an overview of your health information and upcoming appointments.</p>
                 </div>
 

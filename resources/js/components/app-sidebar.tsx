@@ -4,7 +4,20 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BarChart3, BookOpen, BookUser, BriefcaseMedical, CalendarClock, Folder, LayoutGrid, Settings, Shield, Table2, Wallet } from 'lucide-react';
+import {
+    BarChart3,
+    BookOpen,
+    BookUser,
+    BriefcaseMedical,
+    CalendarClock,
+    Folder,
+    LayoutGrid,
+    Settings,
+    Shield,
+    Stethoscope,
+    Table2,
+    Wallet,
+} from 'lucide-react';
 import AppLogo from './app-logo';
 
 export function AppSidebar() {
@@ -24,6 +37,12 @@ export function AppSidebar() {
             href: '/admin/patient',
             icon: BookUser,
             requiredPermission: 'canAccessPatients',
+        },
+        {
+            title: 'Doctor Management',
+            href: '/admin/doctors',
+            icon: Stethoscope,
+            requiredPermission: 'canAccessSettings',
         },
         {
             title: 'Laboratory Diagnostics',

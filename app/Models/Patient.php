@@ -112,4 +112,10 @@ class Patient extends Model
               ->orWhere('mobile_no', 'like', "%{$search}%");
         });
     }
+
+    // Relationship with lab orders
+    public function labOrders()
+    {
+        return $this->hasMany(LabOrder::class);
+    }
 }

@@ -91,7 +91,7 @@ export const columns: ColumnDef<PatientItem>[] = [
     {
         accessorKey: 'age',
         header: 'Age',
-        cell: ({ row }) => <div className="text-sm">{row.getValue('age')} years</div>,
+        cell: ({ row }) => <div className="text-sm">{row.getValue('age')}</div>,
     },
     {
         accessorKey: 'sex',

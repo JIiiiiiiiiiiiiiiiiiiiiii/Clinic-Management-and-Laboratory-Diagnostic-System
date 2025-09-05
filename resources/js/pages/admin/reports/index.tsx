@@ -1,16 +1,22 @@
-import React, { useState } from 'react';
-import AppLayout from '@/layouts/app-layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, TrendingUp, Users, DollarSign, FileText, BarChart3, PieChart, Download, Filter, CalendarDays, MoreHorizontal } from 'lucide-react';
+import AppLayout from '@/layouts/app-layout';
+import { DollarSign, Download, FileText, Filter, MoreHorizontal, TrendingUp, Users } from 'lucide-react';
+import { useState } from 'react';
 
 interface ReportData {
     id: number;
@@ -46,7 +52,7 @@ const mockReportData: ReportData[] = [
         generatedBy: 'Admin User',
         status: 'Generated',
         lastGenerated: '2025-01-15 10:30 AM',
-        downloadUrl: '/reports/financial-jan-2025.pdf'
+        downloadUrl: '/reports/financial-jan-2025.pdf',
     },
     {
         id: 2,
@@ -56,7 +62,7 @@ const mockReportData: ReportData[] = [
         generatedBy: 'Admin User',
         status: 'Generated',
         lastGenerated: '2025-01-10 02:15 PM',
-        downloadUrl: '/reports/demographics-q4-2024.pdf'
+        downloadUrl: '/reports/demographics-q4-2024.pdf',
     },
     {
         id: 3,
@@ -66,7 +72,7 @@ const mockReportData: ReportData[] = [
         generatedBy: 'Admin User',
         status: 'Generated',
         lastGenerated: '2025-01-14 09:45 AM',
-        downloadUrl: '/reports/inventory-jan-2025.pdf'
+        downloadUrl: '/reports/inventory-jan-2025.pdf',
     },
     {
         id: 4,
@@ -75,7 +81,7 @@ const mockReportData: ReportData[] = [
         dateRange: 'December 2024',
         generatedBy: 'Admin User',
         status: 'Processing',
-        lastGenerated: '2025-01-15 11:20 AM'
+        lastGenerated: '2025-01-15 11:20 AM',
     },
     {
         id: 5,
@@ -84,8 +90,8 @@ const mockReportData: ReportData[] = [
         dateRange: 'Q4 2024',
         generatedBy: 'Admin User',
         status: 'Failed',
-        lastGenerated: '2025-01-12 03:30 PM'
-    }
+        lastGenerated: '2025-01-12 03:30 PM',
+    },
 ];
 
 const mockFinancialData: FinancialData[] = [
@@ -94,19 +100,19 @@ const mockFinancialData: FinancialData[] = [
     { month: 'Mar', revenue: 145000, expenses: 98000, profit: 47000, patientCount: 168 },
     { month: 'Apr', revenue: 132000, expenses: 89000, profit: 43000, patientCount: 135 },
     { month: 'May', revenue: 158000, expenses: 105000, profit: 53000, patientCount: 189 },
-    { month: 'Jun', revenue: 167000, expenses: 112000, profit: 55000, patientCount: 203 }
+    { month: 'Jun', revenue: 167000, expenses: 112000, profit: 55000, patientCount: 203 },
 ];
 
 const mockPatientStats: PatientStats[] = [
     { category: 'New Patients', count: 45, percentage: 22.2 },
     { category: 'Returning Patients', count: 89, percentage: 43.8 },
     { category: 'Emergency Cases', count: 23, percentage: 11.3 },
-    { category: 'Follow-up Visits', count: 46, percentage: 22.7 }
+    { category: 'Follow-up Visits', count: 46, percentage: 22.7 },
 ];
 
 const breadcrumbs = [
     { label: 'Dashboard', href: '/admin/dashboard' },
-    { label: 'Reports & Analytics', href: '/admin/reports' }
+    { label: 'Reports & Analytics', href: '/admin/reports' },
 ];
 
 export default function ReportsAndAnalytics() {
@@ -114,7 +120,7 @@ export default function ReportsAndAnalytics() {
     const [dateRange, setDateRange] = useState('month');
     const [showGenerateDialog, setShowGenerateDialog] = useState(false);
 
-    const filteredReports = mockReportData.filter(report => {
+    const filteredReports = mockReportData.filter((report) => {
         return selectedReportType === 'all' || report.type.toLowerCase() === selectedReportType.toLowerCase();
     });
 
@@ -145,9 +151,7 @@ export default function ReportsAndAnalytics() {
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
-                        <p className="text-muted-foreground">
-                            Generate comprehensive reports and analyze clinic performance
-                        </p>
+                        <p className="text-muted-foreground">Generate comprehensive reports and analyze clinic performance</p>
                     </div>
                     <Button onClick={() => setShowGenerateDialog(true)} className="flex items-center gap-2">
                         <FileText className="h-4 w-4" />
@@ -164,9 +168,7 @@ export default function ReportsAndAnalytics() {
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">₱{totalRevenue.toLocaleString()}</div>
-                            <p className="text-xs text-muted-foreground">
-                                Last 6 months
-                            </p>
+                            <p className="text-xs text-muted-foreground">Last 6 months</p>
                         </CardContent>
                     </Card>
 
@@ -177,9 +179,7 @@ export default function ReportsAndAnalytics() {
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">₱{totalProfit.toLocaleString()}</div>
-                            <p className="text-xs text-muted-foreground">
-                                Net profit margin
-                            </p>
+                            <p className="text-xs text-muted-foreground">Net profit margin</p>
                         </CardContent>
                     </Card>
 
@@ -190,9 +190,7 @@ export default function ReportsAndAnalytics() {
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">{totalPatients}</div>
-                            <p className="text-xs text-muted-foreground">
-                                Last 6 months
-                            </p>
+                            <p className="text-xs text-muted-foreground">Last 6 months</p>
                         </CardContent>
                     </Card>
 
@@ -202,10 +200,8 @@ export default function ReportsAndAnalytics() {
                             <FileText className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{mockReportData.filter(r => r.status === 'Generated').length}</div>
-                            <p className="text-xs text-muted-foreground">
-                                This month
-                            </p>
+                            <div className="text-2xl font-bold">{mockReportData.filter((r) => r.status === 'Generated').length}</div>
+                            <p className="text-xs text-muted-foreground">This month</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -273,7 +269,7 @@ export default function ReportsAndAnalytics() {
                                 <CardDescription>Generate and view financial reports</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <div className="flex items-center gap-4 mb-4">
+                                <div className="mb-4 flex items-center gap-4">
                                     <Select value={dateRange} onValueChange={setDateRange}>
                                         <SelectTrigger className="w-[180px]">
                                             <SelectValue placeholder="Select date range" />
@@ -286,7 +282,7 @@ export default function ReportsAndAnalytics() {
                                         </SelectContent>
                                     </Select>
                                     <Button variant="outline">
-                                        <Download className="h-4 w-4 mr-2" />
+                                        <Download className="mr-2 h-4 w-4" />
                                         Export Data
                                     </Button>
                                 </div>
@@ -331,7 +327,7 @@ export default function ReportsAndAnalytics() {
                             <CardContent>
                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     <div>
-                                        <h4 className="font-medium mb-3">Patient Growth</h4>
+                                        <h4 className="mb-3 font-medium">Patient Growth</h4>
                                         <div className="space-y-2">
                                             {mockFinancialData.map((data, index) => (
                                                 <div key={index} className="flex items-center justify-between">
@@ -342,7 +338,7 @@ export default function ReportsAndAnalytics() {
                                         </div>
                                     </div>
                                     <div>
-                                        <h4 className="font-medium mb-3">Category Distribution</h4>
+                                        <h4 className="mb-3 font-medium">Category Distribution</h4>
                                         <div className="space-y-2">
                                             {mockPatientStats.map((stat, index) => (
                                                 <div key={index} className="flex items-center justify-between">
@@ -367,13 +363,13 @@ export default function ReportsAndAnalytics() {
                                 <CardDescription>View and manage all generated reports</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <div className="flex items-center gap-4 mb-4">
+                                <div className="mb-4 flex items-center gap-4">
                                     <Select value={selectedReportType} onValueChange={setSelectedReportType}>
                                         <SelectTrigger className="w-[180px]">
                                             <SelectValue placeholder="All Report Types" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {reportTypes.map(type => (
+                                            {reportTypes.map((type) => (
                                                 <SelectItem key={type} value={type}>
                                                     {type === 'all' ? 'All Types' : type}
                                                 </SelectItem>
@@ -381,7 +377,7 @@ export default function ReportsAndAnalytics() {
                                         </SelectContent>
                                     </Select>
                                     <Button variant="outline">
-                                        <Filter className="h-4 w-4 mr-2" />
+                                        <Filter className="mr-2 h-4 w-4" />
                                         Filter
                                     </Button>
                                 </div>
@@ -405,13 +401,9 @@ export default function ReportsAndAnalytics() {
                                                 <TableCell>{report.dateRange}</TableCell>
                                                 <TableCell>{report.generatedBy}</TableCell>
                                                 <TableCell>
-                                                    <Badge className={getStatusBadge(report.status)}>
-                                                        {report.status}
-                                                    </Badge>
+                                                    <Badge className={getStatusBadge(report.status)}>{report.status}</Badge>
                                                 </TableCell>
-                                                <TableCell className="text-sm text-muted-foreground">
-                                                    {report.lastGenerated}
-                                                </TableCell>
+                                                <TableCell className="text-sm text-muted-foreground">{report.lastGenerated}</TableCell>
                                                 <TableCell>
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
@@ -423,16 +415,14 @@ export default function ReportsAndAnalytics() {
                                                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                                             {report.status === 'Generated' && report.downloadUrl && (
                                                                 <DropdownMenuItem>
-                                                                    <Download className="h-4 w-4 mr-2" />
+                                                                    <Download className="mr-2 h-4 w-4" />
                                                                     Download
                                                                 </DropdownMenuItem>
                                                             )}
                                                             <DropdownMenuItem>View Details</DropdownMenuItem>
                                                             <DropdownMenuItem>Regenerate</DropdownMenuItem>
                                                             <DropdownMenuSeparator />
-                                                            <DropdownMenuItem className="text-red-600">
-                                                                Delete
-                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
                                                 </TableCell>
@@ -451,9 +441,7 @@ export default function ReportsAndAnalytics() {
                 <DialogContent className="max-w-md">
                     <DialogHeader>
                         <DialogTitle>Generate New Report</DialogTitle>
-                        <DialogDescription>
-                            Select report type and parameters
-                        </DialogDescription>
+                        <DialogDescription>Select report type and parameters</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                         <div className="space-y-2">

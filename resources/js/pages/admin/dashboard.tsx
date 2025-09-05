@@ -269,6 +269,30 @@ export default function Dashboard() {
                                 </Card>
                             )}
 
+                            {/* Doctor Management Module - Admin Only */}
+                            {permissions.canAccessInventory && (
+                                <Card className="shadow-sm transition-shadow hover:shadow-md">
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <UserCheck className="h-5 w-5 text-blue-500" />
+                                            Doctor Management
+                                        </CardTitle>
+                                        <CardDescription>Manage clinic doctors and their information</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-2">
+                                            <div className="text-sm text-gray-600">Active doctors: 5</div>
+                                            <div className="text-sm text-gray-600">Total doctors: 7</div>
+                                        </div>
+                                    </CardContent>
+                                    <CardContent className="pt-0">
+                                        <Button asChild className="w-full">
+                                            <Link href="/admin/doctors">Manage Doctors</Link>
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            )}
+
                             {/* Inventory Module - Admin Only */}
                             {permissions.canAccessInventory && (
                                 <Card className="shadow-sm transition-shadow hover:shadow-md">

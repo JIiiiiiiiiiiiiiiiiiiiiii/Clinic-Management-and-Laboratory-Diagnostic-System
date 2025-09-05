@@ -8,7 +8,7 @@ import { Head } from '@inertiajs/react';
 import { Calendar, FileText, Heart, User } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Patient Dashboard', href: '/patient/dashboard' },
+    { title: 'Dashboard', href: '/patient/dashboard' },
     { title: 'Medical Records', href: '/patient/records' },
 ];
 

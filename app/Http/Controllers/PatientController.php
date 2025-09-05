@@ -130,7 +130,7 @@ class PatientController extends Controller
             // Create the patient
             $patient = Patient::create($validated);
 
-            return redirect()->route('patient.index')
+            return redirect()->route('admin.patient.index')
                 ->with('success', 'Patient created successfully!')
                 ->with('created_patient', [
                     'id' => $patient->id,
@@ -148,8 +148,11 @@ class PatientController extends Controller
 
     public function show(Patient $patient)
     {
+        $labOrders = $patient->labOrders()->with(['labTests', 'orderedBy'])->latest()->get();
+
         return Inertia::render('admin/patient/show', [
-            'patient' => $patient
+            'patient' => $patient,
+            'labOrders' => $labOrders
         ]);
     }
 
@@ -244,7 +247,7 @@ class PatientController extends Controller
             // Update the patient
             $patient->update($validated);
 
-            return redirect()->route('patient.index')->with('success', 'Patient updated successfully!');
+            return redirect()->route('admin.patient.index')->with('success', 'Patient updated successfully!');
         } catch (\Throwable $e) {
             return back()
                 ->with('error', 'Failed to update patient: '.($e->getMessage()))
@@ -256,6 +259,6 @@ class PatientController extends Controller
     {
         $patient->delete();
 
-        return redirect()->route('patient.index')->with('success', 'Patient deleted successfully!');
+        return redirect()->route('admin.patient.index')->with('success', 'Patient deleted successfully!');
     }
 }

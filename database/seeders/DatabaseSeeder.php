@@ -21,8 +21,16 @@ class DatabaseSeeder extends Seeder
             'email' => 'test@example.com',
         ]);
 
+<<<<<<< HEAD
         // Use PatientSeeder for patient data
     $this->call(PatientSeeder::class);
     $this->call(PatientSampleSeeder::class);
+=======
+        // Create some sample patients
+        Patient::factory(20)->create();
+
+        // Seed default laboratory tests
+        $this->call(LabTestSeeder::class);
+>>>>>>> 1151d07325a75e0ff040c61f6a6d7657275fd9ba
     }
 }

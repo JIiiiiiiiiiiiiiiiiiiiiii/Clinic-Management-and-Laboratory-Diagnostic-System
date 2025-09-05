@@ -1,14 +1,16 @@
-import AppLogoIcon from './app-logo-icon';
+import logo from '../../assets/St._James-removebg-preview.png';
 
 export default function AppLogo() {
     return (
-        <>
-            <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-                <AppLogoIcon className="size-5 fill-current text-white dark:text-black" />
-            </div>
-            <div className="ml-1 grid flex-1 text-left text-sm">
-                <span className="mb-0.5 truncate leading-tight font-semibold">St.James Admin</span>
-            </div>
-        </>
+        <div className="flex items-center gap-2">
+            <img
+                src={logo}
+                alt="St. James Hospital Logo"
+                style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', background: '#fff' }}
+            />
+            <span className="ml-1 text-base font-bold" style={{ whiteSpace: 'nowrap', color: '#000' }}>
+                St. James Hospital
+            </span>
+        </div>
     );
 }

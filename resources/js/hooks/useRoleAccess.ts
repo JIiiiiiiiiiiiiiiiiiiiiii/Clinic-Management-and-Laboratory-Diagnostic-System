@@ -46,7 +46,7 @@ export function useRoleAccess() {
     const permissions: RolePermissions = {
         // Module Access - Only staff can access admin panel
         canAccessPatients: isStaff,
-        canAccessLaboratory: isLabStaff || isAdmin,
+        canAccessLaboratory: isLabStaff || isDoctor || isAdmin,
         canAccessBilling: isCashier || isAdmin,
         canAccessAppointments: isDoctor || isAdmin,
         canAccessInventory: isAdmin,
