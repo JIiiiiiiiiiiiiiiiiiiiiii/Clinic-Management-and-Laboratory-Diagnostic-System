@@ -15,7 +15,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { PatientItem } from '@/types/patients';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, TestTube, Trash2 } from 'lucide-react';
 import * as React from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -31,9 +31,10 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 interface ShowPatientProps {
     patient: PatientItem;
+    labOrders?: any[];
 }
 
-export default function ShowPatient({ patient }: ShowPatientProps) {
+export default function ShowPatient({ patient, labOrders = [] }: ShowPatientProps) {
     const [confirmOpen, setConfirmOpen] = React.useState(false);
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('en-US', {
@@ -441,6 +442,90 @@ export default function ShowPatient({ patient }: ShowPatientProps) {
                             <p className="text-sm font-medium text-muted-foreground">Assessment/Diagnosis</p>
                             <p className="text-sm">{patient.assessment_diagnosis || 'No assessment recorded'}</p>
                         </div>
+                    </CardContent>
+                </Card>
+
+                {/* Laboratory Orders */}
+                <Card>
+                    <CardHeader>
+                        <div className="flex items-center justify-between">
+                            <CardTitle>Laboratory Orders</CardTitle>
+                            <Button onClick={() => router.visit(`/admin/laboratory/patients/${patient.id}/orders`)}>
+                                <TestTube className="mr-2 h-4 w-4" />
+                                Manage Lab Orders
+                            </Button>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        {labOrders && labOrders.length > 0 ? (
+                            <div className="space-y-4">
+                                {labOrders.map((order: any) => (
+                                    <div key={order.id} className="rounded-lg border p-4">
+                                        <div className="mb-2 flex items-center justify-between">
+                                            <h4 className="font-semibold">Order #{order.id}</h4>
+                                            <Badge
+                                                variant={
+                                                    order.status === 'completed' ? 'default' : order.status === 'processing' ? 'secondary' : 'outline'
+                                                }
+                                            >
+                                                {order.status}
+                                            </Badge>
+                                        </div>
+                                        <div className="mb-2 text-sm text-muted-foreground">
+                                            <p>
+                                                <strong>Ordered by:</strong> {order.ordered_by?.name || 'Unknown'}
+                                            </p>
+                                            <p>
+                                                <strong>Date:</strong> {new Date(order.created_at).toLocaleDateString()}
+                                            </p>
+                                            {order.notes && (
+                                                <p>
+                                                    <strong>Notes:</strong> {order.notes}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="mb-3">
+                                            <p className="mb-1 text-sm font-medium">Tests Ordered:</p>
+                                            <div className="flex flex-wrap gap-1">
+                                                {order.lab_tests?.map((test: any) => (
+                                                    <Badge key={test.id} variant="outline" className="text-xs">
+                                                        {test.name}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => router.visit(`/admin/laboratory/orders/${order.id}/results`)}
+                                            >
+                                                Enter Results
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => window.open(`/admin/laboratory/orders/${order.id}/report`, '_blank')}
+                                            >
+                                                Generate Report
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="py-8 text-center">
+                                <TestTube className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                                <h3 className="mb-2 text-lg font-semibold">No Lab Orders Yet</h3>
+                                <p className="mb-4 text-muted-foreground">
+                                    Create laboratory orders for this patient to track diagnostic tests and results.
+                                </p>
+                                <Button onClick={() => router.visit(`/admin/laboratory/patients/${patient.id}/orders`)}>
+                                    <TestTube className="mr-2 h-4 w-4" />
+                                    Create Lab Order
+                                </Button>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 

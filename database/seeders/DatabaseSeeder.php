@@ -23,5 +23,8 @@ class DatabaseSeeder extends Seeder
 
         // Create some sample patients
         Patient::factory(20)->create();
+
+        // Seed default laboratory tests
+        $this->call(LabTestSeeder::class);
     }
 }
