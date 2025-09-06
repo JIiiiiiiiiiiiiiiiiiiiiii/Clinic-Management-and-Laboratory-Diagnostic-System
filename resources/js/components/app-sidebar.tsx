@@ -51,7 +51,7 @@ export function AppSidebar() {
             requiredPermission: 'canAccessLaboratory',
         },
         {
-            title: 'Inventory Management',
+            title: 'Supply Management',
             href: '/admin/inventory',
             icon: BriefcaseMedical,
             requiredPermission: 'canAccessInventory',

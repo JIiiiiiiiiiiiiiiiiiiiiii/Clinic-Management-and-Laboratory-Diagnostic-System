@@ -49,7 +49,7 @@ export function useRoleAccess() {
         canAccessLaboratory: isLabStaff || isDoctor || isAdmin,
         canAccessBilling: isCashier || isAdmin,
         canAccessAppointments: isDoctor || isAdmin,
-        canAccessInventory: isAdmin,
+        canAccessInventory: isStaff, // All staff can access inventory
         canAccessReports: isAdmin,
         canAccessSettings: isAdmin,
         canAccessAdminPanel: isStaff, // Patients cannot access admin panel

@@ -26,5 +26,7 @@ class DatabaseSeeder extends Seeder
 
         // Seed default laboratory tests
         $this->call(LabTestSeeder::class);
+        $this->call(UserRoleSeeder::class);
+        $this->call(InventorySeeder::class);
     }
 }

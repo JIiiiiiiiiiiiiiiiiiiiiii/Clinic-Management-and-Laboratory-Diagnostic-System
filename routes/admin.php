@@ -6,6 +6,10 @@ use App\Http\Controllers\Lab\LabOrderController;
 use App\Http\Controllers\Lab\LabResultController;
 use App\Http\Controllers\Lab\LabReportController;
 use App\Http\Controllers\Admin\DoctorController;
+use App\Http\Controllers\Inventory\InventoryController;
+use App\Http\Controllers\Inventory\ProductController;
+use App\Http\Controllers\Inventory\TransactionController;
+use App\Http\Controllers\Inventory\ReportController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -113,6 +117,30 @@ Route::middleware(['auth', 'verified'])
                 Route::get('/', function () {
                     return Inertia::render('admin/settings/index');
                 })->name('index');
+            });
+
+            // Inventory routes - All authenticated staff can access
+            Route::prefix('inventory')->name('inventory.')->group(function () {
+                Route::get('/', [InventoryController::class, 'index'])->name('index');
+
+                // Products
+                Route::resource('products', ProductController::class);
+
+                // Transactions
+                Route::resource('transactions', TransactionController::class);
+                Route::post('transactions/{transaction}/approve', [TransactionController::class, 'approve'])->name('transactions.approve');
+                Route::post('transactions/{transaction}/reject', [TransactionController::class, 'reject'])->name('transactions.reject');
+
+                // Reports
+                Route::prefix('reports')->name('reports.')->group(function () {
+                    Route::get('/', [ReportController::class, 'index'])->name('index');
+                    Route::get('used-supplies', [ReportController::class, 'usedSupplies'])->name('used-supplies');
+                    Route::get('rejected-supplies', [ReportController::class, 'rejectedSupplies'])->name('rejected-supplies');
+                    Route::get('in-out-supplies', [ReportController::class, 'inOutSupplies'])->name('in-out-supplies');
+                    Route::get('stock-levels', [ReportController::class, 'stockLevels'])->name('stock-levels');
+                    Route::get('daily-consumption', [ReportController::class, 'dailyConsumption'])->name('daily-consumption');
+                    Route::get('usage-by-location', [ReportController::class, 'usageByLocation'])->name('usage-by-location');
+                });
             });
         });
     });
