@@ -49,10 +49,6 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
     const nv = (v?: string | null) => v ?? '';
     const nn = (v?: number | null) => v ?? 0;
     const { data, setData, processing, errors, reset } = useForm({
-        // Arrival Information
-        arrival_date: normalizeDate(patient.arrival_date),
-        arrival_time: normalizeTime(patient.arrival_time),
-
         // Patient Identification
         last_name: nv(patient.last_name),
         first_name: nv(patient.first_name),
@@ -65,7 +61,6 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
         // Demographics
         occupation: nv(patient.occupation),
         religion: nv(patient.religion),
-        attending_physician: nv(patient.attending_physician),
         civil_status: nv(patient.civil_status),
         nationality: nv(patient.nationality),
 
@@ -85,33 +80,13 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
         validation_approval_code: nv(patient.validation_approval_code),
         validity: nv(patient.validity),
 
-        // Emergency Staff Nurse Section
-        mode_of_arrival: nv(patient.mode_of_arrival),
+        // Medical History & Allergies
         drug_allergies: nv(patient.drug_allergies),
         food_allergies: nv(patient.food_allergies),
-
-        // Vital Signs
-        blood_pressure: nv(patient.blood_pressure),
-        heart_rate: nv(patient.heart_rate),
-        respiratory_rate: nv(patient.respiratory_rate),
-        temperature: nv(patient.temperature),
-        weight_kg: nn(patient.weight_kg as unknown as number),
-        height_cm: nn(patient.height_cm as unknown as number),
-        pain_assessment_scale: nv(patient.pain_assessment_scale),
-        oxygen_saturation: nv(patient.oxygen_saturation),
-
-        // Medical Assessment
-        reason_for_consult: nv(patient.reason_for_consult),
-        time_seen: normalizeTime(patient.time_seen),
-        history_of_present_illness: nv(patient.history_of_present_illness),
-        pertinent_physical_findings: nv(patient.pertinent_physical_findings),
-        plan_management: nv(patient.plan_management),
         past_medical_history: nv(patient.past_medical_history),
         family_history: nv(patient.family_history),
         social_personal_history: nv(patient.social_personal_history),
         obstetrics_gynecology_history: nv(patient.obstetrics_gynecology_history),
-        lmp: nv(patient.lmp),
-        assessment_diagnosis: nv(patient.assessment_diagnosis),
     });
 
     // Keep age consistent if birthdate changes
@@ -133,20 +108,16 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
     const submit: React.FormEventHandler = (e) => {
         e.preventDefault();
         const requiredChecks: Array<{ key: keyof typeof data; label: string; isValid: (v: any) => boolean }> = [
-            { key: 'arrival_date', label: 'Arrival Date', isValid: (v) => Boolean(v) },
-            { key: 'arrival_time', label: 'Arrival Time', isValid: (v) => Boolean(v) },
             { key: 'last_name', label: 'Last Name', isValid: (v) => Boolean(v) },
             { key: 'first_name', label: 'First Name', isValid: (v) => Boolean(v) },
             { key: 'birthdate', label: 'Birthdate', isValid: (v) => Boolean(v) },
             { key: 'age', label: 'Age', isValid: (v) => Number(v) > 0 },
             { key: 'sex', label: 'Sex', isValid: (v) => Boolean(v) },
-            { key: 'attending_physician', label: 'Attending Physician', isValid: (v) => Boolean(v) },
             { key: 'civil_status', label: 'Civil Status', isValid: (v) => Boolean(v) },
             { key: 'present_address', label: 'Present Address', isValid: (v) => Boolean(v) },
             { key: 'mobile_no', label: 'Mobile No.', isValid: (v) => Boolean(v) },
             { key: 'informant_name', label: 'Informant Name', isValid: (v) => Boolean(v) },
             { key: 'relationship', label: 'Relationship', isValid: (v) => Boolean(v) },
-            { key: 'time_seen', label: 'Time Seen', isValid: (v) => Boolean(v) },
         ];
         const missing = requiredChecks.filter((c) => !c.isValid((data as any)[c.key]));
         if (missing.length > 0) {
@@ -219,38 +190,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                 </AlertDialog>
 
                 <form onSubmit={submit} className="space-y-6">
-                    {/* Arrival Information */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Arrival Information</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid gap-6 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="arrival_date">Arrival Date *</Label>
-                                    <Input
-                                        id="arrival_date"
-                                        type="date"
-                                        value={data.arrival_date}
-                                        onChange={(e) => setData('arrival_date', e.target.value)}
-                                        className={errors.arrival_date ? 'border-red-500' : ''}
-                                    />
-                                    {errors.arrival_date && <p className="text-sm text-red-500">{errors.arrival_date}</p>}
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="arrival_time">Arrival Time *</Label>
-                                    <Input
-                                        id="arrival_time"
-                                        type="time"
-                                        value={data.arrival_time}
-                                        onChange={(e) => setData('arrival_time', e.target.value)}
-                                        className={errors.arrival_time ? 'border-red-500' : ''}
-                                    />
-                                    {errors.arrival_time && <p className="text-sm text-red-500">{errors.arrival_time}</p>}
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    {/* No visit fields in patient edit */}
 
                     {/* Patient Identification */}
                     <Card>
@@ -386,36 +326,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     />
                                 </div>
                             </div>
-                            <div className="mt-6 grid gap-6 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="attending_physician">Attending Physician *</Label>
-                                    {doctors.length > 0 ? (
-                                        <Select
-                                            onValueChange={(value: string) => setData('attending_physician', value)}
-                                            defaultValue={data.attending_physician || undefined}
-                                        >
-                                            <SelectTrigger id="attending_physician" className={errors.attending_physician ? 'border-red-500' : ''}>
-                                                <SelectValue placeholder="Select doctor" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {doctors.map((d) => (
-                                                    <SelectItem key={d.id} value={d.name}>
-                                                        {d.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    ) : (
-                                        <Input
-                                            id="attending_physician"
-                                            name="attending_physician"
-                                            value={data.attending_physician}
-                                            onChange={(e) => setData('attending_physician', e.target.value)}
-                                            className={errors.attending_physician ? 'border-red-500' : ''}
-                                        />
-                                    )}
-                                    {errors.attending_physician && <p className="text-sm text-red-500">{errors.attending_physician}</p>}
-                                </div>
+                            <div className="mt-6 grid gap-6 md:grid-cols-1">
                                 <div className="space-y-2">
                                     <Label htmlFor="civil_status">Civil Status *</Label>
                                     <Select onValueChange={(value: any) => setData('civil_status', value)} defaultValue={data.civil_status}>
@@ -556,253 +467,36 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                         </CardContent>
                     </Card>
 
-                    {/* Emergency Staff Nurse Section */}
+                    {/* Medical History & Allergies */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Emergency Staff Nurse Section</CardTitle>
+                            <CardTitle>Medical History & Allergies</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="grid gap-6 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="mode_of_arrival">Mode of Arrival</Label>
-                                    <Input
-                                        id="mode_of_arrival"
-                                        value={data.mode_of_arrival}
-                                        onChange={(e) => setData('mode_of_arrival', e.target.value)}
-                                        placeholder="e.g., Ambulance, Walk-in, Private vehicle"
-                                        className={errors.mode_of_arrival ? 'border-red-500' : ''}
-                                    />
-                                    {errors.mode_of_arrival && <p className="text-sm text-red-500">{errors.mode_of_arrival}</p>}
-                                </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="drug_allergies">Drug Allergies</Label>
                                     <Input
                                         id="drug_allergies"
                                         value={data.drug_allergies}
                                         onChange={(e) => setData('drug_allergies', e.target.value)}
-                                        placeholder="Enter allergies or NONE"
                                     />
                                 </div>
-                            </div>
-                            <div className="mt-6">
                                 <div className="space-y-2">
                                     <Label htmlFor="food_allergies">Food Allergies</Label>
                                     <Input
                                         id="food_allergies"
                                         value={data.food_allergies}
                                         onChange={(e) => setData('food_allergies', e.target.value)}
-                                        placeholder="Enter allergies or NONE"
                                     />
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* Vital Signs */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Initial Vital Signs</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid gap-6 md:grid-cols-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="blood_pressure">Blood Pressure</Label>
-                                    <Input
-                                        id="blood_pressure"
-                                        value={data.blood_pressure}
-                                        onChange={(e) => setData('blood_pressure', e.target.value)}
-                                        placeholder="e.g., 120/80"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="heart_rate">Heart Rate</Label>
-                                    <Input
-                                        id="heart_rate"
-                                        value={data.heart_rate}
-                                        onChange={(e) => setData('heart_rate', e.target.value)}
-                                        placeholder="bpm"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="respiratory_rate">Respiratory Rate</Label>
-                                    <Input
-                                        id="respiratory_rate"
-                                        value={data.respiratory_rate}
-                                        onChange={(e) => setData('respiratory_rate', e.target.value)}
-                                        placeholder="breaths/min"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="temperature">Temperature</Label>
-                                    <Input
-                                        id="temperature"
-                                        value={data.temperature}
-                                        onChange={(e) => setData('temperature', e.target.value)}
-                                        placeholder="°C"
-                                    />
-                                </div>
-                            </div>
-                            <div className="mt-6 grid gap-6 md:grid-cols-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="weight_kg">Weight (kg)</Label>
-                                    <Input
-                                        id="weight_kg"
-                                        type="number"
-                                        step="0.1"
-                                        value={data.weight_kg}
-                                        onChange={(e) => setData('weight_kg', Number(e.target.value))}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="height_cm">Height (cm)</Label>
-                                    <Input
-                                        id="height_cm"
-                                        type="number"
-                                        step="0.1"
-                                        value={data.height_cm}
-                                        onChange={(e) => setData('height_cm', Number(e.target.value))}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="pain_assessment_scale">Pain Assessment Scale</Label>
-                                    <Input
-                                        id="pain_assessment_scale"
-                                        value={data.pain_assessment_scale}
-                                        onChange={(e) => setData('pain_assessment_scale', e.target.value)}
-                                        placeholder="0-10"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="oxygen_saturation">O2 Saturation</Label>
-                                    <Input
-                                        id="oxygen_saturation"
-                                        value={data.oxygen_saturation}
-                                        onChange={(e) => setData('oxygen_saturation', e.target.value)}
-                                        placeholder="%"
-                                    />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    {/* No vital signs or visit assessment in patient edit */}
 
-                    {/* Medical Assessment */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Medical Assessment</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-6">
-                                <div className="grid gap-6 md:grid-cols-2">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="reason_for_consult">Reason for Consult</Label>
-                                        <Textarea
-                                            value={data.reason_for_consult}
-                                            onChange={(e) => setData('reason_for_consult', e.target.value)}
-                                            placeholder="Primary reason for seeking medical attention"
-                                            className={errors.reason_for_consult ? 'border-red-500' : ''}
-                                        />
-                                        {errors.reason_for_consult && <p className="text-sm text-red-500">{errors.reason_for_consult}</p>}
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="time_seen">Time Seen *</Label>
-                                        <Input
-                                            id="time_seen"
-                                            type="time"
-                                            value={data.time_seen}
-                                            onChange={(e) => setData('time_seen', e.target.value)}
-                                            className={errors.time_seen ? 'border-red-500' : ''}
-                                        />
-                                        {errors.time_seen && <p className="text-sm text-red-500">{errors.time_seen}</p>}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="history_of_present_illness">History of Present Illness</Label>
-                                    <Textarea
-                                        value={data.history_of_present_illness}
-                                        onChange={(e) => setData('history_of_present_illness', e.target.value)}
-                                        placeholder="Detailed history of current symptoms"
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="pertinent_physical_findings">Pertinent Physical Findings</Label>
-                                    <Textarea
-                                        value={data.pertinent_physical_findings}
-                                        onChange={(e) => setData('pertinent_physical_findings', e.target.value)}
-                                        placeholder="Physical examination findings"
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="plan_management">Plan/Management</Label>
-                                    <Textarea
-                                        value={data.plan_management}
-                                        onChange={(e) => setData('plan_management', e.target.value)}
-                                        placeholder="Treatment plan and management"
-                                    />
-                                </div>
-
-                                <div className="grid gap-6 md:grid-cols-2">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="past_medical_history">Past Medical History</Label>
-                                        <Textarea
-                                            value={data.past_medical_history}
-                                            onChange={(e) => setData('past_medical_history', e.target.value)}
-                                            placeholder="Previous medical conditions"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="family_history">Family History</Label>
-                                        <Textarea
-                                            value={data.family_history}
-                                            onChange={(e) => setData('family_history', e.target.value)}
-                                            placeholder="Family medical history"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="social_personal_history">Social/Personal History</Label>
-                                    <Textarea
-                                        value={data.social_personal_history}
-                                        onChange={(e) => setData('social_personal_history', e.target.value)}
-                                        placeholder="Lifestyle, habits, social factors"
-                                    />
-                                </div>
-
-                                <div className="grid gap-6 md:grid-cols-2">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="obstetrics_gynecology_history">Obstetrics & Gynecology History (Female Patients)</Label>
-                                        <Textarea
-                                            value={data.obstetrics_gynecology_history}
-                                            onChange={(e) => setData('obstetrics_gynecology_history', e.target.value)}
-                                            placeholder="Pregnancy history, menstrual history"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="lmp">Last Menstrual Period (LMP)</Label>
-                                        <Input
-                                            id="lmp"
-                                            value={data.lmp}
-                                            onChange={(e) => setData('lmp', e.target.value)}
-                                            placeholder="Date of last period"
-                                        />
-                                        {errors.lmp && <p className="text-sm text-red-500">{errors.lmp}</p>}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="assessment_diagnosis">Assessment/Diagnosis</Label>
-                                    <Textarea
-                                        value={data.assessment_diagnosis}
-                                        onChange={(e) => setData('assessment_diagnosis', e.target.value)}
-                                        placeholder="Clinical assessment and diagnosis"
-                                    />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    {/* No visit assessment in patient edit */}
 
                     <div className="flex items-center justify-end gap-4">
                         <Button asChild variant="outline">

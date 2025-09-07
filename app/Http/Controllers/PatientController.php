@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Patient\StorePatientRequest;
+use App\Http\Requests\Patient\UpdatePatientRequest;
 use App\Models\Patient;
+use App\Services\PatientService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -52,85 +55,25 @@ class PatientController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StorePatientRequest $request, PatientService $patientService)
     {
         try {
-            // Validate the request data
-            $validated = $request->validate([
-            // Arrival Information
-            'arrival_date' => 'required|date',
-            'arrival_time' => 'required',
-
-            // Patient Identification
-            'last_name' => 'required|string|max:255',
-            'first_name' => 'required|string|max:255',
-            'middle_name' => 'nullable|string|max:255',
-            'birthdate' => 'required|date',
-            'age' => 'required|integer|min:0|max:150',
-            'sex' => 'required|in:male,female',
-            'patient_no' => 'nullable|string|unique:patients,patient_no',
-
-            // Demographics
-            'occupation' => 'nullable|string|max:255',
-            'religion' => 'nullable|string|max:255',
-            'attending_physician' => 'required|string|max:255',
-            'civil_status' => 'required|in:single,married,widowed,divorced,separated',
-            'nationality' => 'nullable|string|max:255',
-
-            // Contact Information
-            'present_address' => 'required|string',
-            'telephone_no' => 'nullable|string|max:255',
-            'mobile_no' => 'required|string|max:255',
-
-            // Emergency Contact
-            'informant_name' => 'required|string|max:255',
-            'relationship' => 'required|string|max:255',
-
-            // Financial/Insurance
-            'company_name' => 'nullable|string|max:255',
-            'hmo_name' => 'nullable|string|max:255',
-            'hmo_company_id_no' => 'nullable|string|max:255',
-            'validation_approval_code' => 'nullable|string|max:255',
-            'validity' => 'nullable|string|max:255',
-
-            // Emergency Staff Nurse Section
-            'mode_of_arrival' => 'nullable|string|max:255',
-            'drug_allergies' => 'nullable|string|max:255',
-            'food_allergies' => 'nullable|string|max:255',
-
-            // Vital Signs
-            'blood_pressure' => 'nullable|string|max:255',
-            'heart_rate' => 'nullable|string|max:255',
-            'respiratory_rate' => 'nullable|string|max:255',
-            'temperature' => 'nullable|string|max:255',
-            'weight_kg' => 'nullable|numeric|min:0|max:500',
-            'height_cm' => 'nullable|numeric|min:0|max:300',
-            'pain_assessment_scale' => 'nullable|string|max:255',
-            'oxygen_saturation' => 'nullable|string|max:255',
-
-            // Medical Assessment
-            'reason_for_consult' => 'nullable|string',
-            'time_seen' => 'required',
-            'history_of_present_illness' => 'nullable|string',
-            'pertinent_physical_findings' => 'nullable|string',
-            'plan_management' => 'nullable|string',
-            'past_medical_history' => 'nullable|string',
-            'family_history' => 'nullable|string',
-            'social_personal_history' => 'nullable|string',
-            'obstetrics_gynecology_history' => 'nullable|string',
-            'lmp' => 'nullable|string|max:255',
-            'assessment_diagnosis' => 'nullable|string',
-            ]);
-
-            // Compute age from birthdate to ensure consistency
-            if (isset($validated['birthdate'])) {
-                $validated['age'] = now()->parse($validated['birthdate'])->age;
+            // Check for duplicate patient before validation
+            $duplicatePatient = $patientService->findDuplicate($request->all());
+            if ($duplicatePatient) {
+                return back()
+                    ->with('error', 'A patient with similar information already exists.')
+                    ->with('duplicate_patient', $duplicatePatient)
+                    ->withInput();
             }
 
-            // Create the patient
-            $patient = Patient::create($validated);
+            // Validate the request data
+            $validated = $request->validated();
 
-            return redirect()->route('admin.patient.index')
+            // Create the patient via service
+            $patient = $patientService->createPatient($validated);
+
+            return redirect()->route('admin.patient.show', $patient)
                 ->with('success', 'Patient created successfully!')
                 ->with('created_patient', [
                     'id' => $patient->id,
@@ -148,11 +91,14 @@ class PatientController extends Controller
 
     public function show(Patient $patient)
     {
-        $labOrders = $patient->labOrders()->with(['labTests', 'orderedBy'])->latest()->get();
+        $patient->load(['visits' => function ($query) {
+            $query->orderBy('arrival_date', 'desc')->orderBy('arrival_time', 'desc');
+        }, 'labOrders.labTests', 'labOrders.orderedBy']);
 
         return Inertia::render('admin/patient/show', [
             'patient' => $patient,
-            'labOrders' => $labOrders
+            'visits' => $patient->visits,
+            'labOrders' => $patient->labOrders
         ]);
     }
 
@@ -169,83 +115,13 @@ class PatientController extends Controller
         ]);
     }
 
-    public function update(Request $request, Patient $patient)
+    public function update(UpdatePatientRequest $request, Patient $patient, PatientService $patientService)
     {
         try {
-            // Validate the request data
-            $validated = $request->validate([
-            // Arrival Information
-            'arrival_date' => 'required|date',
-            'arrival_time' => 'required',
+            $validated = $request->validated();
 
-            // Patient Identification
-            'last_name' => 'required|string|max:255',
-            'first_name' => 'required|string|max:255',
-            'middle_name' => 'nullable|string|max:255',
-            'birthdate' => 'required|date',
-            'age' => 'required|integer|min:0|max:150',
-            'sex' => 'required|in:male,female',
-            'patient_no' => ['nullable', 'string', Rule::unique('patients')->ignore($patient->id)],
-
-            // Demographics
-            'occupation' => 'nullable|string|max:255',
-            'religion' => 'nullable|string|max:255',
-            'attending_physician' => 'required|string|max:255',
-            'civil_status' => 'required|in:single,married,widowed,divorced,separated',
-            'nationality' => 'nullable|string|max:255',
-
-            // Contact Information
-            'present_address' => 'required|string',
-            'telephone_no' => 'nullable|string|max:255',
-            'mobile_no' => 'required|string|max:255',
-
-            // Emergency Contact
-            'informant_name' => 'required|string|max:255',
-            'relationship' => 'required|string|max:255',
-
-            // Financial/Insurance
-            'company_name' => 'nullable|string|max:255',
-            'hmo_name' => 'nullable|string|max:255',
-            'hmo_company_id_no' => 'nullable|string|max:255',
-            'validation_approval_code' => 'nullable|string|max:255',
-            'validity' => 'nullable|string|max:255',
-
-            // Emergency Staff Nurse Section
-            'mode_of_arrival' => 'nullable|string|max:255',
-            'drug_allergies' => 'nullable|string|max:255',
-            'food_allergies' => 'nullable|string|max:255',
-
-            // Vital Signs
-            'blood_pressure' => 'nullable|string|max:255',
-            'heart_rate' => 'nullable|string|max:255',
-            'respiratory_rate' => 'nullable|string|max:255',
-            'temperature' => 'nullable|string|max:255',
-            'weight_kg' => 'nullable|numeric|min:0|max:500',
-            'height_cm' => 'nullable|numeric|min:0|max:300',
-            'pain_assessment_scale' => 'nullable|string|max:255',
-            'oxygen_saturation' => 'nullable|string|max:255',
-
-            // Medical Assessment
-            'reason_for_consult' => 'nullable|string',
-            'time_seen' => 'required',
-            'history_of_present_illness' => 'nullable|string',
-            'pertinent_physical_findings' => 'nullable|string',
-            'plan_management' => 'nullable|string',
-            'past_medical_history' => 'nullable|string',
-            'family_history' => 'nullable|string',
-            'social_personal_history' => 'nullable|string',
-            'obstetrics_gynecology_history' => 'nullable|string',
-            'lmp' => 'nullable|string|max:255',
-            'assessment_diagnosis' => 'nullable|string',
-            ]);
-
-            // Compute age from birthdate to ensure consistency
-            if (isset($validated['birthdate'])) {
-                $validated['age'] = now()->parse($validated['birthdate'])->age;
-            }
-
-            // Update the patient
-            $patient->update($validated);
+            // Update the patient via service
+            $patientService->updatePatient($patient, $validated);
 
             return redirect()->route('admin.patient.index')->with('success', 'Patient updated successfully!');
         } catch (\Throwable $e) {
@@ -260,5 +136,40 @@ class PatientController extends Controller
         $patient->delete();
 
         return redirect()->route('admin.patient.index')->with('success', 'Patient deleted successfully!');
+    }
+
+    /**
+     * Find potential duplicate patient based on core identifying information
+     */
+    private function findDuplicatePatient(Request $request)
+    {
+        $lastName = $request->input('last_name');
+        $firstName = $request->input('first_name');
+        $birthdate = $request->input('birthdate');
+        $mobileNo = $request->input('mobile_no');
+
+        // Check for exact matches on core identifying information
+        $duplicate = Patient::where('last_name', $lastName)
+            ->where('first_name', $firstName)
+            ->where('birthdate', $birthdate)
+            ->first();
+
+        if ($duplicate) {
+            return $duplicate;
+        }
+
+        // Check for mobile number match (alternative identifier)
+        if ($mobileNo) {
+            $duplicate = Patient::where('mobile_no', $mobileNo)
+                ->where('last_name', $lastName)
+                ->where('first_name', $firstName)
+                ->first();
+
+            if ($duplicate) {
+                return $duplicate;
+            }
+        }
+
+        return null;
     }
 }

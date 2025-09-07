@@ -11,10 +11,6 @@ class Patient extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        // Arrival Information
-        'arrival_date',
-        'arrival_time',
-
         // Patient Identification
         'last_name',
         'first_name',
@@ -27,7 +23,6 @@ class Patient extends Model
         // Demographics
         'occupation',
         'religion',
-        'attending_physician',
         'civil_status',
         'nationality',
 
@@ -47,43 +42,18 @@ class Patient extends Model
         'validation_approval_code',
         'validity',
 
-        // Emergency Staff Nurse Section
-        'mode_of_arrival',
+        // Medical History & Allergies
         'drug_allergies',
         'food_allergies',
-
-        // Vital Signs
-        'blood_pressure',
-        'heart_rate',
-        'respiratory_rate',
-        'temperature',
-        'weight_kg',
-        'height_cm',
-        'pain_assessment_scale',
-        'oxygen_saturation',
-
-        // Medical Assessment
-        'reason_for_consult',
-        'time_seen',
-        'history_of_present_illness',
-        'pertinent_physical_findings',
-        'plan_management',
         'past_medical_history',
         'family_history',
         'social_personal_history',
         'obstetrics_gynecology_history',
-        'lmp',
-        'assessment_diagnosis',
     ];
 
     protected $casts = [
-        'arrival_date' => 'date',
-        'arrival_time' => 'datetime',
         'birthdate' => 'date',
         'age' => 'integer',
-        'weight_kg' => 'decimal:2',
-        'height_cm' => 'decimal:2',
-        'time_seen' => 'datetime',
     ];
 
     // Accessor for full name
@@ -113,9 +83,19 @@ class Patient extends Model
         });
     }
 
-    // Relationship with lab orders
+    // Relationships
+    public function visits()
+    {
+        return $this->hasMany(PatientVisit::class);
+    }
+
     public function labOrders()
     {
         return $this->hasMany(LabOrder::class);
+    }
+
+    public function latestVisit()
+    {
+        return $this->hasOne(PatientVisit::class)->latest();
     }
 }

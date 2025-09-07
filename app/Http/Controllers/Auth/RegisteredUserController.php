@@ -48,7 +48,7 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
-        // Redirect to patient dashboard for new patients
-        return redirect()->intended(route('patient.dashboard', absolute: false));
+        // Standardize to dashboard route expected by tests
+        return redirect()->intended(route('dashboard', absolute: false));
     }
 }

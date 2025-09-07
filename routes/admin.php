@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\PatientController;
+use App\Http\Controllers\PatientVisitController;
 use App\Http\Controllers\Lab\LabTestController;
 use App\Http\Controllers\Lab\LabOrderController;
 use App\Http\Controllers\Lab\LabResultController;
@@ -33,6 +34,17 @@ Route::middleware(['auth', 'verified'])
             'update' => 'patient.update',
             'destroy' => 'patient.destroy',
         ]);
+
+        // Patient Visit routes - All staff can access
+        Route::prefix('patient/{patient}/visits')->name('patient.visits.')->group(function () {
+            Route::get('/', [PatientVisitController::class, 'index'])->name('index');
+            Route::get('/create', [PatientVisitController::class, 'create'])->name('create');
+            Route::post('/', [PatientVisitController::class, 'store'])->name('store');
+            Route::get('/{visit}', [PatientVisitController::class, 'show'])->name('show');
+            Route::get('/{visit}/edit', [PatientVisitController::class, 'edit'])->name('edit');
+            Route::put('/{visit}', [PatientVisitController::class, 'update'])->name('update');
+            Route::delete('/{visit}', [PatientVisitController::class, 'destroy'])->name('destroy');
+        });
 
         // Doctor Management - Admin only
         Route::prefix('doctors')->name('doctors.')->middleware(['role:admin'])->group(function () {
