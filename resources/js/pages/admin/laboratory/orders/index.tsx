@@ -2,10 +2,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { AlertCircle, ArrowLeft, CheckCircle, Clock, FileText, Plus, Search, XCircle } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle, Clock, Download, Eye, FileText, Plus, Search, XCircle } from 'lucide-react';
 import { useState } from 'react';
 
 type Order = {
@@ -20,7 +21,7 @@ type Order = {
         last_name: string;
         age: number;
         sex: string;
-    };
+    } | null;
     labTests: Array<{
         id: number;
         name: string;
@@ -44,7 +45,7 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
     const [searchTerm, setSearchTerm] = useState('');
 
     const filteredOrders = orders.filter((order) => {
-        const patientName = `${order.patient.first_name} ${order.patient.last_name}`.toLowerCase();
+        const patientName = `${order.patient?.first_name ?? ''} ${order.patient?.last_name ?? ''}`.trim().toLowerCase();
         const testNames = (order.labTests || [])
             .map((test) => test.name)
             .join(' ')
@@ -96,10 +97,26 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                             <p className="text-muted-foreground">Manage laboratory orders and results</p>
                         </div>
                     </div>
-                    <Button onClick={() => router.visit('/admin/patient')}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create New Order
-                    </Button>
+                    <TooltipProvider>
+                        <div className="flex items-center gap-2">
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button onClick={() => router.visit('/admin/patient')} variant="outline" size="icon">
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Create New Order</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="outline" size="icon" onClick={() => router.visit('/admin/laboratory/exports/orders.xlsx')}>
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Export Orders (Excel)</TooltipContent>
+                            </Tooltip>
+                        </div>
+                    </TooltipProvider>
                 </div>
 
                 <Card>
@@ -142,10 +159,18 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                                         <div>
                                                             <span className="text-sm text-muted-foreground">Patient:</span>
                                                             <div className="font-medium">
-                                                                {order.patient.last_name}, {order.patient.first_name}
+                                                                {order.patient ? (
+                                                                    <>
+                                                                        {order.patient.last_name}, {order.patient.first_name}
+                                                                    </>
+                                                                ) : (
+                                                                    '—'
+                                                                )}
                                                             </div>
                                                             <div className="text-sm text-muted-foreground">
-                                                                {order.patient.age} years, {order.patient.sex}
+                                                                {order.patient
+                                                                    ? `${order.patient.age} years, ${order.patient.sex}`
+                                                                    : 'Unknown patient'}
                                                             </div>
                                                         </div>
 
@@ -174,10 +199,51 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                                 </div>
 
                                                 <div className="ml-4 flex flex-col gap-2">
-                                                    <Button onClick={() => handleEnterResults(order.id)} disabled={order.status === 'cancelled'}>
-                                                        <FileText className="mr-2 h-4 w-4" />
-                                                        Enter Results
-                                                    </Button>
+                                                    <TooltipProvider>
+                                                        <div className="flex items-center gap-2">
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button
+                                                                        onClick={() =>
+                                                                            router.visit(`/admin/laboratory/orders/${order.id}/results/view`)
+                                                                        }
+                                                                        variant="outline"
+                                                                        size="icon"
+                                                                    >
+                                                                        <Eye className="h-4 w-4" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>View Results</TooltipContent>
+                                                            </Tooltip>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button
+                                                                        onClick={() => handleEnterResults(order.id)}
+                                                                        variant="outline"
+                                                                        size="icon"
+                                                                        disabled={order.status === 'cancelled'}
+                                                                    >
+                                                                        <FileText className="h-4 w-4" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>Enter/Edit Results</TooltipContent>
+                                                            </Tooltip>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="icon"
+                                                                        onClick={() =>
+                                                                            router.visit(`/admin/laboratory/orders/${order.id}/export.xlsx`)
+                                                                        }
+                                                                    >
+                                                                        <Download className="h-4 w-4" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>Export Results (Excel)</TooltipContent>
+                                                            </Tooltip>
+                                                        </div>
+                                                    </TooltipProvider>
 
                                                     {order.status === 'ordered' && (
                                                         <Button

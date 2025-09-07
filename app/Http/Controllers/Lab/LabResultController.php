@@ -11,6 +11,17 @@ use Inertia\Inertia;
 
 class LabResultController extends Controller
 {
+    public function show(Request $request, LabOrder $order)
+    {
+        $order->load(['patient', 'labTests', 'results.test']);
+
+        return Inertia::render('admin/laboratory/results/show', [
+            'patient' => $order->patient,
+            'order' => $order,
+            'results' => $order->results,
+        ]);
+    }
+
     public function entry(Request $request, LabOrder $order)
     {
         $order->load(['patient', 'labTests']);

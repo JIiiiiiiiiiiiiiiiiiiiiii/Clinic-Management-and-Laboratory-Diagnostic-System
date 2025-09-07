@@ -152,16 +152,17 @@
 
     @foreach($results as $testId => $testResults)
         @php
-            $test = $testResults->first()->labTest;
-            $result = $testResults->first();
+            $first = $testResults->first();
+            $test = $first?->test;
+            $result = $first;
         @endphp
 
         <div class="test-section">
             <div class="test-header">
-                {{ $test->name }} ({{ $test->code }})
+                {{ $test->name ?? 'Unknown Test' }} @if(!empty($test?->code)) ({{ $test->code }}) @endif
             </div>
             <div class="test-content">
-                @if($result->results)
+                @if(!empty($result?->results) && !empty($test?->fields_schema))
                     @php
                         $schema = $test->fields_schema;
                         $sections = $schema['sections'] ?? [];
@@ -185,10 +186,10 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @foreach($section['fields'] as $fieldKey => $field)
+                                        @foreach(($section['fields'] ?? []) as $fieldKey => $field)
                                             @php
                                                 $fieldPath = $sectionKey . '.' . $fieldKey;
-                                                $fieldValue = data_get($result->results, $fieldPath, '');
+                                                $fieldValue = data_get($result->results ?? [], $fieldPath, '');
                                                 $isNormal = true; // This could be enhanced with actual reference range checking
                                             @endphp
                                             <tr>

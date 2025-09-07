@@ -12,7 +12,7 @@ class LabReportController extends Controller
 {
     public function generateReport(Request $request, LabOrder $order)
     {
-        $order->load(['patient', 'results.labTest']);
+        $order->load(['patient', 'results.test']);
 
         $results = $order->results->groupBy('lab_test_id');
 
@@ -34,9 +34,9 @@ class LabReportController extends Controller
 
     public function generateCBCReport(Request $request, LabOrder $order)
     {
-        $order->load(['patient', 'results.labTest']);
+        $order->load(['patient', 'results.test']);
 
-        $cbcResult = $order->results->where('labTest.code', 'CBC')->first();
+        $cbcResult = $order->results->where('test.code', 'CBC')->first();
 
         if (!$cbcResult) {
             return back()->with('error', 'CBC test not found for this order.');
@@ -60,9 +60,9 @@ class LabReportController extends Controller
 
     public function generateUrinalysisReport(Request $request, LabOrder $order)
     {
-        $order->load(['patient', 'results.labTest']);
+        $order->load(['patient', 'results.test']);
 
-        $urinalysisResult = $order->results->where('labTest.code', 'URINALYSIS')->first();
+        $urinalysisResult = $order->results->where('test.code', 'URINALYSIS')->first();
 
         if (!$urinalysisResult) {
             return back()->with('error', 'Urinalysis test not found for this order.');
@@ -86,9 +86,9 @@ class LabReportController extends Controller
 
     public function generateFecalysisReport(Request $request, LabOrder $order)
     {
-        $order->load(['patient', 'results.labTest']);
+        $order->load(['patient', 'results.test']);
 
-        $fecalysisResult = $order->results->where('labTest.code', 'FECALYSIS')->first();
+        $fecalysisResult = $order->results->where('test.code', 'FECALYSIS')->first();
 
         if (!$fecalysisResult) {
             return back()->with('error', 'Fecalysis test not found for this order.');

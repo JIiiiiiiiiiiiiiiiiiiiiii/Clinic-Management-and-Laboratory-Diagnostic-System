@@ -23,7 +23,7 @@ class LabOrderController extends Controller
         ]);
     }
 
-    public function index(Patient $patient)
+    public function index(Request $request, Patient $patient)
     {
         $orders = LabOrder::with(['labTests'])->where('patient_id', $patient->id)->latest()->get();
         $labTests = LabTest::where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'is_active']);
@@ -32,6 +32,7 @@ class LabOrderController extends Controller
             'patient' => $patient,
             'orders' => $orders,
             'labTests' => $labTests,
+            'patient_visit_id' => $request->integer('patient_visit_id') ?: null,
         ]);
     }
 
@@ -42,10 +43,12 @@ class LabOrderController extends Controller
                 'lab_test_ids' => ['required', 'array', 'min:1'],
                 'lab_test_ids.*' => ['exists:lab_tests,id'],
                 'notes' => ['nullable', 'string'],
+                'patient_visit_id' => ['nullable', 'exists:patient_visits,id'],
             ]);
 
             $order = LabOrder::create([
                 'patient_id' => $patient->id,
+                'patient_visit_id' => $validated['patient_visit_id'] ?? null,
                 'ordered_by' => $request->user()?->id,
                 'status' => 'ordered',
                 'notes' => $validated['notes'] ?? null,

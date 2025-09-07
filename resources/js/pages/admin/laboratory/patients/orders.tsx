@@ -40,13 +40,24 @@ const breadcrumbs = (patient: Patient): BreadcrumbItem[] => [
     { title: `${patient.last_name}, ${patient.first_name}`, href: `/admin/laboratory/patients/${patient.id}/orders` },
 ];
 
-export default function PatientLabOrders({ patient, labTests, orders = [] }: { patient: Patient; labTests: LabTest[]; orders?: LabOrder[] }) {
+export default function PatientLabOrders({
+    patient,
+    labTests,
+    orders = [],
+    patient_visit_id = null,
+}: {
+    patient: Patient;
+    labTests: LabTest[];
+    orders?: LabOrder[];
+    patient_visit_id?: number | null;
+}) {
     const [selectedTests, setSelectedTests] = useState<number[]>([]);
     const [showCreateForm, setShowCreateForm] = useState(false);
 
     const { data, setData, processing, errors, reset } = useForm({
         notes: '',
         lab_test_ids: [] as number[],
+        patient_visit_id: patient_visit_id as number | null,
     });
 
     const handleTestToggle = (testId: number) => {
@@ -156,7 +167,14 @@ export default function PatientLabOrders({ patient, labTests, orders = [] }: { p
                                     {errors.notes && <p className="mt-2 text-sm text-red-500">{errors.notes}</p>}
                                 </div>
 
-                                <div className="flex justify-end gap-3">
+                                <div className="flex justify-between gap-3">
+                                    <div className="text-sm text-muted-foreground">
+                                        {data.patient_visit_id ? (
+                                            <span>Linked to Visit ID: {data.patient_visit_id}</span>
+                                        ) : (
+                                            <span>Not linked to a specific visit</span>
+                                        )}
+                                    </div>
                                     <Button type="button" variant="outline" onClick={() => setShowCreateForm(false)}>
                                         Cancel
                                     </Button>

@@ -14,23 +14,71 @@ class PatientController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Patient::query();
+        // Patients table: search and sorting
+        $patientSearch = trim((string) $request->input('p_search', ''));
+        $patientSortBy = in_array($request->input('p_sort_by'), ['last_name', 'first_name', 'patient_no']) ? $request->input('p_sort_by') : 'last_name';
+        $patientSortDir = strtolower($request->input('p_sort_dir')) === 'desc' ? 'desc' : 'asc';
 
-        // Search functionality
-        if ($request->has('search') && !empty($request->search)) {
-            $query->search($request->search);
+        $patientsQuery = Patient::query();
+        if ($patientSearch !== '') {
+            $patientsQuery->where(function ($q) use ($patientSearch) {
+                $q->where('first_name', 'like', "%{$patientSearch}%")
+                  ->orWhere('last_name', 'like', "%{$patientSearch}%");
+            });
         }
+        $patientsQuery->orderBy($patientSortBy, $patientSortDir);
+        $patients = $patientsQuery->paginate(10, ['*'], 'p_page');
 
-        // Pagination
-        $patients = $query->orderBy('created_at', 'desc')->paginate(10);
+        // Visit records table: filters and sorting
+        $vStart = $request->input('v_start');
+        $vEnd = $request->input('v_end');
+        $vDoctor = trim((string) $request->input('v_doctor', ''));
+        $vSortDir = strtolower($request->input('v_sort_dir')) === 'asc' ? 'asc' : 'desc';
+
+        $visitsQuery = \App\Models\PatientVisit::query()
+            ->with(['patient:id,first_name,last_name,patient_no'])
+            ->when($vStart && $vEnd, function ($q) use ($vStart, $vEnd) {
+                $q->whereBetween('arrival_date', [$vStart, $vEnd]);
+            })
+            ->when($vStart && !$vEnd, function ($q) use ($vStart) {
+                $q->whereDate('arrival_date', '>=', $vStart);
+            })
+            ->when(!$vStart && $vEnd, function ($q) use ($vEnd) {
+                $q->whereDate('arrival_date', '<=', $vEnd);
+            })
+            ->when($vDoctor !== '', function ($q) use ($vDoctor) {
+                $q->where('attending_physician', 'like', "%{$vDoctor}%");
+            })
+            ->orderBy('arrival_date', $vSortDir)
+            ->orderBy('arrival_time', $vSortDir);
+
+        $visits = $visitsQuery->paginate(10, ['*'], 'v_page');
 
         return Inertia::render('admin/patient/index', [
             'patients' => $patients->items(),
-            'pagination' => [
+            'patients_pagination' => [
                 'current_page' => $patients->currentPage(),
                 'last_page' => $patients->lastPage(),
                 'per_page' => $patients->perPage(),
                 'total' => $patients->total(),
+            ],
+            'patients_filters' => [
+                'p_search' => $patientSearch,
+                'p_sort_by' => $patientSortBy,
+                'p_sort_dir' => $patientSortDir,
+            ],
+            'visits' => $visits->items(),
+            'visits_pagination' => [
+                'current_page' => $visits->currentPage(),
+                'last_page' => $visits->lastPage(),
+                'per_page' => $visits->perPage(),
+                'total' => $visits->total(),
+            ],
+            'visits_filters' => [
+                'v_start' => $vStart,
+                'v_end' => $vEnd,
+                'v_doctor' => $vDoctor,
+                'v_sort_dir' => $vSortDir,
             ],
         ]);
     }

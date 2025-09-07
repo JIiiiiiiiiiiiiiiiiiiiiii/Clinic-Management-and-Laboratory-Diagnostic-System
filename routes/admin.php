@@ -6,6 +6,7 @@ use App\Http\Controllers\Lab\LabTestController;
 use App\Http\Controllers\Lab\LabOrderController;
 use App\Http\Controllers\Lab\LabResultController;
 use App\Http\Controllers\Lab\LabReportController;
+use App\Http\Controllers\Lab\LabExportController;
 use App\Http\Controllers\Admin\DoctorController;
 use App\Http\Controllers\Inventory\InventoryController;
 use App\Http\Controllers\Inventory\ProductController;
@@ -80,6 +81,7 @@ Route::middleware(['auth', 'verified'])
 
             // Results
             Route::get('/orders/{order}/results', [LabResultController::class, 'entry'])->name('results.entry');
+            Route::get('/orders/{order}/results/view', [LabResultController::class, 'show'])->name('results.show');
             Route::post('/orders/{order}/results', [LabResultController::class, 'store'])->name('results.store');
             Route::put('/results/{result}', [LabResultController::class, 'update'])->name('results.update');
             Route::put('/orders/{order}/verify', [LabResultController::class, 'verify'])->name('results.verify');
@@ -89,6 +91,10 @@ Route::middleware(['auth', 'verified'])
             Route::get('/orders/{order}/report/cbc', [LabReportController::class, 'generateCBCReport'])->name('reports.cbc');
             Route::get('/orders/{order}/report/urinalysis', [LabReportController::class, 'generateUrinalysisReport'])->name('reports.urinalysis');
             Route::get('/orders/{order}/report/fecalysis', [LabReportController::class, 'generateFecalysisReport'])->name('reports.fecalysis');
+
+            // Excel Exports
+            Route::get('/exports/orders.xlsx', [LabExportController::class, 'exportOrders'])->name('exports.orders');
+            Route::get('/orders/{order}/export.xlsx', [LabExportController::class, 'exportOrderResults'])->name('exports.orderResults');
         });
 
         // Cashier Routes - Cashier and admin only
