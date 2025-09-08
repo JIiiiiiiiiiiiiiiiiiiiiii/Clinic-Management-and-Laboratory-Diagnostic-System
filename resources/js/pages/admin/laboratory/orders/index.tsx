@@ -89,8 +89,7 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Button variant="outline" onClick={() => router.visit('/admin/laboratory')}>
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Laboratory
+                            <ArrowLeft className="h-4 w-4" />
                         </Button>
                         <div>
                             <h1 className="text-2xl font-bold">Lab Orders</h1>

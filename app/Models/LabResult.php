@@ -31,6 +31,11 @@ class LabResult extends Model
     {
         return $this->belongsTo(LabTest::class, 'lab_test_id');
     }
+
+    public function values()
+    {
+        return $this->hasMany(LabResultValue::class, 'lab_result_id');
+    }
 }
 
 

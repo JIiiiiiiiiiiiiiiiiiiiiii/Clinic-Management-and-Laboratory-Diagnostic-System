@@ -29,6 +29,11 @@ const breadcrumbs = (patient: Patient, order: Order): BreadcrumbItem[] => [
 export default function ResultsEntry({ patient, order, tests, existingResults = {} }: ResultsEntryProps) {
     const [results, setResults] = React.useState<{ [testId: number]: any }>(existingResults);
     const [processing, setProcessing] = React.useState(false);
+    const formRef = React.useRef<HTMLFormElement>(null);
+
+    React.useEffect(() => {
+        setResults(existingResults || {});
+    }, [existingResults]);
 
     const updateResult = (testId: number, fieldPath: string, value: any) => {
         setResults((prev) => {
@@ -73,8 +78,8 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
             id: fieldId,
             name: fieldId,
             value: value,
-            onChange: (e: any) => updateResult(testId, fieldPath, e.target?.value || e),
-        };
+            onChange: (e: any) => updateResult(testId, fieldPath, e?.target !== undefined ? e.target.value : e),
+        } as any;
 
         switch (field.type) {
             case 'text':
@@ -121,7 +126,7 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                             </SelectTrigger>
                             <SelectContent>
                                 {field.options?.map((option: string) => (
-                                    <SelectItem key={option} value={option}>
+                                    <SelectItem key={option} value={option} id={`test-${testId}-${sectionKey}-${fieldKey}`}>
                                         {option}
                                     </SelectItem>
                                 ))}
@@ -181,21 +186,55 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
         );
     };
 
+    const collectResultsFromDom = (): { [testId: number]: any } => {
+        const aggregated: { [testId: number]: any } = {};
+        for (const test of tests) {
+            const testId = test.id;
+            const schema = test.fields_schema;
+            const testBucket: any = {};
+            if (schema?.sections) {
+                Object.entries(schema.sections).forEach(([sectionKey, section]: [string, any]) => {
+                    const sectionBucket: any = {};
+                    Object.keys(section.fields || {}).forEach((fieldKey) => {
+                        const elId = `test-${testId}-${sectionKey}-${fieldKey}`;
+                        const input = document.getElementById(elId) as HTMLInputElement | HTMLTextAreaElement | null;
+                        // shadcn Select renders hidden input with data-state? Fall back to value prop on element if present
+                        const value = input?.value ?? (document.querySelector(`[aria-controls='${elId}']`) as any)?.value ?? '';
+                        if (value !== '') {
+                            sectionBucket[fieldKey] = value;
+                        }
+                    });
+                    if (Object.keys(sectionBucket).length > 0) {
+                        testBucket[sectionKey] = sectionBucket;
+                    }
+                });
+            }
+            aggregated[testId] = testBucket;
+        }
+        return aggregated;
+    };
+
     const handleSave = async () => {
         setProcessing(true);
         try {
-            await router.post(
-                `/admin/laboratory/orders/${order.id}/results`,
-                { results },
-                {
-                    onSuccess: () => {
-                        // Success handled by global modal
+            // Prefer structured form serialization with nested names
+            if (formRef.current) {
+                const fd = new FormData(formRef.current);
+                await router.post(`/admin/laboratory/orders/${order.id}/results`, fd, {
+                    onSuccess: () => {},
+                    onError: () => setProcessing(false),
+                });
+            } else {
+                const payload = JSON.stringify(Object.keys(results).length ? results : collectResultsFromDom());
+                await router.post(
+                    `/admin/laboratory/orders/${order.id}/results`,
+                    { results: payload },
+                    {
+                        onSuccess: () => {},
+                        onError: () => setProcessing(false),
                     },
-                    onError: () => {
-                        setProcessing(false);
-                    },
-                },
-            );
+                );
+            }
         } catch (error) {
             setProcessing(false);
         }
@@ -208,9 +247,7 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                 `/admin/laboratory/orders/${order.id}/verify`,
                 {},
                 {
-                    onSuccess: () => {
-                        // Success handled by global modal
-                    },
+                    onSuccess: () => {},
                     onError: () => {
                         setProcessing(false);
                     },
@@ -259,7 +296,33 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                     </div>
                 </div>
 
-                {tests.map(renderTest)}
+                <form ref={formRef} onSubmit={(e) => e.preventDefault()}>
+                    {tests.map((test) => {
+                        const schema = test.fields_schema;
+                        return (
+                            <React.Fragment key={test.id}>
+                                {renderTest(test)}
+                                {/* Hidden inputs to mirror state for reliable serialization */}
+                                {schema?.sections &&
+                                    Object.entries(schema.sections).map(([sectionKey, section]: [string, any]) => (
+                                        <React.Fragment key={`${test.id}-${sectionKey}`}>
+                                            {Object.keys(section.fields || {}).map((fieldKey) => {
+                                                const v = getResultValue(test.id, `${sectionKey}.${fieldKey}`);
+                                                return (
+                                                    <input
+                                                        key={`${test.id}-${sectionKey}-${fieldKey}-hidden`}
+                                                        type="hidden"
+                                                        name={`results[${test.id}][${sectionKey}][${fieldKey}]`}
+                                                        value={v}
+                                                    />
+                                                );
+                                            })}
+                                        </React.Fragment>
+                                    ))}
+                            </React.Fragment>
+                        );
+                    })}
+                </form>
 
                 {tests.length === 0 && (
                     <Card>

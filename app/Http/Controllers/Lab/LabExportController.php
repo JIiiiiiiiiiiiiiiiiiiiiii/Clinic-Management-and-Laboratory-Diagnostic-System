@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\LabOrder;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Maatwebsite\Excel\Facades\Excel;
 
 class LabExportController extends Controller
 {
@@ -15,7 +16,7 @@ class LabExportController extends Controller
     {
         $fileName = 'lab_orders_' . now()->format('Ymd_His') . '.xlsx';
 
-        return (new LabOrdersExport())->download($fileName);
+        return Excel::download(new LabOrdersExport(), $fileName);
     }
 
     public function exportOrderResults(Request $request, LabOrder $order): BinaryFileResponse
@@ -23,7 +24,7 @@ class LabExportController extends Controller
         $order->load(['patient', 'labTests', 'results.test']);
         $fileName = 'lab_order_' . $order->id . '_results_' . now()->format('Ymd_His') . '.xlsx';
 
-        return (new LabOrderResultsExport($order))->download($fileName);
+        return Excel::download(new LabOrderResultsExport($order), $fileName);
     }
 }
 

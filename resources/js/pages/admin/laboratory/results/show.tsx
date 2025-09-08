@@ -13,6 +13,16 @@ type Result = {
     verified_by?: number | null;
     verified_at?: string | null;
     test?: { id: number; name: string; code: string } | null;
+    values?: Array<{
+        id: number;
+        parameter_key: string;
+        parameter_label?: string | null;
+        value?: string | null;
+        unit?: string | null;
+        reference_text?: string | null;
+        reference_min?: string | null;
+        reference_max?: string | null;
+    }>;
 };
 
 type Patient = {
@@ -125,7 +135,13 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                             <div className="text-muted-foreground">No results saved.</div>
                         ) : (
                             results.map((r) => {
-                                const rows = flatten(r.results);
+                                const rows =
+                                    r.values && r.values.length > 0
+                                        ? r.values.map((v) => ({
+                                              key: v.parameter_label || v.parameter_key,
+                                              value: [v.value, v.unit].filter(Boolean).join(' '),
+                                          }))
+                                        : flatten(r.results);
                                 return (
                                     <Card key={r.id} className="border">
                                         <CardHeader>

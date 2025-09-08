@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
@@ -43,18 +44,23 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Button variant="outline" onClick={() => router.visit('/admin/laboratory')}>
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Laboratory
+                            <ArrowLeft className="h-4 w-4" />
                         </Button>
                         <div>
                             <h1 className="text-2xl font-bold">Lab Test Templates</h1>
                             <p className="text-muted-foreground">Manage laboratory diagnostic test templates</p>
                         </div>
                     </div>
-                    <Button onClick={() => router.visit('/admin/laboratory/tests/create')}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create New Test
-                    </Button>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon" onClick={() => router.visit('/admin/laboratory/tests/create')}>
+                                    <Plus className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>New Test Template</TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                 </div>
 
                 {tests.length === 0 ? (
@@ -65,10 +71,16 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
                             <p className="mb-6 text-center text-muted-foreground">
                                 Create your first laboratory test template to get started. You can design custom forms for any type of lab test.
                             </p>
-                            <Button onClick={() => router.visit('/admin/laboratory/tests/create')}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Create Your First Test
-                            </Button>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="outline" size="icon" onClick={() => router.visit('/admin/laboratory/tests/create')}>
+                                            <Plus className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Create Your First Test</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         </CardContent>
                     </Card>
                 ) : (
@@ -100,18 +112,28 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
                                             )}
                                         </div>
                                         <div className="ml-4 flex items-center gap-2">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => router.visit(`/admin/laboratory/tests/${test.id}/edit`)}
-                                            >
-                                                <Edit className="mr-2 h-4 w-4" />
-                                                Edit
-                                            </Button>
-                                            <Button variant="outline" size="sm" onClick={() => handleDelete(test.id, test.name)}>
-                                                <Trash2 className="mr-2 h-4 w-4" />
-                                                Delete
-                                            </Button>
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="icon"
+                                                            onClick={() => router.visit(`/admin/laboratory/tests/${test.id}/edit`)}
+                                                        >
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>Edit</TooltipContent>
+                                                </Tooltip>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button variant="destructive" size="icon" onClick={() => handleDelete(test.id, test.name)}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>Delete</TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
                                         </div>
                                     </div>
                                 </CardContent>
