@@ -100,7 +100,7 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                         <div className="flex items-center gap-2">
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Button onClick={() => router.visit('/admin/patient')} variant="outline" size="icon">
+                                    <Button onClick={() => router.visit('/admin/laboratory')} variant="outline" size="icon">
                                         <Plus className="h-4 w-4" />
                                     </Button>
                                 </TooltipTrigger>
@@ -108,7 +108,11 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                             </Tooltip>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Button variant="outline" size="icon" onClick={() => router.visit('/admin/laboratory/exports/orders.xlsx')}>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={() => window.open('/admin/laboratory/exports/orders.xlsx', '_self')}
+                                    >
                                         <Download className="h-4 w-4" />
                                     </Button>
                                 </TooltipTrigger>
@@ -233,7 +237,7 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                                                         variant="outline"
                                                                         size="icon"
                                                                         onClick={() =>
-                                                                            router.visit(`/admin/laboratory/orders/${order.id}/export.xlsx`)
+                                                                            window.open(`/admin/laboratory/orders/${order.id}/export.xlsx`, '_self')
                                                                         }
                                                                     >
                                                                         <Download className="h-4 w-4" />

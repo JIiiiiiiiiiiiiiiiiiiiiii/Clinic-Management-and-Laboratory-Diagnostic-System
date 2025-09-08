@@ -20,10 +20,11 @@ interface ResultsEntryProps {
     existingResults?: { [testId: number]: any };
 }
 
-const breadcrumbs = (patient: Patient, order: Order): BreadcrumbItem[] => [
+const breadcrumbs = (_patient: Patient, order: Order): BreadcrumbItem[] => [
     { title: 'Laboratory', href: '/admin/laboratory' },
-    { title: `${patient.last_name}, ${patient.first_name}`, href: `/admin/laboratory/patients/${patient.id}/orders` },
-    { title: `Order #${order.id}`, href: `/admin/laboratory/orders/${order.id}/results` },
+    { title: 'Lab Orders', href: '/admin/laboratory/orders' },
+    { title: `Order #${order.id}`, href: `/admin/laboratory/orders/${order.id}/results/view` },
+    { title: 'Edit Result', href: `/admin/laboratory/orders/${order.id}/results` },
 ];
 
 export default function ResultsEntry({ patient, order, tests, existingResults = {} }: ResultsEntryProps) {
