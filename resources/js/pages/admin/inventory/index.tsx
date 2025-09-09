@@ -20,7 +20,7 @@ import {
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Supply Management',
+        title: 'Inventory',
         href: '/admin/inventory',
     },
 ];
@@ -60,22 +60,37 @@ interface TopConsumedProduct {
     total_quantity: number;
 }
 
+interface LowStockItem {
+    id: number;
+    name: string;
+    code: string;
+    total_stock: number;
+    min_level: number;
+}
+
 interface InventoryDashboardProps {
     stats: InventoryStats;
     recentTransactions: Transaction[];
     pendingApprovals: Transaction[];
     topConsumedProducts: TopConsumedProduct[];
+    lowStockItems?: LowStockItem[];
 }
 
-export default function InventoryDashboard({ stats, recentTransactions, pendingApprovals, topConsumedProducts }: InventoryDashboardProps) {
+export default function InventoryDashboard({
+    stats,
+    recentTransactions,
+    pendingApprovals,
+    topConsumedProducts,
+    lowStockItems = [],
+}: InventoryDashboardProps) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Inventory Management" />
             <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold">Supply Management</h1>
-                        <p className="text-muted-foreground">Track and manage clinic supplies and equipment</p>
+                        <h1 className="text-2xl font-bold">Inventory</h1>
+                        <p className="text-muted-foreground">Track and manage clinic items and equipment</p>
                     </div>
                     <div className="flex gap-2">
                         <Button onClick={() => router.visit('/admin/inventory/transactions/create')}>
@@ -84,7 +99,7 @@ export default function InventoryDashboard({ stats, recentTransactions, pendingA
                         </Button>
                         <Button variant="outline" onClick={() => router.visit('/admin/inventory/products/create')}>
                             <BriefcaseMedical className="mr-2 h-4 w-4" />
-                            Add Product
+                            Add Item
                         </Button>
                     </div>
                 </div>
@@ -93,12 +108,12 @@ export default function InventoryDashboard({ stats, recentTransactions, pendingA
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+                            <CardTitle className="text-sm font-medium">Total Items</CardTitle>
                             <Package className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">{stats.total_products}</div>
-                            <p className="text-xs text-muted-foreground">{stats.active_products} active products</p>
+                            <p className="text-xs text-muted-foreground">{stats.active_products} active items</p>
                         </CardContent>
                     </Card>
 
@@ -109,7 +124,8 @@ export default function InventoryDashboard({ stats, recentTransactions, pendingA
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-yellow-600">{stats.low_stock_products}</div>
-                            <p className="text-xs text-muted-foreground">Products need restocking</p>
+                            <p className="text-xs text-muted-foreground">Items need restocking</p>
+                            {/* Details intentionally omitted to keep layout clean */}
                         </CardContent>
                     </Card>
 
@@ -198,10 +214,10 @@ export default function InventoryDashboard({ stats, recentTransactions, pendingA
                         </CardContent>
                     </Card>
 
-                    {/* Top Consumed Products */}
+                    {/* Top Consumed Items */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Top Consumed Products (This Month)</CardTitle>
+                            <CardTitle>Top Consumed Items (This Month)</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
@@ -240,8 +256,8 @@ export default function InventoryDashboard({ stats, recentTransactions, pendingA
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                             <Button variant="outline" className="h-auto flex-col p-4" onClick={() => router.visit('/admin/inventory/products')}>
                                 <Package className="mb-2 h-6 w-6" />
-                                <span className="font-medium">Manage Products</span>
-                                <span className="text-xs text-muted-foreground">View and edit products</span>
+                                <span className="font-medium">Manage Items</span>
+                                <span className="text-xs text-muted-foreground">View and edit items</span>
                             </Button>
 
                             <Button variant="outline" className="h-auto flex-col p-4" onClick={() => router.visit('/admin/inventory/transactions')}>

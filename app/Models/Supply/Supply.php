@@ -1,15 +1,15 @@
 <?php
 
-namespace App\Models\Inventory;
+namespace App\Models\Supply;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Product extends Model
+class Supply extends Model
 {
     use HasFactory;
 
-    protected $table = 'inventory_products';
+    protected $table = 'supplies';
 
     protected $fillable = [
         'name',
@@ -26,7 +26,7 @@ class Product extends Model
     ];
 
     protected $casts = [
-        'unit_cost' => 'decimal:2',
+        'unit_cost' => 'float',
         'minimum_stock_level' => 'integer',
         'maximum_stock_level' => 'integer',
         'is_active' => 'boolean',
@@ -34,18 +34,16 @@ class Product extends Model
         'requires_expiry_tracking' => 'boolean',
     ];
 
-    // Relationships
     public function transactions()
     {
-        return $this->hasMany(Transaction::class);
+        return $this->hasMany(SupplyTransaction::class, 'product_id');
     }
 
     public function stockLevels()
     {
-        return $this->hasMany(StockLevel::class);
+        return $this->hasMany(SupplyStockLevel::class, 'product_id');
     }
 
-    // Scopes
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
@@ -56,7 +54,6 @@ class Product extends Model
         return $query->where('category', $category);
     }
 
-    // Accessors
     public function getCurrentStockAttribute()
     {
         return $this->stockLevels()->sum('current_stock');
@@ -82,7 +79,6 @@ class Product extends Model
         return $this->current_stock <= 0;
     }
 
-    // Methods
     public function getStockByLot($lotNumber = null, $expiryDate = null)
     {
         $query = $this->stockLevels();
@@ -115,3 +111,5 @@ class Product extends Model
             ->get();
     }
 }
+
+

@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
@@ -106,18 +107,24 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                 </TooltipTrigger>
                                 <TooltipContent>Create New Order</TooltipContent>
                             </Tooltip>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={() => window.open('/admin/laboratory/exports/orders.xlsx', '_self')}
-                                    >
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="icon">
                                         <Download className="h-4 w-4" />
                                     </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Export Orders (Excel)</TooltipContent>
-                            </Tooltip>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => window.open('/admin/laboratory/exports/orders.xlsx?format=excel', '_self')}>
+                                        Excel
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => window.open('/admin/laboratory/exports/orders.xlsx?format=pdf', '_self')}>
+                                        PDF
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => window.open('/admin/laboratory/exports/orders.xlsx?format=word', '_self')}>
+                                        Word
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </TooltipProvider>
                 </div>
@@ -231,20 +238,45 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                                                 </TooltipTrigger>
                                                                 <TooltipContent>Enter/Edit Results</TooltipContent>
                                                             </Tooltip>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="icon"
-                                                                        onClick={() =>
-                                                                            window.open(`/admin/laboratory/orders/${order.id}/export.xlsx`, '_self')
-                                                                        }
-                                                                    >
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="outline" size="icon">
                                                                         <Download className="h-4 w-4" />
                                                                     </Button>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent>Export Results (Excel)</TooltipContent>
-                                                            </Tooltip>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuItem
+                                                                        onClick={() =>
+                                                                            window.open(
+                                                                                `/admin/laboratory/orders/${order.id}/export.xlsx?format=excel`,
+                                                                                '_self',
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        Excel
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem
+                                                                        onClick={() =>
+                                                                            window.open(
+                                                                                `/admin/laboratory/orders/${order.id}/export.xlsx?format=pdf`,
+                                                                                '_self',
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        PDF
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem
+                                                                        onClick={() =>
+                                                                            window.open(
+                                                                                `/admin/laboratory/orders/${order.id}/export.xlsx?format=word`,
+                                                                                '_self',
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        Word
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
                                                         </div>
                                                     </TooltipProvider>
 

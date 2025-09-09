@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
@@ -41,8 +42,11 @@ export default function LaboratoryReportsIndex({ orders = [], tests = [] }: { or
         });
     }, [orders, search, testId, dateFrom, dateTo]);
 
-    const handleExportOrders = () => {
-        window.open('/admin/laboratory/exports/orders.xlsx', '_self');
+    const handleExportOrders = (format: 'excel' | 'pdf' | 'word') => {
+        const path = '/admin/laboratory/exports/orders.xlsx';
+        const separator = path.includes('?') ? '&' : '?';
+        const url = `${path}${separator}format=${format}`;
+        window.open(url, '_self');
     };
 
     return (
@@ -103,9 +107,18 @@ export default function LaboratoryReportsIndex({ orders = [], tests = [] }: { or
                     <CardHeader className="flex items-center justify-between">
                         <CardTitle>Results</CardTitle>
                         <div className="flex items-center gap-2">
-                            <Button variant="outline" onClick={handleExportOrders}>
-                                <FileDown className="mr-2 h-4 w-4" /> Export Orders (Excel)
-                            </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline">
+                                        <FileDown className="mr-2 h-4 w-4" /> Export Orders
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleExportOrders('excel')}>Excel</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleExportOrders('pdf')}>PDF</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleExportOrders('word')}>Word</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </CardHeader>
                     <CardContent>

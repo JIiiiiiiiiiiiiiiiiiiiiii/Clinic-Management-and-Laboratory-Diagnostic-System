@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
-use App\Models\Inventory\Product;
-use App\Models\Inventory\StockLevel;
+use App\Models\Supply\Supply as Product;
+use App\Models\Supply\SupplyStockLevel as StockLevel;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -12,7 +12,9 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::with(['stockLevels']);
+        $query = Product::with(['stockLevels'])
+            ->withSum('stockLevels as current_stock', 'current_stock')
+            ->withSum('stockLevels as available_stock', 'available_stock');
 
         // Search functionality
         if ($request->has('search') && $request->search) {
@@ -33,7 +35,7 @@ class ProductController extends Controller
             switch ($request->stock_status) {
                 case 'low_stock':
                     $query->whereHas('stockLevels', function ($q) {
-                        $q->whereRaw('inventory_stock_levels.current_stock <= inventory_products.minimum_stock_level')
+                        $q->whereRaw('supply_stock_levels.current_stock <= supplies.minimum_stock_level')
                           ->where('current_stock', '>', 0);
                     });
                     break;
@@ -72,7 +74,7 @@ class ProductController extends Controller
         try {
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'code' => 'required|string|max:255|unique:inventory_products,code',
+                'code' => 'required|string|max:255|unique:supplies,code',
                 'description' => 'nullable|string',
                 'category' => 'nullable|string|max:255',
                 'unit_of_measure' => 'required|string|max:255',
@@ -117,7 +119,7 @@ class ProductController extends Controller
         try {
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'code' => 'required|string|max:255|unique:inventory_products,code,' . $product->id,
+                'code' => 'required|string|max:255|unique:supplies,code,' . $product->id,
                 'description' => 'nullable|string',
                 'category' => 'nullable|string|max:255',
                 'unit_of_measure' => 'required|string|max:255',

@@ -8,15 +8,15 @@ import { ArrowLeft, Calendar, Edit, Package, Plus, TrendingDown, TrendingUp } fr
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Supply Management',
+        title: 'Inventory',
         href: '/admin/inventory',
     },
     {
-        title: 'Products',
+        title: 'Items',
         href: '/admin/inventory/products',
     },
     {
-        title: 'Product Details',
+        title: 'Item Details',
         href: '/admin/inventory/products/show',
     },
 ];
@@ -80,7 +80,7 @@ export default function ShowProduct({ product }: ShowProductProps) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={`Product Details - ${product.name}`} />
+            <Head title={`Item Details - ${product.name}`} />
             <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -89,7 +89,7 @@ export default function ShowProduct({ product }: ShowProductProps) {
                         </Button>
                         <div>
                             <h1 className="text-2xl font-bold">{product.name}</h1>
-                            <p className="text-muted-foreground">Product details and stock information</p>
+                            <p className="text-muted-foreground">Item details and stock information</p>
                         </div>
                     </div>
                     <div className="flex gap-2">
@@ -99,28 +99,28 @@ export default function ShowProduct({ product }: ShowProductProps) {
                         </Button>
                         <Button onClick={() => router.visit(`/admin/inventory/products/${product.id}/edit`)}>
                             <Edit className="mr-2 h-4 w-4" />
-                            Edit Product
+                            Edit Item
                         </Button>
                     </div>
                 </div>
 
                 <div className="grid gap-6 md:grid-cols-3">
-                    {/* Product Information */}
+                    {/* Item Information */}
                     <Card className="md:col-span-2">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Package className="h-5 w-5" />
-                                Product Information
+                                Item Information
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div>
-                                    <label className="text-sm font-medium text-muted-foreground">Product Name</label>
+                                    <label className="text-sm font-medium text-muted-foreground">Item Name</label>
                                     <p className="text-lg font-semibold">{product.name}</p>
                                 </div>
                                 <div>
-                                    <label className="text-sm font-medium text-muted-foreground">Product Code</label>
+                                    <label className="text-sm font-medium text-muted-foreground">Item Code</label>
                                     <p className="text-lg font-semibold">
                                         <code className="rounded bg-muted px-2 py-1">{product.code}</code>
                                     </p>

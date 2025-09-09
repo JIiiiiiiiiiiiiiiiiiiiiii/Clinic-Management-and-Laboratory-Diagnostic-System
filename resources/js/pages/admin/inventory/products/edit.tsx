@@ -15,11 +15,11 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/admin/inventory',
     },
     {
-        title: 'Products',
+        title: 'Items',
         href: '/admin/inventory/products',
     },
     {
-        title: 'Edit Product',
+        title: 'Edit Item',
         href: '/admin/inventory/products/edit',
     },
 ];
@@ -92,17 +92,17 @@ export default function EditProduct({ product, flash }: EditProductProps) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={`Edit Product - ${product.name}`} />
+            <Head title={`Edit Item - ${product.name}`} />
             <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Button variant="outline" onClick={() => router.visit('/admin/inventory/products')}>
                             <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Products
+                            Back to Items
                         </Button>
                         <div>
-                            <h1 className="text-2xl font-bold">Edit Product</h1>
-                            <p className="text-muted-foreground">Update product information</p>
+                            <h1 className="text-2xl font-bold">Edit Item</h1>
+                            <p className="text-muted-foreground">Update item information</p>
                         </div>
                     </div>
                 </div>
@@ -141,7 +141,7 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="name">
-                                        Product Name <span className="text-red-500">*</span>
+                                        Item Name <span className="text-red-500">*</span>
                                     </Label>
                                     <Input
                                         id="name"
@@ -150,7 +150,7 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                                         value={data.name}
                                         onChange={(e) => setData('name', e.target.value)}
                                         className={errors.name ? 'border-red-500' : ''}
-                                        placeholder="Enter product name"
+                                        placeholder="Enter item name"
                                         ref={firstInputRef}
                                         autoComplete="off"
                                     />
@@ -159,7 +159,7 @@ export default function EditProduct({ product, flash }: EditProductProps) {
 
                                 <div className="space-y-2">
                                     <Label htmlFor="code">
-                                        Product Code <span className="text-red-500">*</span>
+                                        Item Code <span className="text-red-500">*</span>
                                     </Label>
                                     <Input
                                         id="code"
@@ -168,7 +168,7 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                                         value={data.code}
                                         onChange={(e) => setData('code', e.target.value)}
                                         className={errors.code ? 'border-red-500' : ''}
-                                        placeholder="Enter product code"
+                                        placeholder="Enter item code"
                                         autoComplete="off"
                                     />
                                     {errors.code && <p className="text-sm text-red-600">{errors.code}</p>}
@@ -182,7 +182,7 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                                         value={data.description}
                                         onChange={(e) => setData('description', e.target.value)}
                                         className={errors.description ? 'border-red-500' : ''}
-                                        placeholder="Enter product description"
+                                        placeholder="Enter item description"
                                         rows={3}
                                     />
                                     {errors.description && <p className="text-sm text-red-600">{errors.description}</p>}
@@ -348,7 +348,7 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                             ) : (
                                 <>
                                     <Save className="mr-2 h-4 w-4" />
-                                    Update Product
+                                    Update Item
                                 </>
                             )}
                         </Button>

@@ -159,8 +159,14 @@ Route::middleware(['auth', 'verified'])
                     Route::get('rejected-supplies', [ReportController::class, 'rejectedSupplies'])->name('rejected-supplies');
                     Route::get('in-out-supplies', [ReportController::class, 'inOutSupplies'])->name('in-out-supplies');
                     Route::get('stock-levels', [ReportController::class, 'stockLevels'])->name('stock-levels');
+                    Route::get('stock-levels/export', [ReportController::class, 'exportStockLevels'])->name('stock-levels.export');
                     Route::get('daily-consumption', [ReportController::class, 'dailyConsumption'])->name('daily-consumption');
                     Route::get('usage-by-location', [ReportController::class, 'usageByLocation'])->name('usage-by-location');
+                    Route::get('used-supplies/export', [ReportController::class, 'exportUsedSupplies'])->name('used-supplies.export');
+                    Route::get('rejected-supplies/export', [ReportController::class, 'exportRejectedSupplies'])->name('rejected-supplies.export');
+                    Route::get('in-out-supplies/export', [ReportController::class, 'exportInOutSupplies'])->name('in-out-supplies.export');
+                    Route::get('daily-consumption/export', [ReportController::class, 'exportDailyConsumption'])->name('daily-consumption.export');
+                    Route::get('usage-by-location/export', [ReportController::class, 'exportUsageByLocation'])->name('usage-by-location.export');
                 });
             });
         });

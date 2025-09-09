@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
@@ -54,9 +55,9 @@ interface StockLevelsReportProps {
 }
 
 export default function StockLevelsReport({ products, lowStockProducts, expiringSoon, expiredStock }: StockLevelsReportProps) {
-    const handleExport = () => {
-        // TODO: Implement PDF export
-        alert('PDF export functionality will be implemented soon.');
+    const handleExport = (format: 'excel' | 'pdf' | 'word') => {
+        const params = new URLSearchParams({ format });
+        window.location.href = `/admin/inventory/reports/stock-levels/export?${params.toString()}`;
     };
 
     const getStockStatus = (product: Product) => {
@@ -83,22 +84,31 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                             <p className="text-muted-foreground">Current inventory status and alerts</p>
                         </div>
                     </div>
-                    <Button onClick={handleExport}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Export PDF
-                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button>
+                                <Download className="mr-2 h-4 w-4" />
+                                Export
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleExport('excel')}>Excel</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExport('pdf')}>PDF</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExport('word')}>Word</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
 
                 {/* Summary Cards */}
                 <div className="grid gap-4 md:grid-cols-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+                            <CardTitle className="text-sm font-medium">Total Supplies</CardTitle>
                             <Package className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">{products.length}</div>
-                            <p className="text-xs text-muted-foreground">Active products</p>
+                            <p className="text-xs text-muted-foreground">Active supplies</p>
                         </CardContent>
                     </Card>
 
@@ -150,7 +160,7 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>Product</TableHead>
+                                            <TableHead>Supply</TableHead>
                                             <TableHead>Current Stock</TableHead>
                                             <TableHead>Minimum Level</TableHead>
                                             <TableHead>Status</TableHead>
@@ -158,7 +168,7 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {lowStockProducts.map((product) => (
+                                        {lowStockProducts.map((product: any) => (
                                             <TableRow key={product.id}>
                                                 <TableCell>
                                                     <div>
@@ -198,7 +208,7 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                 {/* All Products Stock Levels */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>All Products Stock Levels</CardTitle>
+                        <CardTitle>All Supplies Stock Levels</CardTitle>
                     </CardHeader>
                     <CardContent>
                         {products.length > 0 ? (
@@ -206,7 +216,7 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>Product</TableHead>
+                                            <TableHead>Supply</TableHead>
                                             <TableHead>Category</TableHead>
                                             <TableHead>Current Stock</TableHead>
                                             <TableHead>Available Stock</TableHead>
@@ -232,7 +242,7 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                                                         <div className="text-sm text-muted-foreground">{product.unit_of_measure || 'units'}</div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <div className="font-medium">{product.available_stock}</div>
+                                                        <div className="font-medium">{Number(product.available_stock ?? 0)}</div>
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="text-sm">
@@ -245,7 +255,7 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="font-medium">
-                                                            ₱{(product.current_stock * Number(product.unit_cost)).toFixed(2)}
+                                                            ₱{Number((product.current_stock || 0) * Number(product.unit_cost || 0)).toFixed(2)}
                                                         </div>
                                                     </TableCell>
                                                 </TableRow>

@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -63,16 +64,16 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
         );
     };
 
-    const handleExport = () => {
-        // TODO: Implement PDF export
-        alert('PDF export functionality will be implemented soon.');
+    const handleExport = (format: 'excel' | 'pdf' | 'word') => {
+        const params = new URLSearchParams({ start_date: startDate || '', end_date: endDate || '', format });
+        window.location.href = `/admin/inventory/reports/usage-by-location/export?${params.toString()}`;
     };
 
     const getTotalUsageByLocation = (location: string) => {
-        const usages = usageByLocation[location] || [];
+        const usages = (usageByLocation && usageByLocation[location]) || [];
         return {
-            totalQuantity: usages.reduce((sum, usage) => sum + usage.total_quantity, 0),
-            totalCost: usages.reduce((sum, usage) => sum + usage.total_cost, 0),
+            totalQuantity: usages.reduce((sum, usage) => sum + (Number(usage.total_quantity) || 0), 0),
+            totalCost: usages.reduce((sum, usage) => sum + (Number(usage.total_cost) || 0), 0),
             productCount: usages.length,
         };
     };
@@ -92,10 +93,19 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
                             <p className="text-muted-foreground">Supply consumption breakdown by department/location</p>
                         </div>
                     </div>
-                    <Button onClick={handleExport}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Export PDF
-                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button>
+                                <Download className="mr-2 h-4 w-4" />
+                                Export
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleExport('excel')}>Excel</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExport('pdf')}>PDF</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExport('word')}>Word</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
 
                 {/* Date Filters */}
@@ -133,7 +143,7 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
                             <Users className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{Object.keys(usageByLocation).length}</div>
+                            <div className="text-2xl font-bold">{Object.keys(usageByLocation || {}).length}</div>
                             <p className="text-xs text-muted-foreground">Departments using supplies</p>
                         </CardContent>
                     </Card>
@@ -144,7 +154,9 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
                             <Users className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{Object.values(usageByLocation).reduce((sum, usages) => sum + usages.length, 0)}</div>
+                            <div className="text-2xl font-bold">
+                                {Object.values(usageByLocation || {}).reduce((sum, usages) => sum + (usages?.length || 0), 0)}
+                            </div>
                             <p className="text-xs text-muted-foreground">Product-location combinations</p>
                         </CardContent>
                     </Card>
@@ -157,10 +169,11 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
                         <CardContent>
                             <div className="text-2xl font-bold">
                                 ₱
-                                {Object.values(usageByLocation)
-                                    .flat()
-                                    .reduce((sum, usage) => sum + usage.total_cost, 0)
-                                    .toFixed(2)}
+                                {Number(
+                                    Object.values(usageByLocation || {})
+                                        .flat()
+                                        .reduce((sum, usage: any) => sum + (Number(usage?.total_cost) || 0), 0),
+                                ).toFixed(2)}
                             </div>
                             <p className="text-xs text-muted-foreground">Total cost across all locations</p>
                         </CardContent>
@@ -173,7 +186,7 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
                         <CardTitle>Location Summary</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {Object.keys(usageByLocation).length > 0 ? (
+                        {Object.keys(usageByLocation || {}).length > 0 ? (
                             <div className="overflow-x-auto">
                                 <Table>
                                     <TableHeader>
@@ -185,7 +198,7 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {Object.keys(usageByLocation).map((location) => {
+                                        {Object.keys(usageByLocation || {}).map((location) => {
                                             const totals = getTotalUsageByLocation(location);
                                             return (
                                                 <TableRow key={location}>
@@ -218,9 +231,9 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
                 </Card>
 
                 {/* Detailed Usage by Location */}
-                {Object.keys(usageByLocation).length > 0 && (
+                {Object.keys(usageByLocation || {}).length > 0 && (
                     <div className="space-y-6">
-                        {Object.entries(usageByLocation).map(([location, usages]) => (
+                        {Object.entries(usageByLocation || {}).map(([location, usages]) => (
                             <Card key={location}>
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
@@ -239,7 +252,7 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {usages.map((usage) => (
+                                                {(usages || []).map((usage) => (
                                                     <TableRow key={`${location}-${usage.product_id}`}>
                                                         <TableCell>
                                                             <div>
@@ -254,7 +267,7 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
                                                             </div>
                                                         </TableCell>
                                                         <TableCell>
-                                                            <div className="font-medium">₱{usage.total_cost.toFixed(2)}</div>
+                                                            <div className="font-medium">₱{Number(usage.total_cost || 0).toFixed(2)}</div>
                                                         </TableCell>
                                                     </TableRow>
                                                 ))}

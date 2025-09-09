@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
-use App\Models\Inventory\Product;
-use App\Models\Inventory\Transaction;
-use App\Models\Inventory\StockLevel;
+use App\Models\Supply\Supply as Product;
+use App\Models\Supply\SupplyTransaction as Transaction;
+use App\Models\Supply\SupplyStockLevel as StockLevel;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -58,7 +58,10 @@ class TransactionController extends Controller
 
     public function create(Request $request)
     {
-        $products = Product::active()->orderBy('name')->get();
+        $products = Product::active()
+            ->withSum('stockLevels as available_stock', 'available_stock')
+            ->orderBy('name')
+            ->get();
         $users = User::orderBy('name')->get(['id', 'name']);
 
         return Inertia::render('admin/inventory/transactions/create', [
@@ -72,7 +75,7 @@ class TransactionController extends Controller
     {
         try {
             $validated = $request->validate([
-                'product_id' => 'required|exists:inventory_products,id',
+                'product_id' => 'required|exists:supplies,id',
                 'type' => 'required|in:in,out,adjustment',
                 'subtype' => 'required|string',
                 'quantity' => 'required|integer',
@@ -92,14 +95,36 @@ class TransactionController extends Controller
             // Set user_id to current user
             $validated['user_id'] = auth()->id();
 
-            // Calculate total cost
-            if ($validated['unit_cost']) {
-                $validated['total_cost'] = $validated['quantity'] * $validated['unit_cost'];
+            // Default unit cost for incoming if not provided
+            if ($validated['type'] === 'in' && (empty($validated['unit_cost']) || $validated['unit_cost'] === null)) {
+                $defaultCost = Product::find($validated['product_id'])?->unit_cost;
+                $validated['unit_cost'] = $defaultCost ?? 0;
             }
 
-            // For outgoing transactions, make quantity negative
+            // Calculate total cost
+            if (isset($validated['unit_cost']) && $validated['unit_cost'] !== null && $validated['unit_cost'] !== '') {
+                $validated['total_cost'] = $validated['quantity'] * (float) $validated['unit_cost'];
+            }
+
+            // For outgoing transactions, make quantity negative and validate stock will not go below zero
             if ($validated['type'] === 'out') {
-                $validated['quantity'] = -abs($validated['quantity']);
+                $requestedOutQty = abs($validated['quantity']);
+                // Determine available stock for product (by lot/expiry if provided)
+                $stockQuery = StockLevel::where('product_id', $validated['product_id']);
+                if (!empty($validated['lot_number'])) {
+                    $stockQuery->where('lot_number', $validated['lot_number']);
+                }
+                if (!empty($validated['expiry_date'])) {
+                    $stockQuery->whereDate('expiry_date', $validated['expiry_date']);
+                }
+                $available = (int) ($stockQuery->sum('available_stock'));
+                if ($requestedOutQty > $available) {
+                    return redirect()->back()
+                        ->with('error', 'Insufficient stock for this inventory item. Available: ' . $available . ', requested: ' . $requestedOutQty)
+                        ->withInput();
+                }
+
+                $validated['quantity'] = -$requestedOutQty;
                 $validated['total_cost'] = $validated['total_cost'] ? -abs($validated['total_cost']) : null;
             }
 
@@ -116,6 +141,15 @@ class TransactionController extends Controller
 
             // Update stock levels
             $this->updateStockLevels($transaction);
+
+            // Low-stock warning after update
+            $product = $transaction->product()->with('stockLevels')->first();
+            $currentStock = (int) $product->stockLevels()->sum('current_stock');
+            if ($currentStock <= (int) $product->minimum_stock_level) {
+                return redirect()->route('admin.inventory.transactions.index')
+                    ->with('success', 'Transaction created successfully!')
+                    ->with('warning', 'Low stock alert for ' . $product->name . ' (current: ' . $currentStock . ').');
+            }
 
             return redirect()->route('admin.inventory.transactions.index')
                 ->with('success', 'Transaction created successfully!');
@@ -217,6 +251,14 @@ class TransactionController extends Controller
         }
 
         // Update stock based on transaction
-        $stockLevel->updateStock($transaction->quantity, $transaction->unit_cost);
+        $stockLevel->updateStock((int) $transaction->quantity, $transaction->unit_cost !== null ? (float) $transaction->unit_cost : null);
+
+        // Sync product default unit_cost on first incoming if unit_cost provided
+        if ($transaction->type === 'in' && $transaction->unit_cost !== null) {
+            if ((float) $product->unit_cost === 0.0) {
+                $product->unit_cost = (float) $transaction->unit_cost;
+                $product->save();
+            }
+        }
     }
 }

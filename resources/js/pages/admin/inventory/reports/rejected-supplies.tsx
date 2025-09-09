@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -84,9 +85,9 @@ export default function RejectedSuppliesReport({ rejectedSupplies, summary, filt
         );
     };
 
-    const handleExport = () => {
-        // TODO: Implement PDF export
-        alert('PDF export functionality will be implemented soon.');
+    const handleExport = (format: 'excel' | 'pdf' | 'word') => {
+        const params = new URLSearchParams({ start_date: startDate || '', end_date: endDate || '', format });
+        window.location.href = `/admin/inventory/reports/rejected-supplies/export?${params.toString()}`;
     };
 
     return (
@@ -104,10 +105,19 @@ export default function RejectedSuppliesReport({ rejectedSupplies, summary, filt
                             <p className="text-muted-foreground">Monitor rejected, damaged, or expired supplies</p>
                         </div>
                     </div>
-                    <Button onClick={handleExport}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Export PDF
-                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button>
+                                <Download className="mr-2 h-4 w-4" />
+                                Export
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleExport('excel')}>Excel</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExport('pdf')}>PDF</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExport('word')}>Word</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
 
                 {/* Date Filters */}
@@ -168,10 +178,7 @@ export default function RejectedSuppliesReport({ rejectedSupplies, summary, filt
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">
-                                ₱
-                                {Object.values(summary)
-                                    .reduce((sum, item) => sum + item.total_cost, 0)
-                                    .toFixed(2)}
+                                ₱{Number(Object.values(summary).reduce((sum, item) => sum + (Number(item.total_cost) || 0), 0)).toFixed(2)}
                             </div>
                             <p className="text-xs text-muted-foreground">Total cost of rejected supplies</p>
                         </CardContent>
@@ -197,19 +204,23 @@ export default function RejectedSuppliesReport({ rejectedSupplies, summary, filt
                                     </TableHeader>
                                     <TableBody>
                                         {Object.values(summary).map((item) => (
-                                            <TableRow key={item.product.code}>
+                                            <TableRow key={item.product?.code || Math.random()}>
                                                 <TableCell>
                                                     <div>
-                                                        <div className="font-medium">{item.product.name}</div>
-                                                        <div className="text-sm text-muted-foreground">{item.product.code}</div>
+                                                        <div className="font-medium">{item.product?.name || 'Unknown'}</div>
+                                                        <div className="text-sm text-muted-foreground">{item.product?.code || '—'}</div>
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="font-medium">{item.total_quantity}</div>
-                                                    <div className="text-sm text-muted-foreground">{item.product.unit_of_measure || 'units'}</div>
+                                                    <div className="text-sm text-muted-foreground">
+                                                        {'unit_of_measure' in (item.product ?? {}) && (item.product as any).unit_of_measure
+                                                            ? (item.product as any).unit_of_measure
+                                                            : 'units'}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="font-medium">₱{item.total_cost.toFixed(2)}</div>
+                                                    <div className="font-medium">₱{Number(item.total_cost || 0).toFixed(2)}</div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <Badge variant="destructive">{item.transactions.length}</Badge>
@@ -259,13 +270,13 @@ export default function RejectedSuppliesReport({ rejectedSupplies, summary, filt
                                                 </TableCell>
                                                 <TableCell>
                                                     <div>
-                                                        <div className="font-medium">{supply.product.name}</div>
-                                                        <div className="text-sm text-muted-foreground">{supply.product.code}</div>
+                                                        <div className="font-medium">{supply.product?.name || 'Unknown'}</div>
+                                                        <div className="text-sm text-muted-foreground">{supply.product?.code || '—'}</div>
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="font-medium">{Math.abs(supply.quantity)}</div>
-                                                    <div className="text-sm text-muted-foreground">{supply.product.unit_of_measure || 'units'}</div>
+                                                    <div className="text-sm text-muted-foreground">{supply.product?.unit_of_measure || 'units'}</div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="text-sm">{supply.notes || 'N/A'}</div>

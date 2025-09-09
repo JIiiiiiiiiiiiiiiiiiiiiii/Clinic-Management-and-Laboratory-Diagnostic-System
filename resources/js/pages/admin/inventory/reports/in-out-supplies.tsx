@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -91,9 +92,9 @@ export default function InOutSuppliesReport({
         );
     };
 
-    const handleExport = () => {
-        // TODO: Implement PDF export
-        alert('PDF export functionality will be implemented soon.');
+    const handleExport = (format: 'excel' | 'pdf' | 'word') => {
+        const params = new URLSearchParams({ start_date: startDate || '', end_date: endDate || '', format });
+        window.location.href = `/admin/inventory/reports/in-out-supplies/export?${params.toString()}`;
     };
 
     return (
@@ -111,10 +112,19 @@ export default function InOutSuppliesReport({
                             <p className="text-muted-foreground">Complete transaction history for all supply movements</p>
                         </div>
                     </div>
-                    <Button onClick={handleExport}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Export PDF
-                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button>
+                                <Download className="mr-2 h-4 w-4" />
+                                Export
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleExport('excel')}>Excel</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExport('pdf')}>PDF</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExport('word')}>Word</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
 
                 {/* Date Filters */}
@@ -190,9 +200,9 @@ export default function InOutSuppliesReport({
                         <CardContent>
                             <div className="text-2xl font-bold text-purple-600">
                                 ₱
-                                {(
-                                    Object.values(incomingSummary).reduce((sum, item) => sum + item.total_cost, 0) +
-                                    Object.values(outgoingSummary).reduce((sum, item) => sum + item.total_cost, 0)
+                                {Number(
+                                    Object.values(incomingSummary).reduce((sum, item) => sum + (Number(item.total_cost) || 0), 0) +
+                                        Object.values(outgoingSummary).reduce((sum, item) => sum + (Number(item.total_cost) || 0), 0),
                                 ).toFixed(2)}
                             </div>
                             <p className="text-xs text-muted-foreground">Total transaction value</p>
@@ -222,18 +232,18 @@ export default function InOutSuppliesReport({
                                         </TableHeader>
                                         <TableBody>
                                             {Object.values(incomingSummary).map((item) => (
-                                                <TableRow key={item.product.code}>
+                                                <TableRow key={item.product?.code || Math.random()}>
                                                     <TableCell>
                                                         <div>
-                                                            <div className="font-medium">{item.product.name}</div>
-                                                            <div className="text-sm text-muted-foreground">{item.product.code}</div>
+                                                            <div className="font-medium">{item.product?.name || 'Unknown'}</div>
+                                                            <div className="text-sm text-muted-foreground">{item.product?.code || '—'}</div>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="font-medium text-green-600">+{item.total_quantity}</div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <div className="font-medium">₱{item.total_cost.toFixed(2)}</div>
+                                                        <div className="font-medium">₱{Number(item.total_cost || 0).toFixed(2)}</div>
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -271,18 +281,18 @@ export default function InOutSuppliesReport({
                                         </TableHeader>
                                         <TableBody>
                                             {Object.values(outgoingSummary).map((item) => (
-                                                <TableRow key={item.product.code}>
+                                                <TableRow key={item.product?.code || Math.random()}>
                                                     <TableCell>
                                                         <div>
-                                                            <div className="font-medium">{item.product.name}</div>
-                                                            <div className="text-sm text-muted-foreground">{item.product.code}</div>
+                                                            <div className="font-medium">{item.product?.name || 'Unknown'}</div>
+                                                            <div className="text-sm text-muted-foreground">{item.product?.code || '—'}</div>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="font-medium text-red-600">-{item.total_quantity}</div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <div className="font-medium">₱{item.total_cost.toFixed(2)}</div>
+                                                        <div className="font-medium">₱{Number(item.total_cost || 0).toFixed(2)}</div>
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -306,7 +316,7 @@ export default function InOutSuppliesReport({
                         <CardTitle>All Transactions</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {[...incomingSupplies, ...outgoingSupplies].length > 0 ? (
+                        {[...(incomingSupplies || []), ...(outgoingSupplies || [])].length > 0 ? (
                             <div className="overflow-x-auto">
                                 <Table>
                                     <TableHeader>
@@ -320,8 +330,11 @@ export default function InOutSuppliesReport({
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {[...incomingSupplies, ...outgoingSupplies]
-                                            .sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
+                                        {[...(incomingSupplies || []), ...(outgoingSupplies || [])]
+                                            .sort(
+                                                (a, b) =>
+                                                    new Date(b?.transaction_date || '').getTime() - new Date(a?.transaction_date || '').getTime(),
+                                            )
                                             .map((transaction) => (
                                                 <TableRow key={transaction.id}>
                                                     <TableCell>
@@ -343,8 +356,8 @@ export default function InOutSuppliesReport({
                                                     </TableCell>
                                                     <TableCell>
                                                         <div>
-                                                            <div className="font-medium">{transaction.product.name}</div>
-                                                            <div className="text-sm text-muted-foreground">{transaction.product.code}</div>
+                                                            <div className="font-medium">{transaction.product?.name || 'Unknown'}</div>
+                                                            <div className="text-sm text-muted-foreground">{transaction.product?.code || '—'}</div>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
@@ -354,7 +367,7 @@ export default function InOutSuppliesReport({
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <div className="text-sm">{transaction.user.name}</div>
+                                                        <div className="text-sm">{transaction.user?.name || 'N/A'}</div>
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="text-sm">{transaction.approved_by?.name || 'N/A'}</div>

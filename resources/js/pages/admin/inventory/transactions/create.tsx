@@ -11,11 +11,11 @@ import { useEffect, useRef } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Supply Management',
+        title: 'Inventory',
         href: '/admin/inventory',
     },
     {
-        title: 'Supply Movements',
+        title: 'Item Movements',
         href: '/admin/inventory/transactions',
     },
     {
@@ -30,6 +30,7 @@ interface Product {
     code: string;
     unit_of_measure?: string;
     unit_cost: number;
+    available_stock?: number;
     requires_lot_tracking: boolean;
     requires_expiry_tracking: boolean;
 }
@@ -135,8 +136,8 @@ export default function CreateTransaction({ products, users, type = 'out', flash
                             <ArrowLeft className="h-4 w-4" />
                         </Button>
                         <div>
-                            <h1 className="text-2xl font-bold">Record Supply Movement</h1>
-                            <p className="text-muted-foreground">Record incoming or outgoing supply movement</p>
+                            <h1 className="text-2xl font-bold">Record Item Movement</h1>
+                            <p className="text-muted-foreground">Record incoming or outgoing item movement</p>
                         </div>
                     </div>
                 </div>
@@ -179,7 +180,7 @@ export default function CreateTransaction({ products, users, type = 'out', flash
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="product_id">
-                                        Product <span className="text-red-500">*</span>
+                                        Item <span className="text-red-500">*</span>
                                     </Label>
                                     <select
                                         id="product_id"
@@ -189,7 +190,7 @@ export default function CreateTransaction({ products, users, type = 'out', flash
                                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                                         ref={firstInputRef}
                                     >
-                                        <option value="">Select a product</option>
+                                        <option value="">Select an item</option>
                                         {products.map((product) => (
                                             <option key={product.id} value={product.id}>
                                                 {product.name} ({product.code})
@@ -242,7 +243,7 @@ export default function CreateTransaction({ products, users, type = 'out', flash
                                     <Label htmlFor="quantity">
                                         Quantity <span className="text-red-500">*</span>
                                     </Label>
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
                                         <Input
                                             id="quantity"
                                             name="quantity"
@@ -254,7 +255,10 @@ export default function CreateTransaction({ products, users, type = 'out', flash
                                             placeholder="0"
                                         />
                                         {selectedProduct?.unit_of_measure && (
-                                            <span className="flex items-center text-sm text-muted-foreground">{selectedProduct.unit_of_measure}</span>
+                                            <span className="text-sm text-muted-foreground">{selectedProduct.unit_of_measure}</span>
+                                        )}
+                                        {selectedProduct && (
+                                            <span className="text-xs text-muted-foreground">Available: {selectedProduct.available_stock ?? '—'}</span>
                                         )}
                                     </div>
                                     {errors.quantity && <p className="text-sm text-red-600">{errors.quantity}</p>}

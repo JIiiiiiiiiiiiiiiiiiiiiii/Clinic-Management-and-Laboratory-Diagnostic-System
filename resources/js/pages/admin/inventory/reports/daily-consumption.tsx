@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -74,24 +75,25 @@ export default function DailyConsumptionReport({ dailyData, productSummary, filt
         );
     };
 
-    const handleExport = () => {
-        // TODO: Implement PDF export
-        alert('PDF export functionality will be implemented soon.');
+    const handleExport = (format: 'excel' | 'pdf' | 'word') => {
+        const params = new URLSearchParams({ start_date: startDate || '', end_date: endDate || '', format });
+        window.location.href = `/admin/inventory/reports/daily-consumption/export?${params.toString()}`;
     };
 
     const getTotalDailyConsumption = () => {
-        return Object.values(dailyData)
+        return Object.values(dailyData || {})
             .flat()
             .reduce(
-                (totals, consumption) => ({
-                    quantity: totals.quantity + consumption.total_quantity,
-                    cost: totals.cost + consumption.total_cost,
+                (totals, consumption: any) => ({
+                    quantity: totals.quantity + (Number(consumption?.total_quantity) || 0),
+                    cost: totals.cost + (Number(consumption?.total_cost) || 0),
                 }),
                 { quantity: 0, cost: 0 },
             );
     };
 
     const totals = getTotalDailyConsumption();
+    const totalCostNumber = Number(totals.cost || 0);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -108,10 +110,19 @@ export default function DailyConsumptionReport({ dailyData, productSummary, filt
                             <p className="text-muted-foreground">Daily usage patterns and consumption trends</p>
                         </div>
                     </div>
-                    <Button onClick={handleExport}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Export PDF
-                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button>
+                                <Download className="mr-2 h-4 w-4" />
+                                Export
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleExport('excel')}>Excel</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExport('pdf')}>PDF</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExport('word')}>Word</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
 
                 {/* Date Filters */}
@@ -171,7 +182,7 @@ export default function DailyConsumptionReport({ dailyData, productSummary, filt
                             <TrendingDown className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">₱{totals.cost.toFixed(2)}</div>
+                            <div className="text-2xl font-bold">₱{Number(totalCostNumber || 0).toFixed(2)}</div>
                             <p className="text-xs text-muted-foreground">Total consumption value</p>
                         </CardContent>
                     </Card>
@@ -208,7 +219,7 @@ export default function DailyConsumptionReport({ dailyData, productSummary, filt
                                                     <div className="text-sm text-muted-foreground">{item.product.unit_of_measure || 'units'}</div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="font-medium">₱{item.total_cost.toFixed(2)}</div>
+                                                    <div className="font-medium">₱{Number(item.total_cost || 0).toFixed(2)}</div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="font-medium">
@@ -239,7 +250,7 @@ export default function DailyConsumptionReport({ dailyData, productSummary, filt
                     <CardContent>
                         {Object.keys(dailyData).length > 0 ? (
                             <div className="space-y-6">
-                                {Object.entries(dailyData)
+                                {Object.entries(dailyData || {})
                                     .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
                                     .map(([date, consumptions]) => (
                                         <div key={date} className="rounded-lg border p-4">
@@ -247,10 +258,14 @@ export default function DailyConsumptionReport({ dailyData, productSummary, filt
                                                 <h3 className="text-lg font-semibold">{new Date(date).toLocaleDateString()}</h3>
                                                 <div className="flex gap-4 text-sm">
                                                     <span className="font-medium">
-                                                        Total: {consumptions.reduce((sum, c) => sum + c.total_quantity, 0)} units
+                                                        Total: {(consumptions || []).reduce((sum, c) => sum + (Number(c.total_quantity) || 0), 0)}{' '}
+                                                        units
                                                     </span>
                                                     <span className="font-medium">
-                                                        Cost: ₱{consumptions.reduce((sum, c) => sum + c.total_cost, 0).toFixed(2)}
+                                                        Cost: ₱
+                                                        {Number(
+                                                            (consumptions || []).reduce((sum, c) => sum + (Number(c.total_cost) || 0), 0),
+                                                        ).toFixed(2)}
                                                     </span>
                                                 </div>
                                             </div>
@@ -264,7 +279,7 @@ export default function DailyConsumptionReport({ dailyData, productSummary, filt
                                                         </TableRow>
                                                     </TableHeader>
                                                     <TableBody>
-                                                        {consumptions.map((consumption) => (
+                                                        {(consumptions || []).map((consumption) => (
                                                             <TableRow key={`${date}-${consumption.product_id}`}>
                                                                 <TableCell>
                                                                     <div>
@@ -281,7 +296,9 @@ export default function DailyConsumptionReport({ dailyData, productSummary, filt
                                                                     </div>
                                                                 </TableCell>
                                                                 <TableCell>
-                                                                    <div className="font-medium">₱{consumption.total_cost.toFixed(2)}</div>
+                                                                    <div className="font-medium">
+                                                                        ₱{Number(consumption.total_cost || 0).toFixed(2)}
+                                                                    </div>
                                                                 </TableCell>
                                                             </TableRow>
                                                         ))}

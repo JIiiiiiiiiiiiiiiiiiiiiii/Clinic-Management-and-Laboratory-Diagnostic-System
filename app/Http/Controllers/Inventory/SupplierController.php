@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
-use App\Models\Inventory\Supplier;
+use App\Models\Supply\Supplier;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 

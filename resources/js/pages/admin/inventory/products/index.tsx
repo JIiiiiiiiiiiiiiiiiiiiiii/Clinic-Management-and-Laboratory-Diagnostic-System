@@ -12,11 +12,11 @@ import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Supply Management',
+        title: 'Inventory',
         href: '/admin/inventory',
     },
     {
-        title: 'Products',
+        title: 'Items',
         href: '/admin/inventory/products',
     },
 ];
@@ -99,16 +99,16 @@ export default function ProductsIndex({ products, filters }: ProductsIndexProps)
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Inventory Products" />
+            <Head title="Inventory Items" />
             <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold">Inventory Products</h1>
-                        <p className="text-muted-foreground">Manage clinic supplies and equipment</p>
+                        <h1 className="text-2xl font-bold">Inventory Items</h1>
+                        <p className="text-muted-foreground">Manage clinic items and equipment</p>
                     </div>
                     <Button onClick={() => router.visit('/admin/inventory/products/create')}>
                         <Plus className="mr-2 h-4 w-4" />
-                        Add Product
+                        Add Item
                     </Button>
                 </div>
 
@@ -177,7 +177,7 @@ export default function ProductsIndex({ products, filters }: ProductsIndexProps)
                 {/* Products Table */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>Products ({products.total})</CardTitle>
+                        <CardTitle>Items ({products.total})</CardTitle>
                     </CardHeader>
                     <CardContent>
                         {products.data.length > 0 ? (
@@ -185,7 +185,7 @@ export default function ProductsIndex({ products, filters }: ProductsIndexProps)
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>Product</TableHead>
+                                            <TableHead>Item</TableHead>
                                             <TableHead>Code</TableHead>
                                             <TableHead>Category</TableHead>
                                             <TableHead>Unit</TableHead>
@@ -261,12 +261,12 @@ export default function ProductsIndex({ products, filters }: ProductsIndexProps)
                         ) : (
                             <div className="py-8 text-center">
                                 <Package className="mx-auto h-12 w-12 text-muted-foreground" />
-                                <h3 className="mt-2 text-sm font-semibold">No products found</h3>
-                                <p className="mt-1 text-sm text-muted-foreground">Get started by creating a new product.</p>
+                                <h3 className="mt-2 text-sm font-semibold">No items found</h3>
+                                <p className="mt-1 text-sm text-muted-foreground">Get started by creating a new item.</p>
                                 <div className="mt-6">
                                     <Button onClick={() => router.visit('/admin/inventory/products/create')}>
                                         <Plus className="mr-2 h-4 w-4" />
-                                        Add Product
+                                        Add Item
                                     </Button>
                                 </div>
                             </div>

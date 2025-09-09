@@ -15,11 +15,11 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/admin/inventory',
     },
     {
-        title: 'Products',
+        title: 'Items',
         href: '/admin/inventory/products',
     },
     {
-        title: 'Create Product',
+        title: 'Create Item',
         href: '/admin/inventory/products/create',
     },
 ];
@@ -83,7 +83,7 @@ export default function CreateProduct({ flash }: CreateProductProps) {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Create Product" />
+            <Head title="Create Item" />
             <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -92,7 +92,7 @@ export default function CreateProduct({ flash }: CreateProductProps) {
                             Back to Products
                         </Button>
                         <div>
-                            <h1 className="text-2xl font-bold">Create New Product</h1>
+                            <h1 className="text-2xl font-bold">Create New Item</h1>
                             <p className="text-muted-foreground">Add a new product to the inventory</p>
                         </div>
                     </div>
@@ -132,7 +132,7 @@ export default function CreateProduct({ flash }: CreateProductProps) {
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="name">
-                                        Product Name <span className="text-red-500">*</span>
+                                        Item Name <span className="text-red-500">*</span>
                                     </Label>
                                     <Input
                                         id="name"
@@ -150,7 +150,7 @@ export default function CreateProduct({ flash }: CreateProductProps) {
 
                                 <div className="space-y-2">
                                     <Label htmlFor="code">
-                                        Product Code <span className="text-red-500">*</span>
+                                        Item Code <span className="text-red-500">*</span>
                                     </Label>
                                     <div className="flex gap-2">
                                         <Input
@@ -332,7 +332,7 @@ export default function CreateProduct({ flash }: CreateProductProps) {
                             ) : (
                                 <>
                                     <Save className="mr-2 h-4 w-4" />
-                                    Create Product
+                                    Create Item
                                 </>
                             )}
                         </Button>

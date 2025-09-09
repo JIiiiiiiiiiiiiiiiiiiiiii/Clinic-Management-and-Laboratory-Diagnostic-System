@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
-use App\Models\Inventory\Product;
-use App\Models\Inventory\Transaction;
-use App\Models\Inventory\StockLevel;
+use App\Models\Supply\Supply as Product;
+use App\Models\Supply\SupplyTransaction as Transaction;
+use App\Models\Supply\SupplyStockLevel as StockLevel;
 use Inertia\Inertia;
 
 class InventoryController extends Controller
@@ -15,7 +15,22 @@ class InventoryController extends Controller
         // Get dashboard statistics
         $totalProducts = Product::count();
         $activeProducts = Product::active()->count();
-        $lowStockProducts = StockLevel::getLowStockProducts()->count();
+        $lowStockGroups = StockLevel::getLowStockProducts();
+        $lowStockProducts = $lowStockGroups->count();
+
+        // Build low stock item details
+        $lowStockItems = $lowStockGroups
+            ->map(function ($row) {
+                $product = Product::find($row->product_id);
+                return [
+                    'id' => $row->product_id,
+                    'name' => $product?->name ?? 'Unknown',
+                    'code' => $product?->code ?? '',
+                    'total_stock' => (int) ($row->total_stock ?? 0),
+                    'min_level' => (int) ($row->min_level ?? 0),
+                ];
+            })
+            ->values();
         $expiringSoon = StockLevel::getExpiringSoon()->count();
         $expiredStock = StockLevel::getExpiredStock()->count();
 
@@ -55,6 +70,7 @@ class InventoryController extends Controller
             'recentTransactions' => $recentTransactions,
             'pendingApprovals' => $pendingApprovals,
             'topConsumedProducts' => $topConsumedProducts,
+            'lowStockItems' => $lowStockItems,
         ]);
     }
 }
