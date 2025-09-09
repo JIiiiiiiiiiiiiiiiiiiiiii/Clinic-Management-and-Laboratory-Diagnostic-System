@@ -22,7 +22,7 @@ type Order = {
         age: number;
         sex: string;
     } | null;
-    labTests: Array<{
+    lab_tests: Array<{
         id: number;
         name: string;
         code: string;
@@ -46,7 +46,7 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
 
     const filteredOrders = orders.filter((order) => {
         const patientName = `${order.patient?.first_name ?? ''} ${order.patient?.last_name ?? ''}`.trim().toLowerCase();
-        const testNames = (order.labTests || [])
+        const testNames = (order.lab_tests || [])
             .map((test) => test.name)
             .join(' ')
             .toLowerCase();
@@ -100,7 +100,7 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                         <div className="flex items-center gap-2">
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Button onClick={() => router.visit('/admin/laboratory')} variant="outline" size="icon">
+                                    <Button onClick={() => router.visit('/admin/laboratory/orders/create')} variant="outline" size="icon">
                                         <Plus className="h-4 w-4" />
                                     </Button>
                                 </TooltipTrigger>
@@ -180,7 +180,7 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                                         <div>
                                                             <span className="text-sm text-muted-foreground">Tests Ordered:</span>
                                                             <div className="mt-1 flex flex-wrap gap-1">
-                                                                {(order.labTests || []).map((test) => (
+                                                                {(order.lab_tests || []).map((test) => (
                                                                     <Badge key={test.id} variant="outline" className="text-xs">
                                                                         {test.name}
                                                                     </Badge>

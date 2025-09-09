@@ -18,8 +18,44 @@ class LabOrderController extends Controller
             ->latest()
             ->get();
 
+        // Normalize relation name for frontend (lab_tests)
+        $normalized = $orders->map(function ($o) {
+            $o->setRelation('lab_tests', $o->labTests);
+            $o->unsetRelation('labTests');
+            return $o;
+        });
+
         return Inertia::render('admin/laboratory/orders/index', [
-            'orders' => $orders,
+            'orders' => $normalized,
+        ]);
+    }
+
+    public function create()
+    {
+        $patients = Patient::orderBy('last_name')
+            ->orderBy('first_name')
+            ->get(['id', 'first_name', 'last_name']);
+        return Inertia::render('admin/laboratory/orders/create', [
+            'patients' => $patients,
+        ]);
+    }
+
+    public function reportsIndex()
+    {
+        $orders = LabOrder::with(['patient:id,first_name,last_name', 'labTests:id,name,code'])
+            ->latest()
+            ->get(['id', 'patient_id', 'created_at']);
+        $tests = LabTest::orderBy('name')->get(['id', 'name', 'code']);
+
+        $normalized = $orders->map(function ($o) {
+            $o->setRelation('lab_tests', $o->labTests);
+            $o->unsetRelation('labTests');
+            return $o;
+        });
+
+        return Inertia::render('admin/laboratory/reports/index', [
+            'orders' => $normalized,
+            'tests' => $tests,
         ]);
     }
 
@@ -28,9 +64,15 @@ class LabOrderController extends Controller
         $orders = LabOrder::with(['labTests'])->where('patient_id', $patient->id)->latest()->get();
         $labTests = LabTest::where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'is_active']);
 
+        $normalizedPatientOrders = $orders->map(function ($o) {
+            $o->setRelation('lab_tests', $o->labTests);
+            $o->unsetRelation('labTests');
+            return $o;
+        });
+
         return Inertia::render('admin/laboratory/patients/orders', [
             'patient' => $patient,
-            'orders' => $orders,
+            'orders' => $normalizedPatientOrders,
             'labTests' => $labTests,
             'patient_visit_id' => $request->integer('patient_visit_id') ?: null,
         ]);

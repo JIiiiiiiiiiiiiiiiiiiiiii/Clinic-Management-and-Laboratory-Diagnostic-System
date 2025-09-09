@@ -43,8 +43,7 @@ export default function DoctorCreate() {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Button variant="outline" onClick={() => router.visit('/admin/doctors')}>
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Doctors
+                            <ArrowLeft className="h-4 w-4" />
                         </Button>
                         <div>
                             <h1 className="text-2xl font-bold">Add New Doctor</h1>

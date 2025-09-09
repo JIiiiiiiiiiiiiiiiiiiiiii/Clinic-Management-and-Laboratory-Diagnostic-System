@@ -31,7 +31,7 @@ type LabOrder = {
     status: string;
     created_at: string;
     notes?: string;
-    labTests: LabTest[];
+    lab_tests: LabTest[];
 };
 
 const breadcrumbs = (patient: Patient): BreadcrumbItem[] => [
@@ -108,8 +108,7 @@ export default function PatientLabOrders({
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Button variant="outline" onClick={() => router.visit('/admin/laboratory/orders')}>
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Lab Orders
+                            <ArrowLeft className="h-4 w-4" />
                         </Button>
                         <div>
                             <h1 className="text-2xl font-bold">Lab Orders</h1>
@@ -215,7 +214,7 @@ export default function PatientLabOrders({
                                                     <div className="mb-3">
                                                         <span className="text-sm text-muted-foreground">Tests Ordered:</span>
                                                         <div className="mt-1 flex flex-wrap gap-1">
-                                                            {(order.labTests || []).map((test) => (
+                                                            {(order.lab_tests || []).map((test) => (
                                                                 <Badge key={test.id} variant="outline" className="text-xs">
                                                                     {test.name}
                                                                 </Badge>

@@ -273,11 +273,16 @@ export default function TestEdit({ test }: TestEditProps): React.ReactElement {
             <Head title={`Edit Test Template - ${test.name}`} />
             <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold">Edit Test Template</h1>
-                        <p className="text-muted-foreground">
-                            {test.name} (v{test.version}) • Last updated: {new Date(test.updated_at).toLocaleDateString()}
-                        </p>
+                    <div className="flex items-center gap-4">
+                        <Button variant="outline" size="icon" onClick={() => router.visit('/admin/laboratory/tests')}>
+                            <span aria-hidden>←</span>
+                        </Button>
+                        <div>
+                            <h1 className="text-2xl font-bold">Edit Test Template</h1>
+                            <p className="text-muted-foreground">
+                                {test.name} (v{test.version}) • Last updated: {new Date(test.updated_at).toLocaleDateString()}
+                            </p>
+                        </div>
                     </div>
                     <div className="flex gap-2">
                         <Button variant="outline" onClick={() => setPreviewMode(!previewMode)}>

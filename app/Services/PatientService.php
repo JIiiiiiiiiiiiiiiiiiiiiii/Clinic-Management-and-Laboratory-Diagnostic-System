@@ -14,6 +14,13 @@ class PatientService
             $validatedData['age'] = now()->parse($validatedData['birthdate'])->age;
         }
 
+        // Auto-generate patient_no if not provided (no zero padding)
+        if (empty($validatedData['patient_no'])) {
+            $max = Patient::query()->max('patient_no');
+            $numericMax = is_numeric($max) ? (int) $max : (int) ltrim((string) $max, '0');
+            $validatedData['patient_no'] = (string) ($numericMax + 1);
+        }
+
         return Patient::create($validatedData);
     }
 

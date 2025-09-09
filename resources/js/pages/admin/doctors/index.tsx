@@ -49,10 +49,6 @@ export default function DoctorIndex({ doctors }: { doctors: Doctor[] }) {
             <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <Button variant="outline" onClick={() => router.visit('/admin')}>
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Admin
-                        </Button>
                         <div>
                             <h1 className="text-2xl font-bold">Doctor Management</h1>
                             <p className="text-muted-foreground">Manage clinic doctors and their information</p>

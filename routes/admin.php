@@ -75,6 +75,7 @@ Route::middleware(['auth', 'verified'])
 
             // Lab orders management
             Route::get('/orders', [LabOrderController::class, 'allOrders'])->name('orders.all');
+            Route::get('/orders/create', [LabOrderController::class, 'create'])->name('orders.create');
             Route::get('/patients/{patient}/orders', [LabOrderController::class, 'index'])->name('orders.index');
             Route::post('/patients/{patient}/orders', [LabOrderController::class, 'store'])->name('orders.store');
             Route::put('/orders/{order}/status', [LabOrderController::class, 'updateStatus'])->name('orders.updateStatus');
@@ -86,7 +87,9 @@ Route::middleware(['auth', 'verified'])
             Route::put('/results/{result}', [LabResultController::class, 'update'])->name('results.update');
             Route::put('/orders/{order}/verify', [LabResultController::class, 'verify'])->name('results.verify');
 
-            // Reports
+            // Reports pages within Laboratory
+            Route::get('/reports', [LabOrderController::class, 'reportsIndex'])->name('reports.index');
+            // Single-order printable reports remain
             Route::get('/orders/{order}/report', [LabReportController::class, 'generateReport'])->name('reports.generate');
             Route::get('/orders/{order}/report/cbc', [LabReportController::class, 'generateCBCReport'])->name('reports.cbc');
             Route::get('/orders/{order}/report/urinalysis', [LabReportController::class, 'generateUrinalysisReport'])->name('reports.urinalysis');

@@ -267,8 +267,8 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
             <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <Button variant="outline" onClick={() => router.visit('/admin/laboratory/orders')}>
-                            ← Back to Orders
+                        <Button variant="outline" size="icon" onClick={() => router.visit('/admin/laboratory/orders')}>
+                            <span aria-hidden>←</span>
                         </Button>
                         <div>
                             <h1 className="text-2xl font-bold">Lab Results Entry</h1>

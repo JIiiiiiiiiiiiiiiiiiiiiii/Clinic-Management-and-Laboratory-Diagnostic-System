@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { CreatePatientItem } from '@/types/patients';
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, Save } from 'lucide-react';
 import { useState } from 'react';
 
@@ -33,8 +33,13 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 type Doctor = { id: number; name: string };
 
-export default function CreatePatient({ doctors = [] as Doctor[] }: { doctors?: Doctor[] }) {
-    const { data, setData, processing, errors, reset } = useForm<CreatePatientItem>({
+export default function CreatePatient({ doctors = [] as Doctor[], next_patient_no = '' }: { doctors?: Doctor[]; next_patient_no?: string }) {
+    const page = usePage();
+    const flash = (page.props as any).flash || {};
+    const duplicate = flash?.duplicate_patient as
+        | { id: number; patient_no?: string; last_name: string; first_name: string; birthdate?: string; mobile_no?: string }
+        | undefined;
+    const { data, setData, processing, errors, reset, post } = useForm<CreatePatientItem & { force_create?: boolean }>({
         // Patient Identification
         last_name: '',
         first_name: '',
@@ -42,6 +47,7 @@ export default function CreatePatient({ doctors = [] as Doctor[] }: { doctors?: 
         birthdate: '',
         age: 0,
         sex: 'male',
+        // remove patient_no from payload; backend generates
         patient_no: '',
 
         // Demographics
@@ -73,6 +79,7 @@ export default function CreatePatient({ doctors = [] as Doctor[] }: { doctors?: 
         family_history: '',
         social_personal_history: '',
         obstetrics_gynecology_history: '',
+        force_create: false,
     });
     const [showMissingModal, setShowMissingModal] = useState(false);
     const [missingFields, setMissingFields] = useState<string[]>([]);
@@ -120,23 +127,26 @@ export default function CreatePatient({ doctors = [] as Doctor[] }: { doctors?: 
             return;
         }
 
-        router.post(
-            '/admin/patient',
-            { ...data },
-            {
-                onError: (errs) => {
-                    const keys = Object.keys(errs || {});
-                    if (keys.length > 0) {
-                        const el = document.getElementById(keys[0]);
-                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) el.focus();
-                    }
-                },
-                onSuccess: () => {
-                    router.visit('/admin/patient');
-                },
+        post('/admin/patient', {
+            preserveScroll: true,
+            preserveState: true,
+            onError: (errs) => {
+                const keys = Object.keys(errs || {});
+                if (keys.length > 0) {
+                    const el = document.getElementById(keys[0]);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) el.focus();
+                }
             },
-        );
+            onSuccess: () => {
+                // Let backend redirect; no extra navigation here to avoid jump
+            },
+        });
+    };
+
+    const proceedDuplicate = () => {
+        setData('force_create', true as any);
+        post('/admin/patient', { preserveScroll: true, preserveState: true });
     };
 
     return (
@@ -157,11 +167,29 @@ export default function CreatePatient({ doctors = [] as Doctor[] }: { doctors?: 
                     </div>
                 </div>
 
-                {/* Error alert */}
-                {((usePage().props as any).flash?.error as string | undefined) && (
-                    <div className="rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-700">
-                        {String((usePage().props as any).flash?.error as string)}
+                {/* Error alert / Duplicate confirmation */}
+                {duplicate ? (
+                    <div className="rounded-md border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-800">
+                        <div className="mb-2 font-medium">Possible duplicate found</div>
+                        <div>
+                            {duplicate.last_name}, {duplicate.first_name}
+                            {duplicate.birthdate ? ` • ${duplicate.birthdate}` : ''}
+                            {duplicate.mobile_no ? ` • ${duplicate.mobile_no}` : ''}
+                            {duplicate.patient_no ? ` • Patient No: ${duplicate.patient_no}` : ''}
+                        </div>
+                        <div className="mt-3 flex gap-2">
+                            <Button variant="outline" asChild>
+                                <Link href={`/admin/patient/${duplicate.id}`}>View Existing</Link>
+                            </Button>
+                            <Button variant="destructive" onClick={proceedDuplicate}>
+                                Create Anyway
+                            </Button>
+                        </div>
                     </div>
+                ) : (
+                    (flash?.error as string | undefined) && (
+                        <div className="rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-700">{String(flash?.error as string)}</div>
+                    )
                 )}
 
                 {/* Required fields missing modal */}
@@ -271,14 +299,7 @@ export default function CreatePatient({ doctors = [] as Doctor[] }: { doctors?: 
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="patient_no">Patient No.</Label>
-                                    <Input
-                                        id="patient_no"
-                                        name="patient_no"
-                                        value={data.patient_no}
-                                        onChange={(e) => setData('patient_no', e.target.value)}
-                                        className={errors.patient_no ? 'border-red-500' : ''}
-                                    />
-                                    {errors.patient_no && <p className="text-sm text-red-500">{errors.patient_no}</p>}
+                                    <Input id="patient_no" name="patient_no" value={next_patient_no} readOnly disabled />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="nationality">Nationality</Label>
