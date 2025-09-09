@@ -14,6 +14,11 @@ use App\Http\Controllers\Inventory\TransactionController;
 use App\Http\Controllers\Inventory\ReportController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use App\Http\Controllers\DashboardController;
+use App\Models\Patient;
+use App\Models\LabOrder;
+use App\Models\Supply\Supply as Product;
+use Illuminate\Support\Facades\DB;
 
 // Admin routes for all clinic staff roles
 Route::middleware(['auth', 'verified'])
@@ -21,9 +26,7 @@ Route::middleware(['auth', 'verified'])
     ->name('admin.')
     ->group(function () {
         // Dashboard - All authenticated staff can access
-        Route::get('/dashboard', function () {
-            return Inertia::render('admin/dashboard');
-        })->name('dashboard');
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
         // Patient CRUD routes (URLs -> /admin/patient) - All staff can access
         Route::resource('patient', PatientController::class)->names([

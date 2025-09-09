@@ -69,7 +69,7 @@ export function AppSidebar() {
             requiredPermission: 'canAccessAppointments',
         },
         {
-            title: 'Reports & Analytics',
+            title: 'Reports',
             href: '/admin/reports',
             icon: BarChart3,
             requiredPermission: 'canAccessReports',

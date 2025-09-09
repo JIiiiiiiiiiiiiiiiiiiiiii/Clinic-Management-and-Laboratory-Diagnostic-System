@@ -118,7 +118,7 @@ const formatCurrency = (amount: string) => {
 
 export default function Dashboard() {
     const { permissions, canAccessModule, isPatient } = useRoleAccess();
-    const { auth } = usePage().props as any;
+    const { auth, dashboard } = usePage().props as any;
     const role = auth?.user?.role || 'admin';
     const data = roleBasedData[role as keyof typeof roleBasedData] || roleBasedData.admin;
 
@@ -130,7 +130,12 @@ export default function Dashboard() {
     const renderAnalyticsCards = () => {
         return (
             <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
-                {data.analytics.map((item, index) => {
+                {[
+                    { label: 'Total Patients', value: String(dashboard?.totals?.patients ?? 0), change: '+', icon: Users },
+                    { label: 'Total Items', value: String(dashboard?.totals?.items ?? 0), change: '+', icon: Package2 },
+                    { label: 'Low Stock Items', value: String(dashboard?.totals?.lowStockItems ?? 0), change: '+', icon: TrendingUp },
+                    { label: 'Lab Orders', value: String(dashboard?.totals?.labOrders ?? 0), change: '+', icon: FlaskConical },
+                ].map((item, index) => {
                     const Icon = item.icon;
                     return (
                         <Card key={index} className="shadow-sm transition-shadow hover:shadow-md">
@@ -158,11 +163,11 @@ export default function Dashboard() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={data.title} />
+            <Head title="Admin Dashboard" />
             <div className="min-h-screen bg-gray-50 p-6">
                 <div className="mb-8">
-                    <h1 className="mb-2 text-3xl font-bold text-gray-900">{data.title}</h1>
-                    <p className="text-gray-500">{data.description}</p>
+                    <h1 className="mb-2 text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+                    <p className="text-gray-500">Overview of clinic operations and management</p>
                 </div>
 
                 {/* Role-based Analytics Cards */}
@@ -257,8 +262,10 @@ export default function Dashboard() {
                                     </CardHeader>
                                     <CardContent>
                                         <div className="space-y-2">
-                                            <div className="text-sm text-gray-600">Total patients: 1,234</div>
-                                            <div className="text-sm text-gray-600">New this month: 45</div>
+                                            <div className="text-sm text-gray-600">Total patients: {dashboard?.totals?.patients ?? 0}</div>
+                                            <div className="text-sm text-gray-600">
+                                                New this month: {dashboard?.totals?.newPatientsThisMonth ?? 0}
+                                            </div>
                                         </div>
                                     </CardContent>
                                     <CardContent className="pt-0">
@@ -323,7 +330,7 @@ export default function Dashboard() {
                                     <CardHeader>
                                         <CardTitle className="flex items-center gap-2">
                                             <BarChart3 className="h-5 w-5 text-red-500" />
-                                            Reports & Analytics
+                                            Reports
                                         </CardTitle>
                                         <CardDescription>Generate comprehensive reports</CardDescription>
                                     </CardHeader>
@@ -396,47 +403,40 @@ export default function Dashboard() {
                                     </TableHeader>
                                     <TableBody>
                                         {(() => {
-                                            const labData = roleBasedData.laboratory_technologist;
-                                            return (
-                                                labData.recentTests?.map((test) => (
-                                                    <TableRow key={test.id}>
-                                                        <TableCell>
-                                                            <div className="font-medium">{test.patient}</div>
-                                                        </TableCell>
-                                                        <TableCell>{test.test}</TableCell>
-                                                        <TableCell>
-                                                            <Badge
-                                                                className={
-                                                                    test.status === 'Completed'
-                                                                        ? 'bg-green-100 text-green-800 hover:bg-green-100'
-                                                                        : test.status === 'In Progress'
-                                                                          ? 'bg-blue-100 text-blue-800 hover:bg-green-100'
-                                                                          : 'bg-yellow-100 text-yellow-800 hover:bg-green-100'
-                                                                }
-                                                            >
-                                                                {test.status}
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell>{test.date}</TableCell>
-                                                        <TableCell>
-                                                            <DropdownMenu>
-                                                                <DropdownMenuTrigger asChild>
-                                                                    <Button variant="ghost" size="icon">
-                                                                        <MoreHorizontal className="h-4 w-4" />
-                                                                    </Button>
-                                                                </DropdownMenuTrigger>
-                                                                <DropdownMenuContent align="end">
-                                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                                    <DropdownMenuItem>View details</DropdownMenuItem>
-                                                                    <DropdownMenuItem>Edit test</DropdownMenuItem>
-                                                                    <DropdownMenuSeparator />
-                                                                    <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
-                                                                </DropdownMenuContent>
-                                                            </DropdownMenu>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )) || []
-                                            );
+                                            const rows = (dashboard?.recent?.labOrders || []).map((o: any) => ({
+                                                id: o.id,
+                                                patient: o.patient ? `${o.patient.last_name}, ${o.patient.first_name}` : '—',
+                                                tests: (o.lab_tests || []).map((t: any) => t.name).join(', '),
+                                                date: new Date(o.created_at).toLocaleString(),
+                                                status: 'Ordered',
+                                            }));
+                                            return rows.map((row: any) => (
+                                                <TableRow key={row.id}>
+                                                    <TableCell>
+                                                        <div className="font-medium">{row.patient}</div>
+                                                    </TableCell>
+                                                    <TableCell>{row.tests}</TableCell>
+                                                    <TableCell>
+                                                        <Badge className={'bg-blue-100 text-blue-800 hover:bg-blue-100'}>{row.status}</Badge>
+                                                    </TableCell>
+                                                    <TableCell>{row.date}</TableCell>
+                                                    <TableCell>
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" size="icon">
+                                                                    <MoreHorizontal className="h-4 w-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                                <DropdownMenuItem asChild>
+                                                                    <Link href={`/admin/laboratory/orders/${row.id}/results/view`}>View details</Link>
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ));
                                         })()}
                                     </TableBody>
                                 </Table>
@@ -473,9 +473,9 @@ export default function Dashboard() {
                                     </TableHeader>
                                     <TableBody>
                                         {(() => {
-                                            const billingData = roleBasedData.cashier;
+                                            const rows = [] as any[];
                                             return (
-                                                billingData.recentTransactions?.map((transaction) => (
+                                                rows.map((transaction) => (
                                                     <TableRow key={transaction.id}>
                                                         <TableCell>
                                                             <div className="font-medium">{transaction.patient}</div>
@@ -550,25 +550,21 @@ export default function Dashboard() {
                                     </TableHeader>
                                     <TableBody>
                                         {(() => {
-                                            const doctorData = roleBasedData.doctor;
+                                            const rows = (dashboard?.recent?.patients || []).map((p: any) => ({
+                                                id: p.id,
+                                                name: `${p.last_name ?? ''}, ${p.first_name ?? ''}`,
+                                                lastVisit: new Date(p.created_at).toLocaleDateString(),
+                                                diagnosis: '—',
+                                                status: '—',
+                                            }));
                                             return (
-                                                doctorData.recentPatients?.map((patient) => (
+                                                rows.map((patient) => (
                                                     <TableRow key={patient.id}>
                                                         <TableCell className="font-medium">{patient.name}</TableCell>
                                                         <TableCell>{patient.lastVisit}</TableCell>
                                                         <TableCell>{patient.diagnosis}</TableCell>
                                                         <TableCell>
-                                                            <Badge
-                                                                className={
-                                                                    patient.status === 'Under Treatment'
-                                                                        ? 'bg-red-100 text-red-800 hover:bg-green-100'
-                                                                        : patient.status === 'Stable'
-                                                                          ? 'bg-green-100 text-green-800 hover:bg-green-100'
-                                                                          : 'bg-blue-100 text-blue-800 hover:bg-green-100'
-                                                                }
-                                                            >
-                                                                {patient.status}
-                                                            </Badge>
+                                                            <Badge className={'bg-gray-100 text-gray-800 hover:bg-gray-100'}>{patient.status}</Badge>
                                                         </TableCell>
                                                         <TableCell>
                                                             <DropdownMenu>
@@ -602,14 +598,14 @@ export default function Dashboard() {
                         <Card>
                             <CardHeader className="pb-2">
                                 <div className="flex items-center justify-between">
-                                    <CardTitle>Recent Products</CardTitle>
+                                    <CardTitle>Recent Items</CardTitle>
                                     <div className="flex gap-2">
                                         <Button asChild>
-                                            <Link href="/admin/inventory">View All Products</Link>
+                                            <Link href="/admin/inventory">View All Items</Link>
                                         </Button>
                                     </div>
                                 </div>
-                                <CardDescription>A list of recent inventory products</CardDescription>
+                                <CardDescription>A list of recent inventory items</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <Table>
@@ -623,9 +619,14 @@ export default function Dashboard() {
                                     </TableHeader>
                                     <TableBody>
                                         {(() => {
-                                            const adminData = roleBasedData.admin;
+                                            const rows = (dashboard?.recent?.items || []).map((p: any) => ({
+                                                id: p.id,
+                                                name: p.name,
+                                                stock: Number(p.current_stock ?? 0),
+                                                status: Number(p.current_stock ?? 0) > 0 ? 'In Stock' : 'Out of Stock',
+                                            }));
                                             return (
-                                                adminData.recentProducts?.map((product) => (
+                                                rows.map((product) => (
                                                     <TableRow key={product.id}>
                                                         <TableCell className="font-medium">{product.name}</TableCell>
                                                         <TableCell>{product.stock}</TableCell>
