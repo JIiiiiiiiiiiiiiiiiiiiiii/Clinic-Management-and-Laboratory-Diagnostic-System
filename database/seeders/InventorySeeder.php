@@ -2,9 +2,10 @@
 
 namespace Database\Seeders;
 
-use App\Models\Inventory\Product;
-use App\Models\Inventory\Transaction;
-use App\Models\Inventory\StockLevel;
+use App\Models\Supply\Supply as Product;
+use App\Models\Supply\SupplyTransaction as Transaction;
+use App\Models\Supply\SupplyStockLevel as StockLevel;
+use App\Models\Supply\Supplier;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -81,14 +82,39 @@ class InventorySeeder extends Seeder
             Product::updateOrCreate(['code' => $productData['code']], $productData);
         }
 
+        // Create some suppliers
+        $suppliers = [
+            [
+                'name' => 'MedSupply Philippines',
+                'contact_person' => 'Juan Dela Cruz',
+                'email' => 'orders@medsupply.ph',
+                'phone' => '+63-2-1234-5678',
+                'address' => '123 Medical Center, Quezon City, Philippines',
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Healthcare Solutions Inc.',
+                'contact_person' => 'Maria Santos',
+                'email' => 'sales@healthcaresolutions.ph',
+                'phone' => '+63-2-8765-4321',
+                'address' => '456 Health Plaza, Makati City, Philippines',
+                'is_active' => true,
+            ],
+        ];
+
+        foreach ($suppliers as $supplierData) {
+            Supplier::updateOrCreate(['name' => $supplierData['name']], $supplierData);
+        }
+
         // Get a user for transactions (assuming there's at least one user)
-        $user = User::first();
+        $user = User::where('role', 'admin')->first();
         if (!$user) {
             $user = User::create([
                 'name' => 'Inventory Manager',
                 'email' => 'inventory@stjames.com',
                 'password' => bcrypt('password'),
                 'role' => 'admin',
+                'is_active' => true,
             ]);
         }
 
@@ -139,7 +165,11 @@ class InventorySeeder extends Seeder
             ];
 
             foreach ($incomingTransactions as $transactionData) {
-                Transaction::create($transactionData);
+                Transaction::updateOrCreate([
+                    'product_id' => $transactionData['product_id'],
+                    'lot_number' => $transactionData['lot_number'],
+                    'transaction_date' => $transactionData['transaction_date'],
+                ], $transactionData);
             }
 
             // Create stock levels for the products
@@ -248,7 +278,12 @@ class InventorySeeder extends Seeder
             ];
 
             foreach ($consumptionTransactions as $transactionData) {
-                Transaction::create($transactionData);
+                Transaction::updateOrCreate([
+                    'product_id' => $transactionData['product_id'],
+                    'lot_number' => $transactionData['lot_number'],
+                    'transaction_date' => $transactionData['transaction_date'],
+                    'type' => $transactionData['type'],
+                ], $transactionData);
             }
         }
     }

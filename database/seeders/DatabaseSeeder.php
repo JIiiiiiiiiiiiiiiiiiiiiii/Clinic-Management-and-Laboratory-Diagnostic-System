@@ -14,19 +14,22 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
-
-        // Create some sample patients
-        Patient::factory(20)->create();
-
-        // Seed default laboratory tests
-        $this->call(LabTestSeeder::class);
+        // Seed users with different roles first
         $this->call(UserRoleSeeder::class);
+
+        // Seed laboratory tests
+        $this->call(LabTestSeeder::class);
+
+        // Seed inventory/supplies
         $this->call(InventorySeeder::class);
+
+        // Seed patients
+        $this->call(PatientSeeder::class);
+
+        // Seed patient visits
+        $this->call(PatientVisitSeeder::class);
+
+        // Seed lab orders
+        $this->call(LabOrderSeeder::class);
     }
 }
