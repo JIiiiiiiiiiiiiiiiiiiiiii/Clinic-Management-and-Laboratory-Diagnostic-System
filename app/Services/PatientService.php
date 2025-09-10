@@ -15,13 +15,17 @@ class PatientService
         }
 
         // Auto-generate patient_no if not provided (no zero padding)
-        if (empty($validatedData['patient_no'])) {
-            $max = Patient::query()->max('patient_no');
-            $numericMax = is_numeric($max) ? (int) $max : (int) ltrim((string) $max, '0');
-            $validatedData['patient_no'] = (string) ($numericMax + 1);
-        }
+        // Use database transaction to prevent race conditions
+        return \DB::transaction(function () use ($validatedData) {
+            if (empty($validatedData['patient_no'])) {
+                // Get the highest numeric patient_no in a thread-safe way
+                $max = Patient::query()->max('patient_no');
+                $numericMax = is_numeric($max) ? (int) $max : (int) ltrim((string) $max, '0');
+                $validatedData['patient_no'] = (string) ($numericMax + 1);
+            }
 
-        return Patient::create($validatedData);
+            return Patient::create($validatedData);
+        });
     }
 
     public function updatePatient(Patient $patient, array $validatedData): Patient

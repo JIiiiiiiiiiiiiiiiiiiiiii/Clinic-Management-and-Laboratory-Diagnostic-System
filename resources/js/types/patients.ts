@@ -77,7 +77,7 @@ export interface CreatePatientItem {
     birthdate: string;
     age: number;
     sex: 'male' | 'female';
-    patient_no: string;
+    patient_no?: string; // Optional - backend generates this
 
     // Demographics
     occupation: string;

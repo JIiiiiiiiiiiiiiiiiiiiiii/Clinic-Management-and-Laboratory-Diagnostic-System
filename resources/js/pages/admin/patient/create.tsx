@@ -47,8 +47,7 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
         birthdate: '',
         age: 0,
         sex: 'male',
-        // remove patient_no from payload; backend generates
-        patient_no: '',
+        // patient_no is not included in form data - backend generates it
 
         // Demographics
         occupation: '',

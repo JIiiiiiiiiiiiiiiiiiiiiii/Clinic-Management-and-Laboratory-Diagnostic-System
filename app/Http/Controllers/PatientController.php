@@ -85,9 +85,11 @@ class PatientController extends Controller
 
     public function create()
     {
+        // Get next patient number for display only (not used in form submission)
         $max = Patient::query()->max('patient_no');
         $numericMax = is_numeric($max) ? (int) $max : (int) ltrim((string) $max, '0');
         $nextPatientNo = (string) ($numericMax + 1);
+
         $doctors = \App\Models\User::query()
             ->where('role', 'doctor')
             ->where(function ($q) {
@@ -120,7 +122,7 @@ class PatientController extends Controller
                         'patient_no' => $duplicatePatient->patient_no,
                         'last_name' => $duplicatePatient->last_name,
                         'first_name' => $duplicatePatient->first_name,
-                        'birthdate' => $duplicatePatient->birthdate ? $duplicatePatient->birthdate->format('Y-m-d') : null,
+                        'birthdate' => $duplicatePatient->birthdate ? (is_string($duplicatePatient->birthdate) ? $duplicatePatient->birthdate : \Carbon\Carbon::parse($duplicatePatient->birthdate)->format('Y-m-d')) : null,
                         'mobile_no' => $duplicatePatient->mobile_no,
                     ])
                     ->withInput();
