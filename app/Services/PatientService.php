@@ -18,10 +18,15 @@ class PatientService
         // Use database transaction to prevent race conditions
         return \DB::transaction(function () use ($validatedData) {
             if (empty($validatedData['patient_no'])) {
-                // Get the highest numeric patient_no in a thread-safe way
-                $max = Patient::query()->max('patient_no');
+                // Get next patient_no using MAX + 1 with FOR UPDATE to avoid duplicates
+                $max = Patient::query()->lockForUpdate()->max('patient_no');
                 $numericMax = is_numeric($max) ? (int) $max : (int) ltrim((string) $max, '0');
-                $validatedData['patient_no'] = (string) ($numericMax + 1);
+                $next = $numericMax + 1;
+                // Ensure uniqueness in case of concurrent inserts
+                while (Patient::where('patient_no', (string) $next)->exists()) {
+                    $next++;
+                }
+                $validatedData['patient_no'] = (string) $next;
             }
 
             return Patient::create($validatedData);

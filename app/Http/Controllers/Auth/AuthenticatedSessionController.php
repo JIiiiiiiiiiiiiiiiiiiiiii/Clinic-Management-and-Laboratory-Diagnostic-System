@@ -43,8 +43,8 @@ class AuthenticatedSessionController extends Controller
                 'mapped_role' => $user->getMappedRole()
             ]);
 
-            // Standardize to dashboard route expected by tests
-            return redirect()->intended(route('dashboard', absolute: false));
+            // Redirect based on mapped role (admin -> admin.dashboard, patient -> patient.dashboard)
+            return redirect()->intended($user->getRedirectPath());
         } catch (\Exception $e) {
             \Log::error('Authentication failed', [
                 'email' => $request->email,

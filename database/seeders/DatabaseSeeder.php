@@ -14,6 +14,11 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // Seed RBAC roles
+        $this->call(RoleSeeder::class);
+        // Seed default permissions and role mappings
+        $this->call(PermissionSeeder::class);
+
         // Seed users with different roles first
         $this->call(UserRoleSeeder::class);
 

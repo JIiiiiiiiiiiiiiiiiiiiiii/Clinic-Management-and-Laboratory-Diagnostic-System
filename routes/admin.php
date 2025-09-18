@@ -8,10 +8,13 @@ use App\Http\Controllers\Lab\LabResultController;
 use App\Http\Controllers\Lab\LabReportController;
 use App\Http\Controllers\Lab\LabExportController;
 use App\Http\Controllers\Admin\DoctorController;
+use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Inventory\InventoryController;
 use App\Http\Controllers\Inventory\ProductController;
 use App\Http\Controllers\Inventory\TransactionController;
 use App\Http\Controllers\Inventory\ReportController;
+use App\Http\Controllers\Admin\UserRoleController;
+use App\Http\Controllers\Admin\PermissionController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\DashboardController;
@@ -132,9 +135,23 @@ Route::middleware(['auth', 'verified'])
             });
 
             Route::prefix('roles')->name('roles.')->group(function () {
-                Route::get('/', function () {
-                    return Inertia::render('admin/roles/index');
-                })->name('index');
+                Route::get('/', [RoleController::class, 'index'])->name('index');
+                Route::get('/create', [RoleController::class, 'create'])->name('create');
+                Route::post('/', [RoleController::class, 'store'])->name('store');
+                Route::get('/{role}/edit', [RoleController::class, 'edit'])->name('edit');
+                Route::put('/{role}', [RoleController::class, 'update'])->name('update');
+                Route::delete('/{role}', [RoleController::class, 'destroy'])->name('destroy');
+                Route::put('/users/{user}/role', [UserRoleController::class, 'update'])->name('users.role.update');
+                Route::post('/users', [UserRoleController::class, 'store'])->name('users.store');
+            });
+
+            Route::prefix('permissions')->name('permissions.')->group(function () {
+                Route::get('/', [PermissionController::class, 'index'])->name('index');
+                Route::get('/create', [PermissionController::class, 'create'])->name('create');
+                Route::post('/', [PermissionController::class, 'store'])->name('store');
+                Route::get('/{permission}/edit', [PermissionController::class, 'edit'])->name('edit');
+                Route::put('/{permission}', [PermissionController::class, 'update'])->name('update');
+                Route::delete('/{permission}', [PermissionController::class, 'destroy'])->name('destroy');
             });
 
             Route::prefix('settings')->name('settings.')->group(function () {

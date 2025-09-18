@@ -48,7 +48,7 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
-        // Standardize to dashboard route expected by tests
-        return redirect()->intended(route('dashboard', absolute: false));
+        // Redirect based on role mapping to avoid blank page after registration
+        return redirect()->intended(Auth::user()->getRedirectPath());
     }
 }

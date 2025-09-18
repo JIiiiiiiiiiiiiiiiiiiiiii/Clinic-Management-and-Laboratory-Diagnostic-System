@@ -88,7 +88,11 @@ class PatientController extends Controller
         // Get next patient number for display only (not used in form submission)
         $max = Patient::query()->max('patient_no');
         $numericMax = is_numeric($max) ? (int) $max : (int) ltrim((string) $max, '0');
-        $nextPatientNo = (string) ($numericMax + 1);
+        $candidate = $numericMax + 1;
+        while (Patient::where('patient_no', (string) $candidate)->exists()) {
+            $candidate++;
+        }
+        $nextPatientNo = (string) $candidate;
 
         $doctors = \App\Models\User::query()
             ->where('role', 'doctor')

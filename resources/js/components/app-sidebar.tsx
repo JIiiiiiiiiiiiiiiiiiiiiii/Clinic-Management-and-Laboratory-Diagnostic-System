@@ -80,12 +80,12 @@ export function AppSidebar() {
             icon: Shield,
             requiredPermission: 'canAccessSettings',
         },
-        {
-            title: 'System Settings',
-            href: '/admin/settings',
-            icon: Settings,
-            requiredPermission: 'canAccessSettings',
-        },
+        // {
+        //     title: 'System Settings',
+        //     href: '/admin/settings',
+        //     icon: Settings,
+        //     requiredPermission: 'canAccessSettings',
+        // },
     ];
 
     // Filter navigation items based on user permissions

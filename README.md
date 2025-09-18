@@ -98,3 +98,10 @@ php artisan test
 ## License
 
 MIT
+
+## Taskmaster AI
+
+- Initialize (already done): `task-master init --yes --rules cursor`
+- Configure models: `task-master models --setup`
+- Add API keys in `.env.taskmaster` or set in `.cursor/mcp.json` env.
+- Example PRD template: `.taskmaster/templates/example_prd.txt`

@@ -1,12 +1,13 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useRoleAccess } from '@/hooks/useRoleAccess';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Edit, Plus, Search, Shield, Trash2, Users } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -14,93 +15,14 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Roles & Permissions', href: '/admin/roles' },
 ];
 
-// Mock data - in real app this would come from props
-const roles = [
-    {
-        id: 1,
-        name: 'Admin',
-        description: 'Full system access and control',
-        userCount: 2,
-        permissions: ['All Access'],
-        isActive: true,
-        createdAt: '2025-01-01',
-    },
-    {
-        id: 2,
-        name: 'Doctor',
-        description: 'Medical staff with patient and appointment access',
-        userCount: 5,
-        permissions: ['Patients', 'Appointments', 'Medical Records'],
-        isActive: true,
-        createdAt: '2025-01-01',
-    },
-    {
-        id: 3,
-        name: 'Laboratory Technologist',
-        description: 'Lab staff with laboratory test management access',
-        userCount: 3,
-        permissions: ['Patients', 'Laboratory', 'Test Results'],
-        isActive: true,
-        createdAt: '2025-01-01',
-    },
-    {
-        id: 4,
-        name: 'Cashier',
-        description: 'Financial staff with billing and payment access',
-        userCount: 2,
-        permissions: ['Patients', 'Billing', 'Payments'],
-        isActive: true,
-        createdAt: '2025-01-01',
-    },
-    {
-        id: 5,
-        name: 'Patient',
-        description: 'Patient access to personal health information',
-        userCount: 156,
-        permissions: ['Personal Records', 'Appointments', 'Test Results'],
-        isActive: true,
-        createdAt: '2025-01-01',
-    },
-];
-
-const users = [
-    {
-        id: 1,
-        name: 'Admin User',
-        email: 'admin@clinic.com',
-        role: 'Admin',
-        status: 'Active',
-        lastLogin: '2025-04-24 10:30 AM',
-        permissions: 'Full Access',
-    },
-    {
-        id: 2,
-        name: 'Dr. John Smith',
-        email: 'doctor@clinic.com',
-        role: 'Doctor',
-        status: 'Active',
-        lastLogin: '2025-04-24 09:15 AM',
-        permissions: 'Patients, Appointments',
-    },
-    {
-        id: 3,
-        name: 'Sarah Johnson',
-        email: 'labtech@clinic.com',
-        role: 'Laboratory Technologist',
-        status: 'Active',
-        lastLogin: '2025-04-24 08:45 AM',
-        permissions: 'Laboratory, Patients',
-    },
-    {
-        id: 4,
-        name: 'Mike Wilson',
-        email: 'cashier@clinic.com',
-        role: 'Cashier',
-        status: 'Active',
-        lastLogin: '2025-04-24 08:30 AM',
-        permissions: 'Billing, Patients',
-    },
-];
+type PageProps = {
+    roles: Array<{ id: number; name: string; description: string; userCount: number; permissions: string[]; isActive: boolean; createdAt: string }>;
+    users: Array<{ id: number; name: string; email: string; role: string; status: string; lastLogin: string; permissions: string }>;
+    totalUsers: number;
+    activeUsers: number;
+    systemPermissions: number;
+    availablePermissions: string[];
+};
 
 const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -125,13 +47,11 @@ const getRoleBadge = (role: string) => {
 };
 
 export default function RolesIndex() {
-    const { permissions, canAccessModule } = useRoleAccess();
-
-    // Redirect if user doesn't have access to settings
-    if (!permissions.canAccessSettings) {
-        router.visit('/admin/dashboard');
-        return null;
-    }
+    const { props } = usePage<PageProps>();
+    const roles = props.roles ?? [];
+    const users = props.users ?? [];
+    const { put } = useForm({});
+    // Access is enforced server-side via middleware; avoid client-side redirect guard that can misfire
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -145,14 +65,20 @@ export default function RolesIndex() {
                             <p className="text-gray-500">Manage user roles, permissions, and system access control</p>
                         </div>
                         <div className="flex gap-2">
-                            <Button variant="outline">
-                                <Plus className="mr-2 h-4 w-4" />
-                                New Role
-                            </Button>
-                            <Button>
-                                <Users className="mr-2 h-4 w-4" />
-                                Manage Users
-                            </Button>
+                            {/* Create Role via modal; removed external Manage Users button */}
+                            <Dialog>
+                                <DialogTrigger asChild>
+                                    <Button>
+                                        <Plus className="mr-2 h-4 w-4" /> New Role
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Create Role</DialogTitle>
+                                    </DialogHeader>
+                                    <RoleForm availablePermissions={props.availablePermissions} onSaved={() => router.reload()} />
+                                </DialogContent>
+                            </Dialog>
                         </div>
                     </div>
                 </div>
@@ -173,7 +99,7 @@ export default function RolesIndex() {
                             <CardTitle className="text-sm font-medium text-gray-500">Total Users</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">168</div>
+                            <div className="text-2xl font-bold">{props.totalUsers ?? 0}</div>
                         </CardContent>
                     </Card>
 
@@ -182,7 +108,7 @@ export default function RolesIndex() {
                             <CardTitle className="text-sm font-medium text-gray-500">Active Users</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-green-600">165</div>
+                            <div className="text-2xl font-bold text-green-600">{props.activeUsers ?? 0}</div>
                         </CardContent>
                     </Card>
 
@@ -191,7 +117,7 @@ export default function RolesIndex() {
                             <CardTitle className="text-sm font-medium text-gray-500">System Permissions</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">24</div>
+                            <div className="text-2xl font-bold">{props.systemPermissions ?? 0}</div>
                         </CardContent>
                     </Card>
                 </div>
@@ -209,7 +135,7 @@ export default function RolesIndex() {
                                     <CardDescription>Manage user roles and their associated permissions</CardDescription>
                                 </div>
                                 <Button asChild>
-                                    <Link href="/admin/roles/create">
+                                    <Link href={route('admin.roles.create')}>
                                         <Plus className="mr-2 h-4 w-4" />
                                         Create Role
                                     </Link>
@@ -259,14 +185,34 @@ export default function RolesIndex() {
                                             <TableCell>{role.createdAt}</TableCell>
                                             <TableCell>
                                                 <div className="flex gap-2">
-                                                    <Button variant="outline" size="sm" asChild>
-                                                        <Link href={`/admin/roles/${role.id}/edit`}>
-                                                            <Edit className="mr-1 h-3 w-3" />
-                                                            Edit
-                                                        </Link>
-                                                    </Button>
-                                                    {role.name !== 'Admin' && (
-                                                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                                                    <Dialog>
+                                                        <DialogTrigger asChild>
+                                                            <Button variant="outline" size="sm">
+                                                                <Edit className="mr-1 h-3 w-3" /> Edit
+                                                            </Button>
+                                                        </DialogTrigger>
+                                                        <DialogContent>
+                                                            <DialogHeader>
+                                                                <DialogTitle>Edit Role</DialogTitle>
+                                                            </DialogHeader>
+                                                            <RoleEditForm
+                                                                role={role}
+                                                                availablePermissions={props.availablePermissions}
+                                                                onSaved={() => router.reload()}
+                                                            />
+                                                        </DialogContent>
+                                                    </Dialog>
+                                                    {role.name !== 'admin' && (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="text-red-600 hover:text-red-700"
+                                                            onClick={() => {
+                                                                if (confirm('Delete this role?')) {
+                                                                    router.delete(route('admin.roles.destroy', role.id));
+                                                                }
+                                                            }}
+                                                        >
                                                             <Trash2 className="mr-1 h-3 w-3" />
                                                             Delete
                                                         </Button>
@@ -298,10 +244,19 @@ export default function RolesIndex() {
                                         <Search className="absolute top-2.5 left-2 h-4 w-4 text-gray-500" />
                                         <Input placeholder="Search users..." className="w-64 pl-8" />
                                     </div>
-                                    <Button variant="outline">
-                                        <Plus className="mr-2 h-4 w-4" />
-                                        Add User
-                                    </Button>
+                                    <Dialog>
+                                        <DialogTrigger asChild>
+                                            <Button>
+                                                <Plus className="mr-2 h-4 w-4" /> Add User
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                            <DialogHeader>
+                                                <DialogTitle>Add User</DialogTitle>
+                                            </DialogHeader>
+                                            <AddUserForm onSaved={() => router.reload()} />
+                                        </DialogContent>
+                                    </Dialog>
                                 </div>
                             </div>
                         </CardHeader>
@@ -337,20 +292,23 @@ export default function RolesIndex() {
                                             </TableCell>
                                             <TableCell className="text-sm text-gray-500">{user.lastLogin}</TableCell>
                                             <TableCell>
-                                                <div className="flex gap-2">
-                                                    <Button variant="outline" size="sm" asChild>
-                                                        <Link href={`/admin/users/${user.id}/edit`}>
-                                                            <Edit className="mr-1 h-3 w-3" />
-                                                            Edit
-                                                        </Link>
-                                                    </Button>
-                                                    <Button variant="outline" size="sm" asChild>
-                                                        <Link href={`/admin/users/${user.id}/permissions`}>
-                                                            <Shield className="mr-1 h-3 w-3" />
-                                                            Permissions
-                                                        </Link>
-                                                    </Button>
-                                                </div>
+                                                <Select
+                                                    defaultValue={user.role.toLowerCase()}
+                                                    onValueChange={(value) => {
+                                                        router.put(route('admin.roles.users.role.update', user.id), { role: value });
+                                                    }}
+                                                >
+                                                    <SelectTrigger className="w-[180px]">
+                                                        <SelectValue placeholder="Select role" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {['admin', 'doctor', 'nurse', 'medtech', 'cashier', 'patient'].map((r) => (
+                                                            <SelectItem key={r} value={r}>
+                                                                {r}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -482,5 +440,169 @@ export default function RolesIndex() {
                 </div>
             </div>
         </AppLayout>
+    );
+}
+
+function RoleForm({ availablePermissions, onSaved }: { availablePermissions: string[]; onSaved: () => void }) {
+    const { data, setData, post, processing, errors } = useForm<{ name: string; permissions: string[] }>({ name: '', permissions: [] });
+    const submit = (e: React.FormEvent) => {
+        e.preventDefault();
+        post(route('admin.roles.store'), { onSuccess: onSaved });
+    };
+    return (
+        <form onSubmit={submit} className="space-y-4">
+            <div>
+                <label className="text-sm">Name</label>
+                <Input value={data.name} onChange={(e) => setData('name', e.target.value)} />
+                {errors.name && <div className="text-sm text-red-600">{errors.name}</div>}
+            </div>
+            <div>
+                <div className="text-sm font-medium">Permissions</div>
+                <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+                    {availablePermissions.map((perm) => (
+                        <label key={perm} className="flex items-center gap-2 text-sm">
+                            <input
+                                type="checkbox"
+                                checked={data.permissions.includes(perm)}
+                                onChange={(e) => {
+                                    const next = new Set(data.permissions);
+                                    if (e.target.checked) next.add(perm);
+                                    else next.delete(perm);
+                                    setData('permissions', Array.from(next));
+                                }}
+                            />
+                            {perm}
+                        </label>
+                    ))}
+                </div>
+                {errors.permissions && <div className="text-sm text-red-600">{String(errors.permissions)}</div>}
+            </div>
+            <div className="flex gap-2">
+                <Button type="submit" disabled={processing}>
+                    Save
+                </Button>
+            </div>
+        </form>
+    );
+}
+
+function RoleEditForm({
+    role,
+    availablePermissions,
+    onSaved,
+}: {
+    role: { id: number; name: string; permissions: string[] };
+    availablePermissions: string[];
+    onSaved: () => void;
+}) {
+    const { data, setData, put, processing, errors } = useForm<{ name: string; permissions: string[] }>({
+        name: role.name,
+        permissions: role.permissions || [],
+    });
+    const submit = (e: React.FormEvent) => {
+        e.preventDefault();
+        put(route('admin.roles.update', role.id), { onSuccess: onSaved });
+    };
+    return (
+        <form onSubmit={submit} className="space-y-4">
+            <div>
+                <label className="text-sm">Name</label>
+                <Input value={data.name} onChange={(e) => setData('name', e.target.value)} />
+                {errors.name && <div className="text-sm text-red-600">{errors.name}</div>}
+            </div>
+            <div>
+                <div className="text-sm font-medium">Permissions</div>
+                <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+                    {availablePermissions.map((perm) => (
+                        <label key={perm} className="flex items-center gap-2 text-sm">
+                            <input
+                                type="checkbox"
+                                checked={data.permissions.includes(perm)}
+                                onChange={(e) => {
+                                    const next = new Set(data.permissions);
+                                    if (e.target.checked) next.add(perm);
+                                    else next.delete(perm);
+                                    setData('permissions', Array.from(next));
+                                }}
+                            />
+                            {perm}
+                        </label>
+                    ))}
+                </div>
+                {errors.permissions && <div className="text-sm text-red-600">{String(errors.permissions)}</div>}
+            </div>
+            <div className="flex gap-2">
+                <Button type="submit" disabled={processing}>
+                    Update
+                </Button>
+            </div>
+        </form>
+    );
+}
+
+function AddUserForm({ onSaved }: { onSaved: () => void }) {
+    const { data, setData, post, processing, errors } = useForm<{
+        name: string;
+        email: string;
+        password: string;
+        password_confirmation: string;
+        role: string;
+        is_active: boolean;
+    }>({
+        name: '',
+        email: '',
+        password: '',
+        password_confirmation: '',
+        role: 'patient',
+        is_active: true,
+    });
+    const submit = (e: React.FormEvent) => {
+        e.preventDefault();
+        post(route('admin.roles.users.store'), { onSuccess: onSaved });
+    };
+    return (
+        <form onSubmit={submit} className="space-y-4">
+            <div>
+                <label className="text-sm">Name</label>
+                <Input value={data.name} onChange={(e) => setData('name', e.target.value)} />
+                {errors.name && <div className="text-sm text-red-600">{errors.name}</div>}
+            </div>
+            <div>
+                <label className="text-sm">Email</label>
+                <Input type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} />
+                {errors.email && <div className="text-sm text-red-600">{errors.email}</div>}
+            </div>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                <div>
+                    <label className="text-sm">Password</label>
+                    <Input type="password" value={data.password} onChange={(e) => setData('password', e.target.value)} />
+                    {errors.password && <div className="text-sm text-red-600">{errors.password}</div>}
+                </div>
+                <div>
+                    <label className="text-sm">Confirm Password</label>
+                    <Input type="password" value={data.password_confirmation} onChange={(e) => setData('password_confirmation', e.target.value)} />
+                </div>
+            </div>
+            <div>
+                <label className="text-sm">Role</label>
+                <Select defaultValue={data.role} onValueChange={(v) => setData('role', v)}>
+                    <SelectTrigger className="w-[200px]">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {['admin', 'doctor', 'nurse', 'medtech', 'cashier', 'patient'].map((r) => (
+                            <SelectItem key={r} value={r}>
+                                {r}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="flex gap-2">
+                <Button type="submit" disabled={processing}>
+                    Create
+                </Button>
+            </div>
+        </form>
     );
 }
