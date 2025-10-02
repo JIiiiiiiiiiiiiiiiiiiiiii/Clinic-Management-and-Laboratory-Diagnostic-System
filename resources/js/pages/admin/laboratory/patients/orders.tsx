@@ -104,152 +104,196 @@ export default function PatientLabOrders({
     return (
         <AppLayout breadcrumbs={breadcrumbs(patient)}>
             <Head title={`Lab Orders - ${patient.last_name}, ${patient.first_name}`} />
-            <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Button variant="outline" onClick={() => router.visit('/admin/laboratory/orders')}>
-                            <ArrowLeft className="h-4 w-4" />
-                        </Button>
-                        <div>
-                            <h1 className="text-2xl font-bold">Lab Orders</h1>
-                            <p className="text-muted-foreground">
-                                {patient.last_name}, {patient.first_name} ({patient.age} years, {patient.sex})
-                            </p>
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+                <div className="mb-8">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-6">
+                            <Button variant="secondary" onClick={() => router.visit('/admin/laboratory/orders')} className="h-12 w-12 rounded-xl border-gray-300 hover:bg-gray-50">
+                                <span aria-hidden>←</span>
+                            </Button>
+                            <div>
+                                <h1 className="text-4xl font-bold text-[#283890] mb-2">Lab Orders</h1>
+                                <p className="text-lg text-gray-600">
+                                    {patient.last_name}, {patient.first_name} ({patient.age} years, {patient.sex})
+                                </p>
+                            </div>
                         </div>
+                        <Button onClick={() => setShowCreateForm(!showCreateForm)} className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
+                            <Plus className="mr-2 h-4 w-4" />
+                            {showCreateForm ? 'Cancel' : 'Create New Order'}
+                        </Button>
                     </div>
-                    <Button onClick={() => setShowCreateForm(!showCreateForm)}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        {showCreateForm ? 'Cancel' : 'Create New Order'}
-                    </Button>
                 </div>
 
-                {/* Create New Order Form */}
-                {showCreateForm && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Create New Lab Order</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <form onSubmit={handleSubmit} className="space-y-6">
-                                <div>
-                                    <Label className="text-base font-medium">Select Tests</Label>
-                                    <p className="mb-4 text-sm text-muted-foreground">Choose the laboratory tests to order for this patient</p>
-                                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                                        {labTests
-                                            .filter((test) => test.is_active)
-                                            .map((test) => (
-                                                <div key={test.id} className="flex items-center space-x-2">
-                                                    <Checkbox
-                                                        id={`test-${test.id}`}
-                                                        checked={selectedTests.includes(test.id)}
-                                                        onCheckedChange={() => handleTestToggle(test.id)}
-                                                    />
-                                                    <Label htmlFor={`test-${test.id}`} className="flex-1 cursor-pointer">
-                                                        <div className="font-medium">{test.name}</div>
-                                                        <div className="text-sm text-muted-foreground">{test.code}</div>
-                                                    </Label>
-                                                </div>
-                                            ))}
+                <div className="grid gap-8 md:grid-cols-3 items-start">
+                    <div className="md:col-span-2 space-y-8">
+                        {showCreateForm && (
+                            <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+                                    <div className="flex items-center justify-between p-6">
+                                        <div>
+                                            <h3 className="text-2xl font-bold text-white">Create New Lab Order</h3>
+                                            <p className="text-indigo-100 mt-1">Choose tests and add optional notes for this order</p>
+                                        </div>
                                     </div>
-                                    {errors.lab_test_ids && <p className="mt-2 text-sm text-red-500">{errors.lab_test_ids}</p>}
                                 </div>
-
-                                <div>
-                                    <Label htmlFor="notes">Notes (Optional)</Label>
-                                    <Textarea
-                                        id="notes"
-                                        value={data.notes}
-                                        onChange={(e) => setData('notes', e.target.value)}
-                                        placeholder="Add any special instructions or notes for this order..."
-                                        rows={3}
-                                    />
-                                    {errors.notes && <p className="mt-2 text-sm text-red-500">{errors.notes}</p>}
-                                </div>
-
-                                <div className="flex justify-between gap-3">
-                                    <div className="text-sm text-muted-foreground">
-                                        {data.patient_visit_id ? (
-                                            <span>Linked to Visit ID: {data.patient_visit_id}</span>
-                                        ) : (
-                                            <span>Not linked to a specific visit</span>
-                                        )}
-                                    </div>
-                                    <Button type="button" variant="outline" onClick={() => setShowCreateForm(false)}>
-                                        Cancel
-                                    </Button>
-                                    <Button type="submit" disabled={processing || selectedTests.length === 0}>
-                                        <TestTube className="mr-2 h-4 w-4" />
-                                        Create Order
-                                    </Button>
-                                </div>
-                            </form>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {/* Existing Orders */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Existing Orders</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {orders.length === 0 ? (
-                            <div className="py-8 text-center">
-                                <FileText className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                                <h3 className="mb-2 text-lg font-semibold">No orders yet</h3>
-                                <p className="text-muted-foreground">Create a new lab order for this patient to get started</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {orders.map((order) => (
-                                    <Card key={order.id} className="transition-shadow hover:shadow-md">
-                                        <CardContent className="p-6">
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex-1">
-                                                    <div className="mb-2 flex items-center gap-3">
-                                                        <h3 className="text-lg font-semibold">Order #{order.id}</h3>
-                                                        {getStatusBadge(order.status)}
-                                                    </div>
-
-                                                    <div className="mb-3">
-                                                        <span className="text-sm text-muted-foreground">Tests Ordered:</span>
-                                                        <div className="mt-1 flex flex-wrap gap-1">
-                                                            {(order.lab_tests || []).map((test) => (
-                                                                <Badge key={test.id} variant="outline" className="text-xs">
-                                                                    {test.name}
-                                                                </Badge>
-                                                            ))}
+                                <div className="px-6 py-6 bg-gradient-to-br from-indigo-50 to-purple-50">
+                                    <form onSubmit={handleSubmit} className="space-y-6">
+                                        <div>
+                                            <Label className="text-base font-medium">Select Tests</Label>
+                                            <p className="mb-4 text-sm text-muted-foreground">Choose the laboratory tests to order for this patient</p>
+                                            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                                                {labTests
+                                                    .filter((test) => test.is_active)
+                                                    .map((test) => (
+                                                        <div key={test.id} className="flex items-center space-x-2 bg-white rounded-lg border p-3">
+                                                            <Checkbox
+                                                                id={`test-${test.id}`}
+                                                                checked={selectedTests.includes(test.id)}
+                                                                onCheckedChange={() => handleTestToggle(test.id)}
+                                                            />
+                                                            <Label htmlFor={`test-${test.id}`} className="flex-1 cursor-pointer">
+                                                                <div className="font-medium">{test.name}</div>
+                                                                <div className="text-sm text-muted-foreground">{test.code}</div>
+                                                            </Label>
                                                         </div>
-                                                    </div>
-
-                                                    <div className="text-sm text-muted-foreground">
-                                                        <strong>Ordered:</strong> {new Date(order.created_at).toLocaleString()}
-                                                    </div>
-
-                                                    {order.notes && (
-                                                        <div className="mt-2 text-sm text-muted-foreground">
-                                                            <strong>Notes:</strong> {order.notes}
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                <div className="ml-4 flex flex-col gap-2">
-                                                    <Button
-                                                        onClick={() => router.visit(`/admin/laboratory/orders/${order.id}/results`)}
-                                                        disabled={order.status === 'cancelled'}
-                                                    >
-                                                        <FileText className="mr-2 h-4 w-4" />
-                                                        Enter Results
-                                                    </Button>
-                                                </div>
+                                                    ))}
                                             </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
+                                            {errors.lab_test_ids && <p className="mt-2 text-sm text-red-500">{errors.lab_test_ids}</p>}
+                                        </div>
+
+                                        <div>
+                                            <Label htmlFor="notes" className="text-sm font-semibold text-gray-700 mb-2 block">Notes (Optional)</Label>
+                                            <Textarea
+                                                id="notes"
+                                                value={data.notes}
+                                                onChange={(e) => setData('notes', e.target.value)}
+                                                placeholder="Add any special instructions or notes for this order..."
+                                                rows={3}
+                                                className="border-gray-300 rounded-xl shadow-sm"
+                                            />
+                                            {errors.notes && <p className="mt-2 text-sm text-red-500">{errors.notes}</p>}
+                                        </div>
+
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="text-sm text-muted-foreground">
+                                                {data.patient_visit_id ? (
+                                                    <span>Linked to Visit ID: {data.patient_visit_id}</span>
+                                                ) : (
+                                                    <span>Not linked to a specific visit</span>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Button type="button" variant="secondary" onClick={() => setShowCreateForm(false)} className="bg-white text-gray-700 hover:bg-gray-50">
+                                                    Cancel
+                                                </Button>
+                                                <Button type="submit" disabled={processing || selectedTests.length === 0} className="bg-white text-indigo-700 hover:bg-indigo-50">
+                                                    <TestTube className="mr-2 h-4 w-4" />
+                                                    Create Order
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+
+                        {/* Existing Orders */}
+                        <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                                <div className="flex items-center justify-between p-6">
+                                    <div>
+                                        <h3 className="text-2xl font-bold text-white">Existing Orders</h3>
+                                        <p className="text-blue-100 mt-1">Review and manage previously created orders</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100">
+                                {orders.length === 0 ? (
+                                    <div className="py-8 text-center bg-white rounded-xl border-2 border-dashed border-blue-300">
+                                        <FileText className="mx-auto mb-4 h-12 w-12 text-blue-400" />
+                                        <h3 className="mb-2 text-lg font-semibold text-gray-700">No orders yet</h3>
+                                        <p className="text-gray-500">Create a new lab order for this patient to get started</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {orders.map((order) => (
+                                            <div key={order.id} className="bg-white rounded-xl border border-blue-200 shadow-sm p-6">
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex-1">
+                                                        <div className="mb-2 flex items-center gap-3">
+                                                            <h3 className="text-lg font-semibold">Order #{order.id}</h3>
+                                                            {getStatusBadge(order.status)}
+                                                        </div>
+                                                        <div className="mb-3">
+                                                            <span className="text-sm text-muted-foreground">Tests Ordered:</span>
+                                                            <div className="mt-1 flex flex-wrap gap-1">
+                                                                {(order.lab_tests || []).map((test) => (
+                                                                    <Badge key={test.id} variant="outline" className="text-xs">
+                                                                        {test.name}
+                                                                    </Badge>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-sm text-muted-foreground">
+                                                            <strong>Ordered:</strong> {new Date(order.created_at).toLocaleString()}
+                                                        </div>
+                                                        {order.notes && (
+                                                            <div className="mt-2 text-sm text-muted-foreground">
+                                                                <strong>Notes:</strong> {order.notes}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="ml-4 flex flex-col gap-2">
+                                                        <Button
+                                                            onClick={() => router.visit(`/admin/laboratory/orders/${order.id}/results`)}
+                                                            disabled={order.status === 'cancelled'}
+                                                            className="bg-white text-blue-700 hover:bg-blue-50"
+                                                        >
+                                                            <FileText className="mr-2 h-4 w-4" />
+                                                            Enter Results
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Quick Tips */}
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white sticky top-0 self-start">
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <TestTube className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Quick Tips</h3>
+                                    <p className="text-green-100 mt-1">Best practices for creating lab orders</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-6 bg-gradient-to-br from-green-50 to-green-100">
+                            <div className="space-y-3">
+                                <div className="p-3 bg-white rounded-lg border border-green-200">
+                                    <div className="font-semibold text-gray-800 mb-1">Select Relevant Tests</div>
+                                    <div className="text-sm text-gray-600">Choose only tests that are clinically indicated</div>
+                                </div>
+                                <div className="p-3 bg-white rounded-lg border border-green-200">
+                                    <div className="font-semibold text-gray-800 mb-1">Add Clear Notes</div>
+                                    <div className="text-sm text-gray-600">Provide instructions that help lab staff process correctly</div>
+                                </div>
+                                <div className="p-3 bg-white rounded-lg border border-green-200">
+                                    <div className="font-semibold text-gray-800 mb-1">Link to Visit</div>
+                                    <div className="text-sm text-gray-600">When possible, link to a clinical visit for context</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </AppLayout>
     );

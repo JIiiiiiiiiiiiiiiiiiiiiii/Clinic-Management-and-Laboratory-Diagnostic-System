@@ -9,6 +9,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Edit, Plus, Search, Shield, Trash2, Users } from 'lucide-react';
+import Heading from '@/components/heading';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/admin/dashboard' },
@@ -24,14 +25,17 @@ type PageProps = {
     availablePermissions: string[];
 };
 
-const getStatusBadge = (status: string) => {
-    const statusConfig = {
-        Active: 'bg-green-100 text-green-800',
-        Inactive: 'bg-red-100 text-red-800',
-        Pending: 'bg-yellow-100 text-yellow-800',
-    };
-
-    return statusConfig[status as keyof typeof statusConfig] || 'bg-gray-100 text-gray-800';
+const getStatusVariant = (status: string): 'success' | 'destructive' | 'warning' | 'secondary' => {
+    switch (status) {
+        case 'Active':
+            return 'success';
+        case 'Inactive':
+            return 'destructive';
+        case 'Pending':
+            return 'warning';
+        default:
+            return 'secondary';
+    }
 };
 
 const getRoleBadge = (role: string) => {
@@ -60,10 +64,7 @@ export default function RolesIndex() {
             <div className="min-h-screen bg-gray-50 p-6">
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-3xl font-bold text-gray-900">Roles & Permissions</h1>
-                            <p className="text-gray-500">Manage user roles, permissions, and system access control</p>
-                        </div>
+                        <Heading title="Roles & Permissions" description="Manage user roles, permissions, and system access control" icon={Shield} />
                         <div className="flex gap-2">
                             {/* Create Role via modal; removed external Manage Users button */}
                             <Dialog>
@@ -83,66 +84,84 @@ export default function RolesIndex() {
                     </div>
                 </div>
 
-                {/* Stats Cards */}
+                {/* Stats Cards - Styled like Lab Diagnostics cards */}
                 <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-gray-500">Total Roles</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{roles.length}</div>
-                        </CardContent>
-                    </Card>
+                    <div className="holographic-card bg-white shadow-sm cursor-pointer rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300">
+                        <div className="flex h-28">
+                            <div className="w-24 h-full bg-purple-500 flex items-center justify-center rounded-l-xl">
+                                <Shield className="h-8 w-8 text-white" />
+                            </div>
+                            <div className="flex-1 p-4">
+                                <div className="text-2xl font-bold text-gray-900">{roles.length}</div>
+                                <div className="text-sm text-gray-600 mb-1">Total Roles</div>
+                                <div className="text-xs text-gray-500">Configured role types</div>
+                            </div>
+                        </div>
+                    </div>
 
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-gray-500">Total Users</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{props.totalUsers ?? 0}</div>
-                        </CardContent>
-                    </Card>
+                    <div className="holographic-card bg-white shadow-sm cursor-pointer rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300">
+                        <div className="flex h-28">
+                            <div className="w-24 h-full bg-blue-500 flex items-center justify-center rounded-l-xl">
+                                <Users className="h-8 w-8 text-white" />
+                            </div>
+                            <div className="flex-1 p-4">
+                                <div className="text-2xl font-bold text-gray-900">{props.totalUsers ?? 0}</div>
+                                <div className="text-sm text-gray-600 mb-1">Total Users</div>
+                                <div className="text-xs text-gray-500">All registered users</div>
+                            </div>
+                        </div>
+                    </div>
 
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-gray-500">Active Users</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-green-600">{props.activeUsers ?? 0}</div>
-                        </CardContent>
-                    </Card>
+                    <div className="holographic-card bg-white shadow-sm cursor-pointer rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300">
+                        <div className="flex h-28">
+                            <div className="w-24 h-full bg-green-500 flex items-center justify-center rounded-l-xl">
+                                <Users className="h-8 w-8 text-white" />
+                            </div>
+                            <div className="flex-1 p-4">
+                                <div className="text-2xl font-bold text-gray-900">{props.activeUsers ?? 0}</div>
+                                <div className="text-sm text-gray-600 mb-1">Active Users</div>
+                                <div className="text-xs text-gray-500">Currently active accounts</div>
+                            </div>
+                        </div>
+                    </div>
 
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-gray-500">System Permissions</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{props.systemPermissions ?? 0}</div>
-                        </CardContent>
-                    </Card>
+                    <div className="holographic-card bg-white shadow-sm cursor-pointer rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300">
+                        <div className="flex h-28">
+                            <div className="w-24 h-full bg-orange-500 flex items-center justify-center rounded-l-xl">
+                                <Shield className="h-8 w-8 text-white" />
+                            </div>
+                            <div className="flex-1 p-4">
+                                <div className="text-2xl font-bold text-gray-900">{props.systemPermissions ?? 0}</div>
+                                <div className="text-sm text-gray-600 mb-1">System Permissions</div>
+                                <div className="text-xs text-gray-500">Available permissions</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Roles Management */}
                 <div className="mb-8">
-                    <Card>
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                            <div className="flex items-center justify-between p-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white/20 rounded-lg">
+                                        <Shield className="h-6 w-6" />
+                                    </div>
                                 <div>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Shield className="h-5 w-5 text-purple-500" />
-                                        System Roles
-                                    </CardTitle>
-                                    <CardDescription>Manage user roles and their associated permissions</CardDescription>
+                                        <h3 className="text-2xl font-bold text-white">System Roles</h3>
+                                        <p className="text-purple-100 mt-1">Manage user roles and their associated permissions</p>
+                                    </div>
                                 </div>
-                                <Button asChild>
+                                <Button asChild className="bg-white text-purple-600 hover:bg-purple-50 hover:text-purple-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
                                     <Link href={route('admin.roles.create')}>
                                         <Plus className="mr-2 h-4 w-4" />
                                         Create Role
                                     </Link>
                                 </Button>
                             </div>
-                        </CardHeader>
-                        <CardContent>
+                        </div>
+                        <div className="px-6 py-6 bg-gradient-to-br from-purple-50 to-purple-100">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -178,7 +197,7 @@ export default function RolesIndex() {
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className={getStatusBadge(role.isActive ? 'Active' : 'Inactive')}>
+                                                <Badge variant={getStatusVariant(role.isActive ? 'Active' : 'Inactive')}>
                                                     {role.isActive ? 'Active' : 'Inactive'}
                                                 </Badge>
                                             </TableCell>
@@ -191,15 +210,27 @@ export default function RolesIndex() {
                                                                 <Edit className="mr-1 h-3 w-3" /> Edit
                                                             </Button>
                                                         </DialogTrigger>
-                                                        <DialogContent>
+                                                        <DialogContent className="p-0 overflow-hidden rounded-xl">
+                                                            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                                                                <div className="flex items-center gap-3 p-6">
+                                                                    <div className="p-2 bg-white/20 rounded-lg">
+                                                                        <Shield className="h-6 w-6" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <DialogTitle className="text-2xl font-bold text-white">Edit Role</DialogTitle>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="px-6 py-6 bg-gradient-to-br from-purple-50 to-purple-100">
                                                             <DialogHeader>
-                                                                <DialogTitle>Edit Role</DialogTitle>
+                                                                <DialogTitle className="sr-only">Edit Role</DialogTitle>
                                                             </DialogHeader>
                                                             <RoleEditForm
                                                                 role={role}
                                                                 availablePermissions={props.availablePermissions}
                                                                 onSaved={() => router.reload()}
                                                             />
+                                                            </div>
                                                         </DialogContent>
                                                     </Dialog>
                                                     {role.name !== 'admin' && (
@@ -223,44 +254,58 @@ export default function RolesIndex() {
                                     ))}
                                 </TableBody>
                             </Table>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
                 </div>
 
                 {/* User Management */}
                 <div className="mb-8">
-                    <Card>
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                            <div className="flex items-center justify-between p-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white/20 rounded-lg">
+                                        <Users className="h-6 w-6" />
+                                    </div>
                                 <div>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Users className="h-5 w-5 text-blue-500" />
-                                        User Accounts
-                                    </CardTitle>
-                                    <CardDescription>Manage user accounts and their role assignments</CardDescription>
+                                        <h3 className="text-2xl font-bold text-white">User Accounts</h3>
+                                        <p className="text-blue-100 mt-1">Manage user accounts and their role assignments</p>
+                                    </div>
                                 </div>
                                 <div className="flex gap-2">
                                     <div className="relative">
-                                        <Search className="absolute top-2.5 left-2 h-4 w-4 text-gray-500" />
-                                        <Input placeholder="Search users..." className="w-64 pl-8" />
+                                        <Search className="absolute top-2.5 left-2 h-4 w-4 text-white/80" />
+                                        <Input placeholder="Search users..." className="w-64 pl-8 bg-white text-gray-900" />
                                     </div>
                                     <Dialog>
                                         <DialogTrigger asChild>
-                                            <Button>
+                                            <Button className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
                                                 <Plus className="mr-2 h-4 w-4" /> Add User
                                             </Button>
                                         </DialogTrigger>
-                                        <DialogContent>
+                                        <DialogContent className="p-0 overflow-hidden rounded-xl">
+                                            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                                                <div className="flex items-center gap-3 p-6">
+                                                    <div className="p-2 bg-white/20 rounded-lg">
+                                                        <Users className="h-6 w-6" />
+                                                    </div>
+                                                    <div>
+                                                        <DialogTitle className="text-2xl font-bold text-white">Add User</DialogTitle>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100">
                                             <DialogHeader>
-                                                <DialogTitle>Add User</DialogTitle>
+                                                    <DialogTitle className="sr-only">Add User</DialogTitle>
                                             </DialogHeader>
                                             <AddUserForm onSaved={() => router.reload()} />
+                                            </div>
                                         </DialogContent>
                                     </Dialog>
                                 </div>
                             </div>
-                        </CardHeader>
-                        <CardContent>
+                        </div>
+                        <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -285,7 +330,7 @@ export default function RolesIndex() {
                                                 <Badge className={getRoleBadge(user.role)}>{user.role}</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className={getStatusBadge(user.status)}>{user.status}</Badge>
+                                                <Badge variant={getStatusVariant(user.status)}>{user.status}</Badge>
                                             </TableCell>
                                             <TableCell className="max-w-xs">
                                                 <div className="text-sm text-gray-600">{user.permissions}</div>
@@ -314,22 +359,26 @@ export default function RolesIndex() {
                                     ))}
                                 </TableBody>
                             </Table>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Permission Matrix */}
                 <div className="mb-8">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Shield className="h-5 w-5 text-green-500" />
-                                Permission Matrix
-                            </CardTitle>
-                            <CardDescription>Overview of permissions for each role</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="overflow-x-auto">
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <Shield className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Permission Matrix</h3>
+                                    <p className="text-emerald-100 mt-1">Overview of permissions for each role</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-6 bg-gradient-to-br from-emerald-50 to-green-100">
+                            <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -345,98 +394,98 @@ export default function RolesIndex() {
                                         <TableRow>
                                             <TableCell className="font-medium">Dashboard</TableCell>
                                             <TableCell>
-                                                <Badge className="bg-green-100 text-green-800">Full Access</Badge>
+                                                <Badge variant="success">Full Access</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-blue-100 text-blue-800">Role-Specific</Badge>
+                                                <Badge variant="info">Role-Specific</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-blue-100 text-blue-800">Role-Specific</Badge>
+                                                <Badge variant="info">Role-Specific</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-blue-100 text-blue-800">Role-Specific</Badge>
+                                                <Badge variant="info">Role-Specific</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-gray-100 text-gray-800">Patient Only</Badge>
+                                                <Badge variant="info">Patient Only</Badge>
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell className="font-medium">Patients</TableCell>
                                             <TableCell>
-                                                <Badge className="bg-green-100 text-green-800">Full Access</Badge>
+                                                <Badge variant="success">Full Access</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-green-100 text-green-800">View/Edit</Badge>
+                                                <Badge variant="success">View/Edit</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-green-100 text-green-800">View/Edit</Badge>
+                                                <Badge variant="success">View/Edit</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-green-100 text-green-800">View/Edit</Badge>
+                                                <Badge variant="success">View/Edit</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-red-100 text-red-800">No Access</Badge>
+                                                <Badge variant="destructive">No Access</Badge>
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell className="font-medium">Laboratory</TableCell>
                                             <TableCell>
-                                                <Badge className="bg-green-100 text-green-800">Full Access</Badge>
+                                                <Badge variant="success">Full Access</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-red-100 text-red-800">No Access</Badge>
+                                                <Badge variant="destructive">No Access</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-green-100 text-green-800">Full Access</Badge>
+                                                <Badge variant="success">Full Access</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-red-100 text-red-800">No Access</Badge>
+                                                <Badge variant="destructive">No Access</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-red-100 text-red-800">No Access</Badge>
+                                                <Badge variant="destructive">No Access</Badge>
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell className="font-medium">Billing</TableCell>
                                             <TableCell>
-                                                <Badge className="bg-green-100 text-green-800">Full Access</Badge>
+                                                <Badge variant="success">Full Access</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-red-100 text-red-800">No Access</Badge>
+                                                <Badge variant="destructive">No Access</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-red-100 text-red-800">No Access</Badge>
+                                                <Badge variant="destructive">No Access</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-green-100 text-green-800">Full Access</Badge>
+                                                <Badge variant="success">Full Access</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-red-100 text-red-800">No Access</Badge>
+                                                <Badge variant="destructive">No Access</Badge>
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell className="font-medium">Appointments</TableCell>
                                             <TableCell>
-                                                <Badge className="bg-green-100 text-green-800">Full Access</Badge>
+                                                <Badge variant="success">Full Access</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-green-100 text-green-800">Full Access</Badge>
+                                                <Badge variant="success">Full Access</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-red-100 text-red-800">No Access</Badge>
+                                                <Badge variant="destructive">No Access</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-red-100 text-red-800">No Access</Badge>
+                                                <Badge variant="destructive">No Access</Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-blue-100 text-blue-800">View Own</Badge>
+                                                <Badge variant="info">View Own</Badge>
                                             </TableCell>
                                         </TableRow>
                                     </TableBody>
                                 </Table>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
                 </div>
             </div>
         </AppLayout>

@@ -9,12 +9,28 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
+        // Default - General purpose
         default:
           "border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
+        // Secondary - Neutral information
         secondary:
           "border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
+        // Success - Complete, Active, Approved
+        success:
+          "border-transparent text-white bg-gradient-to-r from-green-600 to-emerald-600",
+        // Warning - Pending, Awaiting Approval
+        warning:
+          "border-transparent text-white bg-gradient-to-r from-yellow-500 to-amber-500",
+        // Danger - Urgent, Error, Failed
         destructive:
-          "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
+          "border-transparent text-white bg-gradient-to-r from-red-600 to-rose-600 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
+        // Info - New, In Progress
+        info:
+          "border-transparent text-white bg-gradient-to-r from-blue-600 to-indigo-600",
+        // Active - Current state
+        active:
+          "border-transparent bg-[var(--color-active)] text-[var(--color-active-foreground)] [a&]:hover:bg-[color-mix(in_oklab,var(--color-active)_90%,black)]",
+        // Outline - Subtle information
         outline:
           "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
       },

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
+import Heading from '@/components/heading';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ArrowLeft, Download, Package, TrendingDown, TrendingUp } from 'lucide-react';
@@ -72,123 +73,152 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Stock Levels Report" />
-            <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Button variant="outline" onClick={() => router.visit('/admin/inventory/reports')}>
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Reports
-                        </Button>
-                        <div>
-                            <h1 className="text-2xl font-bold">Stock Levels Report</h1>
-                            <p className="text-muted-foreground">Current inventory status and alerts</p>
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+                {/* Header Section */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between">
+                        <Heading title="Stock Levels Report" description="Current inventory status and alerts" icon={Package} />
+                        <div className="flex items-center gap-4">
+                            <Button variant="secondary" onClick={() => router.visit('/admin/inventory/reports')} className="bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                Back to Reports
+                            </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Export
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleExport('excel')}>Excel</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleExport('pdf')}>PDF</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleExport('word')}>Word</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </div>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button>
-                                <Download className="mr-2 h-4 w-4" />
-                                Export
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleExport('excel')}>Excel</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleExport('pdf')}>PDF</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleExport('word')}>Word</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
                 </div>
 
                 {/* Summary Cards */}
-                <div className="grid gap-4 md:grid-cols-4">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Supplies</CardTitle>
-                            <Package className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{products.length}</div>
-                            <p className="text-xs text-muted-foreground">Active supplies</p>
-                        </CardContent>
-                    </Card>
+                <div className="grid gap-6 md:grid-cols-4 mb-8">
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white hover:shadow-xl transition-all duration-300">
+                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                            <div className="flex items-center justify-between p-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg">
+                                        <Package className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white">Total Supplies</h3>
+                                        <p className="text-blue-100 text-sm">Active supplies</p>
+                                    </div>
+                                </div>
+                                <div className="text-3xl font-bold text-white">{products.length}</div>
+                            </div>
+                        </div>
+                    </div>
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
-                            <TrendingDown className="h-4 w-4 text-yellow-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-yellow-600">{lowStockProducts.length}</div>
-                            <p className="text-xs text-muted-foreground">Need restocking</p>
-                        </CardContent>
-                    </Card>
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white hover:shadow-xl transition-all duration-300">
+                        <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white">
+                            <div className="flex items-center justify-between p-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg">
+                                        <TrendingDown className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white">Low Stock</h3>
+                                        <p className="text-yellow-100 text-sm">Need restocking</p>
+                                    </div>
+                                </div>
+                                <div className="text-3xl font-bold text-white">{lowStockProducts.length}</div>
+                            </div>
+                        </div>
+                    </div>
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Expiring Soon</CardTitle>
-                            <TrendingUp className="h-4 w-4 text-orange-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-orange-600">{expiringSoon.length}</div>
-                            <p className="text-xs text-muted-foreground">Within 30 days</p>
-                        </CardContent>
-                    </Card>
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white hover:shadow-xl transition-all duration-300">
+                        <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+                            <div className="flex items-center justify-between p-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-gradient-to-br from-orange-400 to-orange-500 rounded-lg">
+                                        <TrendingUp className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white">Expiring Soon</h3>
+                                        <p className="text-orange-100 text-sm">Within 30 days</p>
+                                    </div>
+                                </div>
+                                <div className="text-3xl font-bold text-white">{expiringSoon.length}</div>
+                            </div>
+                        </div>
+                    </div>
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Expired</CardTitle>
-                            <TrendingDown className="h-4 w-4 text-red-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-red-600">{expiredStock.length}</div>
-                            <p className="text-xs text-muted-foreground">Past expiry date</p>
-                        </CardContent>
-                    </Card>
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white hover:shadow-xl transition-all duration-300">
+                        <div className="bg-gradient-to-r from-red-500 to-red-600 text-white">
+                            <div className="flex items-center justify-between p-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-gradient-to-br from-red-400 to-red-500 rounded-lg">
+                                        <TrendingDown className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white">Expired</h3>
+                                        <p className="text-red-100 text-sm">Past expiry date</p>
+                                    </div>
+                                </div>
+                                <div className="text-3xl font-bold text-white">{expiredStock.length}</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Low Stock Alert */}
                 {lowStockProducts.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-yellow-600">
-                                <TrendingDown className="h-5 w-5" />
-                                Low Stock Alert
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="overflow-x-auto">
+                    <div className="holographic-card shadow-lg border-0 mb-8 overflow-hidden rounded-xl bg-white">
+                        <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg">
+                                    <TrendingDown className="h-6 w-6 text-white" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Low Stock Alert</h3>
+                                    <p className="text-yellow-100 mt-1">Supplies that need immediate restocking</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-6 bg-gradient-to-br from-yellow-50 to-yellow-100">
+                            <div className="overflow-x-auto rounded-xl border border-gray-200">
                                 <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Supply</TableHead>
-                                            <TableHead>Current Stock</TableHead>
-                                            <TableHead>Minimum Level</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Action</TableHead>
+                                    <TableHeader className="bg-gray-50">
+                                        <TableRow className="hover:bg-gray-50">
+                                            <TableHead className="font-semibold text-gray-700">Supply</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Current Stock</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Minimum Level</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Status</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Action</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {lowStockProducts.map((product: any) => (
-                                            <TableRow key={product.id}>
+                                            <TableRow key={product.id} className="hover:bg-yellow-50/50 transition-colors border-b border-gray-100">
                                                 <TableCell>
                                                     <div>
-                                                        <div className="font-medium">{product.name}</div>
-                                                        <div className="text-sm text-muted-foreground">{product.code}</div>
+                                                        <div className="font-medium text-gray-900">{product.name}</div>
+                                                        <div className="text-sm text-gray-600">{product.code}</div>
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="font-medium text-yellow-600">{product.current_stock}</div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="font-medium">{product.minimum_stock_level}</div>
+                                                    <div className="font-medium text-gray-900">{product.minimum_stock_level}</div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge variant="destructive">Low Stock</Badge>
+                                                    <Badge variant="destructive" className="px-3 py-1">Low Stock</Badge>
                                                 </TableCell>
                                                 <TableCell>
                                                     <Button
                                                         size="sm"
-                                                        variant="outline"
+                                                        className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-lg"
                                                         onClick={() =>
                                                             router.visit(`/admin/inventory/transactions/create?product_id=${product.id}&type=in`)
                                                         }
@@ -201,60 +231,68 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                                     </TableBody>
                                 </Table>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
                 )}
 
                 {/* All Products Stock Levels */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>All Supplies Stock Levels</CardTitle>
-                    </CardHeader>
-                    <CardContent>
+                <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white">
+                    <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white">
+                        <div className="flex items-center gap-3 p-6">
+                            <div className="p-2 bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg">
+                                <Package className="h-6 w-6 text-white" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-bold text-white">All Supplies Stock Levels</h3>
+                                <p className="text-indigo-100 mt-1">Complete inventory overview with status indicators</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="px-6 py-6 bg-gradient-to-br from-indigo-50 to-indigo-100">
                         {products.length > 0 ? (
-                            <div className="overflow-x-auto">
+                            <div className="overflow-x-auto rounded-xl border border-gray-200">
                                 <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Supply</TableHead>
-                                            <TableHead>Category</TableHead>
-                                            <TableHead>Current Stock</TableHead>
-                                            <TableHead>Available Stock</TableHead>
-                                            <TableHead>Min/Max Levels</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Total Value</TableHead>
+                                    <TableHeader className="bg-gray-50">
+                                        <TableRow className="hover:bg-gray-50">
+                                            <TableHead className="font-semibold text-gray-700">Supply</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Category</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Current Stock</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Available Stock</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Min/Max Levels</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Status</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Total Value</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {products.map((product) => {
                                             const stockStatus = getStockStatus(product);
                                             return (
-                                                <TableRow key={product.id}>
+                                                <TableRow key={product.id} className="hover:bg-indigo-50/50 transition-colors border-b border-gray-100">
                                                     <TableCell>
                                                         <div>
-                                                            <div className="font-medium">{product.name}</div>
-                                                            <div className="text-sm text-muted-foreground">{product.code}</div>
+                                                            <div className="font-medium text-gray-900">{product.name}</div>
+                                                            <div className="text-sm text-gray-600">{product.code}</div>
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell>{product.category || 'N/A'}</TableCell>
+                                                    <TableCell className="text-gray-700">{product.category || 'N/A'}</TableCell>
                                                     <TableCell>
-                                                        <div className="font-medium">{product.current_stock}</div>
-                                                        <div className="text-sm text-muted-foreground">{product.unit_of_measure || 'units'}</div>
+                                                        <div className="font-medium text-gray-900">{product.current_stock}</div>
+                                                        <div className="text-sm text-gray-600">{product.unit_of_measure || 'units'}</div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <div className="font-medium">{Number(product.available_stock ?? 0)}</div>
+                                                        <div className="font-medium text-gray-900">{Number(product.available_stock ?? 0)}</div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <div className="text-sm">
+                                                        <div className="text-sm text-gray-700">
                                                             <div>Min: {product.minimum_stock_level}</div>
                                                             <div>Max: {product.maximum_stock_level}</div>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Badge variant={stockStatus.color as any}>{stockStatus.text}</Badge>
+                                                        <Badge variant={stockStatus.color as any} className="px-3 py-1">{stockStatus.text}</Badge>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <div className="font-medium">
+                                                        <div className="font-medium text-gray-900">
                                                             ₱{Number((product.current_stock || 0) * Number(product.unit_cost || 0)).toFixed(2)}
                                                         </div>
                                                     </TableCell>
@@ -265,14 +303,16 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                                 </Table>
                             </div>
                         ) : (
-                            <div className="py-8 text-center">
-                                <Package className="mx-auto h-12 w-12 text-muted-foreground" />
-                                <h3 className="mt-2 text-sm font-semibold">No products found</h3>
-                                <p className="mt-1 text-sm text-muted-foreground">No products available for stock level reporting.</p>
+                            <div className="py-12 text-center">
+                                <div className="p-6 bg-gray-50 rounded-2xl">
+                                    <Package className="mx-auto mb-4 h-16 w-16 text-gray-400" />
+                                    <h3 className="mb-2 text-2xl font-bold text-gray-900">No Products Found</h3>
+                                    <p className="mb-6 text-gray-600">No products available for stock level reporting.</p>
+                                </div>
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
             </div>
         </AppLayout>
     );

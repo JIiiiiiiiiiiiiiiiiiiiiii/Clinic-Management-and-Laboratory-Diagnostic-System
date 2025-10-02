@@ -16,7 +16,8 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { PatientItem } from '@/types/patients';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, Calendar, Edit, Plus, TestTube, Trash2 } from 'lucide-react';
+import { ArrowLeft, Calendar, Edit, Plus, TestTube, Trash2, User, Phone, Mail, MapPin, Clock, Stethoscope, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
+import Heading from '@/components/heading';
 import * as React from 'react';
 
 const buildBreadcrumbs = (patientId: number): BreadcrumbItem[] => [
@@ -74,7 +75,7 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
         return hhmm;
     };
 
-    const getSexBadgeVariant = (sex: string) => {
+    const getSexBadgeVariant = (sex: string): "default" | "secondary" | "destructive" | "success" | "warning" | "info" | "outline" => {
         switch (sex) {
             case 'male':
                 return 'default';
@@ -85,7 +86,7 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
         }
     };
 
-    const getCivilStatusBadgeVariant = (status: string) => {
+    const getCivilStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "success" | "warning" | "info" | "outline" => {
         switch (status) {
             case 'single':
                 return 'outline';
@@ -105,32 +106,37 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
     return (
         <AppLayout breadcrumbs={buildBreadcrumbs(patient.id)}>
             <Head title={`Patient Details`} />
-            <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Button asChild variant="outline" size="icon">
-                            <Link href="/admin/patient">
-                                <ArrowLeft className="h-4 w-4" />
-                            </Link>
-                        </Button>
-                        <div>
-                            <h1 className="text-2xl font-bold tracking-tight">
-                                {patient.first_name} {patient.last_name}
-                            </h1>
-                            <p className="text-muted-foreground">Patient No: {patient.patient_no}</p>
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+                {/* Header Section */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <Button asChild variant="ghost" size="icon" className="bg-white hover:bg-gray-50 shadow-md">
+                                <Link href="/admin/patient">
+                                    <ArrowLeft className="h-4 w-4" />
+                                </Link>
+                            </Button>
+                            <Heading 
+                                title={`${patient.first_name} ${patient.last_name}`} 
+                                description={`Patient No: ${patient.patient_no}`} 
+                                icon={User} 
+                            />
                         </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Button asChild variant="outline">
-                            <Link href={`/admin/patient/${patient.id}/edit`}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
-                            </Link>
-                        </Button>
-                        <Button variant="destructive" onClick={() => setConfirmOpen(true)}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                        </Button>
+                        <div className="flex items-center gap-6">
+                            <Button asChild className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
+                                <Link href={`/admin/patient/${patient.id}/edit`}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Edit Patient
+                                </Link>
+                            </Button>
+                            <Button 
+                                className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl"
+                                onClick={() => setConfirmOpen(true)}
+                            >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
@@ -152,351 +158,438 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
                     </AlertDialogContent>
                 </AlertDialog>
 
-                <Tabs defaultValue={activeTab}>
-                    <TabsList>
-                        <TabsTrigger value="details">Patient Details</TabsTrigger>
-                        <TabsTrigger value="visits">Visit Records</TabsTrigger>
-                        <TabsTrigger value="labs">Lab Orders</TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="details" className="space-y-6 pt-4">
-                        <div className="grid gap-6 md:grid-cols-2">
-                            {/* Patient Identification */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Patient Identification</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Full Name</p>
-                                            <p className="text-sm">
-                                                {patient.last_name}, {patient.first_name} {patient.middle_name || ''}
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Patient No.</p>
-                                            <p className="text-sm font-medium">{patient.patient_no}</p>
-                                        </div>
-                                    </div>
-                                    <Separator />
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Birthdate</p>
-                                            <p className="text-sm">{formatDate(patient.birthdate)}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Age</p>
-                                            <p className="text-sm">{patient.age} years</p>
-                                        </div>
-                                    </div>
-                                    <Separator />
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Sex</p>
-                                            <Badge variant={getSexBadgeVariant(patient.sex)}>
-                                                {patient.sex.charAt(0).toUpperCase() + patient.sex.slice(1)}
-                                            </Badge>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Nationality</p>
-                                            <p className="text-sm">{patient.nationality}</p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Contact Information */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Contact Information</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div>
-                                        <p className="text-sm font-medium text-muted-foreground">Present Address</p>
-                                        <p className="text-sm">{patient.present_address}</p>
-                                    </div>
-                                    <Separator />
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Telephone No.</p>
-                                            <p className="text-sm">{patient.telephone_no || 'Not provided'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Mobile No.</p>
-                                            <p className="text-sm font-medium">{patient.mobile_no}</p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                {/* Patient Details Section */}
+                <div className="holographic-card shadow-lg border-0 mb-8 overflow-hidden rounded-lg bg-white">
+                    {/* Header Section */}
+                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                        <div className="flex items-center gap-3 p-6">
+                            <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                <User className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-normal text-white">Patient Information</h3>
+                                <p className="text-blue-100 mt-1">Complete patient profile and medical history</p>
+                            </div>
                         </div>
+                    </div>
+                    {/* Content Section */}
+                    <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100">
+                        <Tabs defaultValue={activeTab}>
+                            <TabsList className="grid w-full grid-cols-3 bg-white/60 backdrop-blur-sm border border-white/40 rounded-xl p-2 mb-6 gap-2">
+                                <TabsTrigger value="details" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md transition-all duration-300">Patient Details</TabsTrigger>
+                                <TabsTrigger value="visits" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md transition-all duration-300">Visit Records</TabsTrigger>
+                                <TabsTrigger value="labs" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md transition-all duration-300">Lab Orders</TabsTrigger>
+                            </TabsList>
 
-                        <div className="grid gap-6 md:grid-cols-2">
-                            {/* Demographics */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Demographics</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Occupation</p>
-                                            <p className="text-sm">{patient.occupation || 'Not provided'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Religion</p>
-                                            <p className="text-sm">{patient.religion || 'Not provided'}</p>
-                                        </div>
-                                    </div>
-                                    <Separator />
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Civil Status</p>
-                                            <Badge variant={getCivilStatusBadgeVariant(patient.civil_status)}>
-                                                {patient.civil_status.charAt(0).toUpperCase() + patient.civil_status.slice(1)}
-                                            </Badge>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Emergency Contact */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Emergency Contact</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Informant Name</p>
-                                            <p className="text-sm font-medium">{patient.informant_name}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Relationship</p>
-                                            <p className="text-sm">{patient.relationship}</p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        {/* Medical History & Allergies */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Medical History & Allergies</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <p className="text-sm font-medium text-muted-foreground">Drug Allergies</p>
-                                        <p className="text-sm">{patient.drug_allergies || 'None reported'}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-medium text-muted-foreground">Food Allergies</p>
-                                        <p className="text-sm">{patient.food_allergies || 'None reported'}</p>
-                                    </div>
-                                </div>
-                                <Separator />
-                                <div>
-                                    <p className="text-sm font-medium text-muted-foreground">Past Medical History</p>
-                                    <p className="text-sm">{patient.past_medical_history || 'No past history recorded'}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-muted-foreground">Family History</p>
-                                    <p className="text-sm">{patient.family_history || 'No family history recorded'}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-muted-foreground">Social/Personal History</p>
-                                    <p className="text-sm">{patient.social_personal_history || 'No social history recorded'}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-muted-foreground">Obstetrics & Gynecology History</p>
-                                    <p className="text-sm">{patient.obstetrics_gynecology_history || 'No OB-GYN history recorded'}</p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-
-                    <TabsContent value="visits" className="pt-4">
-                        <Card>
-                            <CardHeader>
-                                <div className="flex items-center justify-between">
-                                    <CardTitle>Visit Records</CardTitle>
-                                    <Button onClick={() => router.visit(`/admin/patient/${patient.id}/visits/create`)}>
-                                        <Plus className="mr-2 h-4 w-4" />
-                                        New Visit
-                                    </Button>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                {visits && visits.length > 0 ? (
-                                    <div className="space-y-4">
-                                        {visits.map((visit) => (
-                                            <div key={visit.id} className="rounded-lg border p-4">
-                                                <div className="mb-2 flex items-center justify-between">
-                                                    <h4 className="font-semibold">{formatDate(visit.arrival_date)}</h4>
-                                                    <Badge
-                                                        variant={
-                                                            visit.status === 'completed'
-                                                                ? 'secondary'
-                                                                : visit.status === 'active'
-                                                                  ? 'default'
-                                                                  : 'outline'
-                                                        }
-                                                    >
-                                                        {visit.status}
-                                                    </Badge>
+                            <TabsContent value="details" className="space-y-6 pt-4">
+                                <div className="grid gap-6 md:grid-cols-2">
+                                    {/* Patient Identification */}
+                                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40">
+                                        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                                    <User className="h-5 w-5 text-white" />
                                                 </div>
-                                                <div className="mb-2 text-sm text-muted-foreground">
-                                                    <p>
-                                                        <strong>Attending Doctor:</strong> {visit.attending_physician}
+                                                <h4 className="text-lg font-bold text-white">Patient Identification</h4>
+                                            </div>
+                                        </div>
+                                        <div className="p-6 space-y-4">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-600">Full Name</p>
+                                                    <p className="text-sm font-semibold text-gray-900">
+                                                        {patient.last_name}, {patient.first_name} {patient.middle_name || ''}
                                                     </p>
-                                                    {visit.assessment_diagnosis && (
-                                                        <p>
-                                                            <strong>Diagnosis:</strong> {visit.assessment_diagnosis}
-                                                        </p>
-                                                    )}
-                                                    {visit.notes && (
-                                                        <p>
-                                                            <strong>Notes:</strong> {visit.notes}
-                                                        </p>
-                                                    )}
                                                 </div>
-                                                <div className="flex gap-2">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => router.visit(`/admin/patient/${patient.id}/visits/${visit.id}`)}
-                                                    >
-                                                        View Details
-                                                    </Button>
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-600">Patient No.</p>
+                                                    <p className="text-sm font-bold text-blue-600">{patient.patient_no}</p>
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="py-8 text-center">
-                                        <Calendar className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                                        <h3 className="mb-2 text-lg font-semibold">No Visits Yet</h3>
-                                        <p className="mb-4 text-muted-foreground">This patient hasn't had any visits recorded yet.</p>
-                                        <Button onClick={() => router.visit(`/admin/patient/${patient.id}/visits/create`)}>
-                                            <Plus className="mr-2 h-4 w-4" />
-                                            Create First Visit
-                                        </Button>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-
-                    <TabsContent value="labs" className="pt-4">
-                        <Card>
-                            <CardHeader>
-                                <div className="flex items-center justify-between">
-                                    <CardTitle>Laboratory Orders</CardTitle>
-                                    <Button onClick={() => router.visit(`/admin/laboratory/patients/${patient.id}/orders`)}>
-                                        <TestTube className="mr-2 h-4 w-4" />
-                                        Manage Lab Orders
-                                    </Button>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                {labOrders && labOrders.length > 0 ? (
-                                    <div className="space-y-4">
-                                        {labOrders.map((order: any) => (
-                                            <div key={order.id} className="rounded-lg border p-4">
-                                                <div className="mb-2 flex items-center justify-between">
-                                                    <h4 className="font-semibold">Order #{order.id}</h4>
-                                                    <Badge
-                                                        variant={
-                                                            order.status === 'completed'
-                                                                ? 'default'
-                                                                : order.status === 'processing'
-                                                                  ? 'secondary'
-                                                                  : 'outline'
-                                                        }
-                                                    >
-                                                        {order.status}
+                                            <Separator />
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-600">Birthdate</p>
+                                                    <p className="text-sm font-semibold text-gray-900">{formatDate(patient.birthdate)}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-600">Age</p>
+                                                    <p className="text-sm font-bold text-emerald-600">{patient.age} years</p>
+                                                </div>
+                                            </div>
+                                            <Separator />
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-600">Sex</p>
+                                                    <Badge variant={getSexBadgeVariant(patient.sex)} className="mt-1">
+                                                        {patient.sex.charAt(0).toUpperCase() + patient.sex.slice(1)}
                                                     </Badge>
                                                 </div>
-                                                <div className="mb-2 text-sm text-muted-foreground">
-                                                    <p>
-                                                        <strong>Ordered by:</strong> {order.ordered_by?.name || 'Unknown'}
-                                                    </p>
-                                                    <p>
-                                                        <strong>Date:</strong> {new Date(order.created_at).toLocaleDateString()}
-                                                    </p>
-                                                    {order.notes && (
-                                                        <p>
-                                                            <strong>Notes:</strong> {order.notes}
-                                                        </p>
-                                                    )}
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-600">Nationality</p>
+                                                    <p className="text-sm font-semibold text-gray-900">{patient.nationality}</p>
                                                 </div>
-                                                <div className="mb-3">
-                                                    <p className="mb-1 text-sm font-medium">Tests Ordered:</p>
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {order.lab_tests?.map((test: any) => (
-                                                            <Badge key={test.id} variant="outline" className="text-xs">
-                                                                {test.name}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Contact Information */}
+                                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40">
+                                        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                                    <Phone className="h-5 w-5 text-white" />
+                                                </div>
+                                                <h4 className="text-lg font-bold text-white">Contact Information</h4>
+                                            </div>
+                                        </div>
+                                        <div className="p-6 space-y-4">
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                                                    <MapPin className="h-4 w-4" />
+                                                    Present Address
+                                                </p>
+                                                <p className="text-sm font-semibold text-gray-900 mt-1">{patient.present_address}</p>
+                                            </div>
+                                            <Separator />
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-600">Telephone No.</p>
+                                                    <p className="text-sm font-semibold text-gray-900">{patient.telephone_no || 'Not provided'}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-600">Mobile No.</p>
+                                                    <p className="text-sm font-semibold text-black">{patient.mobile_no}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                        </div>
+
+                                <div className="grid gap-6 md:grid-cols-2">
+                                    {/* Demographics */}
+                                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40">
+                                        <div className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white p-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                                    <User className="h-5 w-5 text-white" />
+                                                </div>
+                                                <h4 className="text-lg font-bold text-white">Demographics</h4>
+                                            </div>
+                                        </div>
+                                        <div className="p-6 space-y-4">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-600">Occupation</p>
+                                                    <p className="text-sm font-semibold text-gray-900">{patient.occupation || 'Not provided'}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-600">Religion</p>
+                                                    <p className="text-sm font-semibold text-gray-900">{patient.religion || 'Not provided'}</p>
+                                                </div>
+                                            </div>
+                                            <Separator />
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-600">Civil Status</p>
+                                                    <Badge variant={getCivilStatusBadgeVariant(patient.civil_status)} className="mt-1">
+                                                        {patient.civil_status.charAt(0).toUpperCase() + patient.civil_status.slice(1)}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Emergency Contact */}
+                                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40">
+                                        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                                    <Phone className="h-5 w-5 text-white" />
+                                                </div>
+                                                <h4 className="text-lg font-bold text-white">Emergency Contact</h4>
+                                            </div>
+                                        </div>
+                                        <div className="p-6 space-y-4">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-600">Informant Name</p>
+                                                    <p className="text-sm font-bold text-black">{patient.informant_name}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-600">Relationship</p>
+                                                    <p className="text-sm font-semibold text-gray-900">{patient.relationship}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Medical History & Allergies */}
+                                <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40">
+                                    <div className="bg-gradient-to-r from-yellow-500 to-amber-500 text-white p-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                                <Stethoscope className="h-5 w-5 text-white" />
+                                            </div>
+                                            <h4 className="text-lg font-bold text-white">Medical History & Allergies</h4>
+                                        </div>
+                                    </div>
+                                    <div className="p-6 space-y-6">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-600">Drug Allergies</p>
+                                                <p className="text-sm font-semibold text-gray-900">{patient.drug_allergies || 'None reported'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-600">Food Allergies</p>
+                                                <p className="text-sm font-semibold text-gray-900">{patient.food_allergies || 'None reported'}</p>
+                                            </div>
+                                        </div>
+                                        <Separator />
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-600">Past Medical History</p>
+                                            <p className="text-sm font-semibold text-gray-900">{patient.past_medical_history || 'No past history recorded'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-600">Family History</p>
+                                            <p className="text-sm font-semibold text-gray-900">{patient.family_history || 'No family history recorded'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-600">Social/Personal History</p>
+                                            <p className="text-sm font-semibold text-gray-900">{patient.social_personal_history || 'No social history recorded'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-600">Obstetrics & Gynecology History</p>
+                                            <p className="text-sm font-semibold text-gray-900">{patient.obstetrics_gynecology_history || 'No OB-GYN history recorded'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                    </TabsContent>
+
+                            <TabsContent value="visits" className="pt-4">
+                                <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40">
+                                    <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                                    <Calendar className="h-5 w-5 text-white" />
+                                                </div>
+                                                <h4 className="text-lg font-bold text-white">Visit Records</h4>
+                                            </div>
+                                            <Button 
+                                                className="bg-white text-purple-600 hover:bg-purple-50 hover:text-purple-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl"
+                                                onClick={() => router.visit(`/admin/patient/${patient.id}/visits/create`)}
+                                            >
+                                                <Plus className="mr-2 h-4 w-4" />
+                                                New Visit
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <div className="p-6">
+                                        {visits && visits.length > 0 ? (
+                                            <div className="space-y-4">
+                                                {visits.map((visit) => (
+                                                    <div key={visit.id} className="holographic-card shadow-md overflow-hidden rounded-lg bg-white/80 backdrop-blur-sm border border-white/60 p-4">
+                                                        <div className="mb-3 flex items-center justify-between">
+                                                            <h4 className="font-bold text-lg text-gray-900 flex items-center gap-2">
+                                                                <Calendar className="h-4 w-4 text-purple-600" />
+                                                                {formatDate(visit.arrival_date)}
+                                                            </h4>
+                                                            <Badge
+                                                                variant={
+                                                                    visit.status === 'completed'
+                                                                        ? 'success'
+                                                                        : visit.status === 'active'
+                                                                          ? 'default'
+                                                                          : 'destructive'
+                                                                }
+                                                                className="flex items-center gap-1"
+                                                            >
+                                                                {visit.status === 'completed' && <CheckCircle className="w-3 h-3" />}
+                                                                {visit.status === 'active' && <AlertCircle className="w-3 h-3" />}
+                                                                {visit.status === 'discharged' && <XCircle className="w-3 h-3" />}
+                                                                {visit.status}
                                                             </Badge>
-                                                        ))}
+                                                        </div>
+                                                        <div className="mb-3 text-sm text-gray-700 space-y-1">
+                                                            <p className="flex items-center gap-2">
+                                                                <Stethoscope className="h-4 w-4 text-purple-600" />
+                                                                <strong>Attending Doctor:</strong> {visit.attending_physician}
+                                                            </p>
+                                                            {visit.assessment_diagnosis && (
+                                                                <p>
+                                                                    <strong>Diagnosis:</strong> {visit.assessment_diagnosis}
+                                                                </p>
+                                                            )}
+                                                            {visit.notes && (
+                                                                <p>
+                                                                    <strong>Notes:</strong> {visit.notes}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <Button
+                                                                className="bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-lg"
+                                                                onClick={() => router.visit(`/admin/patient/${patient.id}/visits/${visit.id}`)}
+                                                            >
+                                                                View Details
+                                                            </Button>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => router.visit(`/admin/laboratory/orders/${order.id}/results`)}
-                                                    >
-                                                        Enter Results
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => window.open(`/admin/laboratory/orders/${order.id}/report`, '_blank')}
-                                                    >
-                                                        Generate Report
-                                                    </Button>
-                                                </div>
+                                                ))}
                                             </div>
-                                        ))}
+                                        ) : (
+                                            <div className="py-8 text-center">
+                                                <Calendar className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                                <h3 className="mb-2 text-lg font-semibold text-gray-900">No Visits Yet</h3>
+                                                <p className="mb-4 text-gray-600">This patient hasn't had any visits recorded yet.</p>
+                                                <Button 
+                                                    className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl"
+                                                    onClick={() => router.visit(`/admin/patient/${patient.id}/visits/create`)}
+                                                >
+                                                    <Plus className="mr-2 h-4 w-4" />
+                                                    Create First Visit
+                                                </Button>
+                                            </div>
+                                        )}
                                     </div>
-                                ) : (
-                                    <div className="py-8 text-center">
-                                        <TestTube className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                                        <h3 className="mb-2 text-lg font-semibold">No Lab Orders Yet</h3>
-                                        <p className="mb-4 text-muted-foreground">
-                                            Create laboratory orders for this patient to track diagnostic tests and results.
-                                        </p>
-                                        <Button onClick={() => router.visit(`/admin/laboratory/patients/${patient.id}/orders`)}>
-                                            <TestTube className="mr-2 h-4 w-4" />
-                                            Create Lab Order
-                                        </Button>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="labs" className="pt-4">
+                                <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40">
+                                    <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                                    <TestTube className="h-5 w-5 text-white" />
+                                                </div>
+                                                <h4 className="text-lg font-bold text-white">Laboratory Orders</h4>
+                                            </div>
+                                            <Button 
+                                                className="bg-white text-green-600 hover:bg-green-50 hover:text-green-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl"
+                                                onClick={() => router.visit(`/admin/laboratory/patients/${patient.id}/orders`)}
+                                            >
+                                                <TestTube className="mr-2 h-4 w-4" />
+                                                Manage Lab Orders
+                                            </Button>
+                                        </div>
                                     </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                </Tabs>
+                                    <div className="p-6">
+                                        {labOrders && labOrders.length > 0 ? (
+                                            <div className="space-y-4">
+                                                {labOrders.map((order: any) => (
+                                                    <div key={order.id} className="holographic-card shadow-md overflow-hidden rounded-lg bg-white/80 backdrop-blur-sm border border-white/60 p-4">
+                                                        <div className="mb-3 flex items-center justify-between">
+                                                            <h4 className="font-bold text-lg text-gray-900 flex items-center gap-2">
+                                                                <TestTube className="h-4 w-4 text-green-600" />
+                                                                Order #{order.id}
+                                                            </h4>
+                                                            <Badge
+                                                                variant={
+                                                                    order.status === 'completed'
+                                                                        ? 'success'
+                                                                        : order.status === 'processing'
+                                                                          ? 'default'
+                                                                          : 'destructive'
+                                                                }
+                                                                className="flex items-center gap-1"
+                                                            >
+                                                                {order.status === 'completed' && <CheckCircle className="w-3 h-3" />}
+                                                                {order.status === 'processing' && <AlertCircle className="w-3 h-3" />}
+                                                                {order.status}
+                                                            </Badge>
+                                                        </div>
+                                                        <div className="mb-3 text-sm text-gray-700 space-y-1">
+                                                            <p>
+                                                                <strong>Ordered by:</strong> {order.ordered_by?.name || 'Unknown'}
+                                                            </p>
+                                                            <p>
+                                                                <strong>Date:</strong> {new Date(order.created_at).toLocaleDateString()}
+                                                            </p>
+                                                            {order.notes && (
+                                                                <p>
+                                                                    <strong>Notes:</strong> {order.notes}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                        <div className="mb-3">
+                                                            <p className="mb-2 text-sm font-medium text-gray-600">Tests Ordered:</p>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {order.lab_tests?.map((test: any) => (
+                                                                    <Badge key={test.id} variant="secondary" className="text-xs bg-green-50 text-green-700 border-green-200">
+                                                                        {test.name}
+                                                                    </Badge>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <Button
+                                                                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-lg"
+                                                                onClick={() => router.visit(`/admin/laboratory/orders/${order.id}/results`)}
+                                                            >
+                                                                Enter Results
+                                                            </Button>
+                                                            <Button
+                                                                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-lg"
+                                                                onClick={() => window.open(`/admin/laboratory/orders/${order.id}/report`, '_blank')}
+                                                            >
+                                                                Generate Report
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="py-8 text-center">
+                                                <TestTube className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                                <h3 className="mb-2 text-lg font-semibold text-gray-900">No Lab Orders Yet</h3>
+                                                <p className="mb-4 text-gray-600">
+                                                    Create laboratory orders for this patient to track diagnostic tests and results.
+                                                </p>
+                                                <Button 
+                                                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl"
+                                                    onClick={() => router.visit(`/admin/laboratory/patients/${patient.id}/orders`)}
+                                                >
+                                                    <TestTube className="mr-2 h-4 w-4" />
+                                                    Create Lab Order
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </TabsContent>
+                        </Tabs>
+                    </div>
+                </div>
 
                 {/* System Information */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>System Information</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                                <p className="font-medium text-muted-foreground">Created</p>
-                                <p>{formatDate(patient.created_at)}</p>
+                <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                    <div className="bg-gradient-to-r from-gray-600 to-gray-700 text-white">
+                        <div className="flex items-center gap-3 p-6">
+                            <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                <Clock className="h-6 w-6" />
                             </div>
                             <div>
-                                <p className="font-medium text-muted-foreground">Last Updated</p>
-                                <p>{formatDate(patient.updated_at)}</p>
+                                <h3 className="text-2xl font-bold text-white">System Information</h3>
+                                <p className="text-gray-100 mt-1">Record creation and modification details</p>
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                    <div className="px-6 py-6 bg-gradient-to-br from-gray-50 to-gray-100">
+                        <div className="grid grid-cols-2 gap-6">
+                            <div className="bg-white/60 backdrop-blur-sm border border-white/40 rounded-xl p-4">
+                                <p className="text-sm font-medium text-gray-600 mb-2">Created</p>
+                                <p className="text-lg font-bold text-gray-900">{formatDate(patient.created_at)}</p>
+                            </div>
+                            <div className="bg-white/60 backdrop-blur-sm border border-white/40 rounded-xl p-4">
+                                <p className="text-sm font-medium text-gray-600 mb-2">Last Updated</p>
+                                <p className="text-lg font-bold text-gray-900">{formatDate(patient.updated_at)}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </AppLayout>
     );

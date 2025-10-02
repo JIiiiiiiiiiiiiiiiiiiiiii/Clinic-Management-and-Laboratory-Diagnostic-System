@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
+import Heading from '@/components/heading';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ArrowLeft, Calendar, Edit, Package, Plus, TrendingDown, TrendingUp } from 'lucide-react';
@@ -81,39 +82,49 @@ export default function ShowProduct({ product }: ShowProductProps) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Item Details - ${product.name}`} />
-            <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Button variant="outline" onClick={() => router.visit('/admin/inventory/products')}>
-                            <ArrowLeft className="h-4 w-4" />
-                        </Button>
-                        <div>
-                            <h1 className="text-2xl font-bold">{product.name}</h1>
-                            <p className="text-muted-foreground">Item details and stock information</p>
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 pb-12">
+                {/* Header Section */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <Button 
+                                variant="outline" 
+                                onClick={() => router.visit('/admin/inventory/products')}
+                                className="h-12 w-12"
+                            >
+                                <ArrowLeft className="h-5 w-5" />
+                            </Button>
+                            <Heading title={product.name} description="Item details and stock information" icon={Package} />
                         </div>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => router.visit(`/admin/inventory/transactions/create?product_id=${product.id}`)}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Record Movement
-                        </Button>
-                        <Button onClick={() => router.visit(`/admin/inventory/products/${product.id}/edit`)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit Item
-                        </Button>
+                        <div className="flex items-center gap-4">
+                            <Button 
+                                onClick={() => router.visit(`/admin/inventory/transactions/create?product_id=${product.id}`)}
+                                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl"
+                            >
+                                <Plus className="mr-3 h-6 w-6" />
+                                Record Movement
+                            </Button>
+                            <Button 
+                                onClick={() => router.visit(`/admin/inventory/products/${product.id}/edit`)}
+                                className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl"
+                            >
+                                <Edit className="mr-3 h-6 w-6" />
+                                Edit Item
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
                 <div className="grid gap-6 md:grid-cols-3">
                     {/* Item Information */}
-                    <Card className="md:col-span-2">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
+                    <div className="holographic-card shadow-xl border-0 overflow-hidden rounded-2xl bg-white hover:shadow-2xl transition-all duration-300 md:col-span-2">
+                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                            <div className="flex items-center gap-2 text-xl p-6">
                                 <Package className="h-5 w-5" />
                                 Item Information
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
+                            </div>
+                        </div>
+                        <div className="px-6 py-8 space-y-6 bg-gradient-to-br from-blue-50 to-blue-100">
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div>
                                     <label className="text-sm font-medium text-muted-foreground">Item Name</label>
@@ -140,7 +151,7 @@ export default function ShowProduct({ product }: ShowProductProps) {
                                 <div>
                                     <label className="text-sm font-medium text-muted-foreground">Status</label>
                                     <div className="flex items-center gap-2">
-                                        <Badge variant={product.is_active ? 'default' : 'secondary'}>
+                                        <Badge variant={product.is_active ? 'success' : 'secondary'}>
                                             {product.is_active ? 'Active' : 'Inactive'}
                                         </Badge>
                                     </div>
@@ -170,18 +181,18 @@ export default function ShowProduct({ product }: ShowProductProps) {
                                     </div>
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Stock Overview */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
+                    <div className="holographic-card shadow-xl border-0 overflow-hidden rounded-2xl bg-white hover:shadow-2xl transition-all duration-300">
+                        <div className="bg-gradient-to-r from-green-500 to-green-600 text-white">
+                            <div className="flex items-center gap-2 text-xl p-6">
                                 <TrendingUp className="h-5 w-5" />
                                 Stock Overview
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
+                            </div>
+                        </div>
+                        <div className="px-6 py-8 space-y-4 bg-gradient-to-br from-green-50 to-green-100">
                             <div className="text-center">
                                 <div className="text-3xl font-bold">{product.current_stock}</div>
                                 <p className="text-sm text-muted-foreground">Current Stock</p>
@@ -211,17 +222,20 @@ export default function ShowProduct({ product }: ShowProductProps) {
                                     <span className="font-medium">₱{(product.current_stock * Number(product.unit_cost)).toFixed(2)}</span>
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Stock Levels by Lot */}
                 {product.stock_levels && product.stock_levels.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Stock Levels by Lot</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="holographic-card shadow-xl border-0 overflow-hidden rounded-2xl bg-white hover:shadow-2xl transition-all duration-300">
+                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+                            <div className="flex items-center gap-2 text-xl p-6">
+                                <Calendar className="h-5 w-5" />
+                                Stock Levels by Lot
+                            </div>
+                        </div>
+                        <div className="px-6 py-8 bg-gradient-to-br from-purple-50 to-purple-100">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead>
@@ -267,20 +281,20 @@ export default function ShowProduct({ product }: ShowProductProps) {
                                     </tbody>
                                 </table>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
                 )}
 
                 {/* Recent Transactions */}
                 {product.recent_transactions && product.recent_transactions.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
+                    <div className="holographic-card shadow-xl border-0 overflow-hidden rounded-2xl bg-white hover:shadow-2xl transition-all duration-300">
+                        <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+                            <div className="flex items-center gap-2 text-xl p-6">
                                 <Calendar className="h-5 w-5" />
                                 Recent Transactions
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                            </div>
+                        </div>
+                        <div className="px-6 py-8 bg-gradient-to-br from-orange-50 to-orange-100">
                             <div className="space-y-3">
                                 {product.recent_transactions.map((transaction) => (
                                     <div key={transaction.id} className="flex items-center justify-between rounded-lg border p-3">
@@ -318,8 +332,8 @@ export default function ShowProduct({ product }: ShowProductProps) {
                                     </div>
                                 ))}
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
                 )}
             </div>
         </AppLayout>

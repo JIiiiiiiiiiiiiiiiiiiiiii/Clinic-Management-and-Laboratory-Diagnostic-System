@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
+import Heading from '@/components/heading';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ArrowLeft, Calendar, Download, Users } from 'lucide-react';
@@ -81,138 +82,169 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Usage by Location Report" />
-            <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Button variant="outline" onClick={() => router.visit('/admin/inventory/reports')}>
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Reports
-                        </Button>
-                        <div>
-                            <h1 className="text-2xl font-bold">Usage by Location Report</h1>
-                            <p className="text-muted-foreground">Supply consumption breakdown by department/location</p>
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+                {/* Header Section */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between">
+                        <Heading title="Usage by Location Report" description="Supply consumption breakdown by department/location" icon={Users} />
+                        <div className="flex items-center gap-4">
+                            <Button variant="secondary" onClick={() => router.visit('/admin/inventory/reports')} className="bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                Back to Reports
+                            </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button className="bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Export
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleExport('excel')}>Excel</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleExport('pdf')}>PDF</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleExport('word')}>Word</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </div>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button>
-                                <Download className="mr-2 h-4 w-4" />
-                                Export
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleExport('excel')}>Excel</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleExport('pdf')}>PDF</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleExport('word')}>Word</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
                 </div>
 
                 {/* Date Filters */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Calendar className="h-5 w-5" />
-                            Date Range Filter
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid gap-4 md:grid-cols-3">
+                <div className="holographic-card shadow-lg border-0 mb-8 overflow-hidden rounded-xl bg-white">
+                    <div className="bg-gradient-to-r from-teal-500 to-teal-600 text-white">
+                        <div className="flex items-center gap-3 p-6">
+                            <div className="p-2 bg-gradient-to-br from-teal-400 to-teal-500 rounded-lg">
+                                <Calendar className="h-6 w-6 text-white" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-bold text-white">Date Range Filter</h3>
+                                <p className="text-teal-100 mt-1">Filter reports by specific date ranges</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="px-6 py-6 bg-gradient-to-br from-teal-50 to-teal-100">
+                        <div className="grid gap-6 md:grid-cols-3">
                             <div className="space-y-2">
-                                <Label htmlFor="start_date">Start Date</Label>
-                                <Input id="start_date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                                <Label htmlFor="start_date" className="text-base font-semibold text-gray-700">Start Date</Label>
+                                <Input id="start_date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-12 border-gray-300 focus:border-teal-500 focus:ring-teal-500 rounded-xl shadow-sm" />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="end_date">End Date</Label>
-                                <Input id="end_date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                                <Label htmlFor="end_date" className="text-base font-semibold text-gray-700">End Date</Label>
+                                <Input id="end_date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-12 border-gray-300 focus:border-teal-500 focus:ring-teal-500 rounded-xl shadow-sm" />
                             </div>
                             <div className="flex items-end">
-                                <Button onClick={handleFilter} className="w-full">
+                                <Button onClick={handleFilter} className="w-full h-12 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl">
                                     Apply Filter
                                 </Button>
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
 
                 {/* Summary Cards */}
-                <div className="grid gap-4 md:grid-cols-3">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Locations</CardTitle>
-                            <Users className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{Object.keys(usageByLocation || {}).length}</div>
-                            <p className="text-xs text-muted-foreground">Departments using supplies</p>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Products</CardTitle>
-                            <Users className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">
-                                {Object.values(usageByLocation || {}).reduce((sum, usages) => sum + (usages?.length || 0), 0)}
+                <div className="grid gap-6 md:grid-cols-3 mb-8">
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white hover:shadow-xl transition-all duration-300">
+                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                            <div className="flex items-center justify-between p-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg">
+                                        <Users className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white">Total Locations</h3>
+                                        <p className="text-blue-100 text-sm">Departments using supplies</p>
+                                    </div>
+                                </div>
+                                <div className="text-3xl font-bold text-white">{Object.keys(usageByLocation || {}).length}</div>
                             </div>
-                            <p className="text-xs text-muted-foreground">Product-location combinations</p>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Value</CardTitle>
-                            <Users className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">
-                                ₱
-                                {Number(
-                                    Object.values(usageByLocation || {})
-                                        .flat()
-                                        .reduce((sum, usage: any) => sum + (Number(usage?.total_cost) || 0), 0),
-                                ).toFixed(2)}
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white hover:shadow-xl transition-all duration-300">
+                        <div className="bg-gradient-to-r from-green-500 to-green-600 text-white">
+                            <div className="flex items-center justify-between p-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-gradient-to-br from-green-400 to-green-500 rounded-lg">
+                                        <Users className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white">Total Products</h3>
+                                        <p className="text-green-100 text-sm">Product-location combinations</p>
+                                    </div>
+                                </div>
+                                <div className="text-3xl font-bold text-white">
+                                    {Object.values(usageByLocation || {}).reduce((sum, usages) => sum + (usages?.length || 0), 0)}
+                                </div>
                             </div>
-                            <p className="text-xs text-muted-foreground">Total cost across all locations</p>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
+
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white hover:shadow-xl transition-all duration-300">
+                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+                            <div className="flex items-center justify-between p-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-gradient-to-br from-purple-400 to-purple-500 rounded-lg">
+                                        <Users className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white">Total Value</h3>
+                                        <p className="text-purple-100 text-sm">Total cost across all locations</p>
+                                    </div>
+                                </div>
+                                <div className="text-3xl font-bold text-white">
+                                    ₱
+                                    {Number(
+                                        Object.values(usageByLocation || {})
+                                            .flat()
+                                            .reduce((sum, usage: any) => sum + (Number(usage?.total_cost) || 0), 0),
+                                    ).toFixed(2)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Location Summary */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Location Summary</CardTitle>
-                    </CardHeader>
-                    <CardContent>
+                <div className="holographic-card shadow-lg border-0 mb-8 overflow-hidden rounded-xl bg-white">
+                    <div className="bg-gradient-to-r from-cyan-500 to-cyan-600 text-white">
+                        <div className="flex items-center gap-3 p-6">
+                            <div className="p-2 bg-gradient-to-br from-cyan-400 to-cyan-500 rounded-lg">
+                                <Users className="h-6 w-6 text-white" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-bold text-white">Location Summary</h3>
+                                <p className="text-cyan-100 mt-1">Summary of supply usage by location</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="px-6 py-6 bg-gradient-to-br from-cyan-50 to-cyan-100">
                         {Object.keys(usageByLocation || {}).length > 0 ? (
-                            <div className="overflow-x-auto">
+                            <div className="overflow-x-auto rounded-xl border border-gray-200">
                                 <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Location</TableHead>
-                                            <TableHead>Products Used</TableHead>
-                                            <TableHead>Total Quantity</TableHead>
-                                            <TableHead>Total Cost</TableHead>
+                                    <TableHeader className="bg-gray-50">
+                                        <TableRow className="hover:bg-gray-50">
+                                            <TableHead className="font-semibold text-gray-700">Location</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Products Used</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Total Quantity</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Total Cost</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {Object.keys(usageByLocation || {}).map((location) => {
                                             const totals = getTotalUsageByLocation(location);
                                             return (
-                                                <TableRow key={location}>
+                                                <TableRow key={location} className="hover:bg-cyan-50/50 transition-colors border-b border-gray-100">
                                                     <TableCell>
-                                                        <div className="font-medium">{location}</div>
+                                                        <div className="font-medium text-gray-900">{location}</div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Badge variant="outline">{totals.productCount}</Badge>
+                                                        <Badge variant="outline" className="px-3 py-1">{totals.productCount}</Badge>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <div className="font-medium">{totals.totalQuantity}</div>
+                                                        <div className="font-medium text-gray-900">{totals.totalQuantity}</div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <div className="font-medium">₱{totals.totalCost.toFixed(2)}</div>
+                                                        <div className="font-medium text-gray-900">₱{totals.totalCost.toFixed(2)}</div>
                                                     </TableCell>
                                                 </TableRow>
                                             );
@@ -221,61 +253,68 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
                                 </Table>
                             </div>
                         ) : (
-                            <div className="py-8 text-center">
-                                <Users className="mx-auto h-12 w-12 text-muted-foreground" />
-                                <h3 className="mt-2 text-sm font-semibold">No usage data found</h3>
-                                <p className="mt-1 text-sm text-muted-foreground">No supply usage by location in the selected date range.</p>
+                            <div className="py-12 text-center">
+                                <div className="p-6 bg-gray-50 rounded-2xl">
+                                    <Users className="mx-auto mb-4 h-16 w-16 text-gray-400" />
+                                    <h3 className="mb-2 text-2xl font-bold text-gray-900">No Usage Data Found</h3>
+                                    <p className="mb-6 text-gray-600">No supply usage by location in the selected date range.</p>
+                                </div>
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
 
                 {/* Detailed Usage by Location */}
                 {Object.keys(usageByLocation || {}).length > 0 && (
                     <div className="space-y-6">
                         {Object.entries(usageByLocation || {}).map(([location, usages]) => (
-                            <Card key={location}>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Users className="h-5 w-5" />
-                                        {location}
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="overflow-x-auto">
+                            <div key={location} className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white">
+                                <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white">
+                                    <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-gradient-to-br from-emerald-400 to-emerald-500 rounded-lg">
+                                    <Users className="h-6 w-6 text-white" />
+                                </div>
+                                        <div>
+                                            <h3 className="text-2xl font-bold text-white">{location}</h3>
+                                            <p className="text-emerald-100 mt-1">Detailed usage breakdown for this location</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="px-6 py-6 bg-gradient-to-br from-emerald-50 to-emerald-100">
+                                    <div className="overflow-x-auto rounded-xl border border-gray-200">
                                         <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Product</TableHead>
-                                                    <TableHead>Total Quantity</TableHead>
-                                                    <TableHead>Total Cost</TableHead>
+                                            <TableHeader className="bg-gray-50">
+                                                <TableRow className="hover:bg-gray-50">
+                                                    <TableHead className="font-semibold text-gray-700">Product</TableHead>
+                                                    <TableHead className="font-semibold text-gray-700">Total Quantity</TableHead>
+                                                    <TableHead className="font-semibold text-gray-700">Total Cost</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {(usages || []).map((usage) => (
-                                                    <TableRow key={`${location}-${usage.product_id}`}>
+                                                    <TableRow key={`${location}-${usage.product_id}`} className="hover:bg-emerald-50/50 transition-colors border-b border-gray-100">
                                                         <TableCell>
                                                             <div>
-                                                                <div className="font-medium">{usage.product.name}</div>
-                                                                <div className="text-sm text-muted-foreground">{usage.product.code}</div>
+                                                                <div className="font-medium text-gray-900">{usage.product.name}</div>
+                                                                <div className="text-sm text-gray-600">{usage.product.code}</div>
                                                             </div>
                                                         </TableCell>
                                                         <TableCell>
-                                                            <div className="font-medium">{usage.total_quantity}</div>
-                                                            <div className="text-sm text-muted-foreground">
+                                                            <div className="font-medium text-gray-900">{usage.total_quantity}</div>
+                                                            <div className="text-sm text-gray-600">
                                                                 {usage.product.unit_of_measure || 'units'}
                                                             </div>
                                                         </TableCell>
                                                         <TableCell>
-                                                            <div className="font-medium">₱{Number(usage.total_cost || 0).toFixed(2)}</div>
+                                                            <div className="font-medium text-gray-900">₱{Number(usage.total_cost || 0).toFixed(2)}</div>
                                                         </TableCell>
                                                     </TableRow>
                                                 ))}
                                             </TableBody>
                                         </Table>
                                     </div>
-                                </CardContent>
-                            </Card>
+                                </div>
+                            </div>
                         ))}
                     </div>
                 )}

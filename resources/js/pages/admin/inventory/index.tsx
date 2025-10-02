@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
+import Heading from '@/components/heading';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import {
@@ -86,118 +87,221 @@ export default function InventoryDashboard({
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Inventory Management" />
-            <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold">Inventory</h1>
-                        <p className="text-muted-foreground">Track and manage clinic items and equipment</p>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button onClick={() => router.visit('/admin/inventory/transactions/create')}>
-                            <Package className="mr-2 h-4 w-4" />
-                            Record Movement
-                        </Button>
-                        <Button variant="outline" onClick={() => router.visit('/admin/inventory/products/create')}>
-                            <BriefcaseMedical className="mr-2 h-4 w-4" />
-                            Add Item
-                        </Button>
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 pb-12">
+                {/* Header Section */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between">
+                        <Heading title="Inventory Management" description="Track and manage clinic items and equipment" icon={Package} />
+                        <div className="flex items-center gap-4">
+                            <Button 
+                                onClick={() => router.visit('/admin/inventory/transactions/create')}
+                                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl"
+                            >
+                                <Package className="mr-3 h-5 w-5" />
+                                Record Movement
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                onClick={() => router.visit('/admin/inventory/products/create')}
+                                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl"
+                            >
+                                <BriefcaseMedical className="mr-3 h-5 w-5" />
+                                Add Item
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
                 {/* Statistics Cards */}
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Items</CardTitle>
-                            <Package className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats.total_products}</div>
-                            <p className="text-xs text-muted-foreground">{stats.active_products} active items</p>
-                        </CardContent>
-                    </Card>
+                <div className="mb-8 flex flex-wrap items-start gap-2 sm:gap-3 md:gap-4">
+                    {/* Card 1: Total Items */}
+                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all cursor-pointer w-full flex-1 min-w-[140px] sm:min-w-[160px] md:min-w-[180px] lg:min-w-[192px]">
+                        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white h-24 flex items-center">
+                            <div className="flex items-center justify-between p-4 w-full">
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                        <Package className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xs sm:text-sm font-bold text-white leading-tight">Total Items</h3>
+                                        <p className="text-emerald-100 text-xs leading-tight">All products</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-4 sm:px-6 py-3">
+                            <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.total_products}</div>
+                        </div>
+                    </div>
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
-                            <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-yellow-600">{stats.low_stock_products}</div>
-                            <p className="text-xs text-muted-foreground">Items need restocking</p>
-                            {/* Details intentionally omitted to keep layout clean */}
-                        </CardContent>
-                    </Card>
+                    {/* Card 2: Low Stock */}
+                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all cursor-pointer w-full flex-1 min-w-[140px] sm:min-w-[160px] md:min-w-[180px] lg:min-w-[192px]">
+                        <div className="bg-gradient-to-r from-yellow-500 to-amber-500 text-white h-24 flex items-center">
+                            <div className="flex items-center justify-between p-4 w-full">
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                        <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xs sm:text-sm font-bold text-white leading-tight">Low Stock</h3>
+                                        <p className="text-yellow-100 text-xs leading-tight">Needs restock</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-4 sm:px-6 py-4">
+                            <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.low_stock_products}</div>
+                        </div>
+                    </div>
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Expiring Soon</CardTitle>
-                            <Clock className="h-4 w-4 text-orange-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-orange-600">{stats.expiring_soon}</div>
-                            <p className="text-xs text-muted-foreground">Within 30 days</p>
-                        </CardContent>
-                    </Card>
+                    {/* Card 3: Expiring Soon */}
+                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all cursor-pointer w-full flex-1 min-w-[140px] sm:min-w-[160px] md:min-w-[180px] lg:min-w-[192px]">
+                        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white h-24 flex items-center">
+                            <div className="flex items-center justify-between p-4 w-full">
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                        <Clock className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xs sm:text-sm font-bold text-white leading-tight">Expiring Soon</h3>
+                                        <p className="text-orange-100 text-xs leading-tight">Within 30 days</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-4 sm:px-6 py-6">
+                            <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.expiring_soon}</div>
+                        </div>
+                    </div>
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Expired Stock</CardTitle>
-                            <TrendingDown className="h-4 w-4 text-red-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-red-600">{stats.expired_stock}</div>
-                            <p className="text-xs text-muted-foreground">Items past expiry</p>
-                        </CardContent>
-                    </Card>
+                    {/* Card 4: Expired Stock */}
+                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all cursor-pointer w-full flex-1 min-w-[140px] sm:min-w-[160px] md:min-w-[180px] lg:min-w-[192px]">
+                        <div className="bg-gradient-to-r from-red-600 to-pink-600 text-white h-24 flex items-center">
+                            <div className="flex items-center justify-between p-4 w-full">
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                        <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xs sm:text-sm font-bold text-white leading-tight">Expired Stock</h3>
+                                        <p className="text-red-100 text-xs leading-tight">Past expiry</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-4 sm:px-6 py-4">
+                            <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.expired_stock}</div>
+                        </div>
+                    </div>
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
-                            <CheckCircle className="h-4 w-4 text-blue-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-blue-600">{pendingApprovals.length}</div>
-                            <p className="text-xs text-muted-foreground">Awaiting approval</p>
-                        </CardContent>
-                    </Card>
+                    {/* Card 5: Pending Approvals */}
+                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all cursor-pointer w-full flex-1 min-w-[140px] sm:min-w-[160px] md:min-w-[180px] lg:min-w-[192px]">
+                        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white h-24 flex items-center">
+                            <div className="flex items-center justify-between p-4 w-full">
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                        <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xs sm:text-sm font-bold text-white leading-tight">Pending Approvals</h3>
+                                        <p className="text-indigo-100 text-xs leading-tight">Awaiting review</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-4 sm:px-6 py-3">
+                            <div className="text-xl sm:text-2xl font-bold text-gray-900">{pendingApprovals.length}</div>
+                        </div>
+                    </div>
                 </div>
 
-                <div className="grid gap-6 md:grid-cols-2">
+                {/* Spacing between cards and content sections */}
+                <div className="mt-12"></div>
+
+                {/* Quick Actions - 4 buttons with same Admin Dashboard icon background color */}
+                <div className="mb-12">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                        <Button 
+                            className="h-auto flex-col p-6 holographic-card shadow-lg hover:shadow-2xl overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all duration-300 cursor-pointer !bg-gradient-to-br !from-[#1075bb] !to-[#0b5a8f] !border-0 !text-white hover:!from-[#0b5a8f] hover:!to-[#084a7a]" 
+                            onClick={() => router.visit('/admin/inventory/products')}
+                        >
+                            <Package className="mb-3 h-8 w-8 text-white" />
+                            <span className="font-semibold text-lg text-white">Manage Items</span>
+                            <span className="text-sm text-white">View and edit items</span>
+                        </Button>
+
+                        <Button 
+                            className="h-auto flex-col p-6 holographic-card shadow-lg hover:shadow-2xl overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all duration-300 cursor-pointer !bg-gradient-to-br !from-[#1075bb] !to-[#0b5a8f] !border-0 !text-white hover:!from-[#0b5a8f] hover:!to-[#084a7a]" 
+                            onClick={() => router.visit('/admin/inventory/transactions')}
+                        >
+                            <BarChart3 className="mb-3 h-8 w-8 text-white" />
+                            <span className="font-semibold text-lg text-white">View Transactions</span>
+                            <span className="text-sm text-white">Track all movements</span>
+                        </Button>
+
+                        <Button 
+                            className="h-auto flex-col p-6 holographic-card shadow-lg hover:shadow-2xl overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all duration-300 cursor-pointer !bg-gradient-to-br !from-[#1075bb] !to-[#0b5a8f] !border-0 !text-white hover:!from-[#0b5a8f] hover:!to-[#084a7a]" 
+                            onClick={() => router.visit('/admin/inventory/reports')}
+                        >
+                            <TrendingUp className="mb-3 h-8 w-8 text-white" />
+                            <span className="font-semibold text-lg text-white">Generate Reports</span>
+                            <span className="text-sm text-white">Used/rejected supplies</span>
+                        </Button>
+
+                        <Button
+                            className="h-auto flex-col p-6 holographic-card shadow-lg hover:shadow-2xl overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all duration-300 cursor-pointer !bg-gradient-to-br !from-[#1075bb] !to-[#0b5a8f] !border-0 !text-white hover:!from-[#0b5a8f] hover:!to-[#084a7a]"
+                            onClick={() => router.visit('/admin/inventory/reports/stock-levels')}
+                        >
+                            <Users className="mb-3 h-8 w-8 text-white" />
+                            <span className="font-semibold text-lg text-white">Stock Levels</span>
+                            <span className="text-sm text-white">Current inventory status</span>
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="grid gap-8 md:grid-cols-2">
                     {/* Recent Transactions */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Recent Movements</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
+                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <ArrowUp className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Recent Movements</h3>
+                                    <p className="text-green-100 mt-1">Latest supply transactions</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-6 bg-gradient-to-br from-green-50 to-green-100">
                             <div className="space-y-4">
                                 {recentTransactions.length > 0 ? (
                                     recentTransactions.map((transaction) => (
-                                        <div key={transaction.id} className="flex items-center justify-between">
+                                        <div key={transaction.id} className="flex items-center justify-between p-4 bg-white rounded-lg border border-green-200">
                                             <div className="flex items-center space-x-3">
                                                 {transaction.type === 'in' ? (
-                                                    <ArrowUp className="h-4 w-4 text-green-500" />
+                                                    <ArrowUp className="h-5 w-5 text-green-500" />
                                                 ) : (
-                                                    <ArrowDown className="h-4 w-4 text-red-500" />
+                                                    <ArrowDown className="h-5 w-5 text-red-500" />
                                                 )}
                                                 <div>
-                                                    <p className="text-sm font-medium">{transaction.product.name}</p>
-                                                    <p className="text-xs text-muted-foreground">
+                                                    <p className="text-sm font-medium text-gray-900">{transaction.product.name}</p>
+                                                    <p className="text-xs text-gray-600">
                                                         {transaction.subtype} • {transaction.user.name}
                                                     </p>
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-sm font-medium">
+                                                <p className="text-sm font-medium text-gray-900">
                                                     {transaction.type === 'in' ? '+' : ''}
                                                     {transaction.quantity}
                                                 </p>
                                                 <Badge
                                                     variant={
                                                         transaction.approval_status === 'approved'
-                                                            ? 'default'
+                                                            ? 'success'
                                                             : transaction.approval_status === 'pending'
-                                                              ? 'secondary'
+                                                              ? 'warning'
                                                               : 'destructive'
                                                     }
                                                     className="text-xs"
@@ -208,82 +312,54 @@ export default function InventoryDashboard({
                                         </div>
                                     ))
                                 ) : (
-                                    <p className="text-sm text-muted-foreground">No recent transactions</p>
+                                    <p className="text-sm text-gray-600 text-center py-4">No recent transactions</p>
                                 )}
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Top Consumed Items */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Top Consumed Items (This Month)</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
+                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <TrendingUp className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Top Consumed Items</h3>
+                                    <p className="text-purple-100 mt-1">This month's usage</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-6 bg-gradient-to-br from-purple-50 to-purple-100">
                             <div className="space-y-4">
                                 {topConsumedProducts.length > 0 ? (
                                     topConsumedProducts.map((item, index) => (
-                                        <div key={item.product.code} className="flex items-center justify-between">
+                                        <div key={item.product.code} className="flex items-center justify-between p-4 bg-white rounded-lg border border-purple-200">
                                             <div className="flex items-center space-x-3">
-                                                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-sm font-bold text-purple-600">
                                                     {index + 1}
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-medium">{item.product.name}</p>
-                                                    <p className="text-xs text-muted-foreground">{item.product.code}</p>
+                                                    <p className="text-sm font-medium text-gray-900">{item.product.name}</p>
+                                                    <p className="text-xs text-gray-600">{item.product.code}</p>
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-sm font-medium">{item.total_quantity}</p>
-                                                <p className="text-xs text-muted-foreground">units consumed</p>
+                                                <p className="text-lg font-bold text-purple-600">{item.total_quantity}</p>
+                                                <p className="text-xs text-gray-600">units consumed</p>
                                             </div>
                                         </div>
                                     ))
                                 ) : (
-                                    <p className="text-sm text-muted-foreground">No consumption data available</p>
+                                    <p className="text-sm text-gray-600 text-center py-4">No consumption data available</p>
                                 )}
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Quick Actions */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Quick Actions</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                            <Button variant="outline" className="h-auto flex-col p-4" onClick={() => router.visit('/admin/inventory/products')}>
-                                <Package className="mb-2 h-6 w-6" />
-                                <span className="font-medium">Manage Items</span>
-                                <span className="text-xs text-muted-foreground">View and edit items</span>
-                            </Button>
-
-                            <Button variant="outline" className="h-auto flex-col p-4" onClick={() => router.visit('/admin/inventory/transactions')}>
-                                <BarChart3 className="mb-2 h-6 w-6" />
-                                <span className="font-medium">View Transactions</span>
-                                <span className="text-xs text-muted-foreground">Track all movements</span>
-                            </Button>
-
-                            <Button variant="outline" className="h-auto flex-col p-4" onClick={() => router.visit('/admin/inventory/reports')}>
-                                <TrendingUp className="mb-2 h-6 w-6" />
-                                <span className="font-medium">Generate Reports</span>
-                                <span className="text-xs text-muted-foreground">Used/rejected supplies</span>
-                            </Button>
-
-                            <Button
-                                variant="outline"
-                                className="h-auto flex-col p-4"
-                                onClick={() => router.visit('/admin/inventory/reports/stock-levels')}
-                            >
-                                <Users className="mb-2 h-6 w-6" />
-                                <span className="font-medium">Stock Levels</span>
-                                <span className="text-xs text-muted-foreground">Current inventory status</span>
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
+                
             </div>
         </AppLayout>
     );

@@ -118,7 +118,7 @@ export function AppSidebar() {
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild>
+                        <SidebarMenuButton size="lg" asChild className="holographic-sidebar-item text-white" style={{backgroundColor: '#0b6839'}}>
                             <Link href="/admin/dashboard" prefetch>
                                 <AppLogo />
                             </Link>

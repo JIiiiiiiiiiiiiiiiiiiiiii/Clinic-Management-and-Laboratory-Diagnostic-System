@@ -8,6 +8,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import * as React from 'react';
+import { CheckCircle, FileText, Save } from 'lucide-react';
 
 type Test = { id: number; name: string; code: string; fields_schema: any };
 type Order = { id: number; status: string; created_at: string };
@@ -86,19 +87,23 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
             case 'text':
                 return (
                     <div key={fieldKey} className="space-y-2">
-                        <Label htmlFor={fieldId}>
+                        <Label htmlFor={fieldId} className="text-sm font-semibold text-gray-700">
                             {field.label}
                             {field.required && <span className="ml-1 text-red-500">*</span>}
                         </Label>
-                        <Input {...commonProps} placeholder={field.placeholder} />
-                        {field.unit && <span className="ml-2 text-sm text-muted-foreground">{field.unit}</span>}
+                        <Input 
+                            {...commonProps} 
+                            placeholder={field.placeholder}
+                            className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                        />
+                        {field.unit && <span className="ml-2 text-sm text-gray-500">{field.unit}</span>}
                     </div>
                 );
 
             case 'number':
                 return (
                     <div key={fieldKey} className="space-y-2">
-                        <Label htmlFor={fieldId}>
+                        <Label htmlFor={fieldId} className="text-sm font-semibold text-gray-700">
                             {field.label}
                             {field.required && <span className="ml-1 text-red-500">*</span>}
                         </Label>
@@ -109,20 +114,21 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                             min={field.min}
                             max={field.max}
                             placeholder={field.placeholder}
+                            className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
                         />
-                        {field.unit && <span className="ml-2 text-sm text-muted-foreground">{field.unit}</span>}
+                        {field.unit && <span className="ml-2 text-sm text-gray-500">{field.unit}</span>}
                     </div>
                 );
 
             case 'select':
                 return (
                     <div key={fieldKey} className="space-y-2">
-                        <Label htmlFor={fieldId}>
+                        <Label htmlFor={fieldId} className="text-sm font-semibold text-gray-700">
                             {field.label}
                             {field.required && <span className="ml-1 text-red-500">*</span>}
                         </Label>
                         <Select value={value} onValueChange={(val) => updateResult(testId, fieldPath, val)}>
-                            <SelectTrigger>
+                            <SelectTrigger className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm">
                                 <SelectValue placeholder={field.placeholder || 'Select...'} />
                             </SelectTrigger>
                             <SelectContent>
@@ -139,19 +145,28 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
             case 'textarea':
                 return (
                     <div key={fieldKey} className="space-y-2">
-                        <Label htmlFor={fieldId}>
+                        <Label htmlFor={fieldId} className="text-sm font-semibold text-gray-700">
                             {field.label}
                             {field.required && <span className="ml-1 text-red-500">*</span>}
                         </Label>
-                        <Textarea {...commonProps} placeholder={field.placeholder} rows={field.rows || 3} />
+                        <Textarea 
+                            {...commonProps} 
+                            placeholder={field.placeholder} 
+                            rows={field.rows || 3}
+                            className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                        />
                     </div>
                 );
 
             default:
                 return (
                     <div key={fieldKey} className="space-y-2">
-                        <Label htmlFor={fieldId}>{field.label}</Label>
-                        <Input {...commonProps} placeholder={field.placeholder} />
+                        <Label htmlFor={fieldId} className="text-sm font-semibold text-gray-700">{field.label}</Label>
+                        <Input 
+                            {...commonProps} 
+                            placeholder={field.placeholder}
+                            className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                        />
                     </div>
                 );
         }
@@ -162,28 +177,49 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
         if (!schema || !schema.sections) return null;
 
         return (
-            <Card key={test.id} className="mb-6">
-                <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                        {test.name} ({test.code})
-                        <span className="text-sm font-normal text-muted-foreground">
-                            Patient: {patient.last_name}, {patient.first_name} ({patient.sex}, {patient.age}y)
-                        </span>
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    {Object.entries(schema.sections).map(([sectionKey, section]: [string, any]) => (
-                        <div key={sectionKey} className="space-y-4">
-                            <h4 className="border-b pb-2 text-lg font-medium">{section.title || sectionKey}</h4>
-                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                {Object.entries(section.fields || {}).map(([fieldKey, field]: [string, any]) =>
-                                    renderField(test.id, field, sectionKey, fieldKey),
-                                )}
-                            </div>
+            <div key={test.id} className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white mb-8">
+                <div className="bg-gradient-to-r from-[#283890] to-[#3a4db3] text-white p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white/20 rounded-lg">
+                            <FileText className="h-5 w-5 text-white" />
                         </div>
-                    ))}
-                </CardContent>
-            </Card>
+                        <h4 className="text-lg font-semibold text-white">
+                            {test.name} ({test.code})
+                        </h4>
+                    </div>
+                </div>
+                <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h5 className="text-sm font-semibold text-gray-700">Test Parameters</h5>
+                        <div className="bg-gray-100 rounded-full border border-gray-300 shadow-sm px-3 py-1">
+                            <span className="text-[#283890] font-semibold text-sm">
+                                {Object.values(schema.sections).reduce((total: number, section: any) => 
+                                    total + Object.keys(section.fields || {}).length, 0
+                                )} fields
+                            </span>
+                        </div>
+                    </div>
+                    <div className="space-y-6">
+                        {Object.entries(schema.sections).map(([sectionKey, section]: [string, any]) => (
+                            <div key={sectionKey} className="space-y-4">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h6 className="text-base font-semibold text-gray-800">{section.title || sectionKey}</h6>
+                                    <div className="bg-gray-100 rounded-full border border-gray-300 shadow-sm px-2 py-1">
+                                        <span className="text-[#283890] font-medium text-xs">
+                                            {Object.keys(section.fields || {}).length} fields
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                    {Object.entries(section.fields || {}).map(([fieldKey, field]: [string, any]) =>
+                                        renderField(test.id, field, sectionKey, fieldKey),
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
         );
     };
 
@@ -264,73 +300,120 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
     return (
         <AppLayout breadcrumbs={breadcrumbs(patient, order)}>
             <Head title={`Lab Results - Order #${order.id}`} />
-            <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Button variant="outline" size="icon" onClick={() => router.visit('/admin/laboratory/orders')}>
-                            <span aria-hidden>←</span>
-                        </Button>
-                        <div>
-                            <h1 className="text-2xl font-bold">Lab Results Entry</h1>
-                            <p className="text-muted-foreground">
-                                Order #{order.id} • {new Date(order.created_at).toLocaleDateString()}
-                            </p>
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+                {/* Header Section */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-6">
+                            <Button variant="outline" size="icon" onClick={() => router.visit('/admin/laboratory/orders')} className="h-12 w-12 rounded-xl border-gray-300 hover:bg-gray-50">
+                                <span aria-hidden>←</span>
+                            </Button>
+                            <div>
+                                <h1 className="text-4xl font-bold text-[#283890] mb-2">Lab Results Entry</h1>
+                                <p className="text-lg text-gray-600">
+                                    Order #{order.id} • {new Date(order.created_at).toLocaleDateString()}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="counter-card text-white rounded-xl shadow-lg border-0 px-6 py-4 w-52 h-20 flex items-center overflow-hidden">
+                                <div className="flex items-center gap-3">
+                                    <div className="counter-icon p-2 rounded-lg border border-white/60">
+                                        <FileText className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <div className="text-2xl font-bold whitespace-nowrap leading-tight">{order.status}</div>
+                                        <div className="text-blue-100 text-xs font-medium whitespace-nowrap">Status</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div className="flex gap-2">
-                        <Button variant="outline" onClick={handleSave} disabled={processing}>
-                            Save Draft
-                        </Button>
-                        {!isVerified && (
-                            <Button onClick={handleVerify} disabled={processing}>
-                                Verify & Complete
-                            </Button>
-                        )}
-                        {isVerified && (
-                            <Button variant="secondary" disabled>
-                                ✓ Verified
-                            </Button>
-                        )}
-                        <Button variant="outline" onClick={() => window.open(`/admin/laboratory/orders/${order.id}/report`, '_blank')}>
-                            📄 Generate Report
-                        </Button>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="mb-8">
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <CheckCircle className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Results Actions</h3>
+                                    <p className="text-green-100 mt-1">Save, verify, and generate reports for this order</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-6">
+                            <div className="flex flex-wrap gap-3">
+                                <Button variant="outline" onClick={handleSave} disabled={processing} className="bg-white text-green-600 hover:bg-green-50 hover:text-green-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
+                                    <Save className="mr-2 h-4 w-4" />
+                                    Save Draft
+                                </Button>
+                                {!isVerified && (
+                                    <Button onClick={handleVerify} disabled={processing} className="bg-white text-green-600 hover:bg-green-50 hover:text-green-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
+                                        <CheckCircle className="mr-2 h-4 w-4" />
+                                        Verify & Complete
+                                    </Button>
+                                )}
+                                {isVerified && (
+                                    <Button variant="secondary" disabled className="bg-green-200 text-green-800 px-6 py-3 text-base font-semibold rounded-xl">
+                                        ✓ Verified
+                                    </Button>
+                                )}
+                                <Button variant="outline" onClick={() => window.open(`/admin/laboratory/orders/${order.id}/report`, '_blank')} className="bg-white text-green-600 hover:bg-green-50 hover:text-green-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
+                                    📄 Generate Report
+                                </Button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <form ref={formRef} onSubmit={(e) => e.preventDefault()}>
-                    {tests.map((test) => {
-                        const schema = test.fields_schema;
-                        return (
-                            <React.Fragment key={test.id}>
-                                {renderTest(test)}
-                                {/* Hidden inputs to mirror state for reliable serialization */}
-                                {schema?.sections &&
-                                    Object.entries(schema.sections).map(([sectionKey, section]: [string, any]) => (
-                                        <React.Fragment key={`${test.id}-${sectionKey}`}>
-                                            {Object.keys(section.fields || {}).map((fieldKey) => {
-                                                const v = getResultValue(test.id, `${sectionKey}.${fieldKey}`);
-                                                return (
-                                                    <input
-                                                        key={`${test.id}-${sectionKey}-${fieldKey}-hidden`}
-                                                        type="hidden"
-                                                        name={`results[${test.id}][${sectionKey}][${fieldKey}]`}
-                                                        value={v}
-                                                    />
-                                                );
-                                            })}
-                                        </React.Fragment>
-                                    ))}
-                            </React.Fragment>
-                        );
-                    })}
+                    <div className="space-y-8">
+                        {tests.map((test) => {
+                            const schema = test.fields_schema;
+                            return (
+                                <React.Fragment key={test.id}>
+                                    {renderTest(test)}
+                                    {/* Hidden inputs to mirror state for reliable serialization */}
+                                    {schema?.sections &&
+                                        Object.entries(schema.sections).map(([sectionKey, section]: [string, any]) => (
+                                            <React.Fragment key={`${test.id}-${sectionKey}`}>
+                                                {Object.keys(section.fields || {}).map((fieldKey) => {
+                                                    const v = getResultValue(test.id, `${sectionKey}.${fieldKey}`);
+                                                    return (
+                                                        <input
+                                                            key={`${test.id}-${sectionKey}-${fieldKey}-hidden`}
+                                                            type="hidden"
+                                                            name={`results[${test.id}][${sectionKey}][${fieldKey}]`}
+                                                            value={v}
+                                                        />
+                                                    );
+                                                })}
+                                            </React.Fragment>
+                                        ))}
+                                </React.Fragment>
+                            );
+                        })}
+                    </div>
                 </form>
 
                 {tests.length === 0 && (
-                    <Card>
-                        <CardContent className="py-8 text-center">
-                            <p className="text-muted-foreground">No tests found for this order.</p>
-                        </CardContent>
-                    </Card>
+                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white">
+                        <div className="bg-gradient-to-r from-[#283890] to-[#3a4db3] text-white p-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <FileText className="h-5 w-5 text-white" />
+                                </div>
+                                <h4 className="text-lg font-semibold text-white">No Tests Available</h4>
+                            </div>
+                        </div>
+                        <div className="p-6">
+                            <div className="text-center text-gray-500 py-8">No tests found for this order.</div>
+                        </div>
+                    </div>
                 )}
             </div>
         </AppLayout>

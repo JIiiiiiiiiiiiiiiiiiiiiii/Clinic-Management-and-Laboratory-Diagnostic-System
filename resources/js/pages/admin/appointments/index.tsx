@@ -7,7 +7,8 @@ import { useRoleAccess } from '@/hooks/useRoleAccess';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { Clock, Filter, Plus, Search, Stethoscope } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, Filter, Plus, Search, Stethoscope } from 'lucide-react';
+import Heading from '@/components/heading';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/admin/dashboard' },
@@ -72,26 +73,26 @@ const appointments = [
 
 const getStatusBadge = (status: string) => {
     const statusConfig = {
-        Confirmed: 'bg-green-100 text-green-800',
-        Pending: 'bg-yellow-100 text-yellow-800',
-        Completed: 'bg-blue-100 text-blue-800',
-        Cancelled: 'bg-red-100 text-red-800',
-        Rescheduled: 'bg-purple-100 text-purple-800',
+        Confirmed: 'success',
+        Pending: 'warning',
+        Completed: 'success',
+        Cancelled: 'destructive',
+        Rescheduled: 'info',
     };
 
-    return statusConfig[status as keyof typeof statusConfig] || 'bg-gray-100 text-gray-800';
+    return statusConfig[status as keyof typeof statusConfig] || 'secondary';
 };
 
 const getTypeBadge = (type: string) => {
     const typeConfig = {
-        'New Consultation': 'bg-blue-100 text-blue-800',
-        'Follow-up': 'bg-green-100 text-green-800',
-        'Annual Check-up': 'bg-purple-100 text-purple-800',
-        Emergency: 'bg-red-100 text-red-800',
-        Routine: 'bg-gray-100 text-gray-800',
+        'New Consultation': 'info',
+        'Follow-up': 'success',
+        'Annual Check-up': 'secondary',
+        Emergency: 'destructive',
+        Routine: 'outline',
     };
 
-    return typeConfig[type as keyof typeof typeConfig] || 'bg-gray-100 text-gray-800';
+    return typeConfig[type as keyof typeof typeConfig] || 'secondary';
 };
 
 export default function AppointmentsIndex() {
@@ -113,17 +114,14 @@ export default function AppointmentsIndex() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Appointments Management" />
 
-            <div className="min-h-screen bg-gray-50 p-6">
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-3xl font-bold text-gray-900">Appointments</h1>
-                            <p className="text-gray-500">Manage patient appointments and schedules</p>
-                        </div>
+                        <Heading title="Appointments" description="Manage patient appointments and schedules" icon={Calendar} />
                         {permissions.canCreateAppointments && (
-                            <Button asChild>
+                            <Button asChild className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
                                 <Link href="/admin/appointments/create">
-                                    <Plus className="mr-2 h-4 w-4" />
+                                    <Plus className="mr-2 h-5 w-5" />
                                     New Appointment
                                 </Link>
                             </Button>
@@ -131,153 +129,206 @@ export default function AppointmentsIndex() {
                     </div>
                 </div>
 
-                {/* Appointment Stats */}
+                {/* Appointment Analytics Cards (glassy metrics like Reports) */}
                 <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-gray-500">Today's Appointments</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-blue-600">{todayAppointments.length}</div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-gray-500">Confirmed</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-green-600">{confirmedAppointments.length}</div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-gray-500">Pending</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-yellow-600">{pendingAppointments.length}</div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-gray-500">Completed</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-blue-600">{completedAppointments.length}</div>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Filters and Search */}
-                <Card className="mb-6">
-                    <CardHeader>
-                        <CardTitle>Filters</CardTitle>
-                        <CardDescription>Search and filter appointments</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex flex-col gap-4 md:flex-row md:items-center">
-                            <div className="relative flex-1">
-                                <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                <Input placeholder="Search by patient name, doctor, or appointment type..." className="pl-10" />
-                            </div>
-                            <div className="flex gap-2">
-                                <Button variant="outline">
-                                    <Filter className="mr-2 h-4 w-4" />
-                                    Filter by Status
-                                </Button>
-                                <Button variant="outline">
-                                    <Filter className="mr-2 h-4 w-4" />
-                                    Filter by Date
-                                </Button>
-                                <Button variant="outline">
-                                    <Filter className="mr-2 h-4 w-4" />
-                                    Filter by Doctor
-                                </Button>
+                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                            <div className="flex items-center justify-between p-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white/20 rounded-lg">
+                                        <Calendar className="h-6 w-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-white">Today's Appointments</h3>
+                                        <p className="text-blue-100 mt-1 text-xs">Scheduled today</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
+                        <div className="px-6 py-6">
+                            <div className="text-2xl font-bold text-gray-900">{todayAppointments.length}</div>
+                        </div>
+                    </div>
 
-                {/* Appointments Table */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Appointment Schedule</CardTitle>
-                        <CardDescription>A list of all scheduled appointments and their current status</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Patient</TableHead>
-                                    <TableHead>Doctor</TableHead>
-                                    <TableHead>Date & Time</TableHead>
-                                    <TableHead>Type</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Duration</TableHead>
-                                    <TableHead>Notes</TableHead>
-                                    <TableHead>Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {appointments.map((appointment) => (
-                                    <TableRow key={appointment.id}>
-                                        <TableCell>
-                                            <div>
-                                                <div className="font-medium">{appointment.patientName}</div>
-                                                <div className="text-sm text-gray-500">ID: {appointment.patientId}</div>
-                                                <div className="text-sm text-gray-500">{appointment.contactNumber}</div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <Stethoscope className="h-4 w-4 text-blue-500" />
-                                                {appointment.doctor}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div>
-                                                <div className="font-medium">{appointment.date}</div>
-                                                <div className="flex items-center gap-1 text-sm text-gray-500">
-                                                    <Clock className="h-3 w-3" />
-                                                    {appointment.time}
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge className={getTypeBadge(appointment.type)}>{appointment.type}</Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge className={getStatusBadge(appointment.status)}>{appointment.status}</Badge>
-                                        </TableCell>
-                                        <TableCell>{appointment.duration}</TableCell>
-                                        <TableCell className="max-w-xs truncate" title={appointment.notes}>
-                                            {appointment.notes}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex gap-2">
-                                                <Button variant="outline" size="sm" asChild>
-                                                    <Link href={`/admin/appointments/${appointment.id}`}>View</Link>
-                                                </Button>
-                                                {appointment.status === 'Pending' && permissions.canEditAppointments && (
-                                                    <Button variant="outline" size="sm" asChild>
-                                                        <Link href={`/admin/appointments/${appointment.id}/confirm`}>Confirm</Link>
-                                                    </Button>
-                                                )}
-                                                {permissions.canEditAppointments && (
-                                                    <Button variant="outline" size="sm" asChild>
-                                                        <Link href={`/admin/appointments/${appointment.id}/edit`}>Edit</Link>
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </TableCell>
+                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                            <div className="flex items-center justify-between p-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white/20 rounded-lg">
+                                        <CheckCircle className="h-6 w-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-white">Confirmed</h3>
+                                        <p className="text-emerald-100 mt-1 text-xs">On track for today</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-6">
+                            <div className="text-2xl font-bold text-gray-900">{confirmedAppointments.length}</div>
+                        </div>
+                    </div>
+
+                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
+                        <div className="bg-gradient-to-r from-yellow-500 to-amber-500 text-white">
+                            <div className="flex items-center justify-between p-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white/20 rounded-lg">
+                                        <Clock className="h-6 w-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-white">Pending</h3>
+                                        <p className="text-amber-100 mt-1 text-xs">Awaiting confirmation</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-6">
+                            <div className="text-2xl font-bold text-gray-900">{pendingAppointments.length}</div>
+                        </div>
+                    </div>
+
+                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
+                        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+                            <div className="flex items-center justify-between p-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white/20 rounded-lg">
+                                        <CheckCircle className="h-6 w-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-white">Completed</h3>
+                                        <p className="text-indigo-100 mt-1 text-xs">Done today</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-6">
+                            <div className="text-2xl font-bold text-gray-900">{completedAppointments.length}</div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Appointments Section */}
+                <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                    {/* Header Section */}
+                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                        <div className="flex items-center justify-between p-6">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <Stethoscope className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Appointment Schedule</h3>
+                                    <p className="text-blue-100 mt-1">Search and manage patient appointments</p>
+                                </div>
+                            </div>
+                            {permissions.canCreateAppointments && (
+                                <Button asChild className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
+                                    <Link href="/admin/appointments/create">
+                                        <Plus className="mr-2 h-5 w-5" />
+                                        New Appointment
+                                    </Link>
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Filters and Search */}
+                    <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100">
+                        <div className="mb-6">
+                            <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                                <div className="relative flex-1 max-w-md">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <Input
+                                        placeholder="Search by patient name, doctor, or appointment type..."
+                                        className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Button className="h-12 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl">
+                                        <Filter className="mr-2 h-4 w-4" />
+                                        Apply Filters
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Appointments Table */}
+                        <div className="overflow-x-auto rounded-xl border border-gray-200">
+                            <Table>
+                                <TableHeader className="bg-gray-50">
+                                    <TableRow className="hover:bg-gray-50">
+                                        <TableHead className="font-semibold text-gray-700">Patient</TableHead>
+                                        <TableHead className="font-semibold text-gray-700">Doctor</TableHead>
+                                        <TableHead className="font-semibold text-gray-700">Date & Time</TableHead>
+                                        <TableHead className="font-semibold text-gray-700">Type</TableHead>
+                                        <TableHead className="font-semibold text-gray-700">Status</TableHead>
+                                        <TableHead className="font-semibold text-gray-700">Duration</TableHead>
+                                        <TableHead className="font-semibold text-gray-700">Notes</TableHead>
+                                        <TableHead className="font-semibold text-gray-700">Actions</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
+                                </TableHeader>
+                                <TableBody>
+                                    {appointments.map((appointment) => (
+                                        <TableRow key={appointment.id} className="hover:bg-blue-50/50 transition-colors border-b border-gray-100">
+                                            <TableCell>
+                                                <div>
+                                                    <div className="font-medium text-gray-900">{appointment.patientName}</div>
+                                                    <div className="text-sm text-gray-500">ID: {appointment.patientId}</div>
+                                                    <div className="text-sm text-gray-500">{appointment.contactNumber}</div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center gap-2">
+                                                    <Stethoscope className="h-4 w-4 text-blue-500" />
+                                                    {appointment.doctor}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div>
+                                                    <div className="font-medium text-gray-900">{appointment.date}</div>
+                                                    <div className="flex items-center gap-1 text-sm text-gray-500">
+                                                        <Clock className="h-3 w-3" />
+                                                        {appointment.time}
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant={getTypeBadge(appointment.type) as any}>{appointment.type}</Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant={getStatusBadge(appointment.status) as any}>{appointment.status}</Badge>
+                                            </TableCell>
+                                            <TableCell className="text-gray-700">{appointment.duration}</TableCell>
+                                            <TableCell className="max-w-xs truncate text-gray-700" title={appointment.notes}>
+                                                {appointment.notes}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex gap-3">
+                                                    <Button asChild className="bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl">
+                                                        <Link href={`/admin/appointments/${appointment.id}`}>View</Link>
+                                                    </Button>
+                                                    {appointment.status === 'Pending' && permissions.canEditAppointments && (
+                                                        <Button asChild className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl">
+                                                            <Link href={`/admin/appointments/${appointment.id}/confirm`}>Confirm</Link>
+                                                        </Button>
+                                                    )}
+                                                    {permissions.canEditAppointments && (
+                                                        <Button asChild className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl">
+                                                            <Link href={`/admin/appointments/${appointment.id}/edit`}>Edit</Link>
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Removed old schedule table as requested */}
             </div>
         </AppLayout>
     );

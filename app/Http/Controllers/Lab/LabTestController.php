@@ -23,6 +23,9 @@ class LabTestController extends Controller
     public function store(Request $request)
     {
         try {
+            // Log the incoming request data for debugging
+            \Log::info('Lab test creation request data:', $request->all());
+            
             $validated = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
                 'code' => ['required', 'string', 'max:64', 'unique:lab_tests,code'],
@@ -30,9 +33,18 @@ class LabTestController extends Controller
                 'is_active' => ['boolean'],
             ]);
 
-            LabTest::create($validated);
+            \Log::info('Validated data:', $validated);
+            
+            $labTest = LabTest::create($validated);
+            \Log::info('Lab test created successfully', ['id' => $labTest->id]);
+            
             return back()->with('success', 'Laboratory test created successfully!');
         } catch (\Throwable $e) {
+            \Log::error('Lab test creation failed:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
             return back()->with('error', 'Failed to create test: ' . $e->getMessage())->withInput();
         }
     }

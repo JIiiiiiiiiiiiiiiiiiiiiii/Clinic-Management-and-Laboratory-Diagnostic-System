@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
+import Heading from '@/components/heading';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
 import { ArrowLeft, Package, Save } from 'lucide-react';
@@ -93,16 +94,19 @@ export default function EditProduct({ product, flash }: EditProductProps) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Edit Item - ${product.name}`} />
-            <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Button variant="outline" onClick={() => router.visit('/admin/inventory/products')}>
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Items
-                        </Button>
-                        <div>
-                            <h1 className="text-2xl font-bold">Edit Item</h1>
-                            <p className="text-muted-foreground">Update item information</p>
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 pb-12">
+                {/* Header Section */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <Button 
+                                variant="outline" 
+                                onClick={() => router.visit('/admin/inventory/products')}
+                                className="h-12 w-12"
+                            >
+                                <ArrowLeft className="h-5 w-5" />
+                            </Button>
+                            <Heading title="Edit Item" description="Update item information and settings" icon={Package} />
                         </div>
                     </div>
                 </div>
@@ -131,14 +135,14 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="grid gap-6 md:grid-cols-2">
                         {/* Basic Information */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
+                        <div className="holographic-card shadow-xl border-0 overflow-hidden rounded-2xl bg-white hover:shadow-2xl transition-all duration-300">
+                            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                                <div className="flex items-center gap-2 text-xl p-6">
                                     <Package className="h-5 w-5" />
                                     Basic Information
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
+                                </div>
+                            </div>
+                            <div className="px-6 py-8 space-y-4 bg-gradient-to-br from-blue-50 to-blue-100">
                                 <div className="space-y-2">
                                     <Label htmlFor="name">
                                         Item Name <span className="text-red-500">*</span>
@@ -232,15 +236,18 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                                     </select>
                                     {errors.unit_of_measure && <p className="text-sm text-red-600">{errors.unit_of_measure}</p>}
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
                         {/* Pricing & Stock */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Pricing & Stock Management</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
+                        <div className="holographic-card shadow-xl border-0 overflow-hidden rounded-2xl bg-white hover:shadow-2xl transition-all duration-300">
+                            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+                                <div className="flex items-center gap-2 text-xl p-6">
+                                    <Package className="h-5 w-5" />
+                                    Pricing & Stock Management
+                                </div>
+                            </div>
+                            <div className="px-6 py-8 space-y-4 bg-gradient-to-br from-purple-50 to-purple-100">
                                 <div className="space-y-2">
                                     <Label htmlFor="unit_cost">
                                         Unit Cost (₱) <span className="text-red-500">*</span>
@@ -330,24 +337,35 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                                         <Label htmlFor="is_active">Active</Label>
                                     </div>
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Form Actions */}
                     <div className="flex items-center justify-end gap-4">
-                        <Button type="button" variant="outline" onClick={() => router.visit('/admin/inventory/products')} disabled={processing}>
-                            <ArrowLeft className="h-4 w-4" />
+                        <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => router.visit('/admin/inventory/products')} 
+                            disabled={processing}
+                            className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl"
+                        >
+                            <ArrowLeft className="mr-3 h-6 w-6" />
+                            Cancel
                         </Button>
-                        <Button type="submit" disabled={processing}>
+                        <Button 
+                            type="submit" 
+                            disabled={processing}
+                            className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl"
+                        >
                             {processing ? (
                                 <>
-                                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                    <div className="mr-3 h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
                                     Updating...
                                 </>
                             ) : (
                                 <>
-                                    <Save className="mr-2 h-4 w-4" />
+                                    <Save className="mr-3 h-6 w-6" />
                                     Update Item
                                 </>
                             )}

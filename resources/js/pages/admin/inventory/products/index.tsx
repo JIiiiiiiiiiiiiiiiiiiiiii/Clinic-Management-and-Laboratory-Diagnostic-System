@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
+import Heading from '@/components/heading';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { Edit, Eye, Package, Plus, Search, Trash2 } from 'lucide-react';
@@ -100,24 +101,34 @@ export default function ProductsIndex({ products, filters }: ProductsIndexProps)
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Inventory Items" />
-            <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold">Inventory Items</h1>
-                        <p className="text-muted-foreground">Manage clinic items and equipment</p>
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 pb-12">
+                {/* Header Section */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-6">
+                            <Heading title="Inventory Items" description="Manage clinic items and equipment" icon={Package} />
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <Button 
+                                onClick={() => router.visit('/admin/inventory/products/create')}
+                                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl"
+                            >
+                                <Plus className="mr-3 h-5 w-5" />
+                                Add Item
+                            </Button>
+                        </div>
                     </div>
-                    <Button onClick={() => router.visit('/admin/inventory/products/create')}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Item
-                    </Button>
                 </div>
 
                 {/* Filters */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Filters</CardTitle>
-                    </CardHeader>
-                    <CardContent>
+                <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white mb-8">
+                    <div className="bg-gradient-to-r from-gray-500 to-gray-600 text-white">
+                        <div className="flex items-center gap-2 text-xl p-6">
+                            <Search className="h-5 w-5" />
+                            Search & Filters
+                        </div>
+                    </div>
+                    <div className="px-6 py-8 space-y-6 bg-gradient-to-br from-gray-50 to-gray-100">
                         <div className="grid gap-4 md:grid-cols-4">
                             <div className="space-y-2">
                                 <Label htmlFor="search">Search</Label>
@@ -166,89 +177,91 @@ export default function ProductsIndex({ products, filters }: ProductsIndexProps)
                             </div>
 
                             <div className="flex items-end">
-                                <Button onClick={handleSearch} className="w-full">
+                                <Button 
+                                    onClick={handleSearch} 
+                                    className="w-full bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                                >
                                     Apply Filters
                                 </Button>
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
 
                 {/* Products Table */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Items ({products.total})</CardTitle>
-                    </CardHeader>
-                    <CardContent>
+                <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white mb-8">
+                    <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                        <div className="flex items-center gap-2 text-xl p-6">
+                            <Package className="h-5 w-5" />
+                            Items ({products.total})
+                        </div>
+                    </div>
+                    <div className="px-6 py-8 space-y-6 bg-gradient-to-br from-blue-50 to-blue-100">
                         {products.data.length > 0 ? (
-                            <div className="overflow-x-auto">
+                            <div className="overflow-x-auto rounded-xl border border-gray-200">
                                 <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Item</TableHead>
-                                            <TableHead>Code</TableHead>
-                                            <TableHead>Category</TableHead>
-                                            <TableHead>Unit</TableHead>
-                                            <TableHead>Current Stock</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Cost</TableHead>
-                                            <TableHead>Actions</TableHead>
+                                    <TableHeader className="bg-gray-50">
+                                        <TableRow className="hover:bg-gray-50">
+                                            <TableHead className="font-semibold text-gray-700">Item</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Code</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Category</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Unit</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Current Stock</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Status</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Cost</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {products.data.map((product) => {
                                             const stockStatus = getStockStatus(product);
                                             return (
-                                                <TableRow key={product.id}>
+                                                <TableRow key={product.id} className="hover:bg-blue-50/50 transition-colors border-b border-gray-100">
                                                     <TableCell>
                                                         <div>
-                                                            <div className="font-medium">{product.name}</div>
+                                                            <div className="font-medium text-gray-900">{product.name}</div>
                                                             {product.description && (
-                                                                <div className="text-sm text-muted-foreground">{product.description}</div>
+                                                                <div className="text-sm text-gray-600">{product.description}</div>
                                                             )}
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <code className="rounded bg-muted px-2 py-1 text-sm">{product.code}</code>
+                                                        <code className="rounded bg-blue-100 text-blue-800 px-2 py-1 text-sm font-medium">{product.code}</code>
                                                     </TableCell>
-                                                    <TableCell>{product.category || 'N/A'}</TableCell>
-                                                    <TableCell>{product.unit_of_measure || 'N/A'}</TableCell>
+                                                    <TableCell className="text-gray-700">{product.category || 'N/A'}</TableCell>
+                                                    <TableCell className="text-gray-700">{product.unit_of_measure || 'N/A'}</TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2">
-                                                            <Package className="h-4 w-4 text-muted-foreground" />
-                                                            <span className="font-medium">{product.current_stock}</span>
-                                                            <span className="text-sm text-muted-foreground">/ {product.maximum_stock_level}</span>
+                                                            <Package className="h-4 w-4 text-gray-500" />
+                                                            <span className="font-semibold text-gray-900">{product.current_stock}</span>
+                                                            <span className="text-sm text-gray-600">/ {product.maximum_stock_level}</span>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
                                                         <Badge variant={stockStatus.color as any}>{stockStatus.text}</Badge>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <span className="font-medium">₱{Number(product.unit_cost).toFixed(2)}</span>
+                                                        <span className="font-semibold text-gray-900">₱{Number(product.unit_cost).toFixed(2)}</span>
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2">
                                                             <Button
-                                                                variant="outline"
-                                                                size="icon"
+                                                                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
                                                                 onClick={() => router.visit(`/admin/inventory/products/${product.id}`)}
                                                             >
-                                                                <Eye className="h-4 w-4" />
+                                                                <Eye className="mr-2 h-4 w-4" /> View
                                                             </Button>
                                                             <Button
-                                                                variant="outline"
-                                                                size="icon"
+                                                                className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
                                                                 onClick={() => router.visit(`/admin/inventory/products/${product.id}/edit`)}
                                                             >
-                                                                <Edit className="h-4 w-4" />
+                                                                <Edit className="mr-2 h-4 w-4" /> Edit
                                                             </Button>
                                                             <Button
-                                                                variant="outline"
-                                                                size="icon"
+                                                                className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
                                                                 onClick={() => handleDelete(product)}
-                                                                className="text-destructive hover:text-destructive"
                                                             >
-                                                                <Trash2 className="h-4 w-4" />
+                                                                <Trash2 className="mr-2 h-4 w-4" /> Delete
                                                             </Button>
                                                         </div>
                                                     </TableCell>
@@ -271,36 +284,42 @@ export default function ProductsIndex({ products, filters }: ProductsIndexProps)
                                 </div>
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
 
                 {/* Pagination */}
                 {products.last_page > 1 && (
-                    <div className="flex items-center justify-between">
-                        <p className="text-sm text-muted-foreground">
-                            Showing {(products.current_page - 1) * products.per_page + 1} to{' '}
-                            {Math.min(products.current_page * products.per_page, products.total)} of {products.total} results
-                        </p>
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={products.current_page === 1}
-                                onClick={() => router.get(`/admin/inventory/products?page=${products.current_page - 1}`)}
-                            >
-                                Previous
-                            </Button>
-                            <span className="text-sm">
-                                Page {products.current_page} of {products.last_page}
-                            </span>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={products.current_page === products.last_page}
-                                onClick={() => router.get(`/admin/inventory/products?page=${products.current_page + 1}`)}
-                            >
-                                Next
-                            </Button>
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100">
+                            <div className="flex items-center justify-between">
+                                <p className="text-sm text-muted-foreground">
+                                    Showing {(products.current_page - 1) * products.per_page + 1} to{' '}
+                                    {Math.min(products.current_page * products.per_page, products.total)} of {products.total} results
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={products.current_page === 1}
+                                        onClick={() => router.get(`/admin/inventory/products?page=${products.current_page - 1}`)}
+                                        className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                                    >
+                                        Previous
+                                    </Button>
+                                    <span className="text-sm font-medium">
+                                        Page {products.current_page} of {products.last_page}
+                                    </span>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={products.current_page === products.last_page}
+                                        onClick={() => router.get(`/admin/inventory/products?page=${products.current_page + 1}`)}
+                                        className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                                    >
+                                        Next
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}

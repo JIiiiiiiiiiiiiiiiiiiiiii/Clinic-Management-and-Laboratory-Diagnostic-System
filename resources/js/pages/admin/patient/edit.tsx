@@ -8,7 +8,7 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,7 +17,8 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { PatientItem } from '@/types/patients';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, User, Activity, Phone, Heart, Shield, Edit, Calendar, Stethoscope, Clock, MapPin } from 'lucide-react';
+import Heading from '@/components/heading';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -146,17 +147,21 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Edit Patient" />
-            <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Button asChild variant="outline" size="icon">
-                            <Link href="/admin/patient">
-                                <ArrowLeft className="h-4 w-4" />
-                            </Link>
-                        </Button>
-                        <div>
-                            <h1 className="text-2xl font-bold tracking-tight">Edit Patient</h1>
-                            <p className="text-muted-foreground">ST. JAMES HOSPITAL INC. Emergency Department Patient Data Sheet</p>
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+                {/* Header Section */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <Button asChild variant="ghost" size="icon" className="bg-white hover:bg-gray-50 shadow-md">
+                                <Link href="/admin/patient">
+                                    <ArrowLeft className="h-4 w-4" />
+                                </Link>
+                            </Button>
+                            <Heading 
+                                title="Edit Patient" 
+                                description="ST. JAMES HOSPITAL INC. Emergency Department Patient Data Sheet" 
+                                icon={Edit} 
+                            />
                         </div>
                     </div>
                 </div>
@@ -189,18 +194,26 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                     </AlertDialogContent>
                 </AlertDialog>
 
-                <form onSubmit={submit} className="space-y-6">
-                    {/* No visit fields in patient edit */}
-
+                <form onSubmit={submit} className="space-y-8">
                     {/* Patient Identification */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Patient Identification</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        {/* Header Section */}
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                    <User className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Patient Identification</h3>
+                                    <p className="text-blue-100 mt-1">Basic patient information and demographics</p>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Content Section */}
+                        <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100">
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="last_name">Last Name *</Label>
+                                    <Label htmlFor="last_name" className="text-base font-bold text-gray-700">Last Name *</Label>
                                     <Input
                                         id="last_name"
                                         name="last_name"
@@ -212,7 +225,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     {errors.last_name && <p className="text-sm text-red-500">{errors.last_name}</p>}
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="first_name">First Name *</Label>
+                                    <Label htmlFor="first_name" className="text-base font-bold text-gray-700">First Name *</Label>
                                     <Input
                                         id="first_name"
                                         name="first_name"
@@ -226,7 +239,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                             </div>
                             <div className="mt-6 grid gap-6 md:grid-cols-3">
                                 <div className="space-y-2">
-                                    <Label htmlFor="middle_name">Middle Name</Label>
+                                    <Label htmlFor="middle_name" className="text-base font-bold text-gray-700">Middle Name</Label>
                                     <Input
                                         id="middle_name"
                                         name="middle_name"
@@ -236,7 +249,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="birthdate">Birthdate *</Label>
+                                    <Label htmlFor="birthdate" className="text-base font-bold text-gray-700">Birthdate *</Label>
                                     <Input
                                         id="birthdate"
                                         name="birthdate"
@@ -249,7 +262,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     {errors.birthdate && <p className="text-sm text-red-500">{errors.birthdate}</p>}
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="age">Age *</Label>
+                                    <Label htmlFor="age" className="text-base font-bold text-gray-700">Age *</Label>
                                     <Input
                                         id="age"
                                         name="age"
@@ -263,7 +276,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                             </div>
                             <div className="mt-6 grid gap-6 md:grid-cols-3">
                                 <div className="space-y-2">
-                                    <Label htmlFor="sex">Sex *</Label>
+                                    <Label htmlFor="sex" className="text-base font-bold text-gray-700">Sex *</Label>
                                     <Select onValueChange={(value: 'male' | 'female') => setData('sex', value)} defaultValue={data.sex}>
                                         <SelectTrigger id="sex" className={errors.sex ? 'border-red-500' : ''}>
                                             <SelectValue placeholder="Select sex" />
@@ -276,7 +289,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     {errors.sex && <p className="text-sm text-red-500">{errors.sex}</p>}
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="patient_no">Patient No.</Label>
+                                    <Label htmlFor="patient_no" className="text-base font-bold text-gray-700">Patient No.</Label>
                                     <Input
                                         id="patient_no"
                                         name="patient_no"
@@ -287,7 +300,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     {errors.patient_no && <p className="text-sm text-red-500">{errors.patient_no}</p>}
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="nationality">Nationality</Label>
+                                    <Label htmlFor="nationality" className="text-base font-bold text-gray-700">Nationality</Label>
                                     <Input
                                         id="nationality"
                                         name="nationality"
@@ -297,18 +310,28 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     />
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Demographics */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Demographics</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        {/* Header Section */}
+                        <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                    <Activity className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Demographics</h3>
+                                    <p className="text-purple-100 mt-1">Personal and social information</p>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Content Section */}
+                        <div className="px-6 py-6 bg-gradient-to-br from-purple-50 to-purple-100">
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="occupation">Occupation</Label>
+                                    <Label htmlFor="occupation" className="text-base font-bold text-gray-700">Occupation</Label>
                                     <Input
                                         id="occupation"
                                         name="occupation"
@@ -317,7 +340,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="religion">Religion</Label>
+                                    <Label htmlFor="religion" className="text-base font-bold text-gray-700">Religion</Label>
                                     <Input
                                         id="religion"
                                         name="religion"
@@ -328,7 +351,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                             </div>
                             <div className="mt-6 grid gap-6 md:grid-cols-1">
                                 <div className="space-y-2">
-                                    <Label htmlFor="civil_status">Civil Status *</Label>
+                                    <Label htmlFor="civil_status" className="text-base font-bold text-gray-700">Civil Status *</Label>
                                     <Select onValueChange={(value: any) => setData('civil_status', value)} defaultValue={data.civil_status}>
                                         <SelectTrigger id="civil_status" className={errors.civil_status ? 'border-red-500' : ''}>
                                             <SelectValue placeholder="Select civil status" />
@@ -344,18 +367,28 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     {errors.civil_status && <p className="text-sm text-red-500">{errors.civil_status}</p>}
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Contact Information */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Contact Information</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        {/* Header Section */}
+                        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                    <Phone className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Contact Information</h3>
+                                    <p className="text-emerald-100 mt-1">Address and communication details</p>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Content Section */}
+                        <div className="px-6 py-6 bg-gradient-to-br from-emerald-50 to-emerald-100">
                             <div className="space-y-6">
                                 <div className="space-y-2">
-                                    <Label htmlFor="present_address">Present Address *</Label>
+                                    <Label htmlFor="present_address" className="text-base font-bold text-gray-700">Present Address *</Label>
                                     <Textarea
                                         id="present_address"
                                         name="present_address"
@@ -369,7 +402,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                 </div>
                                 <div className="grid gap-6 md:grid-cols-2">
                                     <div className="space-y-2">
-                                        <Label htmlFor="telephone_no">Telephone No.</Label>
+                                        <Label htmlFor="telephone_no" className="text-base font-bold text-gray-700">Telephone No.</Label>
                                         <Input
                                             id="telephone_no"
                                             name="telephone_no"
@@ -379,7 +412,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="mobile_no">Mobile No. *</Label>
+                                        <Label htmlFor="mobile_no" className="text-base font-bold text-gray-700">Mobile No. *</Label>
                                         <Input
                                             id="mobile_no"
                                             name="mobile_no"
@@ -392,18 +425,28 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     </div>
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Emergency Contact */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Emergency Contact</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        {/* Header Section */}
+                        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                    <Heart className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Emergency Contact</h3>
+                                    <p className="text-orange-100 mt-1">Emergency contact person details</p>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Content Section */}
+                        <div className="px-6 py-6 bg-gradient-to-br from-orange-50 to-orange-100">
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="informant_name">Informant Name *</Label>
+                                    <Label htmlFor="informant_name" className="text-base font-bold text-gray-700">Informant Name *</Label>
                                     <Input
                                         id="informant_name"
                                         value={data.informant_name}
@@ -413,7 +456,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     {errors.informant_name && <p className="text-sm text-red-500">{errors.informant_name}</p>}
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="relationship">Relationship *</Label>
+                                    <Label htmlFor="relationship" className="text-base font-bold text-gray-700">Relationship *</Label>
                                     <Input
                                         id="relationship"
                                         value={data.relationship}
@@ -423,28 +466,38 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     {errors.relationship && <p className="text-sm text-red-500">{errors.relationship}</p>}
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Financial/Insurance */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Financial/Insurance Information</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        {/* Header Section */}
+                        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                    <Shield className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Financial/Insurance Information</h3>
+                                    <p className="text-indigo-100 mt-1">Insurance and financial details</p>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Content Section */}
+                        <div className="px-6 py-6 bg-gradient-to-br from-indigo-50 to-indigo-100">
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="company_name">Company Name</Label>
+                                    <Label htmlFor="company_name" className="text-base font-bold text-gray-700">Company Name</Label>
                                     <Input id="company_name" value={data.company_name} onChange={(e) => setData('company_name', e.target.value)} />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="hmo_name">HMO Name</Label>
+                                    <Label htmlFor="hmo_name" className="text-base font-bold text-gray-700">HMO Name</Label>
                                     <Input id="hmo_name" value={data.hmo_name} onChange={(e) => setData('hmo_name', e.target.value)} />
                                 </div>
                             </div>
                             <div className="mt-6 grid gap-6 md:grid-cols-3">
                                 <div className="space-y-2">
-                                    <Label htmlFor="hmo_company_id_no">HMO/Company ID No.</Label>
+                                    <Label htmlFor="hmo_company_id_no" className="text-base font-bold text-gray-700">HMO/Company ID No.</Label>
                                     <Input
                                         id="hmo_company_id_no"
                                         value={data.hmo_company_id_no}
@@ -452,7 +505,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="validation_approval_code">Validation/Approval Code</Label>
+                                    <Label htmlFor="validation_approval_code" className="text-base font-bold text-gray-700">Validation/Approval Code</Label>
                                     <Input
                                         id="validation_approval_code"
                                         value={data.validation_approval_code}
@@ -460,22 +513,32 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="validity">Validity</Label>
+                                    <Label htmlFor="validity" className="text-base font-bold text-gray-700">Validity</Label>
                                     <Input id="validity" value={data.validity} onChange={(e) => setData('validity', e.target.value)} />
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Medical History & Allergies */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Medical History & Allergies</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        {/* Header Section */}
+                        <div className="bg-gradient-to-r from-yellow-500 to-amber-500 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                    <Stethoscope className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Medical History & Allergies</h3>
+                                    <p className="text-yellow-100 mt-1">Medical background and allergy information</p>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Content Section */}
+                        <div className="px-6 py-6 bg-gradient-to-br from-yellow-50 to-yellow-100">
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="drug_allergies">Drug Allergies</Label>
+                                    <Label htmlFor="drug_allergies" className="text-base font-bold text-gray-700">Drug Allergies</Label>
                                     <Input
                                         id="drug_allergies"
                                         value={data.drug_allergies}
@@ -483,7 +546,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="food_allergies">Food Allergies</Label>
+                                    <Label htmlFor="food_allergies" className="text-base font-bold text-gray-700">Food Allergies</Label>
                                     <Input
                                         id="food_allergies"
                                         value={data.food_allergies}
@@ -491,21 +554,37 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     />
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* No vital signs or visit assessment in patient edit */}
 
                     {/* No visit assessment in patient edit */}
 
-                    <div className="flex items-center justify-end gap-4">
-                        <Button asChild variant="outline">
-                            <Link href="/admin/patient">Cancel</Link>
-                        </Button>
-                        <Button disabled={processing} type="submit">
-                            <Save className="mr-2 h-4 w-4" />
-                            {processing ? 'Updating...' : 'Update Patient'}
-                        </Button>
+                    {/* Action Buttons */}
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        <div className="bg-gradient-to-r from-gray-600 to-gray-700 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                    <Save className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Save Changes</h3>
+                                    <p className="text-gray-100 mt-1">Update patient information</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-6 bg-gradient-to-br from-gray-50 to-gray-100">
+                            <div className="flex items-center justify-end gap-6">
+                                <Button asChild className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl">
+                                    <Link href="/admin/patient">Cancel</Link>
+                                </Button>
+                                <Button disabled={processing} type="submit" className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-8 py-4 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold">
+                                    <Save className="mr-3 h-6 w-6" />
+                                    {processing ? 'Updating...' : 'Update Patient'}
+                                </Button>
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>

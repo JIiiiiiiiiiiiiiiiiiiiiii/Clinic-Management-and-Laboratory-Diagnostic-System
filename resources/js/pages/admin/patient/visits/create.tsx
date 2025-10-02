@@ -133,7 +133,7 @@ export default function CreateVisit({ patient, doctors }: CreateVisitProps) {
                             </Link>
                         </Button>
                         <div>
-                            <h1 className="text-2xl font-bold tracking-tight">New Visit</h1>
+                            <h1 className="text-4xl font-bold tracking-tight text-[#283890]">New Visit</h1>
                             <p className="text-muted-foreground">
                                 {patient.first_name} {patient.last_name} - Patient No: {patient.patient_no}
                             </p>

@@ -8,16 +8,17 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
+import Heading from '@/components/heading';
 import { type BreadcrumbItem } from '@/types';
 import { CreatePatientItem } from '@/types/patients';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Save } from 'lucide-react';
+import { Save, User, Calendar, Phone, MapPin, Heart, Shield, FileText, Activity, Stethoscope, Plus } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -151,19 +152,10 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Create Patient" />
-            <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Button asChild variant="outline" size="icon">
-                            <Link href="/admin/patient">
-                                <ArrowLeft className="h-4 w-4" />
-                            </Link>
-                        </Button>
-                        <div>
-                            <h1 className="text-2xl font-bold tracking-tight">Register New Patient</h1>
-                            <p className="text-muted-foreground">ST. JAMES HOSPITAL INC. Patient Registration Form</p>
-                        </div>
-                    </div>
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+                {/* Header Section */}
+                <div className="mb-8">
+                    <Heading title="Register New Patient" description="ST. JAMES HOSPITAL INC. Patient Registration Form" icon={User} />
                 </div>
 
                 {/* Error alert / Duplicate confirmation */}
@@ -177,7 +169,7 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                             {duplicate.patient_no ? ` • Patient No: ${duplicate.patient_no}` : ''}
                         </div>
                         <div className="mt-3 flex gap-2">
-                            <Button variant="outline" asChild>
+                            <Button variant="secondary" asChild>
                                 <Link href={`/admin/patient/${duplicate.id}`}>View Existing</Link>
                             </Button>
                             <Button variant="destructive" onClick={proceedDuplicate}>
@@ -212,52 +204,77 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                     </AlertDialogContent>
                 </AlertDialog>
 
-                <form onSubmit={submit} className="space-y-6">
+                <form onSubmit={submit} className="space-y-8">
                     {/* Patient Identification */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Patient Identification</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        {/* Header Section - No gaps */}
+                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <User className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Patient Identification</h3>
+                                    <p className="text-blue-100 mt-1">Enter basic patient information</p>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Content Section - Seamlessly connected */}
+                        <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100">
                             <div className="grid gap-6 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="last_name">Last Name *</Label>
+                                <div className="space-y-3">
+                                    <Label htmlFor="last_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <User className="h-5 w-5" />
+                                        Last Name *
+                                    </Label>
                                     <Input
                                         id="last_name"
                                         name="last_name"
                                         autoComplete="family-name"
                                         value={data.last_name}
                                         onChange={(e) => setData('last_name', e.target.value)}
-                                        className={errors.last_name ? 'border-red-500' : ''}
+                                        className={`h-12 !border-0 !border-none hover:!border-0 focus:!border-0 focus:!ring-0 rounded-xl shadow-sm ${errors.last_name ? 'border-red-500' : ''}`}
+                                        style={{ border: 'none', outline: 'none' }}
+                                        placeholder="Enter last name"
                                     />
                                     {errors.last_name && <p className="text-sm text-red-500">{errors.last_name}</p>}
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="first_name">First Name *</Label>
+                                <div className="space-y-3">
+                                    <Label htmlFor="first_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <User className="h-5 w-5" />
+                                        First Name *
+                                    </Label>
                                     <Input
                                         id="first_name"
                                         name="first_name"
                                         autoComplete="given-name"
                                         value={data.first_name}
                                         onChange={(e) => setData('first_name', e.target.value)}
-                                        className={errors.first_name ? 'border-red-500' : ''}
+                                        className={`h-12 !border-0 !border-none hover:!border-0 focus:!border-0 focus:!ring-0 rounded-xl shadow-sm ${errors.first_name ? 'border-red-500' : ''}`}
+                                        style={{ border: 'none', outline: 'none' }}
+                                        placeholder="Enter first name"
                                     />
                                     {errors.first_name && <p className="text-sm text-red-500">{errors.first_name}</p>}
                                 </div>
                             </div>
                             <div className="mt-6 grid gap-6 md:grid-cols-3">
-                                <div className="space-y-2">
-                                    <Label htmlFor="middle_name">Middle Name</Label>
+                                <div className="space-y-3">
+                                    <Label htmlFor="middle_name" className="text-sm font-semibold text-gray-700">Middle Name</Label>
                                     <Input
                                         id="middle_name"
                                         name="middle_name"
                                         autoComplete="additional-name"
                                         value={data.middle_name}
                                         onChange={(e) => setData('middle_name', e.target.value)}
+                                        className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                                        placeholder="Enter middle name"
                                     />
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="birthdate">Birthdate *</Label>
+                                <div className="space-y-3">
+                                    <Label htmlFor="birthdate" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <Calendar className="h-5 w-5" />
+                                        Birthdate *
+                                    </Label>
                                     <Input
                                         id="birthdate"
                                         name="birthdate"
@@ -265,28 +282,35 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                                         type="date"
                                         value={data.birthdate}
                                         onChange={(e) => onBirthdateChange(e.target.value)}
-                                        className={errors.birthdate ? 'border-red-500' : ''}
+                                        className={`h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm ${errors.birthdate ? 'border-red-500' : ''}`}
                                     />
                                     {errors.birthdate && <p className="text-sm text-red-500">{errors.birthdate}</p>}
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="age">Age *</Label>
+                                <div className="space-y-3">
+                                    <Label htmlFor="age" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <Heart className="h-5 w-5" />
+                                        Age *
+                                    </Label>
                                     <Input
                                         id="age"
                                         name="age"
                                         type="number"
                                         value={data.age}
                                         onChange={(e) => setData('age', Number(e.target.value))}
-                                        className={errors.age ? 'border-red-500' : ''}
+                                        className={`h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm ${errors.age ? 'border-red-500' : ''}`}
+                                        placeholder="Enter age"
                                     />
                                     {errors.age && <p className="text-sm text-red-500">{errors.age}</p>}
                                 </div>
                             </div>
                             <div className="mt-6 grid gap-6 md:grid-cols-3">
-                                <div className="space-y-2">
-                                    <Label htmlFor="sex">Sex *</Label>
+                                <div className="space-y-3">
+                                    <Label htmlFor="sex" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <Heart className="h-5 w-5" />
+                                        Sex *
+                                    </Label>
                                     <Select onValueChange={(value: 'male' | 'female') => setData('sex', value)} defaultValue={data.sex}>
-                                        <SelectTrigger id="sex" className={errors.sex ? 'border-red-500' : ''}>
+                                        <SelectTrigger id="sex" className={`h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm ${errors.sex ? 'border-red-500' : ''}`}>
                                             <SelectValue placeholder="Select sex" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -296,55 +320,85 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                                     </Select>
                                     {errors.sex && <p className="text-sm text-red-500">{errors.sex}</p>}
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="patient_no">Patient No.</Label>
-                                    <Input id="patient_no" name="patient_no" value={next_patient_no} readOnly disabled />
+                                <div className="space-y-3">
+                                    <Label htmlFor="patient_no" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <Shield className="h-5 w-5" />
+                                        Patient No.
+                                    </Label>
+                                    <Input 
+                                        id="patient_no" 
+                                        name="patient_no" 
+                                        value={next_patient_no} 
+                                        readOnly 
+                                        disabled 
+                                        className="h-12 bg-gray-100 !border-0 !border-none hover:!border-0 rounded-xl shadow-sm"
+                                        style={{ border: 'none', outline: 'none' }}
+                                    />
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="nationality">Nationality</Label>
+                                <div className="space-y-3">
+                                    <Label htmlFor="nationality" className="text-sm font-semibold text-gray-700">Nationality</Label>
                                     <Input
                                         id="nationality"
                                         name="nationality"
                                         autoComplete="country-name"
                                         value={data.nationality}
                                         onChange={(e) => setData('nationality', e.target.value)}
+                                        className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                                        placeholder="Enter nationality"
                                     />
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Demographics */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Demographics</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        {/* Header Section - No gaps */}
+                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <Activity className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Demographics</h3>
+                                    <p className="text-purple-100 mt-1">Personal and social information</p>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Content Section - Seamlessly connected */}
+                        <div className="px-6 py-6 bg-gradient-to-br from-purple-50 to-purple-100">
                             <div className="grid gap-6 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="occupation">Occupation</Label>
+                                <div className="space-y-3">
+                                    <Label htmlFor="occupation" className="text-sm font-semibold text-gray-700">Occupation</Label>
                                     <Input
                                         id="occupation"
                                         name="occupation"
                                         value={data.occupation}
                                         onChange={(e) => setData('occupation', e.target.value)}
+                                        className="h-12 border-gray-300 focus:border-purple-500 focus:ring-purple-500 rounded-xl shadow-sm"
+                                        placeholder="Enter occupation"
                                     />
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="religion">Religion</Label>
+                                <div className="space-y-3">
+                                    <Label htmlFor="religion" className="text-sm font-semibold text-gray-700">Religion</Label>
                                     <Input
                                         id="religion"
                                         name="religion"
                                         value={data.religion}
                                         onChange={(e) => setData('religion', e.target.value)}
+                                        className="h-12 border-gray-300 focus:border-purple-500 focus:ring-purple-500 rounded-xl shadow-sm"
+                                        placeholder="Enter religion"
                                     />
                                 </div>
                             </div>
                             <div className="mt-6">
-                                <div className="space-y-2">
-                                    <Label htmlFor="civil_status">Civil Status *</Label>
+                                <div className="space-y-3">
+                                    <Label htmlFor="civil_status" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <Heart className="h-5 w-5" />
+                                        Civil Status *
+                                    </Label>
                                     <Select onValueChange={(value: any) => setData('civil_status', value)} defaultValue={data.civil_status}>
-                                        <SelectTrigger id="civil_status" className={errors.civil_status ? 'border-red-500' : ''}>
+                                        <SelectTrigger id="civil_status" className={`h-12 border-gray-300 focus:border-purple-500 focus:ring-purple-500 rounded-xl shadow-sm ${errors.civil_status ? 'border-red-500' : ''}`}>
                                             <SelectValue placeholder="Select civil status" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -358,18 +412,28 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                                     {errors.civil_status && <p className="text-sm text-red-500">{errors.civil_status}</p>}
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Contact Information */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Contact Information</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        {/* Header Section - No gaps */}
+                        <div className="bg-gradient-to-r from-green-500 to-green-600 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <Phone className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Contact Information</h3>
+                                    <p className="text-green-100 mt-1">Address and communication details</p>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Content Section - Seamlessly connected */}
+                        <div className="px-6 py-6 bg-gradient-to-br from-green-50 to-green-100">
                             <div className="space-y-6">
                                 <div className="space-y-2">
-                                    <Label htmlFor="present_address">Present Address *</Label>
+                                    <Label htmlFor="present_address" className="text-sm font-semibold text-gray-700">Present Address *</Label>
                                     <Textarea
                                         id="present_address"
                                         name="present_address"
@@ -383,7 +447,7 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                                 </div>
                                 <div className="grid gap-6 md:grid-cols-2">
                                     <div className="space-y-2">
-                                        <Label htmlFor="telephone_no">Telephone No.</Label>
+                                        <Label htmlFor="telephone_no" className="text-sm font-semibold text-gray-700">Telephone No.</Label>
                                         <Input
                                             id="telephone_no"
                                             name="telephone_no"
@@ -393,7 +457,7 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="mobile_no">Mobile No. *</Label>
+                                        <Label htmlFor="mobile_no" className="text-sm font-semibold text-gray-700">Mobile No. *</Label>
                                         <Input
                                             id="mobile_no"
                                             name="mobile_no"
@@ -406,18 +470,28 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                                     </div>
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Emergency Contact */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Emergency Contact</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        {/* Header Section - No gaps */}
+                        <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <Heart className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Emergency Contact</h3>
+                                    <p className="text-orange-100 mt-1">Emergency contact person details</p>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Content Section - Seamlessly connected */}
+                        <div className="px-6 py-6 bg-gradient-to-br from-orange-50 to-orange-100">
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="informant_name">Informant Name *</Label>
+                                    <Label htmlFor="informant_name" className="text-sm font-semibold text-gray-700">Informant Name *</Label>
                                     <Input
                                         id="informant_name"
                                         value={data.informant_name}
@@ -427,7 +501,7 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                                     {errors.informant_name && <p className="text-sm text-red-500">{errors.informant_name}</p>}
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="relationship">Relationship *</Label>
+                                    <Label htmlFor="relationship" className="text-sm font-semibold text-gray-700">Relationship *</Label>
                                     <Input
                                         id="relationship"
                                         value={data.relationship}
@@ -437,18 +511,28 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                                     {errors.relationship && <p className="text-sm text-red-500">{errors.relationship}</p>}
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Financial/Insurance */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Financial/Insurance Information</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        {/* Header Section - No gaps */}
+                        <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <Shield className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Financial/Insurance Information</h3>
+                                    <p className="text-indigo-100 mt-1">Insurance and payment details</p>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Content Section - Seamlessly connected */}
+                        <div className="px-6 py-6 bg-gradient-to-br from-indigo-50 to-indigo-100">
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="company_name">Company Name</Label>
+                                    <Label htmlFor="company_name" className="text-sm font-semibold text-gray-700">Company Name</Label>
                                     <Input
                                         id="company_name"
                                         name="company_name"
@@ -457,7 +541,7 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="hmo_name">HMO Name</Label>
+                                    <Label htmlFor="hmo_name" className="text-sm font-semibold text-gray-700">HMO Name</Label>
                                     <Input
                                         id="hmo_name"
                                         name="hmo_name"
@@ -468,7 +552,7 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                             </div>
                             <div className="mt-6 grid gap-6 md:grid-cols-3">
                                 <div className="space-y-2">
-                                    <Label htmlFor="hmo_company_id_no">HMO/Company ID No.</Label>
+                                    <Label htmlFor="hmo_company_id_no" className="text-sm font-semibold text-gray-700">HMO/Company ID No.</Label>
                                     <Input
                                         id="hmo_company_id_no"
                                         name="hmo_company_id_no"
@@ -477,7 +561,7 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="validation_approval_code">Validation/Approval Code</Label>
+                                    <Label htmlFor="validation_approval_code" className="text-sm font-semibold text-gray-700">Validation/Approval Code</Label>
                                     <Input
                                         id="validation_approval_code"
                                         name="validation_approval_code"
@@ -486,7 +570,7 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="validity">Validity</Label>
+                                    <Label htmlFor="validity" className="text-sm font-semibold text-gray-700">Validity</Label>
                                     <Input
                                         id="validity"
                                         name="validity"
@@ -495,19 +579,29 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                                     />
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Medical History & Allergies */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Medical History & Allergies</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        {/* Header Section - No gaps */}
+                        <div className="bg-gradient-to-r from-red-500 to-red-600 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <Heart className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Medical History & Allergies</h3>
+                                    <p className="text-red-100 mt-1">Medical background and allergy information</p>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Content Section - Seamlessly connected */}
+                        <div className="px-6 py-6 bg-gradient-to-br from-red-50 to-red-100">
                             <div className="space-y-6">
                                 <div className="grid gap-6 md:grid-cols-2">
                                     <div className="space-y-2">
-                                        <Label htmlFor="drug_allergies">Drug Allergies</Label>
+                                        <Label htmlFor="drug_allergies" className="text-sm font-semibold text-gray-700">Drug Allergies</Label>
                                         <Input
                                             id="drug_allergies"
                                             name="drug_allergies"
@@ -517,7 +611,7 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="food_allergies">Food Allergies</Label>
+                                        <Label htmlFor="food_allergies" className="text-sm font-semibold text-gray-700">Food Allergies</Label>
                                         <Input
                                             id="food_allergies"
                                             name="food_allergies"
@@ -529,7 +623,7 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="past_medical_history">Past Medical History</Label>
+                                    <Label htmlFor="past_medical_history" className="text-sm font-semibold text-gray-700">Past Medical History</Label>
                                     <Textarea
                                         id="past_medical_history"
                                         name="past_medical_history"
@@ -540,7 +634,7 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="family_history">Family History</Label>
+                                    <Label htmlFor="family_history" className="text-sm font-semibold text-gray-700">Family History</Label>
                                     <Textarea
                                         id="family_history"
                                         name="family_history"
@@ -551,7 +645,7 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="social_personal_history">Social/Personal History</Label>
+                                    <Label htmlFor="social_personal_history" className="text-sm font-semibold text-gray-700">Social/Personal History</Label>
                                     <Textarea
                                         id="social_personal_history"
                                         name="social_personal_history"
@@ -562,7 +656,7 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="obstetrics_gynecology_history">Obstetrics & Gynecology History (Female Patients)</Label>
+                                    <Label htmlFor="obstetrics_gynecology_history" className="text-sm font-semibold text-gray-700">Obstetrics & Gynecology History (Female Patients)</Label>
                                     <Textarea
                                         id="obstetrics_gynecology_history"
                                         name="obstetrics_gynecology_history"
@@ -572,15 +666,19 @@ export default function CreatePatient({ doctors = [] as Doctor[], next_patient_n
                                     />
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
-                    <div className="flex items-center justify-end gap-4">
-                        <Button asChild variant="outline">
+                    <div className="flex items-center justify-end gap-4 pt-6">
+                        <Button asChild variant="secondary" className="px-8 py-4 h-14 border-gray-300 hover:bg-gray-50 rounded-xl text-lg font-semibold">
                             <Link href="/admin/patient">Cancel</Link>
                         </Button>
-                        <Button disabled={processing} type="submit">
-                            <Save className="mr-2 h-4 w-4" />
+                        <Button 
+                            disabled={processing} 
+                            type="submit"
+                            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-8 py-4 h-14 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold"
+                        >
+                            <Save className="mr-3 h-6 w-6" />
                             {processing ? 'Creating...' : 'Create Patient'}
                         </Button>
                     </div>

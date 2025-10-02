@@ -49,7 +49,7 @@ export function PatientSidebar() {
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild>
+                        <SidebarMenuButton size="lg" asChild className="holographic-sidebar-item">
                             <Link href="/patient/dashboard" prefetch>
                                 <AppLogo />
                             </Link>

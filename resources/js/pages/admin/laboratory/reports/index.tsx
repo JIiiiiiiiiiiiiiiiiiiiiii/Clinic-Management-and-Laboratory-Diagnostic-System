@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { FileDown, Filter, Search } from 'lucide-react';
+import Heading from '@/components/heading';
+import { BarChart3, FileDown, Filter, Search, Eye } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 type LabTest = { id: number; name: string; code: string };
@@ -52,25 +53,52 @@ export default function LaboratoryReportsIndex({ orders = [], tests = [] }: { or
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Laboratory Reports" />
-            <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-                <div>
-                    <h1 className="text-2xl font-bold">Reports</h1>
-                    <p className="text-muted-foreground">Filter and export laboratory data</p>
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+                {/* Header Section */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-6">
+                            <Heading title="Laboratory Reports" description="Filter and export laboratory data" icon={BarChart3} />
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="counter-card text-white rounded-xl shadow-lg border-0 px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="counter-icon p-2 rounded-lg border border-white/60">
+                                        <BarChart3 className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <div className="text-3xl font-bold">{orders.length}</div>
+                                        <div className="text-blue-100 text-sm font-medium">Total Orders</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Filter className="h-4 w-4" /> Filters
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid gap-4 md:grid-cols-4">
+                {/* Filters Card */}
+                <div className="holographic-card shadow-lg border-0 mb-8 overflow-hidden rounded-lg bg-white">
+                    {/* Header Section - No gaps */}
+                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                        <div className="flex items-center gap-3 p-6">
+                            <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                <Filter className="h-6 w-6 text-white" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-bold text-white">Filters</h3>
+                                <p className="text-blue-100 mt-1">Search and filter laboratory orders for reporting</p>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Content Section - Seamlessly connected */}
+                    <div className="px-6 py-6 bg-gradient-to-br from-purple-50 to-purple-100">
+                        <div className="grid gap-6 md:grid-cols-4">
                         <div>
-                            <Label>Search</Label>
+                            <Label className="text-sm font-semibold text-gray-700 mb-2 block">Search</Label>
                             <div className="relative">
-                                <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
                                 <Input
-                                    className="pl-9"
+                                    className="pl-10 h-12 border-gray-300 focus:border-purple-500 focus:ring-purple-500 rounded-xl shadow-sm"
                                     placeholder="Order # or patient name"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
@@ -78,9 +106,9 @@ export default function LaboratoryReportsIndex({ orders = [], tests = [] }: { or
                             </div>
                         </div>
                         <div>
-                            <Label>Test</Label>
+                            <Label className="text-sm font-semibold text-gray-700 mb-2 block">Test</Label>
                             <select
-                                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
+                                className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-purple-500 focus:ring-purple-500"
                                 value={testId}
                                 onChange={(e) => setTestId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
                             >
@@ -93,23 +121,48 @@ export default function LaboratoryReportsIndex({ orders = [], tests = [] }: { or
                             </select>
                         </div>
                         <div>
-                            <Label>From</Label>
-                            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                            <Label className="text-sm font-semibold text-gray-700 mb-2 block">From</Label>
+                            <Input 
+                                type="date" 
+                                value={dateFrom} 
+                                onChange={(e) => setDateFrom(e.target.value)} 
+                                className="h-12 border-gray-300 focus:border-purple-500 focus:ring-purple-500 rounded-xl shadow-sm"
+                            />
                         </div>
                         <div>
-                            <Label>To</Label>
-                            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                            <Label className="text-sm font-semibold text-gray-700 mb-2 block">To</Label>
+                            <Input 
+                                type="date" 
+                                value={dateTo} 
+                                onChange={(e) => setDateTo(e.target.value)} 
+                                className="h-12 border-gray-300 focus:border-purple-500 focus:ring-purple-500 rounded-xl shadow-sm"
+                            />
                         </div>
-                    </CardContent>
-                </Card>
+                        </div>
+                    </div>
+                </div>
 
-                <Card>
-                    <CardHeader className="flex items-center justify-between">
-                        <CardTitle>Results</CardTitle>
-                        <div className="flex items-center gap-2">
+                {/* Results Card */}
+                <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                    {/* Header Section - No gaps */}
+                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                        <div className="flex items-center gap-3 p-6">
+                            <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
+                                <BarChart3 className="h-6 w-6 text-white" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-bold text-white">Results</h3>
+                                <p className="text-blue-100 mt-1">View and export filtered laboratory data</p>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Content Section - Seamlessly connected */}
+                    <div className="px-6 py-6 bg-gradient-to-br from-green-50 to-green-100">
+                        <div className="flex items-center justify-between mb-6">
+                            <h4 className="text-lg font-semibold text-gray-700">Filtered Results</h4>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="outline">
+                                    <Button variant="outline" className="bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-700 shadow-sm hover:shadow-md transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-lg">
                                         <FileDown className="mr-2 h-4 w-4" /> Export Orders
                                     </Button>
                                 </DropdownMenuTrigger>
@@ -120,8 +173,6 @@ export default function LaboratoryReportsIndex({ orders = [], tests = [] }: { or
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
-                    </CardHeader>
-                    <CardContent>
                         {filtered.length === 0 ? (
                             <div className="py-16 text-center text-muted-foreground">No data for selected filters</div>
                         ) : (
@@ -148,7 +199,9 @@ export default function LaboratoryReportsIndex({ orders = [], tests = [] }: { or
                                                         size="sm"
                                                         variant="outline"
                                                         onClick={() => router.visit(`/admin/laboratory/orders/${o.id}/results/view`)}
+                                                        className="bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-700 shadow-sm hover:shadow-md transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-lg"
                                                     >
+                                                        <Eye className="mr-2 h-4 w-4" />
                                                         View
                                                     </Button>
                                                 </td>
@@ -158,8 +211,8 @@ export default function LaboratoryReportsIndex({ orders = [], tests = [] }: { or
                                 </table>
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
             </div>
         </AppLayout>
     );
