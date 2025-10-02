@@ -7,13 +7,18 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // MySQL enum alteration: recreate enum set to include adjustment_in and adjustment_out
-        DB::statement("ALTER TABLE supply_transactions MODIFY COLUMN subtype ENUM('received','consumed','used','rejected','expired','damaged','adjustment','transfer_in','transfer_out','adjustment_in','adjustment_out') NULL");
+        // SQLite doesn't support MODIFY COLUMN, so we'll skip this migration for SQLite
+        // The enum constraint will be handled by the application layer
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE supply_transactions MODIFY COLUMN subtype ENUM('received','consumed','used','rejected','expired','damaged','adjustment','transfer_in','transfer_out','adjustment_in','adjustment_out') NULL");
+        }
     }
 
     public function down(): void
     {
-        DB::statement("ALTER TABLE supply_transactions MODIFY COLUMN subtype ENUM('received','consumed','used','rejected','expired','damaged','adjustment','transfer_in','transfer_out') NULL");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE supply_transactions MODIFY COLUMN subtype ENUM('received','consumed','used','rejected','expired','damaged','adjustment','transfer_in','transfer_out') NULL");
+        }
     }
 };
 
