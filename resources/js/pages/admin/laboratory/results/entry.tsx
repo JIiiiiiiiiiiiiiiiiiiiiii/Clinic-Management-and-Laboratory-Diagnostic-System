@@ -1,18 +1,69 @@
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import * as React from 'react';
-import { CheckCircle, FileText, Save } from 'lucide-react';
+import { 
+    ArrowLeft, 
+    CheckCircle, 
+    FileText, 
+    Save, 
+    User, 
+    TestTube, 
+    Calendar, 
+    Clock, 
+    Hash,
+    Activity,
+    AlertCircle,
+    CheckCircle2,
+    PlayCircle,
+    PauseCircle,
+    XCircle,
+    UserCheck,
+    Phone,
+    Mail,
+    MapPin
+} from 'lucide-react';
 
-type Test = { id: number; name: string; code: string; fields_schema: any };
-type Order = { id: number; status: string; created_at: string };
-type Patient = { id: number; first_name: string; last_name: string; age: number; sex: string };
+type Test = { 
+    id: number; 
+    name: string; 
+    code: string; 
+    fields_schema: any 
+};
+
+type Order = { 
+    id: number; 
+    status: string; 
+    created_at: string;
+    patient: {
+        id: number;
+        first_name: string;
+        last_name: string;
+        middle_name?: string;
+        birthdate: string;
+        gender: string;
+        telephone_no?: string;
+        mobile_no?: string;
+        email?: string;
+        present_address?: string;
+    };
+};
+
+type Patient = { 
+    id: number; 
+    first_name: string; 
+    last_name: string; 
+    age: number; 
+    sex: string 
+};
 
 interface ResultsEntryProps {
     patient: Patient;
@@ -21,19 +72,19 @@ interface ResultsEntryProps {
     existingResults?: { [testId: number]: any };
 }
 
-const breadcrumbs = (_patient: Patient, order: Order): BreadcrumbItem[] => [
-    { title: 'Laboratory', href: '/admin/laboratory' },
-    { title: 'Lab Orders', href: '/admin/laboratory/orders' },
-    { title: `Order #${order.id}`, href: `/admin/laboratory/orders/${order.id}/results/view` },
-    { title: 'Edit Result', href: `/admin/laboratory/orders/${order.id}/results` },
-];
+export default function ResultsEntry({ patient, order, tests, existingResults = {} }: ResultsEntryProps): React.ReactElement {
+    const [results, setResults] = useState<{ [testId: number]: any }>(existingResults);
+    const [processing, setProcessing] = useState(false);
+    const formRef = useRef<HTMLFormElement>(null);
 
-export default function ResultsEntry({ patient, order, tests, existingResults = {} }: ResultsEntryProps) {
-    const [results, setResults] = React.useState<{ [testId: number]: any }>(existingResults);
-    const [processing, setProcessing] = React.useState(false);
-    const formRef = React.useRef<HTMLFormElement>(null);
+    const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Laboratory', href: '/admin/laboratory' },
+        { title: 'Lab Orders', href: '/admin/laboratory/orders' },
+        { title: `Order #${order.id}`, href: `/admin/laboratory/orders/${order.id}` },
+        { title: 'Enter Results', href: `/admin/laboratory/orders/${order.id}/results` },
+    ];
 
-    React.useEffect(() => {
+    useEffect(() => {
         setResults(existingResults || {});
     }, [existingResults]);
 
@@ -42,7 +93,6 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
             const newResults = { ...prev };
             if (!newResults[testId]) newResults[testId] = {};
 
-            // Handle nested field paths like "sections.hematology.wbc"
             const keys = fieldPath.split('.');
             let current = newResults[testId];
 
@@ -56,10 +106,10 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
         });
     };
 
-    const getResultValue = (testId: number, fieldPath: string): any => {
+    const getResultValue = (testId: number, fieldPath: string): string => {
         const keys = fieldPath.split('.');
         let current = results[testId] || {};
-
+        
         for (const key of keys) {
             if (current && typeof current === 'object' && key in current) {
                 current = current[key];
@@ -67,21 +117,74 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                 return '';
             }
         }
-
+        
         return current || '';
     };
 
+    const getStatusIcon = (status: string) => {
+        switch (status) {
+            case 'ordered':
+                return <AlertCircle className="h-4 w-4" />;
+            case 'processing':
+                return <PlayCircle className="h-4 w-4" />;
+            case 'completed':
+                return <CheckCircle2 className="h-4 w-4" />;
+            case 'cancelled':
+                return <XCircle className="h-4 w-4" />;
+            default:
+                return <PauseCircle className="h-4 w-4" />;
+        }
+    };
+
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'ordered':
+                return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+            case 'processing':
+                return 'bg-blue-100 text-blue-800 border-blue-200';
+            case 'completed':
+                return 'bg-green-100 text-green-800 border-green-200';
+            case 'cancelled':
+                return 'bg-red-100 text-red-800 border-red-200';
+            default:
+                return 'bg-gray-100 text-gray-800 border-gray-200';
+        }
+    };
+
+    const formatDate = (dateString: string) => {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    const formatAge = (birthdate: string) => {
+        const today = new Date();
+        const birth = new Date(birthdate);
+        let age = today.getFullYear() - birth.getFullYear();
+        const monthDiff = today.getMonth() - birth.getMonth();
+        
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+            age--;
+        }
+        
+        return age;
+    };
+
     const renderField = (testId: number, field: any, sectionKey: string, fieldKey: string) => {
+        const fieldId = `test-${testId}-${sectionKey}-${fieldKey}`;
         const fieldPath = `${sectionKey}.${fieldKey}`;
         const value = getResultValue(testId, fieldPath);
-        const fieldId = `test-${testId}-${sectionKey}-${fieldKey}`;
 
         const commonProps = {
             id: fieldId,
-            name: fieldId,
             value: value,
-            onChange: (e: any) => updateResult(testId, fieldPath, e?.target !== undefined ? e.target.value : e),
-        } as any;
+            onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => 
+                updateResult(testId, fieldPath, e.target.value),
+        };
 
         switch (field.type) {
             case 'text':
@@ -91,8 +194,9 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                             {field.label}
                             {field.required && <span className="ml-1 text-red-500">*</span>}
                         </Label>
-                        <Input 
-                            {...commonProps} 
+                        <Input
+                            {...commonProps}
+                            type="text"
                             placeholder={field.placeholder}
                             className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
                         />
@@ -133,7 +237,7 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                             </SelectTrigger>
                             <SelectContent>
                                 {field.options?.map((option: string) => (
-                                    <SelectItem key={option} value={option} id={`test-${testId}-${sectionKey}-${fieldKey}`}>
+                                    <SelectItem key={option} value={option}>
                                         {option}
                                     </SelectItem>
                                 ))}
@@ -149,11 +253,11 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                             {field.label}
                             {field.required && <span className="ml-1 text-red-500">*</span>}
                         </Label>
-                        <Textarea 
-                            {...commonProps} 
-                            placeholder={field.placeholder} 
-                            rows={field.rows || 3}
+                        <Textarea
+                            {...commonProps}
+                            placeholder={field.placeholder}
                             className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                            rows={3}
                         />
                     </div>
                 );
@@ -161,9 +265,13 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
             default:
                 return (
                     <div key={fieldKey} className="space-y-2">
-                        <Label htmlFor={fieldId} className="text-sm font-semibold text-gray-700">{field.label}</Label>
-                        <Input 
-                            {...commonProps} 
+                        <Label htmlFor={fieldId} className="text-sm font-semibold text-gray-700">
+                            {field.label}
+                            {field.required && <span className="ml-1 text-red-500">*</span>}
+                        </Label>
+                        <Input
+                            {...commonProps}
+                            type="text"
                             placeholder={field.placeholder}
                             className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
                         />
@@ -174,38 +282,32 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
 
     const renderTest = (test: Test) => {
         const schema = test.fields_schema;
-        if (!schema || !schema.sections) return null;
+        if (!schema?.sections) return null;
 
         return (
-            <div key={test.id} className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white mb-8">
-                <div className="bg-gradient-to-r from-[#283890] to-[#3a4db3] text-white p-4">
+            <Card key={test.id} className="shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white/20 rounded-lg">
-                            <FileText className="h-5 w-5 text-white" />
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                            <TestTube className="h-6 w-6 text-blue-600" />
                         </div>
-                        <h4 className="text-lg font-semibold text-white">
-                            {test.name} ({test.code})
-                        </h4>
-                    </div>
-                </div>
-                <div className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h5 className="text-sm font-semibold text-gray-700">Test Parameters</h5>
-                        <div className="bg-gray-100 rounded-full border border-gray-300 shadow-sm px-3 py-1">
-                            <span className="text-[#283890] font-semibold text-sm">
-                                {Object.values(schema.sections).reduce((total: number, section: any) => 
-                                    total + Object.keys(section.fields || {}).length, 0
-                                )} fields
-                            </span>
+                        <div>
+                            <CardTitle className="text-lg font-semibold text-gray-900">{test.name}</CardTitle>
+                            <p className="text-sm text-gray-500 mt-1">Code: {test.code}</p>
                         </div>
                     </div>
+                    <Badge variant="outline" className="text-blue-600 border-blue-200">
+                        {Object.keys(schema.sections).length} section{Object.keys(schema.sections).length !== 1 ? 's' : ''}
+                    </Badge>
+                </CardHeader>
+                <CardContent className="p-6">
                     <div className="space-y-6">
                         {Object.entries(schema.sections).map(([sectionKey, section]: [string, any]) => (
                             <div key={sectionKey} className="space-y-4">
                                 <div className="flex items-center justify-between mb-2">
                                     <h6 className="text-base font-semibold text-gray-800">{section.title || sectionKey}</h6>
                                     <div className="bg-gray-100 rounded-full border border-gray-300 shadow-sm px-2 py-1">
-                                        <span className="text-[#283890] font-medium text-xs">
+                                        <span className="text-gray-700 font-medium text-xs">
                                             {Object.keys(section.fields || {}).length} fields
                                         </span>
                                     </div>
@@ -218,8 +320,8 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                             </div>
                         ))}
                     </div>
-                </div>
-            </div>
+                </CardContent>
+            </Card>
         );
     };
 
@@ -235,7 +337,6 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                     Object.keys(section.fields || {}).forEach((fieldKey) => {
                         const elId = `test-${testId}-${sectionKey}-${fieldKey}`;
                         const input = document.getElementById(elId) as HTMLInputElement | HTMLTextAreaElement | null;
-                        // shadcn Select renders hidden input with data-state? Fall back to value prop on element if present
                         const value = input?.value ?? (document.querySelector(`[aria-controls='${elId}']`) as any)?.value ?? '';
                         if (value !== '') {
                             sectionBucket[fieldKey] = value;
@@ -254,7 +355,6 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
     const handleSave = async () => {
         setProcessing(true);
         try {
-            // Prefer structured form serialization with nested names
             if (formRef.current) {
                 const fd = new FormData(formRef.current);
                 await router.post(`/admin/laboratory/orders/${order.id}/results`, fd, {
@@ -298,123 +398,237 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
     const isVerified = order.status === 'completed';
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs(patient, order)}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Lab Results - Order #${order.id}`} />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+            <div className="min-h-screen bg-gray-50 p-6">
                 {/* Header Section */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-6">
-                            <Button variant="outline" size="icon" onClick={() => router.visit('/admin/laboratory/orders')} className="h-12 w-12 rounded-xl border-gray-300 hover:bg-gray-50">
-                                <span aria-hidden>←</span>
+                            <Button 
+                                variant="outline" 
+                                size="icon" 
+                                className="h-12 w-12 rounded-xl border-gray-300 hover:bg-gray-50"
+                                onClick={() => router.visit(`/admin/laboratory/orders/${order.id}`)}
+                            >
+                                <ArrowLeft className="h-4 w-4" />
                             </Button>
                             <div>
-                                <h1 className="text-4xl font-bold text-[#283890] mb-2">Lab Results Entry</h1>
-                                <p className="text-lg text-gray-600">
-                                    Order #{order.id} • {new Date(order.created_at).toLocaleDateString()}
-                                </p>
+                                <h1 className="text-4xl font-bold text-gray-900 mb-2">Lab Results Entry</h1>
+                                <div className="flex items-center gap-4">
+                                    <Badge className={`${getStatusColor(order.status)} border`}>
+                                        {getStatusIcon(order.status)}
+                                        <span className="ml-2 capitalize">{order.status}</span>
+                                    </Badge>
+                                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                                        <Calendar className="h-4 w-4" />
+                                        {formatDate(order.created_at)}
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                            <div className="counter-card text-white rounded-xl shadow-lg border-0 px-6 py-4 w-52 h-20 flex items-center overflow-hidden">
+                        <div className="flex items-center gap-3">
+                            <Button variant="outline" onClick={() => router.visit(`/admin/laboratory/orders/${order.id}`)}>
+                                View Order
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid gap-8 lg:grid-cols-4">
+                    {/* Left Column - Patient & Order Info */}
+                    <div className="lg:col-span-1 space-y-6">
+                        {/* Patient Information */}
+                        <Card className="shadow-lg">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="counter-icon p-2 rounded-lg border border-white/60">
-                                        <FileText className="h-6 w-6 text-white" />
+                                    <div className="p-2 bg-blue-100 rounded-lg">
+                                        <User className="h-6 w-6 text-blue-600" />
                                     </div>
                                     <div>
-                                        <div className="text-2xl font-bold whitespace-nowrap leading-tight">{order.status}</div>
-                                        <div className="text-blue-100 text-xs font-medium whitespace-nowrap">Status</div>
+                                        <CardTitle className="text-lg font-semibold text-gray-900">Patient</CardTitle>
+                                        <p className="text-sm text-gray-500 mt-1">Patient information</p>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3">
+                                        <UserCheck className="h-5 w-5 text-gray-500" />
+                                        <div>
+                                            <p className="font-semibold text-gray-900">
+                                                {order.patient.first_name} {order.patient.middle_name} {order.patient.last_name}
+                                            </p>
+                                            <p className="text-sm text-gray-600">
+                                                {order.patient.gender} • {formatAge(order.patient.birthdate)} years old
+                                            </p>
+                                        </div>
+                                    </div>
+                                    
+                                    <Separator />
+                                    
+                                    {order.patient.telephone_no && (
+                                        <div className="flex items-center gap-3">
+                                            <Phone className="h-4 w-4 text-gray-500" />
+                                            <span className="text-sm text-gray-700">{order.patient.telephone_no}</span>
+                                        </div>
+                                    )}
+                                    
+                                    {order.patient.mobile_no && (
+                                        <div className="flex items-center gap-3">
+                                            <Phone className="h-4 w-4 text-gray-500" />
+                                            <span className="text-sm text-gray-700">{order.patient.mobile_no}</span>
+                                        </div>
+                                    )}
+                                    
+                                    {order.patient.email && (
+                                        <div className="flex items-center gap-3">
+                                            <Mail className="h-4 w-4 text-gray-500" />
+                                            <span className="text-sm text-gray-700">{order.patient.email}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Order Details */}
+                        <Card className="shadow-lg">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-blue-100 rounded-lg">
+                                        <Hash className="h-6 w-6 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-lg font-semibold text-gray-900">Order Details</CardTitle>
+                                        <p className="text-sm text-gray-500 mt-1">Order information</p>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3">
+                                        <Hash className="h-4 w-4 text-gray-500" />
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-900">Order ID</p>
+                                            <p className="text-sm text-gray-600">#{order.id}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-3">
+                                        <Calendar className="h-4 w-4 text-gray-500" />
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-900">Ordered Date</p>
+                                            <p className="text-sm text-gray-600">{formatDate(order.created_at)}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-3">
+                                        <Clock className="h-4 w-4 text-gray-500" />
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-900">Last Updated</p>
+                                            <p className="text-sm text-gray-600">{formatDate(order.created_at)}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                    </div>
+
+                    {/* Right Column - Test Results */}
+                    <div className="lg:col-span-3 space-y-6">
+                        <Card className="shadow-lg">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-blue-100 rounded-lg">
+                                        <TestTube className="h-6 w-6 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-lg font-semibold text-gray-900">Test Results</CardTitle>
+                                        <p className="text-sm text-gray-500 mt-1">Enter laboratory test results for this order</p>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                    <Button 
+                                        variant="outline" 
+                                        onClick={handleSave} 
+                                        disabled={processing}
+                                        className="flex-1 sm:flex-none"
+                                    >
+                                        <Save className="mr-2 h-4 w-4" />
+                                        Save Draft
+                                    </Button>
+                                    
+                                    {!isVerified && (
+                                        <Button 
+                                            onClick={handleVerify} 
+                                            disabled={processing}
+                                            className="flex-1 sm:flex-none"
+                                        >
+                                            <CheckCircle className="mr-2 h-4 w-4" />
+                                            Verify & Complete
+                                        </Button>
+                                    )}
+                                    
+                                    {isVerified && (
+                                        <Button variant="secondary" disabled className="flex-1 sm:flex-none">
+                                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                                            ✓ Verified
+                                        </Button>
+                                    )}
+                                    
+                                    <Button 
+                                        variant="outline" 
+                                        onClick={() => window.open(`/admin/laboratory/orders/${order.id}/report`, '_blank')}
+                                        className="flex-1 sm:flex-none"
+                                    >
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        Generate Report
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-6 pt-2">
+                                <form ref={formRef} onSubmit={(e) => e.preventDefault()}>
+
+                                    {/* Badge Section */}
+                                    <div className="mb-8 pb-6 border-b border-gray-200 flex justify-end">
+                                        <Badge variant="outline" className="text-blue-600 border-blue-200">
+                                            {tests.length} test{tests.length !== 1 ? 's' : ''}
+                                        </Badge>
+                                    </div>
+
+                                    <div className="space-y-8">
+                                        {tests.map((test) => {
+                                            const schema = test.fields_schema;
+                                            return (
+                                                <React.Fragment key={test.id}>
+                                                    {renderTest(test)}
+                                                    {/* Hidden inputs for form serialization */}
+                                                    {schema?.sections &&
+                                                        Object.entries(schema.sections).map(([sectionKey, section]: [string, any]) => (
+                                                            <React.Fragment key={`${test.id}-${sectionKey}`}>
+                                                                {Object.keys(section.fields || {}).map((fieldKey) => {
+                                                                    const v = getResultValue(test.id, `${sectionKey}.${fieldKey}`);
+                                                                    return (
+                                                                        <input
+                                                                            key={`${test.id}-${sectionKey}-${fieldKey}-hidden`}
+                                                                            type="hidden"
+                                                                            name={`results[${test.id}][${sectionKey}][${fieldKey}]`}
+                                                                            value={v}
+                                                                        />
+                                                                    );
+                                                                })}
+                                                            </React.Fragment>
+                                                        ))}
+                                                </React.Fragment>
+                                            );
+                                        })}
+                                    </div>
+                                </form>
+                            </CardContent>
+                        </Card>
                     </div>
                 </div>
-
-                {/* Action Buttons */}
-                <div className="mb-8">
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                            <div className="flex items-center gap-3 p-6">
-                                <div className="p-2 bg-white/20 rounded-lg">
-                                    <CheckCircle className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-bold text-white">Results Actions</h3>
-                                    <p className="text-green-100 mt-1">Save, verify, and generate reports for this order</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="px-6 py-6">
-                            <div className="flex flex-wrap gap-3">
-                                <Button variant="outline" onClick={handleSave} disabled={processing} className="bg-white text-green-600 hover:bg-green-50 hover:text-green-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
-                                    <Save className="mr-2 h-4 w-4" />
-                                    Save Draft
-                                </Button>
-                                {!isVerified && (
-                                    <Button onClick={handleVerify} disabled={processing} className="bg-white text-green-600 hover:bg-green-50 hover:text-green-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
-                                        <CheckCircle className="mr-2 h-4 w-4" />
-                                        Verify & Complete
-                                    </Button>
-                                )}
-                                {isVerified && (
-                                    <Button variant="secondary" disabled className="bg-green-200 text-green-800 px-6 py-3 text-base font-semibold rounded-xl">
-                                        ✓ Verified
-                                    </Button>
-                                )}
-                                <Button variant="outline" onClick={() => window.open(`/admin/laboratory/orders/${order.id}/report`, '_blank')} className="bg-white text-green-600 hover:bg-green-50 hover:text-green-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
-                                    📄 Generate Report
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <form ref={formRef} onSubmit={(e) => e.preventDefault()}>
-                    <div className="space-y-8">
-                        {tests.map((test) => {
-                            const schema = test.fields_schema;
-                            return (
-                                <React.Fragment key={test.id}>
-                                    {renderTest(test)}
-                                    {/* Hidden inputs to mirror state for reliable serialization */}
-                                    {schema?.sections &&
-                                        Object.entries(schema.sections).map(([sectionKey, section]: [string, any]) => (
-                                            <React.Fragment key={`${test.id}-${sectionKey}`}>
-                                                {Object.keys(section.fields || {}).map((fieldKey) => {
-                                                    const v = getResultValue(test.id, `${sectionKey}.${fieldKey}`);
-                                                    return (
-                                                        <input
-                                                            key={`${test.id}-${sectionKey}-${fieldKey}-hidden`}
-                                                            type="hidden"
-                                                            name={`results[${test.id}][${sectionKey}][${fieldKey}]`}
-                                                            value={v}
-                                                        />
-                                                    );
-                                                })}
-                                            </React.Fragment>
-                                        ))}
-                                </React.Fragment>
-                            );
-                        })}
-                    </div>
-                </form>
-
-                {tests.length === 0 && (
-                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white">
-                        <div className="bg-gradient-to-r from-[#283890] to-[#3a4db3] text-white p-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-white/20 rounded-lg">
-                                    <FileText className="h-5 w-5 text-white" />
-                                </div>
-                                <h4 className="text-lg font-semibold text-white">No Tests Available</h4>
-                            </div>
-                        </div>
-                        <div className="p-6">
-                            <div className="text-center text-gray-500 py-8">No tests found for this order.</div>
-                        </div>
-                    </div>
-                )}
             </div>
         </AppLayout>
     );

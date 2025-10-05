@@ -103,7 +103,7 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Lab Orders" />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+            <div className="min-h-screen bg-gray-50 p-6">
                 {/* Header Section */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
@@ -111,14 +111,14 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                             <Heading title="Lab Orders" description="Manage laboratory orders and results" icon={FileText} />
                         </div>
                         <div className="flex items-center gap-4">
-                            <div className="counter-card text-white rounded-xl shadow-lg border-0 px-6 py-4 w-52 h-20 flex items-center overflow-hidden">
+                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4 w-52 h-20 flex items-center overflow-hidden">
                                 <div className="flex items-center gap-3">
-                                    <div className="counter-icon p-2 rounded-lg border border-white/60">
-                                        <FileText className="h-6 w-6 text-white" />
+                                    <div className="p-2 bg-blue-100 rounded-lg">
+                                        <FileText className="h-6 w-6 text-blue-600" />
                                     </div>
                                     <div>
-                                        <div className="text-3xl font-bold whitespace-nowrap leading-tight">{orders.length}</div>
-                                        <div className="text-blue-100 text-sm font-medium whitespace-nowrap">Total Orders</div>
+                                        <div className="text-3xl font-bold text-gray-900 whitespace-nowrap leading-tight">{orders.length}</div>
+                                        <div className="text-gray-600 text-sm font-medium whitespace-nowrap">Total Orders</div>
                                     </div>
                                 </div>
                             </div>
@@ -127,57 +127,53 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                 </div>
 
                 {/* Orders Section */}
-                <div className="holographic-card shadow-lg border-0 mb-8 overflow-hidden rounded-lg bg-white">
-                    {/* Header Section - No gaps */}
-                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                        <div className="flex items-center justify-between p-6">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
-                                    <FileText className="h-6 w-6 text-white" />
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-bold text-white">Lab Orders</h3>
-                                    <p className="text-blue-100 mt-1">Search and manage laboratory orders</p>
-                                </div>
+                <Card className="shadow-lg mb-8">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                                <FileText className="h-6 w-6 text-blue-600" />
                             </div>
-                            <div className="flex items-center gap-3">
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button asChild className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
-                                                <Link href="/admin/laboratory/orders/create">
-                                                    <Plus className="mr-2 h-5 w-5" />
-                                                    New Order
-                                                </Link>
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Create New Order</TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button className="bg-white/20 text-white hover:bg-white/30 shadow-lg hover:shadow-xl transition-all duration-300 px-4 py-3 text-base font-semibold rounded-xl">
-                                            <Download className="mr-2 h-5 w-5" />
-                                            Export
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => window.open('/admin/laboratory/exports/orders.xlsx?format=excel', '_self')}>
-                                            Excel
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => window.open('/admin/laboratory/exports/orders.xlsx?format=pdf', '_self')}>
-                                            PDF
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => window.open('/admin/laboratory/exports/orders.xlsx?format=word', '_self')}>
-                                            Word
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                            <div>
+                                <CardTitle className="text-lg font-semibold text-gray-900">Lab Orders</CardTitle>
+                                <p className="text-sm text-gray-500 mt-1">Search and manage laboratory orders</p>
                             </div>
                         </div>
-                    </div>
-                    {/* Content Section - Seamlessly connected */}
-                    <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100">
+                        <div className="flex items-center gap-3">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button asChild>
+                                            <Link href="/admin/laboratory/orders/create">
+                                                <Plus className="mr-2 h-5 w-5" />
+                                                New Order
+                                            </Link>
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Create New Order</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline">
+                                        <Download className="mr-2 h-5 w-5" />
+                                        Export
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => window.open('/admin/laboratory/exports/orders.xlsx?format=excel', '_self')}>
+                                        Excel
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => window.open('/admin/laboratory/exports/orders.xlsx?format=pdf', '_self')}>
+                                        PDF
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => window.open('/admin/laboratory/exports/orders.xlsx?format=word', '_self')}>
+                                        Word
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-6">
                         <div className="mb-6">
                             <div className="flex items-center gap-4">
                                 <div className="relative flex-1 max-w-md">
@@ -263,15 +259,14 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                                 <TableCell className="text-sm text-gray-600">{new Date(order.created_at).toLocaleString()}</TableCell>
                                                 <TableCell>
                                                     <div className="flex gap-2">
-                                                        <Button asChild className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl">
-                                                            <Link href={`/admin/laboratory/orders/${order.id}/results/view`}>
+                                                        <Button asChild>
+                                                            <Link href={`/admin/laboratory/orders/${order.id}`}>
                                                                 <Eye className="mr-1 h-4 w-4" />
-                                                                View
+                                                                View Order
                                                             </Link>
                                                         </Button>
                                                         <Button 
                                                             onClick={() => handleEnterResults(order.id)}
-                                                            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
                                                             disabled={order.status === 'cancelled'}
                                                         >
                                                             <FileText className="mr-1 h-4 w-4" />
@@ -279,7 +274,7 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                                         </Button>
                                                         {order.status === 'ordered' && (
                                                             <Button
-                                                                className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
+                                                                variant="outline"
                                                                 onClick={() => handleUpdateStatus(order.id, 'processing')}
                                                             >
                                                                 Start
@@ -287,7 +282,6 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                                         )}
                                                         {order.status === 'processing' && (
                                                             <Button 
-                                                                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
                                                                 onClick={() => handleUpdateStatus(order.id, 'completed')}
                                                             >
                                                                 Complete
@@ -301,8 +295,8 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                 </TableBody>
                             </Table>
                         </div>
-                    </div>
-                </div>
+                    </CardContent>
+                </Card>
             </div>
         </AppLayout>
     );

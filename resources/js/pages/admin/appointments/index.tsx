@@ -114,7 +114,7 @@ export default function AppointmentsIndex() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Appointments Management" />
 
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+            <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
                         <Heading title="Appointments" description="Manage patient appointments and schedules" icon={Calendar} />

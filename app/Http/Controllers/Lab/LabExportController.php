@@ -20,7 +20,7 @@ class LabExportController extends Controller
         if ($headings) {
             $thead .= '<tr>';
             foreach ($headings as $h) {
-                $thead .= '<th style="border:1px solid #ddd;padding:6px;text-align:left;white-space:nowrap">' . e($h) . '</th>';
+                $thead .= '<th style="border:1px solid #000;padding:8px;text-align:left;white-space:nowrap;background-color:#f0f0f0;font-weight:bold">' . e($h) . '</th>';
             }
             $thead .= '</tr>';
         }
@@ -32,16 +32,17 @@ class LabExportController extends Controller
                 if (is_float($val) || is_int($val)) {
                     $val = (string) $val;
                 }
-                $tbody .= '<td style="border:1px solid #ddd;padding:6px">' . e((string) $val) . '</td>';
+                $tbody .= '<td style="border:1px solid #000;padding:8px;vertical-align:top">' . e((string) $val) . '</td>';
             }
             $tbody .= '</tr>';
         }
-        return '<!doctype html><html><head><meta charset="utf-8"><title>' . e($title) . '</title></head><body>' .
-            '<h2 style="font-family:Arial,Helvetica,sans-serif;margin:0 0 12px 0">' . e($title) . '</h2>' .
-            '<table style="border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;font-size:12px">' .
-            '<thead style="background:#f3f4f6">' . $thead . '</thead>' .
+        return '<!doctype html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>' . e($title) . '</title><meta name="ProgId" content="Word.Document"><meta name="Generator" content="Microsoft Word 15"><meta name="Originator" content="Microsoft Word 15"></head><body>' .
+            '<h2 style="font-family:Arial,Helvetica,sans-serif;margin:0 0 16px 0;color:#333">' . e($title) . '</h2>' .
+            '<table style="border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;font-size:11px;width:100%;mso-table-lspace:0pt;mso-table-rspace:0pt">' .
+            '<thead>' . $thead . '</thead>' .
             '<tbody>' . $tbody . '</tbody>' .
             '</table>' .
+            '<p style="font-family:Arial,Helvetica,sans-serif;font-size:10px;color:#666;margin-top:20px">Generated on ' . now()->format('F j, Y \a\t g:i A') . '</p>' .
             '</body></html>';
     }
     public function exportOrders(Request $request)
@@ -50,15 +51,15 @@ class LabExportController extends Controller
         $export = new LabOrdersExport();
         if (in_array($format, ['pdf', 'word', 'doc', 'docx'])) {
             $rows = $export->collection()->map(function ($row) {
-                return $row->toArray();
+                return (array) $row;
             })->toArray();
             $html = $this->buildHtmlTable('Lab Orders', $rows);
             if ($format === 'pdf') {
                 return Pdf::loadHTML($html)->download('lab_orders_' . now()->format('Ymd_His') . '.pdf');
             }
             return response($html)
-                ->header('Content-Type', 'application/msword')
-                ->header('Content-Disposition', 'attachment; filename="lab_orders_' . now()->format('Ymd_His') . '.doc"');
+                ->header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+                ->header('Content-Disposition', 'attachment; filename="lab_orders_' . now()->format('Ymd_His') . '.docx"');
         }
         return Excel::download($export, 'lab_orders_' . now()->format('Ymd_His') . '.xlsx');
     }
@@ -70,15 +71,15 @@ class LabExportController extends Controller
         $export = new LabOrderResultsExport($order);
         if (in_array($format, ['pdf', 'word', 'doc', 'docx'])) {
             $rows = $export->collection()->map(function ($row) {
-                return $row->toArray();
+                return (array) $row;
             })->toArray();
             $html = $this->buildHtmlTable('Lab Order Results', $rows);
             if ($format === 'pdf') {
                 return Pdf::loadHTML($html)->download('lab_order_' . $order->id . '_results_' . now()->format('Ymd_His') . '.pdf');
             }
             return response($html)
-                ->header('Content-Type', 'application/msword')
-                ->header('Content-Disposition', 'attachment; filename="lab_order_' . $order->id . '_results_' . now()->format('Ymd_His') . '.doc"');
+                ->header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+                ->header('Content-Disposition', 'attachment; filename="lab_order_' . $order->id . '_results_' . now()->format('Ymd_His') . '.docx"');
         }
         return Excel::download($export, 'lab_order_' . $order->id . '_results_' . now()->format('Ymd_His') . '.xlsx');
     }

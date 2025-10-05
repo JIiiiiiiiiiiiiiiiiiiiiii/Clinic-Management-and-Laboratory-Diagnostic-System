@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { PatientPageLayout, PatientActionButton } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { PatientItem } from '@/types/patients';
@@ -120,24 +121,20 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
     return (
         <AppLayout breadcrumbs={buildBreadcrumbs(patient.id)}>
             <Head title={`Edit Visit - ${patient.first_name} ${patient.last_name}`} />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
-                {/* Header Section */}
-                <div className="mb-8">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <Button asChild variant="ghost" size="icon" className="bg-white hover:bg-gray-50 shadow-md">
-                                <Link href={`/admin/patient/${patient.id}?tab=visits`}>
-                                    <ArrowLeft className="h-4 w-4" />
-                                </Link>
-                            </Button>
-                            <Heading 
-                                title="Edit Visit" 
-                                description={`${patient.first_name} ${patient.last_name} - Patient No: ${patient.patient_no}`} 
-                                icon={Edit} 
-                            />
-                        </div>
-                    </div>
-                </div>
+            <PatientPageLayout
+                title="Edit Visit"
+                description={`${patient.first_name} ${patient.last_name} - Patient No: ${patient.patient_no}`}
+                icon={<Edit className="h-6 w-6 text-blue-600" />}
+                actions={
+                    <PatientActionButton
+                        variant="outline"
+                        icon={<ArrowLeft className="h-4 w-4" />}
+                        label="Back to Patient"
+                        href={`/admin/patient/${patient.id}?tab=visits`}
+                        className="hover:bg-gray-50"
+                    />
+                }
+            >
 
                 {/* Error alert */}
                 {((usePage().props as any).flash?.error as string | undefined) && (
@@ -528,18 +525,22 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                         </div>
                         <div className="px-6 py-6 bg-gradient-to-br from-gray-50 to-gray-100">
                             <div className="flex items-center justify-end gap-6">
-                                <Button asChild className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl">
-                            <Link href={`/admin/patient/${patient.id}?tab=visits`}>Cancel</Link>
-                        </Button>
+                                <PatientActionButton
+                                    variant="outline"
+                                    icon={<ArrowLeft className="h-4 w-4" />}
+                                    label="Cancel"
+                                    href={`/admin/patient/${patient.id}?tab=visits`}
+                                    className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl"
+                                />
                                 <Button disabled={processing} type="submit" className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-8 py-4 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold">
                                     <Save className="mr-3 h-6 w-6" />
-                            {processing ? 'Saving...' : 'Save Changes'}
-                        </Button>
+                                    {processing ? 'Saving...' : 'Save Changes'}
+                                </Button>
                             </div>
                         </div>
                     </div>
                 </form>
-            </div>
+            </PatientPageLayout>
         </AppLayout>
     );
 }

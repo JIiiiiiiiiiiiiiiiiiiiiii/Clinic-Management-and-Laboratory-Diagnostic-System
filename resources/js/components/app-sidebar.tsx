@@ -1,140 +1,195 @@
-import { NavMain } from '@/components/nav-main';
-import { NavUser } from '@/components/nav-user';
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import { useRoleAccess } from '@/hooks/useRoleAccess';
-import { type NavItem } from '@/types';
-import { Link, usePage } from '@inertiajs/react';
+import * as React from "react"
 import {
-    BarChart3,
-    BookOpen,
-    BookUser,
-    BriefcaseMedical,
-    CalendarClock,
-    Folder,
-    LayoutGrid,
-    Settings,
-    Shield,
-    Stethoscope,
-    Table2,
-    Wallet,
-} from 'lucide-react';
-import AppLogo from './app-logo';
+  ActivityIcon,
+  BarChartIcon,
+  CalendarIcon,
+  ChevronUpIcon,
+  CreditCardIcon,
+  DatabaseIcon,
+  FileTextIcon,
+  FlaskConicalIcon,
+  HelpCircleIcon,
+  LayoutDashboardIcon,
+  MoreHorizontalIcon,
+  PackageIcon,
+  SearchIcon,
+  SettingsIcon,
+  ShieldIcon,
+  StethoscopeIcon,
+  UserCheckIcon,
+  UsersIcon,
+} from "lucide-react"
+import { Link } from "@inertiajs/react"
 
-export function AppSidebar() {
-    const { permissions } = useRoleAccess();
-    const { auth } = usePage().props as any;
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuAction,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+} from "@/components/ui/sidebar"
+import { NavDocuments } from "@/components/nav-documents"
+import { NavMain } from "@/components/nav-main"
+import { NavSecondary } from "@/components/nav-secondary"
+import { NavUser } from "@/components/nav-user"
 
-    // Define all possible navigation items with their access requirements
-    const allNavItems: NavItem[] = [
+const data = {
+  user: {
+    name: "Dr. Sarah Johnson",
+    email: "sarah.johnson@clinic.com",
+    avatar: "/avatars/doctor.jpg",
+  },
+  navMain: [
+    {
+      title: "Dashboard",
+      url: "/admin/dashboard",
+      icon: LayoutDashboardIcon,
+    },
+    {
+      title: "Patients",
+      url: "/admin/patient",
+      icon: UsersIcon,
+      isActive: true,
+      items: [
         {
-            title: 'Dashboard',
-            href: '/admin/dashboard',
-            icon: LayoutGrid,
-            requiredPermission: 'canAccessAdminPanel',
+          title: "All Patients",
+          url: "/admin/patient",
         },
         {
-            title: 'Patient Management',
-            href: '/admin/patient',
-            icon: BookUser,
-            requiredPermission: 'canAccessPatients',
+          title: "Add Patient",
+          url: "/admin/patient/create",
+        },
+      ],
+    },
+    {
+      title: "Laboratory",
+      url: "/admin/laboratory",
+      icon: FlaskConicalIcon,
+      isActive: true,
+      items: [
+        {
+          title: "Lab Orders",
+          url: "/admin/laboratory/orders",
         },
         {
-            title: 'Doctor Management',
-            href: '/admin/doctors',
-            icon: Stethoscope,
-            requiredPermission: 'canAccessSettings',
+          title: "Test Templates",
+          url: "/admin/laboratory/tests",
         },
         {
-            title: 'Laboratory Diagnostics',
-            href: '/admin/laboratory',
-            icon: Table2,
-            requiredPermission: 'canAccessLaboratory',
+          title: "Reports",
+          url: "/admin/laboratory/reports",
+        },
+      ],
+    },
+    {
+      title: "Inventory",
+      url: "/admin/inventory",
+      icon: PackageIcon,
+      isActive: true,
+      items: [
+        {
+          title: "Overview",
+          url: "/admin/inventory",
         },
         {
-            title: 'Supply Management',
-            href: '/admin/inventory',
-            icon: BriefcaseMedical,
-            requiredPermission: 'canAccessInventory',
+          title: "Products",
+          url: "/admin/inventory/products",
         },
         {
-            title: 'Billing Management',
-            href: '/admin/billing',
-            icon: Wallet,
-            requiredPermission: 'canAccessBilling',
+          title: "Transactions",
+          url: "/admin/inventory/transactions",
         },
         {
-            title: 'Appointment Management',
-            href: '/admin/appointments',
-            icon: CalendarClock,
-            requiredPermission: 'canAccessAppointments',
+          title: "Reports",
+          url: "/admin/inventory/reports",
         },
-        {
-            title: 'Reports',
-            href: '/admin/reports',
-            icon: BarChart3,
-            requiredPermission: 'canAccessReports',
-        },
-        {
-            title: 'Roles & Permissions',
-            href: '/admin/roles',
-            icon: Shield,
-            requiredPermission: 'canAccessSettings',
-        },
-        // {
-        //     title: 'System Settings',
-        //     href: '/admin/settings',
-        //     icon: Settings,
-        //     requiredPermission: 'canAccessSettings',
-        // },
-    ];
+      ],
+    },
+    {
+      title: "Analytics",
+      url: "/admin/reports",
+      icon: BarChartIcon,
+    },
+  ],
+  navSecondary: [
+    {
+      title: "Appointments",
+      url: "/admin/appointments",
+      icon: CalendarIcon,
+    },
+    {
+      title: "Doctors",
+      url: "/admin/doctors",
+      icon: UserCheckIcon,
+    },
+    {
+      title: "Billing",
+      url: "/admin/billing",
+      icon: CreditCardIcon,
+    },
+  ],
+  documents: [
+    {
+      name: "Patient Database",
+      url: "/admin/patient",
+      icon: DatabaseIcon,
+    },
+    {
+      name: "Lab Reports",
+      url: "/admin/laboratory/reports",
+      icon: ActivityIcon,
+    },
+    {
+      name: "System Reports",
+      url: "/admin/reports",
+      icon: FileTextIcon,
+    },
+  ],
+}
 
-    // Filter navigation items based on user permissions
-    const visibleNavItems = allNavItems.filter((item) => {
-        if (!item.requiredPermission) return true;
-        return permissions[item.requiredPermission as keyof typeof permissions];
-    });
-
-    // If no navigation items are visible, don't render the sidebar
-    if (visibleNavItems.length === 0) {
-        return null;
-    }
-
-    const footerNavItems: NavItem[] = [
-        {
-            title: 'Repository',
-            href: 'https://github.com/laravel/react-starter-kit',
-            icon: Folder,
-        },
-        {
-            title: 'Documentation',
-            href: 'https://laravel.com/docs/starter-kits#react',
-            icon: BookOpen,
-        },
-    ];
-
-    return (
-        // <Sidebar collapsible="icon" variant="sidebar">
-        <Sidebar collapsible="icon" variant="inset">
-            <SidebarHeader>
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild className="holographic-sidebar-item text-white" style={{backgroundColor: '#0b6839'}}>
-                            <Link href="/admin/dashboard" prefetch>
-                                <AppLogo />
-                            </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
-            </SidebarHeader>
-
-            <SidebarContent>
-                <NavMain items={visibleNavItems} />
-            </SidebarContent>
-
-            <SidebarFooter>
-                {/* <NavFooter items={footerNavItems} className="mt-auto" /> */}
-                <NavUser />
-            </SidebarFooter>
-        </Sidebar>
-    );
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  return (
+    <Sidebar collapsible="icon" {...props}>
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" asChild>
+              <Link href="/admin/dashboard">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  <StethoscopeIcon className="size-4" />
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">St. James Clinic</span>
+                  <span className="truncate text-xs">Management System</span>
+                </div>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+      <SidebarContent>
+        <NavMain items={data.navMain} />
+        <NavSecondary items={data.navSecondary} />
+        <NavDocuments items={data.documents} />
+      </SidebarContent>
+      <SidebarFooter>
+        <NavUser user={data.user} />
+      </SidebarFooter>
+    </Sidebar>
+  )
 }

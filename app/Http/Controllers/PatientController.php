@@ -107,11 +107,12 @@ class PatientController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        return Inertia::render('admin/patient/create', [
+        return Inertia::render('admin/patient/register', [
             'doctors' => $doctors,
             'next_patient_no' => $nextPatientNo,
         ]);
     }
+
 
     public function store(StorePatientRequest $request, PatientService $patientService)
     {

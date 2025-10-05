@@ -1,52 +1,81 @@
-import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import { useRoleAccess } from '@/hooks/useRoleAccess';
-import { type NavItem } from '@/types';
-import { Link, usePage } from '@inertiajs/react';
+import { ChevronRightIcon, type LucideIcon } from "lucide-react"
+import { Link } from "@inertiajs/react"
 
-export function NavMain({ items = [] }: { items: NavItem[] }) {
-    const page = usePage();
-    const { isPatient } = useRoleAccess();
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import {
+  SidebarGroup,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+} from "@/components/ui/sidebar"
 
-    // If no items, don't render anything
-    if (items.length === 0) {
-        return null;
-    }
-
-    // Determine the appropriate label based on visible items and user role
-    const getGroupLabel = () => {
-        if (isPatient) {
-            if (items.length === 1) {
-                return 'Patient Module';
-            }
-            return 'Patient Modules';
-        }
-
-        if (items.length === 1) {
-            return 'Management Module';
-        }
-        return 'Management Modules';
-    };
-
-    return (
-        <SidebarGroup className="px-2 py-0">
-            <SidebarGroupLabel>{getGroupLabel()}</SidebarGroupLabel>
-            <SidebarMenu>
-                {items.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton 
-                            asChild 
-                            isActive={page.url.startsWith(item.href)} 
-                            tooltip={{ children: item.title }}
-                            className="holographic-sidebar-item"
-                        >
-                            <Link href={item.href} prefetch>
-                                {item.icon && <item.icon />}
-                                <span>{item.title}</span>
+export function NavMain({
+  items,
+}: {
+  items: {
+    title: string
+    url: string
+    icon?: LucideIcon
+    isActive?: boolean
+    items?: {
+      title: string
+      url: string
+    }[]
+  }[]
+}) {
+  return (
+    <SidebarGroup>
+      <SidebarMenu>
+        {items.map((item) => (
+          <Collapsible
+            key={item.title}
+            asChild
+            defaultOpen={item.isActive}
+            className="group/collapsible"
+          >
+            <SidebarMenuItem>
+              {item.items ? (
+                <>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip={item.title}>
+                      {item.icon && <item.icon />}
+                      <span>{item.title}</span>
+                      <ChevronRightIcon className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {item.items?.map((subItem) => (
+                        <SidebarMenuSubItem key={subItem.title}>
+                          <SidebarMenuSubButton asChild>
+                            <Link href={subItem.url}>
+                              <span>{subItem.title}</span>
                             </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                ))}
-            </SidebarMenu>
-        </SidebarGroup>
-    );
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </>
+              ) : (
+                <SidebarMenuButton tooltip={item.title} asChild>
+                  <Link href={item.url}>
+                    {item.icon && <item.icon />}
+                    <span>{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              )}
+            </SidebarMenuItem>
+          </Collapsible>
+        ))}
+      </SidebarMenu>
+    </SidebarGroup>
+  )
 }

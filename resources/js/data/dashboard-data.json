@@ -1,0 +1,137 @@
+[
+  {
+    "id": 1,
+    "header": "Patient Registration",
+    "type": "Patient Management",
+    "status": "Active",
+    "target": "150",
+    "limit": "200",
+    "reviewer": "Dr. Sarah Johnson"
+  },
+  {
+    "id": 2,
+    "header": "Lab Test Orders",
+    "type": "Laboratory",
+    "status": "Pending",
+    "target": "45",
+    "limit": "60",
+    "reviewer": "Lab Technician"
+  },
+  {
+    "id": 3,
+    "header": "Blood Chemistry Panel",
+    "type": "Laboratory",
+    "status": "Completed",
+    "target": "28",
+    "limit": "35",
+    "reviewer": "Dr. Michael Chen"
+  },
+  {
+    "id": 4,
+    "header": "Patient Appointments",
+    "type": "Scheduling",
+    "status": "Active",
+    "target": "85",
+    "limit": "100",
+    "reviewer": "Reception Staff"
+  },
+  {
+    "id": 5,
+    "header": "Inventory Management",
+    "type": "Supply Chain",
+    "status": "In Process",
+    "target": "320",
+    "limit": "400",
+    "reviewer": "Pharmacy Manager"
+  },
+  {
+    "id": 6,
+    "header": "Medical Records",
+    "type": "Documentation",
+    "status": "Active",
+    "target": "180",
+    "limit": "250",
+    "reviewer": "Medical Records"
+  },
+  {
+    "id": 7,
+    "header": "Billing & Insurance",
+    "type": "Financial",
+    "status": "Pending",
+    "target": "95",
+    "limit": "120",
+    "reviewer": "Billing Department"
+  },
+  {
+    "id": 8,
+    "header": "X-Ray Results",
+    "type": "Radiology",
+    "status": "Completed",
+    "target": "22",
+    "limit": "30",
+    "reviewer": "Radiologist"
+  },
+  {
+    "id": 9,
+    "header": "Prescription Management",
+    "type": "Pharmacy",
+    "status": "Active",
+    "target": "67",
+    "limit": "80",
+    "reviewer": "Pharmacist"
+  },
+  {
+    "id": 10,
+    "header": "Emergency Cases",
+    "type": "Emergency",
+    "status": "Critical",
+    "target": "8",
+    "limit": "15",
+    "reviewer": "Emergency Doctor"
+  },
+  {
+    "id": 11,
+    "header": "Vaccination Records",
+    "type": "Immunization",
+    "status": "Active",
+    "target": "42",
+    "limit": "50",
+    "reviewer": "Nurse Manager"
+  },
+  {
+    "id": 12,
+    "header": "Lab Equipment Maintenance",
+    "type": "Maintenance",
+    "status": "Scheduled",
+    "target": "12",
+    "limit": "15",
+    "reviewer": "Biomedical Engineer"
+  },
+  {
+    "id": 13,
+    "header": "Patient Discharge",
+    "type": "Patient Management",
+    "status": "In Process",
+    "target": "35",
+    "limit": "40",
+    "reviewer": "Discharge Coordinator"
+  },
+  {
+    "id": 14,
+    "header": "Quality Assurance",
+    "type": "Quality Control",
+    "status": "Active",
+    "target": "18",
+    "limit": "25",
+    "reviewer": "QA Manager"
+  },
+  {
+    "id": 15,
+    "header": "Staff Scheduling",
+    "type": "Human Resources",
+    "status": "Active",
+    "target": "75",
+    "limit": "90",
+    "reviewer": "HR Manager"
+  }
+]

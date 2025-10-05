@@ -13,11 +13,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { PatientPageLayout, PatientActionButton } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { PatientItem } from '@/types/patients';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Calendar, Stethoscope, Heart, Activity, Clock, User, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const buildBreadcrumbs = (patientId: number): BreadcrumbItem[] => [
@@ -124,22 +125,20 @@ export default function CreateVisit({ patient, doctors }: CreateVisitProps) {
     return (
         <AppLayout breadcrumbs={buildBreadcrumbs(patient.id)}>
             <Head title={`New Visit - ${patient.first_name} ${patient.last_name}`} />
-            <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Button asChild variant="outline" size="icon">
-                            <Link href={`/admin/patient/${patient.id}?tab=visits`}>
-                                <ArrowLeft className="h-4 w-4" />
-                            </Link>
-                        </Button>
-                        <div>
-                            <h1 className="text-4xl font-bold tracking-tight text-[#283890]">New Visit</h1>
-                            <p className="text-muted-foreground">
-                                {patient.first_name} {patient.last_name} - Patient No: {patient.patient_no}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+            <PatientPageLayout
+                title="New Visit"
+                description={`${patient.first_name} ${patient.last_name} - Patient No: ${patient.patient_no}`}
+                icon={<Plus className="h-6 w-6 text-blue-600" />}
+                actions={
+                    <PatientActionButton
+                        variant="outline"
+                        icon={<ArrowLeft className="h-4 w-4" />}
+                        label="Back to Patient"
+                        href={`/admin/patient/${patient.id}?tab=visits`}
+                        className="hover:bg-gray-50"
+                    />
+                }
+            >
 
                 {/* Error alert */}
                 {((usePage().props as any).flash?.error as string | undefined) && (
@@ -169,64 +168,93 @@ export default function CreateVisit({ patient, doctors }: CreateVisitProps) {
                     </AlertDialogContent>
                 </AlertDialog>
 
-                <form onSubmit={submit} className="space-y-6">
+                <form onSubmit={submit} className="space-y-8">
                     {/* Arrival Information */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Arrival Information</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <Calendar className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Arrival Information</h3>
+                                    <p className="text-blue-100 mt-1">Patient arrival details and timing</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100">
                             <div className="grid gap-6 md:grid-cols-3">
-                                <div className="space-y-2">
-                                    <Label htmlFor="arrival_date">Arrival Date *</Label>
+                                <div className="space-y-3">
+                                    <Label htmlFor="arrival_date" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <Calendar className="h-5 w-5" />
+                                        Arrival Date *
+                                    </Label>
                                     <Input
                                         id="arrival_date"
                                         type="date"
                                         value={data.arrival_date}
                                         onChange={(e) => setData('arrival_date', e.target.value)}
-                                        className={errors.arrival_date ? 'border-red-500' : ''}
+                                        className={`h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm ${errors.arrival_date ? 'border-red-500' : ''}`}
                                     />
                                     {errors.arrival_date && <p className="text-sm text-red-500">{errors.arrival_date}</p>}
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="arrival_time">Arrival Time *</Label>
+                                <div className="space-y-3">
+                                    <Label htmlFor="arrival_time" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <Clock className="h-5 w-5" />
+                                        Arrival Time *
+                                    </Label>
                                     <Input
                                         id="arrival_time"
                                         type="time"
                                         value={data.arrival_time}
                                         onChange={(e) => setData('arrival_time', e.target.value)}
-                                        className={errors.arrival_time ? 'border-red-500' : ''}
+                                        className={`h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm ${errors.arrival_time ? 'border-red-500' : ''}`}
                                     />
                                     {errors.arrival_time && <p className="text-sm text-red-500">{errors.arrival_time}</p>}
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="mode_of_arrival">Mode of Arrival</Label>
+                                <div className="space-y-3">
+                                    <Label htmlFor="mode_of_arrival" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <User className="h-5 w-5" />
+                                        Mode of Arrival
+                                    </Label>
                                     <Input
                                         id="mode_of_arrival"
                                         value={data.mode_of_arrival}
                                         onChange={(e) => setData('mode_of_arrival', e.target.value)}
                                         placeholder="e.g., Ambulance, Walk-in, Private vehicle"
+                                        className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Visit Details */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Visit Details</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                        <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white">
+                            <div className="flex items-center gap-3 p-6">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <Stethoscope className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">Visit Details</h3>
+                                    <p className="text-emerald-100 mt-1">Medical consultation and physician information</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-6 bg-gradient-to-br from-emerald-50 to-emerald-100">
                             <div className="grid gap-6 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="attending_physician">Attending Physician *</Label>
+                                <div className="space-y-3">
+                                    <Label htmlFor="attending_physician" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <Stethoscope className="h-5 w-5" />
+                                        Attending Physician *
+                                    </Label>
                                     {doctors.length > 0 ? (
                                         <Select
                                             onValueChange={(value: string) => setData('attending_physician', value)}
                                             defaultValue={data.attending_physician || undefined}
                                         >
-                                            <SelectTrigger id="attending_physician" className={errors.attending_physician ? 'border-red-500' : ''}>
+                                            <SelectTrigger id="attending_physician" className={`h-12 border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 rounded-xl shadow-sm ${errors.attending_physician ? 'border-red-500' : ''}`}>
                                                 <SelectValue placeholder="Select doctor" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -242,36 +270,43 @@ export default function CreateVisit({ patient, doctors }: CreateVisitProps) {
                                             id="attending_physician"
                                             value={data.attending_physician}
                                             onChange={(e) => setData('attending_physician', e.target.value)}
-                                            className={errors.attending_physician ? 'border-red-500' : ''}
+                                            className={`h-12 border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 rounded-xl shadow-sm ${errors.attending_physician ? 'border-red-500' : ''}`}
                                         />
                                     )}
                                     {errors.attending_physician && <p className="text-sm text-red-500">{errors.attending_physician}</p>}
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="time_seen">Time Seen *</Label>
+                                <div className="space-y-3">
+                                    <Label htmlFor="time_seen" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <Clock className="h-5 w-5" />
+                                        Time Seen *
+                                    </Label>
                                     <Input
                                         id="time_seen"
                                         type="time"
                                         value={data.time_seen}
                                         onChange={(e) => setData('time_seen', e.target.value)}
-                                        className={errors.time_seen ? 'border-red-500' : ''}
+                                        className={`h-12 border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 rounded-xl shadow-sm ${errors.time_seen ? 'border-red-500' : ''}`}
                                     />
                                     {errors.time_seen && <p className="text-sm text-red-500">{errors.time_seen}</p>}
                                 </div>
                             </div>
                             <div className="mt-6">
-                                <div className="space-y-2">
-                                    <Label htmlFor="reason_for_consult">Reason for Consult</Label>
+                                <div className="space-y-3">
+                                    <Label htmlFor="reason_for_consult" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <Activity className="h-5 w-5" />
+                                        Reason for Consult
+                                    </Label>
                                     <Textarea
                                         id="reason_for_consult"
                                         value={data.reason_for_consult}
                                         onChange={(e) => setData('reason_for_consult', e.target.value)}
                                         placeholder="Primary reason for seeking medical attention"
+                                        className="border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Vital Signs */}
                     <Card>
@@ -453,17 +488,25 @@ export default function CreateVisit({ patient, doctors }: CreateVisitProps) {
                         </CardContent>
                     </Card>
 
-                    <div className="flex items-center justify-end gap-4">
-                        <Button asChild variant="outline">
-                            <Link href={`/admin/patient/${patient.id}?tab=visits`}>Cancel</Link>
-                        </Button>
-                        <Button disabled={processing} type="submit">
-                            <Save className="mr-2 h-4 w-4" />
+                    <div className="flex items-center justify-end gap-4 pt-6">
+                        <PatientActionButton
+                            variant="outline"
+                            icon={<ArrowLeft className="h-4 w-4" />}
+                            label="Cancel"
+                            href={`/admin/patient/${patient.id}?tab=visits`}
+                            className="px-8 py-4 h-14 border-gray-300 hover:bg-gray-50 rounded-xl text-lg font-semibold"
+                        />
+                        <Button 
+                            disabled={processing} 
+                            type="submit"
+                            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-8 py-4 h-14 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold"
+                        >
+                            <Save className="mr-3 h-6 w-6" />
                             {processing ? 'Recording...' : 'Record Visit'}
                         </Button>
                     </div>
                 </form>
-            </div>
+            </PatientPageLayout>
         </AppLayout>
     );
 }

@@ -3,11 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import Heading from '@/components/heading';
-import { BarChart3, FileDown, Filter, Search, Eye } from 'lucide-react';
+import { BarChart3, FileDown, Filter, Search, Eye, Calendar, TestTube, Users, TrendingUp, Download } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 type LabTest = { id: number; name: string; code: string };
@@ -50,25 +52,35 @@ export default function LaboratoryReportsIndex({ orders = [], tests = [] }: { or
         window.open(url, '_self');
     };
 
+    const formatDate = (dateString: string) => {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Laboratory Reports" />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+            <div className="min-h-screen bg-gray-50 p-6">
                 {/* Header Section */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-6">
-                            <Heading title="Laboratory Reports" description="Filter and export laboratory data" icon={BarChart3} />
+                            <Heading title="Laboratory Reports" description="Comprehensive laboratory data analysis and reporting" icon={BarChart3} />
                         </div>
                         <div className="flex items-center gap-4">
-                            <div className="counter-card text-white rounded-xl shadow-lg border-0 px-6 py-4">
+                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="counter-icon p-2 rounded-lg border border-white/60">
-                                        <BarChart3 className="h-6 w-6 text-white" />
+                                    <div className="p-2 bg-blue-100 rounded-lg">
+                                        <BarChart3 className="h-6 w-6 text-blue-600" />
                                     </div>
                                     <div>
-                                        <div className="text-3xl font-bold">{orders.length}</div>
-                                        <div className="text-blue-100 text-sm font-medium">Total Orders</div>
+                                        <div className="text-3xl font-bold text-gray-900">{orders.length}</div>
+                                        <div className="text-gray-600 text-sm font-medium">Total Orders</div>
                                     </div>
                                 </div>
                             </div>
@@ -76,143 +88,192 @@ export default function LaboratoryReportsIndex({ orders = [], tests = [] }: { or
                     </div>
                 </div>
 
-                {/* Filters Card */}
-                <div className="holographic-card shadow-lg border-0 mb-8 overflow-hidden rounded-lg bg-white">
-                    {/* Header Section - No gaps */}
-                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                        <div className="flex items-center gap-3 p-6">
-                            <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
-                                <Filter className="h-6 w-6 text-white" />
+                {/* Unified Reports Interface */}
+                <Card className="shadow-lg">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                                <BarChart3 className="h-6 w-6 text-blue-600" />
                             </div>
                             <div>
-                                <h3 className="text-2xl font-bold text-white">Filters</h3>
-                                <p className="text-blue-100 mt-1">Search and filter laboratory orders for reporting</p>
+                                <CardTitle className="text-lg font-semibold text-gray-900">Laboratory Reports</CardTitle>
+                                <p className="text-sm text-gray-500 mt-1">Filter, analyze, and export laboratory data with advanced reporting tools</p>
                             </div>
                         </div>
-                    </div>
-                    {/* Content Section - Seamlessly connected */}
-                    <div className="px-6 py-6 bg-gradient-to-br from-purple-50 to-purple-100">
-                        <div className="grid gap-6 md:grid-cols-4">
-                        <div>
-                            <Label className="text-sm font-semibold text-gray-700 mb-2 block">Search</Label>
-                            <div className="relative">
-                                <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                <Input
-                                    className="pl-10 h-12 border-gray-300 focus:border-purple-500 focus:ring-purple-500 rounded-xl shadow-sm"
-                                    placeholder="Order # or patient name"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <Label className="text-sm font-semibold text-gray-700 mb-2 block">Test</Label>
-                            <select
-                                className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-purple-500 focus:ring-purple-500"
-                                value={testId}
-                                onChange={(e) => setTestId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                            >
-                                <option value="all">All</option>
-                                {(tests || []).map((t) => (
-                                    <option key={t.id} value={t.id}>
-                                        {t.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <Label className="text-sm font-semibold text-gray-700 mb-2 block">From</Label>
-                            <Input 
-                                type="date" 
-                                value={dateFrom} 
-                                onChange={(e) => setDateFrom(e.target.value)} 
-                                className="h-12 border-gray-300 focus:border-purple-500 focus:ring-purple-500 rounded-xl shadow-sm"
-                            />
-                        </div>
-                        <div>
-                            <Label className="text-sm font-semibold text-gray-700 mb-2 block">To</Label>
-                            <Input 
-                                type="date" 
-                                value={dateTo} 
-                                onChange={(e) => setDateTo(e.target.value)} 
-                                className="h-12 border-gray-300 focus:border-purple-500 focus:ring-purple-500 rounded-xl shadow-sm"
-                            />
-                        </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Results Card */}
-                <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                    {/* Header Section - No gaps */}
-                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                        <div className="flex items-center gap-3 p-6">
-                            <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
-                                <BarChart3 className="h-6 w-6 text-white" />
-                            </div>
-                            <div>
-                                <h3 className="text-2xl font-bold text-white">Results</h3>
-                                <p className="text-blue-100 mt-1">View and export filtered laboratory data</p>
-                            </div>
-                        </div>
-                    </div>
-                    {/* Content Section - Seamlessly connected */}
-                    <div className="px-6 py-6 bg-gradient-to-br from-green-50 to-green-100">
-                        <div className="flex items-center justify-between mb-6">
-                            <h4 className="text-lg font-semibold text-gray-700">Filtered Results</h4>
+                        <div className="flex items-center gap-3">
+                            <Badge variant="outline" className="text-blue-600 border-blue-200">
+                                {filtered.length} of {orders.length} orders
+                            </Badge>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" className="bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-700 shadow-sm hover:shadow-md transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-lg">
-                                        <FileDown className="mr-2 h-4 w-4" /> Export Orders
+                                    <Button variant="outline">
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Export Data
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handleExportOrders('excel')}>Excel</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleExportOrders('pdf')}>PDF</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleExportOrders('word')}>Word</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleExportOrders('excel')}>
+                                        <FileDown className="mr-2 h-4 w-4" />
+                                        Excel Spreadsheet
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleExportOrders('pdf')}>
+                                        <FileDown className="mr-2 h-4 w-4" />
+                                        PDF Report
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleExportOrders('word')}>
+                                        <FileDown className="mr-2 h-4 w-4" />
+                                        Word Document
+                                    </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
-                        {filtered.length === 0 ? (
-                            <div className="py-16 text-center text-muted-foreground">No data for selected filters</div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="border-b text-left text-xs text-muted-foreground uppercase">
-                                            <th className="px-3 py-2">Order #</th>
-                                            <th className="px-3 py-2">Patient</th>
-                                            <th className="px-3 py-2">Date</th>
-                                            <th className="px-3 py-2">Tests</th>
-                                            <th className="px-3 py-2">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filtered.map((o) => (
-                                            <tr key={o.id} className="border-b last:border-0">
-                                                <td className="px-3 py-2 font-medium">#{o.id}</td>
-                                                <td className="px-3 py-2">{o.patient ? `${o.patient.last_name}, ${o.patient.first_name}` : '—'}</td>
-                                                <td className="px-3 py-2">{new Date(o.created_at).toLocaleString()}</td>
-                                                <td className="px-3 py-2">{(o.lab_tests || []).map((t) => t.name).join(', ')}</td>
-                                                <td className="px-3 py-2">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => router.visit(`/admin/laboratory/orders/${o.id}/results/view`)}
-                                                        className="bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-700 shadow-sm hover:shadow-md transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-lg"
-                                                    >
-                                                        <Eye className="mr-2 h-4 w-4" />
-                                                        View
-                                                    </Button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                        {/* Filters Section */}
+                        <div className="mb-8">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="p-2 bg-gray-100 rounded-lg">
+                                    <Filter className="h-5 w-5 text-gray-600" />
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-900">Search & Filter</h3>
                             </div>
-                        )}
-                    </div>
-                </div>
+                            <div className="grid gap-6 md:grid-cols-4">
+                                <div>
+                                    <Label className="text-sm font-semibold text-gray-700 mb-2 block">Search Orders</Label>
+                                    <div className="relative">
+                                        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                        <Input
+                                            className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                                            placeholder="Order # or patient name"
+                                            value={search}
+                                            onChange={(e) => setSearch(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <Label className="text-sm font-semibold text-gray-700 mb-2 block">Test Type</Label>
+                                    <select
+                                        className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        value={testId}
+                                        onChange={(e) => setTestId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                                    >
+                                        <option value="all">All Tests</option>
+                                        {(tests || []).map((t) => (
+                                            <option key={t.id} value={t.id}>
+                                                {t.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <Label className="text-sm font-semibold text-gray-700 mb-2 block">From Date</Label>
+                                    <div className="relative">
+                                        <Calendar className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                        <Input 
+                                            type="date" 
+                                            value={dateFrom} 
+                                            onChange={(e) => setDateFrom(e.target.value)} 
+                                            className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <Label className="text-sm font-semibold text-gray-700 mb-2 block">To Date</Label>
+                                    <div className="relative">
+                                        <Calendar className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                        <Input 
+                                            type="date" 
+                                            value={dateTo} 
+                                            onChange={(e) => setDateTo(e.target.value)} 
+                                            className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <Separator className="my-8" />
+
+                        {/* Results Section */}
+                        <div className="mb-6">
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <TrendingUp className="h-5 w-5 text-gray-600" />
+                                    </div>
+                                    <h3 className="text-lg font-semibold text-gray-900">Filtered Results</h3>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                                        <Users className="h-4 w-4" />
+                                        <span>{filtered.length} orders found</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {filtered.length === 0 ? (
+                                <div className="py-16 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                                    <div className="text-gray-400 mb-4">
+                                        <BarChart3 className="h-12 w-12 mx-auto" />
+                                    </div>
+                                    <p className="text-lg font-semibold text-gray-700 mb-2">No orders found</p>
+                                    <p className="text-gray-500">Try adjusting your search criteria or date range</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {filtered.map((order) => (
+                                        <div key={order.id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
+                                            <div className="p-6">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="p-3 bg-blue-100 rounded-lg">
+                                                            <TestTube className="h-6 w-6 text-blue-600" />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-lg font-semibold text-gray-900">Order #{order.id}</h4>
+                                                            <p className="text-sm text-gray-600">
+                                                                {order.patient ? `${order.patient.last_name}, ${order.patient.first_name}` : 'No Patient'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="text-right">
+                                                            <p className="text-sm text-gray-500">Created</p>
+                                                            <p className="text-sm font-medium text-gray-900">{formatDate(order.created_at)}</p>
+                                                        </div>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => router.visit(`/admin/laboratory/orders/${order.id}`)}
+                                                            className="hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200"
+                                                        >
+                                                            <Eye className="mr-2 h-4 w-4" />
+                                                            View Details
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="mt-4 pt-4 border-t border-gray-100">
+                                                    <div className="flex items-center gap-2">
+                                                        <TestTube className="h-4 w-4 text-gray-500" />
+                                                        <span className="text-sm font-medium text-gray-700">Tests:</span>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {(order.lab_tests || []).map((test, index) => (
+                                                                <Badge key={index} variant="secondary" className="text-xs">
+                                                                    {test.name}
+                                                                </Badge>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         </AppLayout>
     );

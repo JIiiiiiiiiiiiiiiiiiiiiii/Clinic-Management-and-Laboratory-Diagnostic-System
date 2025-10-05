@@ -6,6 +6,7 @@ use App\Models\LabOrder;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithTitle;
+use Illuminate\Support\Collection;
 
 class LabOrderResultsExport implements FromArray, WithHeadings, WithTitle
 {
@@ -66,6 +67,40 @@ class LabOrderResultsExport implements FromArray, WithHeadings, WithTitle
     public function title(): string
     {
         return 'Order Results';
+    }
+
+    public function collection(): Collection
+    {
+        $this->order->loadMissing(['patient', 'visit', 'results.test', 'results.values']);
+
+        $rows = [];
+        $patient = $this->order->patient;
+
+        foreach ($this->order->results as $result) {
+            $test = $result->test; // may be null if misconfigured
+            $flatResults = $result->values && count($result->values) > 0
+                ? $this->joinValues($result->values)
+                : $this->flattenResults($result->results ?? []);
+            $reference = $result->values && count($result->values) > 0
+                ? $this->joinReferences($result->values)
+                : $this->referenceRangesFor($test, $result->results ?? []);
+            
+            $rows[] = (object) [
+                'Order ID' => $this->order->id,
+                'Patient No' => $patient?->id,
+                'Patient Name' => $patient ? ($patient->last_name . ', ' . $patient->first_name) : 'N/A',
+                'Visit ID' => $this->order->visit?->id,
+                'Visit Date' => optional($this->order->visit?->arrival_date)->format('Y-m-d'),
+                'Test' => $test->name ?? 'Unknown Test',
+                'Code' => $test->code ?? '',
+                'Parameters' => $flatResults,
+                'Reference Ranges' => $reference,
+                'Verified By' => $result->verified_by ?? '',
+                'Verified At' => optional($result->verified_at)->format('Y-m-d H:i:s'),
+            ];
+        }
+
+        return collect($rows);
     }
 
     private function flattenResults(array $results): string

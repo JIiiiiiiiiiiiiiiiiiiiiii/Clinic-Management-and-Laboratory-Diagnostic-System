@@ -22,5 +22,5 @@ Route::get('/dashboard', function () {
     }
 
     // Return a 200 response for authenticated users
-    return Inertia::render('admin/dashboard');
+    return Inertia::render('dashboard');
 })->name('dashboard');

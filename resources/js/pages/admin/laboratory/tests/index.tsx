@@ -60,7 +60,7 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Lab Test Templates" />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+            <div className="min-h-screen bg-gray-50 p-6">
                 {/* Header Section */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
@@ -68,14 +68,14 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
                             <Heading title="Lab Test Templates" description="Manage laboratory diagnostic test templates" icon={TestTube} />
                         </div>
                         <div className="flex items-center gap-4">
-                            <div className="counter-card text-white rounded-xl shadow-lg border-0 px-6 py-4">
+                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="counter-icon p-2 rounded-lg border border-white/60 bg-gradient-to-r from-[#063970] to-[#052b54]">
-                                        <TestTube className="h-6 w-6 text-white" />
+                                    <div className="p-2 bg-blue-100 rounded-lg">
+                                        <TestTube className="h-6 w-6 text-blue-600" />
                                     </div>
                                     <div>
-                                        <div className="text-3xl font-bold">{tests.length}</div>
-                                        <div className="text-blue-100 text-sm font-medium">Total Tests</div>
+                                        <div className="text-3xl font-bold text-gray-900">{tests.length}</div>
+                                        <div className="text-gray-600 text-sm font-medium">Total Tests</div>
                                     </div>
                                 </div>
                             </div>
@@ -85,29 +85,25 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
 
                 {/* Two-column layout: left table, right quick tips */}
                 <div className="grid gap-6 md:grid-cols-3 items-start">
-                    <div className="md:col-span-2 holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                    {/* Header Section - No gaps */}
-                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                        <div className="flex items-center justify-between p-6">
+                    <Card className="md:col-span-2 shadow-lg">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
-                                    <TestTube className="h-6 w-6 text-white" />
+                                <div className="p-2 bg-blue-100 rounded-lg">
+                                    <TestTube className="h-6 w-6 text-blue-600" />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-bold text-white">Test Templates</h3>
-                                    <p className="text-blue-100 mt-1">Search and manage laboratory test templates</p>
+                                    <CardTitle className="text-lg font-semibold text-gray-900">Test Templates</CardTitle>
+                                    <p className="text-sm text-gray-500 mt-1">Search and manage laboratory test templates</p>
                                 </div>
                             </div>
-                            <Button asChild className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700 shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl">
+                            <Button asChild>
                                 <Link href="/admin/laboratory/tests/create">
                                     <Plus className="mr-3 h-6 w-6" />
                                     Add New Test
                                 </Link>
                             </Button>
-                        </div>
-                    </div>
-                    {/* Content Section - Seamlessly connected */}
-                    <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100">
+                        </CardHeader>
+                        <CardContent className="p-6">
                         <div className="mb-6">
                             <div className="flex items-center gap-4">
                                 <div className="relative flex-1 max-w-md">
@@ -174,13 +170,13 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
                                                 <TableCell className="text-sm text-gray-600">{new Date(test.created_at).toLocaleDateString()}</TableCell>
                                                 <TableCell>
                                                     <div className="flex gap-3">
-                                                        <Button asChild className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
+                                                        <Button asChild>
                                                             <Link href={`/admin/laboratory/tests/${test.id}/edit`}>
                                                                 <Edit className="mr-2 h-4 w-4" />
                                                                 Edit
                                                             </Link>
                                                         </Button>
-                                                        <Button className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl" onClick={() => handleDelete(test.id, test.name)}>
+                                                        <Button variant="destructive" onClick={() => handleDelete(test.id, test.name)}>
                                                             <Trash2 className="mr-2 h-4 w-4" />
                                                             Delete
                                                         </Button>
@@ -192,56 +188,53 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
                                 </TableBody>
                             </Table>
                         </div>
-                    </div>
-                    {/* Close Test Templates card container */}
-                    </div>
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white sticky top-0 self-start">
-                        {/* Header Section - No gaps */}
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                            <div className="flex items-center gap-3 p-6">
-                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
-                                    <FlaskConical className="h-6 w-6 text-white" />
+                        </CardContent>
+                    </Card>
+                    <Card className="shadow-lg sticky top-0 self-start">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-blue-100 rounded-lg">
+                                    <FlaskConical className="h-6 w-6 text-blue-600" />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-bold text-white">Quick Tips</h3>
-                                    <p className="text-green-100 mt-1">Best practices for test templates</p>
+                                    <CardTitle className="text-lg font-semibold text-gray-900">Quick Tips</CardTitle>
+                                    <p className="text-sm text-gray-500 mt-1">Best practices for test templates</p>
                                 </div>
                             </div>
-                        </div>
-                        {/* Content Section - Seamlessly connected */}
-                        <div className="px-6 py-6 bg-gradient-to-br from-emerald-50 to-green-100">
+                        </CardHeader>
+                        <CardContent className="p-6">
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div className="space-y-3">
-                                    <div className="p-3 bg-white rounded-lg border border-emerald-200">
+                                    <div className="p-3 bg-gray-50 rounded-lg border">
                                         <div className="font-semibold text-gray-800 mb-1">Active Tests</div>
                                         <div className="text-sm text-gray-600">Active tests can be ordered for patients</div>
                                     </div>
-                                    <div className="p-3 bg-white rounded-lg border border-emerald-200">
+                                    <div className="p-3 bg-gray-50 rounded-lg border">
                                         <div className="font-semibold text-gray-800 mb-1">Inactive Tests</div>
                                         <div className="text-sm text-gray-600">Hidden from ordering but can be edited</div>
                                     </div>
-                                    <div className="p-3 bg-white rounded-lg border border-emerald-200">
+                                    <div className="p-3 bg-gray-50 rounded-lg border">
                                         <div className="font-semibold text-gray-800 mb-1">Version Control</div>
                                         <div className="text-sm text-gray-600">Version numbers help track changes to test templates</div>
                                     </div>
                                 </div>
                                 <div className="space-y-3">
-                                    <div className="p-3 bg-white rounded-lg border border-emerald-200">
+                                    <div className="p-3 bg-gray-50 rounded-lg border">
                                         <div className="font-semibold text-gray-800 mb-1">Test Codes</div>
                                         <div className="text-sm text-gray-600">Short and unique codes like "CBC" or "UA"</div>
                                     </div>
-                                    <div className="p-3 bg-white rounded-lg border border-emerald-200">
+                                    <div className="p-3 bg-gray-50 rounded-lg border">
                                         <div className="font-semibold text-gray-800 mb-1">Field Organization</div>
                                         <div className="text-sm text-gray-600">Group related fields in logical sections</div>
                                     </div>
-                                    <div className="p-3 bg-white rounded-lg border border-emerald-200">
+                                    <div className="p-3 bg-gray-50 rounded-lg border">
                                         <div className="font-semibold text-gray-800 mb-1">Required Fields</div>
                                         <div className="text-sm text-gray-600">Mark essential fields as required for data completeness</div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </AppLayout>

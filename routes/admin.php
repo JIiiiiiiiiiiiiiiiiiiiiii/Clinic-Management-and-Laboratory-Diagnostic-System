@@ -84,6 +84,7 @@ Route::middleware(['auth', 'verified'])
             Route::get('/orders/create', [LabOrderController::class, 'create'])->name('orders.create');
             Route::get('/patients/{patient}/orders', [LabOrderController::class, 'index'])->name('orders.index');
             Route::post('/patients/{patient}/orders', [LabOrderController::class, 'store'])->name('orders.store');
+            Route::get('/orders/{order}', [LabOrderController::class, 'show'])->name('orders.show');
             Route::put('/orders/{order}/status', [LabOrderController::class, 'updateStatus'])->name('orders.updateStatus');
 
             // Results

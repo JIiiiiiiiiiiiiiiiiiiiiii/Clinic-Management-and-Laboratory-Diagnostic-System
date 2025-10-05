@@ -104,7 +104,7 @@ export default function PatientLabOrders({
     return (
         <AppLayout breadcrumbs={breadcrumbs(patient)}>
             <Head title={`Lab Orders - ${patient.last_name}, ${patient.first_name}`} />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+            <div className="min-h-screen bg-gray-50 p-6">
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-6">
@@ -118,7 +118,7 @@ export default function PatientLabOrders({
                                 </p>
                             </div>
                         </div>
-                        <Button onClick={() => setShowCreateForm(!showCreateForm)} className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
+                        <Button onClick={() => setShowCreateForm(!showCreateForm)}>
                             <Plus className="mr-2 h-4 w-4" />
                             {showCreateForm ? 'Cancel' : 'Create New Order'}
                         </Button>

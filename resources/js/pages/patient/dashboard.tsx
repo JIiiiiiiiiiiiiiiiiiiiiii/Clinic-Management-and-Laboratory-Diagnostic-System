@@ -52,7 +52,7 @@ export default function PatientDashboard() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Patient Dashboard" />
-            <div className="min-h-screen bg-gray-50 p-6">
+            <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
                 <div className="mb-8">
                     <h1 className="mb-2 text-3xl font-bold text-gray-900">Welcome back, {patientData.name}!</h1>
                     <p className="text-gray-500">Here's an overview of your health information and upcoming appointments.</p>

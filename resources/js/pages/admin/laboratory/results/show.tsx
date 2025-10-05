@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, Download, FileText, Pencil } from 'lucide-react';
+import { ArrowLeft, Download, Edit, FileText, Pencil } from 'lucide-react';
 
 type Result = {
     id: number;
@@ -67,7 +67,7 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Lab Results - Order #${order.id}`} />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+            <div className="min-h-screen bg-gray-50 p-6">
                 {/* Header Section */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
@@ -78,7 +78,7 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                                 </Link>
                             </Button>
                             <div>
-                                <h1 className="text-4xl font-bold text-[#283890] mb-2">Order #{order.id}</h1>
+                                <h1 className="text-4xl font-bold text-gray-900 mb-2">Order #{order.id}</h1>
                                 <p className="text-lg text-gray-600">
                                     {patient ? (
                                         <>
@@ -107,19 +107,17 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                 </div>
 
                 {/* Action Buttons */}
-                <div className="mb-8">
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                            <div className="flex items-center justify-between p-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-lg">
-                                        <FileText className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-2xl font-bold text-white">Actions</h3>
-                                        <p className="text-green-100 mt-1">Edit results, download reports, and export data</p>
-                                    </div>
-                                </div>
+                <Card className="shadow-lg mb-8">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                                <FileText className="h-6 w-6 text-blue-600" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-lg font-semibold text-gray-900">Actions</CardTitle>
+                                <p className="text-sm text-gray-500 mt-1">Edit results, download reports, and export data</p>
+                            </div>
+                        </div>
                                 <div className="flex items-center gap-2">
                         <TooltipProvider>
                             <Tooltip>
@@ -155,28 +153,43 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                                 <TooltipContent>Download Excel</TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Button variant="outline" onClick={() => router.visit(`/admin/laboratory/orders/${order.id}/results/entry`)}>
+                                        <Edit className="mr-2 h-4 w-4" />
+                                        Edit Results
+                                    </Button>
+                                    <Button variant="outline" onClick={() => window.open(`/admin/laboratory/orders/${order.id}/report`, '_blank')}>
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        Generate Report
+                                    </Button>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
+                        </CardContent>
+                    </Card>
 
                 {/* Results Cards */}
                 <div className="space-y-8">
                     {results.length === 0 ? (
-                        <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white">
-                            <div className="bg-gradient-to-r from-[#283890] to-[#3a4db3] text-white p-4">
+                        <Card className="shadow-lg">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-lg">
-                                        <FileText className="h-5 w-5 text-white" />
+                                    <div className="p-2 bg-blue-100 rounded-lg">
+                                        <FileText className="h-5 w-5 text-blue-600" />
                                     </div>
-                                    <h4 className="text-lg font-semibold text-white">No Results</h4>
+                                    <div>
+                                        <CardTitle className="text-lg font-semibold text-gray-900">No Results</CardTitle>
+                                        <p className="text-sm text-gray-500">No results saved for this order</p>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="p-6">
+                            </CardHeader>
+                            <CardContent className="p-6">
                                 <div className="text-center text-gray-500 py-8">No results saved for this order.</div>
-                            </div>
-                        </div>
+                            </CardContent>
+                        </Card>
                     ) : (
                         results.map((r) => {
                             const rows =
@@ -188,23 +201,25 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                                     : flatten(r.results);
                             
                             return (
-                                <div key={r.id} className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white">
-                                    <div className="bg-gradient-to-r from-[#283890] to-[#3a4db3] text-white p-4">
+                                <Card key={r.id} className="shadow-lg">
+                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-white/20 rounded-lg">
-                                                <FileText className="h-5 w-5 text-white" />
+                                            <div className="p-2 bg-blue-100 rounded-lg">
+                                                <FileText className="h-5 w-5 text-blue-600" />
                                             </div>
-                                            <h4 className="text-lg font-semibold text-white">
-                                                {r.test?.name ?? 'Unknown Test'}
-                                                {r.test?.code ? ` (${r.test.code})` : ''}
-                                            </h4>
+                                            <div>
+                                                <CardTitle className="text-lg font-semibold text-gray-900">
+                                                    {r.test?.name ?? 'Unknown Test'}
+                                                </CardTitle>
+                                                <p className="text-sm text-gray-500">{r.test?.code ? `Test ID: ${r.test.code}` : ''}</p>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="p-6">
+                                    </CardHeader>
+                                    <CardContent className="p-6">
                                         <div className="flex items-center justify-between mb-4">
                                             <h5 className="text-sm font-semibold text-gray-700">Test Parameters</h5>
                                             <div className="bg-gray-100 rounded-full border border-gray-300 shadow-sm px-3 py-1">
-                                                <span className="text-[#283890] font-semibold text-sm">
+                                                <span className="text-gray-700 font-semibold text-sm">
                                                     {rows.length} parameters
                                                 </span>
                                             </div>
@@ -257,8 +272,8 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                                                 )}
                                             </div>
                                         </div>
-                                    </div>
-                                </div>
+                                    </CardContent>
+                                </Card>
                             );
                         })
                     )}
@@ -267,20 +282,23 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                 {/* Test Section Cards */}
                 <div className="grid gap-8 md:grid-cols-2 mt-8">
                     {/* Hematology Section */}
-                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white">
-                        <div className="bg-gradient-to-r from-[#283890] to-[#3a4db3] text-white p-4">
+                    <Card className="shadow-lg">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-white/20 rounded-lg">
-                                    <FileText className="h-5 w-5 text-white" />
+                                <div className="p-2 bg-blue-100 rounded-lg">
+                                    <FileText className="h-5 w-5 text-blue-600" />
                                 </div>
-                                <h4 className="text-lg font-semibold text-white">Hematology</h4>
+                                <div>
+                                    <CardTitle className="text-lg font-semibold text-gray-900">Hematology</CardTitle>
+                                    <p className="text-sm text-gray-500">Blood test parameters</p>
+                                </div>
                             </div>
-                        </div>
-                        <div className="p-6">
+                        </CardHeader>
+                        <CardContent className="p-6">
                             <div className="flex items-center justify-between mb-4">
                                 <h5 className="text-sm font-semibold text-gray-700">Test Parameters</h5>
                                 <div className="bg-gray-100 rounded-full border border-gray-300 shadow-sm px-3 py-1">
-                                    <span className="text-[#283890] font-semibold text-sm">5 fields</span>
+                                    <span className="text-gray-700 font-semibold text-sm">5 fields</span>
                                 </div>
                             </div>
                             <div className="space-y-4">
@@ -329,24 +347,27 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                                     </table>
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                        </CardContent>
+                    </Card>
 
                     {/* Chemistry Section */}
-                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white">
-                        <div className="bg-gradient-to-r from-[#283890] to-[#3a4db3] text-white p-4">
+                    <Card className="shadow-lg">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-white/20 rounded-lg">
-                                    <FileText className="h-5 w-5 text-white" />
+                                <div className="p-2 bg-blue-100 rounded-lg">
+                                    <FileText className="h-5 w-5 text-blue-600" />
                                 </div>
-                                <h4 className="text-lg font-semibold text-white">Chemistry</h4>
+                                <div>
+                                    <CardTitle className="text-lg font-semibold text-gray-900">Chemistry</CardTitle>
+                                    <p className="text-sm text-gray-500">Chemical analysis parameters</p>
+                                </div>
                             </div>
-                        </div>
-                        <div className="p-6">
+                        </CardHeader>
+                        <CardContent className="p-6">
                             <div className="flex items-center justify-between mb-4">
                                 <h5 className="text-sm font-semibold text-gray-700">Test Parameters</h5>
                                 <div className="bg-gray-100 rounded-full border border-gray-300 shadow-sm px-3 py-1">
-                                    <span className="text-[#283890] font-semibold text-sm">4 fields</span>
+                                    <span className="text-gray-700 font-semibold text-sm">4 fields</span>
                                 </div>
                             </div>
                             <div className="space-y-4">
@@ -389,8 +410,8 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                                     </table>
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </AppLayout>

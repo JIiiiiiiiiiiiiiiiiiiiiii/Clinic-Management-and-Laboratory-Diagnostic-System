@@ -1,10 +1,11 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PatientPageLayout, PatientActionButton } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, Edit, Trash2, Calendar, User, Heart, Activity, Thermometer, Weight, Ruler, AlertCircle, Wind } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Calendar, User, Heart, Activity, Thermometer, Weight, Ruler, AlertCircle, Wind, Stethoscope, Clock } from 'lucide-react';
 import Heading from '@/components/heading';
 
 interface VisitShowProps {
@@ -24,43 +25,40 @@ export default function VisitShow({ patient, visit }: VisitShowProps) {
     return (
         <AppLayout breadcrumbs={buildBreadcrumbs(patient.id)}>
             <Head title={`Visit on ${formatDate(visit.arrival_date)}`} />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 pb-12">
-                {/* Header Section */}
-                <div className="mb-8">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <Button asChild variant="ghost" size="icon" className="bg-white hover:bg-gray-50 shadow-md">
-                                <Link href={`/admin/patient/${patient.id}?tab=visits`}>
-                                    <ArrowLeft className="h-4 w-4" />
-                                </Link>
-                            </Button>
-                            <Heading 
-                                title="Visit Details" 
-                                description={`${patient.last_name}, ${patient.first_name} - ${formatDate(visit.arrival_date)} ${formatTime(visit.arrival_time)}`} 
-                                icon={Calendar} 
-                            />
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <Button asChild className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
-                                <Link href={`/admin/patient/${patient.id}/visits/${visit.id}/edit`}>
-                                    <Edit className="mr-2 h-5 w-5" />
-                                    Edit Visit
-                                </Link>
-                            </Button>
-                            <Button
-                                className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl"
-                                onClick={() =>
-                                    router.delete(`/admin/patient/${patient.id}/visits/${visit.id}`, {
-                                        onSuccess: () => router.visit(`/admin/patient/${patient.id}/visits`),
-                                    })
-                                }
-                            >
-                                <Trash2 className="mr-2 h-5 w-5" />
-                                Delete Visit
-                            </Button>
-                        </div>
+            <PatientPageLayout
+                title="Visit Details"
+                description={`${patient.last_name}, ${patient.first_name} - ${formatDate(visit.arrival_date)} ${formatTime(visit.arrival_time)}`}
+                icon={<Calendar className="h-6 w-6 text-blue-600" />}
+                actions={
+                    <div className="flex items-center gap-3">
+                        <PatientActionButton
+                            variant="outline"
+                            icon={<ArrowLeft className="h-4 w-4" />}
+                            label="Back to Patient"
+                            href={`/admin/patient/${patient.id}?tab=visits`}
+                            className="hover:bg-gray-50"
+                        />
+                        <PatientActionButton
+                            variant="default"
+                            icon={<Edit className="h-4 w-4" />}
+                            label="Edit Visit"
+                            href={`/admin/patient/${patient.id}/visits/${visit.id}/edit`}
+                            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                        />
+                        <Button
+                            className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl"
+                            onClick={() =>
+                                router.delete(`/admin/patient/${patient.id}/visits/${visit.id}`, {
+                                    onSuccess: () => router.visit(`/admin/patient/${patient.id}/visits`),
+                                })
+                            }
+                        >
+                            <Trash2 className="mr-2 h-5 w-5" />
+                            Delete Visit
+                        </Button>
                     </div>
-                </div>
+                }
+            >
 
                 {/* Main Content Grid */}
                 <div className="grid gap-8 md:grid-cols-2">
@@ -266,7 +264,7 @@ export default function VisitShow({ patient, visit }: VisitShowProps) {
                         </div>
                     </div>
                 </div>
-            </div>
+            </PatientPageLayout>
         </AppLayout>
     );
 }

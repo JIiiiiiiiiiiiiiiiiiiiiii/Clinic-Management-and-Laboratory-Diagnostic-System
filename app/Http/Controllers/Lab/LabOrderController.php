@@ -110,6 +110,25 @@ class LabOrderController extends Controller
         }
     }
 
+    public function show(LabOrder $order)
+    {
+        $order->load([
+            'patient', 
+            'labTests', 
+            'results.test', 
+            'results.values',
+            'orderedBy'
+        ]);
+
+        // Normalize relation name for frontend
+        $order->setRelation('lab_tests', $order->labTests);
+        $order->unsetRelation('labTests');
+
+        return Inertia::render('admin/laboratory/orders/show', [
+            'order' => $order,
+        ]);
+    }
+
     public function updateStatus(Request $request, LabOrder $order)
     {
         try {

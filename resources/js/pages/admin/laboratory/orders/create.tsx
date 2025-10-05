@@ -41,25 +41,26 @@ export default function LabOrdersCreate({ patients = [] }: { patients?: Patient[
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Create Lab Order" />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+            <div className="min-h-screen bg-gray-50 p-6">
                 <div className="mb-8">
                     <Heading title="Create New Lab Order" description="Select a patient to continue" icon={FileText} />
                 </div>
 
                 <div className="grid gap-8 md:grid-cols-3 items-start">
                     <div className="md:col-span-2 space-y-8">
-                        <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                                <div className="flex items-center justify-between p-6">
-                                    <div className="flex items-center gap-3">
-                                        <div>
-                                            <h3 className="text-2xl font-bold text-white">Choose Patient</h3>
-                                            <p className="text-blue-100 mt-1">Search and select a patient to begin the order</p>
-                                        </div>
+                        <Card className="shadow-lg">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-blue-100 rounded-lg">
+                                        <User2 className="h-6 w-6 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-lg font-semibold text-gray-900">Choose Patient</CardTitle>
+                                        <p className="text-sm text-gray-500 mt-1">Search and select a patient to begin the order</p>
                                     </div>
                                 </div>
-                            </div>
-                            <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100">
+                            </CardHeader>
+                            <CardContent className="p-6">
                                 <div className="mb-4 flex items-center">
                                     <Search className="mr-2 h-4 w-4 text-blue-600" />
                                     <Input placeholder="Search by name..." value={query} onChange={(e) => setQuery(e.target.value)} className="w-80 h-12 border-gray-300 rounded-xl shadow-sm" />
@@ -86,40 +87,38 @@ export default function LabOrdersCreate({ patients = [] }: { patients?: Patient[
                                         </div>
                                     ))}
                                 </div>
-                            </div>
-                        </div>
+                            </CardContent>
+                        </Card>
                     </div>
 
                     {/* Quick Tips */}
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white sticky top-0 self-start">
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                            <div className="flex items-center gap-3 p-6">
-                                <div className="p-2 bg-white/20 rounded-lg">
-                                    <User2 className="h-6 w-6" />
+                    <Card className="shadow-lg sticky top-0 self-start">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-blue-100 rounded-lg">
+                                    <User2 className="h-6 w-6 text-blue-600" />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-bold text-white">Quick Tips</h3>
-                                    <p className="text-green-100 mt-1">Selecting patients for orders</p>
+                                    <CardTitle className="text-lg font-semibold text-gray-900">Quick Tips</CardTitle>
+                                    <p className="text-sm text-gray-500 mt-1">Selecting patients for orders</p>
                                 </div>
                             </div>
-                        </div>
-                        <div className="px-6 py-6 bg-gradient-to-br from-green-50 to-green-100">
-                            <div className="space-y-3">
-                                <div className="p-3 bg-white rounded-lg border border-green-200">
-                                    <div className="font-semibold text-gray-800 mb-1">Search Precisely</div>
-                                    <div className="text-sm text-gray-600">Use both first and last name to narrow results</div>
-                                </div>
-                                <div className="p-3 bg-white rounded-lg border border-green-200">
-                                    <div className="font-semibold text-gray-800 mb-1">Verify Identity</div>
-                                    <div className="text-sm text-gray-600">Confirm age/sex to avoid selecting the wrong patient</div>
-                                </div>
-                                <div className="p-3 bg-white rounded-lg border border-green-200">
-                                    <div className="font-semibold text-gray-800 mb-1">Recent Patients</div>
-                                    <div className="text-sm text-gray-600">Recently seen patients are often at the top</div>
-                                </div>
+                        </CardHeader>
+                        <CardContent className="p-6 space-y-3">
+                            <div className="p-3 bg-gray-50 rounded-lg border">
+                                <div className="font-semibold text-gray-800 mb-1">Search Precisely</div>
+                                <div className="text-sm text-gray-600">Use both first and last name to narrow results</div>
                             </div>
-                        </div>
-                    </div>
+                            <div className="p-3 bg-gray-50 rounded-lg border">
+                                <div className="font-semibold text-gray-800 mb-1">Verify Identity</div>
+                                <div className="text-sm text-gray-600">Confirm age/sex to avoid selecting the wrong patient</div>
+                            </div>
+                            <div className="p-3 bg-gray-50 rounded-lg border">
+                                <div className="font-semibold text-gray-800 mb-1">Recent Patients</div>
+                                <div className="text-sm text-gray-600">Recently seen patients are often at the top</div>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </AppLayout>
