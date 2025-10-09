@@ -1,18 +1,16 @@
-import React, { useState } from 'react';
-import AppLayout from '@/layouts/app-layout';
-import { Head } from '@inertiajs/react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PatientInfoCard } from '@/components/patient/PatientPageLayout';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, TrendingUp, Users, DollarSign, FileText, BarChart3, PieChart, Download, Filter, CalendarDays, MoreHorizontal, Search, Plus, FlaskConical } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import AppLayout from '@/layouts/app-layout';
+import { Head } from '@inertiajs/react';
+import { BarChart3, DollarSign, Download, FileText, FlaskConical, MoreHorizontal, Plus, Search, Users } from 'lucide-react';
+import { useState } from 'react';
 
 interface ReportData {
     id: number;
@@ -48,7 +46,7 @@ const mockReportData: ReportData[] = [
         generatedBy: 'Admin User',
         status: 'Generated',
         lastGenerated: '2025-01-15 10:30 AM',
-        downloadUrl: '/reports/financial-jan-2025.pdf'
+        downloadUrl: '/reports/financial-jan-2025.pdf',
     },
     {
         id: 2,
@@ -58,7 +56,7 @@ const mockReportData: ReportData[] = [
         generatedBy: 'Dr. Smith',
         status: 'Generated',
         lastGenerated: '2025-01-10 2:15 PM',
-        downloadUrl: '/reports/patient-analytics-q4-2024.pdf'
+        downloadUrl: '/reports/patient-analytics-q4-2024.pdf',
     },
     {
         id: 3,
@@ -67,7 +65,7 @@ const mockReportData: ReportData[] = [
         dateRange: 'January 2025',
         generatedBy: 'Admin User',
         status: 'Processing',
-        lastGenerated: '2025-01-14 9:45 AM'
+        lastGenerated: '2025-01-14 9:45 AM',
     },
     {
         id: 4,
@@ -77,8 +75,8 @@ const mockReportData: ReportData[] = [
         generatedBy: 'HR Manager',
         status: 'Generated',
         lastGenerated: '2025-01-12 4:20 PM',
-        downloadUrl: '/reports/staff-performance-dec-2024.pdf'
-    }
+        downloadUrl: '/reports/staff-performance-dec-2024.pdf',
+    },
 ];
 
 const mockFinancialData: FinancialData[] = [
@@ -87,19 +85,19 @@ const mockFinancialData: FinancialData[] = [
     { month: 'Mar', revenue: 48000, expenses: 33000, profit: 15000, patientCount: 128 },
     { month: 'Apr', revenue: 55000, expenses: 38000, profit: 17000, patientCount: 142 },
     { month: 'May', revenue: 60000, expenses: 40000, profit: 20000, patientCount: 155 },
-    { month: 'Jun', revenue: 58000, expenses: 39000, profit: 19000, patientCount: 148 }
+    { month: 'Jun', revenue: 58000, expenses: 39000, profit: 19000, patientCount: 148 },
 ];
 
 const mockPatientStats: PatientStats[] = [
     { category: 'New Patients', count: 45, percentage: 22.2 },
     { category: 'Returning Patients', count: 89, percentage: 43.8 },
     { category: 'Emergency Cases', count: 23, percentage: 11.3 },
-    { category: 'Follow-up Visits', count: 46, percentage: 22.7 }
+    { category: 'Follow-up Visits', count: 46, percentage: 22.7 },
 ];
 
 const breadcrumbs = [
     { label: 'Dashboard', href: '/admin/dashboard' },
-    { label: 'Reports & Analytics', href: '/admin/reports' }
+    { label: 'Reports & Analytics', href: '/admin/reports' },
 ];
 
 export default function ReportsAndAnalytics() {
@@ -108,7 +106,7 @@ export default function ReportsAndAnalytics() {
     const [showGenerateDialog, setShowGenerateDialog] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
 
-    const filteredReports = mockReportData.filter(report => {
+    const filteredReports = mockReportData.filter((report) => {
         const matchesType = selectedReportType === 'all' || report.type.toLowerCase() === selectedReportType.toLowerCase();
         const matchesSearch = report.name.toLowerCase().includes(searchTerm.toLowerCase());
         return matchesType && matchesSearch;
@@ -134,6 +132,44 @@ export default function ReportsAndAnalytics() {
 
     const reportTypes = ['all', 'Financial', 'Analytics', 'Inventory', 'HR'];
 
+    const quickActions = [
+        {
+            name: 'Financial Reports',
+            description: 'Revenue, expenses, and financial analytics',
+            href: '/admin/reports/financial',
+            icon: DollarSign,
+            color: 'bg-gradient-to-r from-green-500 to-emerald-500',
+        },
+        {
+            name: 'Patient Reports',
+            description: 'Patient demographics and visit analytics',
+            href: '/admin/reports/patients',
+            icon: Users,
+            color: 'bg-gradient-to-r from-blue-500 to-cyan-500',
+        },
+        {
+            name: 'Laboratory Reports',
+            description: 'Lab test results and quality metrics',
+            href: '/admin/reports/laboratory',
+            icon: FlaskConical,
+            color: 'bg-gradient-to-r from-purple-500 to-violet-500',
+        },
+        {
+            name: 'Inventory Reports',
+            description: 'Supply management and stock analytics',
+            href: '/admin/reports/inventory',
+            icon: BarChart3,
+            color: 'bg-gradient-to-r from-orange-500 to-red-500',
+        },
+        {
+            name: 'Analytics Dashboard',
+            description: 'Comprehensive analytics and insights',
+            href: '/admin/reports/analytics',
+            icon: BarChart3,
+            color: 'bg-gradient-to-r from-indigo-500 to-blue-500',
+        },
+    ];
+
     return (
         <AppLayout breadcrumbs={breadcrumbs as any}>
             <Head title="Reports & Analytics" />
@@ -142,20 +178,20 @@ export default function ReportsAndAnalytics() {
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-6">
-                                    <div>
-                                <h1 className="text-4xl font-semibold text-black mb-4">Reports & Analytics</h1>
-                                <p className="text-sm text-black mt-1">Generate comprehensive reports and analyze clinic performance</p>
+                            <div>
+                                <h1 className="mb-4 text-4xl font-semibold text-black">Reports & Analytics</h1>
+                                <p className="mt-1 text-sm text-black">Generate comprehensive reports and analyze clinic performance</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-4">
-                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4">
+                            <div className="rounded-xl border bg-white px-6 py-4 shadow-lg">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                    <div className="rounded-lg bg-gray-100 p-2">
                                         <BarChart3 className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <div className="text-3xl font-bold text-black">{mockReportData.length}</div>
-                                        <div className="text-black text-sm font-medium">Total Reports</div>
+                                        <div className="text-sm font-medium text-black">Total Reports</div>
                                     </div>
                                 </div>
                             </div>
@@ -163,49 +199,79 @@ export default function ReportsAndAnalytics() {
                     </div>
                 </div>
 
+                {/* Quick Actions */}
+                <div className="mb-8">
+                    <h2 className="mb-4 text-xl font-semibold text-gray-900">Quick Actions</h2>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {quickActions.map((action) => (
+                            <Card key={action.name} className="relative overflow-hidden transition-shadow hover:shadow-lg">
+                                <div className={`absolute inset-0 ${action.color} opacity-10`} />
+                                <CardHeader className="relative">
+                                    <CardTitle className="flex items-center gap-2">
+                                        <action.icon className="h-5 w-5" />
+                                        {action.name}
+                                    </CardTitle>
+                                    <p className="text-sm text-gray-600">{action.description}</p>
+                                </CardHeader>
+                                <CardContent className="relative">
+                                    <Button asChild className="w-full">
+                                        <a href={action.href}>
+                                            <action.icon className="mr-2 h-4 w-4" />
+                                            {action.name}
+                                        </a>
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </div>
+
                 {/* Main content layout */}
                 <div className="space-y-6">
-                    <Card className="shadow-lg border-0 rounded-xl bg-white">
-                        <CardHeader className="bg-white border-b border-gray-200">
+                    <Card className="rounded-xl border-0 bg-white shadow-lg">
+                        <CardHeader className="border-b border-gray-200 bg-white">
                             <CardTitle className="flex items-center gap-3 text-xl font-semibold text-black">
                                 <BarChart3 className="h-5 w-5 text-black" />
                                 Reports & Analytics
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-6">
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-4">
-                                <div className="relative flex-1 max-w-md">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        placeholder="Search reports..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-10 h-12 border-gray-200 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
-                                    />
+                            <div className="mb-6 flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="relative max-w-md flex-1">
+                                        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+                                        <Input
+                                            placeholder="Search reports..."
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            className="h-12 rounded-xl border-gray-200 pl-10 shadow-sm focus:border-gray-500 focus:ring-gray-500"
+                                        />
+                                    </div>
+                                    <Select value={selectedReportType} onValueChange={setSelectedReportType}>
+                                        <SelectTrigger className="h-12 w-48 border-gray-200 focus:border-gray-500 focus:ring-gray-500">
+                                            <SelectValue placeholder="Filter by type" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {reportTypes.map((type) => (
+                                                <SelectItem key={type} value={type}>
+                                                    {type === 'all' ? 'All Types' : type}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
-                                <Select value={selectedReportType} onValueChange={setSelectedReportType}>
-                                    <SelectTrigger className="w-48 h-12 border-gray-200 focus:border-gray-500 focus:ring-gray-500">
-                                        <SelectValue placeholder="Filter by type" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {reportTypes.map((type) => (
-                                            <SelectItem key={type} value={type}>
-                                                {type === 'all' ? 'All Types' : type}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Button
+                                    onClick={() => setShowGenerateDialog(true)}
+                                    className="rounded-xl bg-gray-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:bg-gray-700 hover:shadow-xl"
+                                >
+                                    <Plus className="mr-3 h-6 w-6" />
+                                    Generate Report
+                                </Button>
                             </div>
-                            <Button onClick={() => setShowGenerateDialog(true)} className="bg-gray-600 hover:bg-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl">
-                                <Plus className="mr-3 h-6 w-6" />
-                                Generate Report
-                            </Button>
-                        </div>
 
                             {/* Reports Table */}
-                                <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                    <Table>
+                            <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                <Table>
                                     <TableHeader className="bg-gray-50">
                                         <TableRow className="hover:bg-gray-100">
                                             <TableHead className="font-semibold text-black">
@@ -220,17 +286,21 @@ export default function ReportsAndAnalytics() {
                                             <TableHead className="font-semibold text-black">Generated By</TableHead>
                                             <TableHead className="font-semibold text-black">Last Generated</TableHead>
                                             <TableHead className="font-semibold text-black">Actions</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
                                         {filteredReports.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={7} className="text-center py-8">
+                                                <TableCell colSpan={7} className="py-8 text-center">
                                                     <div className="flex flex-col items-center">
                                                         <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                                                        <h3 className="mb-2 text-lg font-semibold text-black">{searchTerm ? 'No reports found' : 'No reports generated yet'}</h3>
+                                                        <h3 className="mb-2 text-lg font-semibold text-black">
+                                                            {searchTerm ? 'No reports found' : 'No reports generated yet'}
+                                                        </h3>
                                                         <p className="text-black">
-                                                            {searchTerm ? 'Try adjusting your search terms' : 'Generate your first report to get started'}
+                                                            {searchTerm
+                                                                ? 'Try adjusting your search terms'
+                                                                : 'Generate your first report to get started'}
                                                         </p>
                                                     </div>
                                                 </TableCell>
@@ -240,7 +310,7 @@ export default function ReportsAndAnalytics() {
                                                 <TableRow key={report.id} className="hover:bg-gray-50">
                                                     <TableCell className="font-medium">
                                                         <div className="flex items-center gap-2">
-                                                            <div className="p-1 bg-gray-100 rounded-full">
+                                                            <div className="rounded-full bg-gray-100 p-1">
                                                                 <FileText className="h-4 w-4 text-black" />
                                                             </div>
                                                             {report.name}
@@ -249,9 +319,7 @@ export default function ReportsAndAnalytics() {
                                                     <TableCell className="text-sm text-black">{report.type}</TableCell>
                                                     <TableCell className="text-sm text-black">{report.dateRange}</TableCell>
                                                     <TableCell>
-                                                        <Badge className={getStatusBadge(report.status)}>
-                                                            {report.status}
-                                                        </Badge>
+                                                        <Badge className={getStatusBadge(report.status)}>{report.status}</Badge>
                                                     </TableCell>
                                                     <TableCell className="text-sm text-black">{report.generatedBy}</TableCell>
                                                     <TableCell className="text-sm text-black">{report.lastGenerated}</TableCell>
@@ -267,15 +335,15 @@ export default function ReportsAndAnalytics() {
                                                                 <DropdownMenuTrigger asChild>
                                                                     <Button size="sm" variant="outline">
                                                                         <MoreHorizontal className="h-3 w-3" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
                                                                 <DropdownMenuContent>
-                                                                <DropdownMenuItem>View Details</DropdownMenuItem>
-                                                                <DropdownMenuItem>Regenerate</DropdownMenuItem>
-                                                                <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem>View Details</DropdownMenuItem>
+                                                                    <DropdownMenuItem>Regenerate</DropdownMenuItem>
+                                                                    <DropdownMenuSeparator />
                                                                     <DropdownMenuItem className="text-black">Delete</DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
                                                         </div>
                                                     </TableCell>
                                                 </TableRow>
@@ -286,10 +354,10 @@ export default function ReportsAndAnalytics() {
                             </div>
                         </CardContent>
                     </Card>
-                    
+
                     {/* Quick Tips Section */}
-                    <Card className="shadow-lg border-0 rounded-xl bg-white">
-                        <CardHeader className="bg-white border-b border-gray-200">
+                    <Card className="rounded-xl border-0 bg-white shadow-lg">
+                        <CardHeader className="border-b border-gray-200 bg-white">
                             <CardTitle className="flex items-center gap-3 text-xl font-semibold text-black">
                                 <FlaskConical className="h-5 w-5 text-black" />
                                 Quick Tips
@@ -297,20 +365,20 @@ export default function ReportsAndAnalytics() {
                         </CardHeader>
                         <CardContent className="p-6">
                             <div className="space-y-4">
-                                <div className="p-3 bg-white rounded-lg border border-gray-200">
-                                    <div className="font-semibold text-black mb-1">Report Types</div>
+                                <div className="rounded-lg border border-gray-200 bg-white p-3">
+                                    <div className="mb-1 font-semibold text-black">Report Types</div>
                                     <div className="text-sm text-black">Choose the right report type for your needs</div>
                                 </div>
-                                <div className="p-3 bg-white rounded-lg border border-gray-200">
-                                    <div className="font-semibold text-black mb-1">Date Ranges</div>
+                                <div className="rounded-lg border border-gray-200 bg-white p-3">
+                                    <div className="mb-1 font-semibold text-black">Date Ranges</div>
                                     <div className="text-sm text-black">Select appropriate date ranges for accurate analysis</div>
                                 </div>
-                                <div className="p-3 bg-white rounded-lg border border-gray-200">
-                                    <div className="font-semibold text-black mb-1">Regular Reports</div>
+                                <div className="rounded-lg border border-gray-200 bg-white p-3">
+                                    <div className="mb-1 font-semibold text-black">Regular Reports</div>
                                     <div className="text-sm text-black">Schedule regular reports for consistent monitoring</div>
                                 </div>
-                                <div className="p-3 bg-white rounded-lg border border-gray-200">
-                                    <div className="font-semibold text-black mb-1">Data Accuracy</div>
+                                <div className="rounded-lg border border-gray-200 bg-white p-3">
+                                    <div className="mb-1 font-semibold text-black">Data Accuracy</div>
                                     <div className="text-sm text-black">Ensure data is up-to-date before generating reports</div>
                                 </div>
                             </div>
@@ -318,56 +386,52 @@ export default function ReportsAndAnalytics() {
                     </Card>
                 </div>
 
-            {/* Generate Report Dialog */}
-            <Dialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
+                {/* Generate Report Dialog */}
+                <Dialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
                     <DialogContent className="sm:max-w-md">
                         <DialogHeader>
                             <DialogTitle>Generate New Report</DialogTitle>
-                            <DialogDescription>
-                                Select the type of report you want to generate and specify the date range.
-                            </DialogDescription>
+                            <DialogDescription>Select the type of report you want to generate and specify the date range.</DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4">
-                        <div className="space-y-2">
+                            <div className="space-y-2">
                                 <Label htmlFor="report-type">Report Type</Label>
-                            <Select>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select report type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="financial">Financial Report</SelectItem>
-                                    <SelectItem value="analytics">Analytics Report</SelectItem>
-                                    <SelectItem value="inventory">Inventory Report</SelectItem>
-                                    <SelectItem value="hr">HR Report</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
+                                <Select>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select report type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="financial">Financial Report</SelectItem>
+                                        <SelectItem value="analytics">Analytics Report</SelectItem>
+                                        <SelectItem value="inventory">Inventory Report</SelectItem>
+                                        <SelectItem value="hr">HR Report</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
                                 <Label htmlFor="date-range">Date Range</Label>
-                            <Select>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select date range" />
-                                </SelectTrigger>
-                                <SelectContent>
+                                <Select>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select date range" />
+                                    </SelectTrigger>
+                                    <SelectContent>
                                         <SelectItem value="last-week">Last Week</SelectItem>
                                         <SelectItem value="last-month">Last Month</SelectItem>
                                         <SelectItem value="last-quarter">Last Quarter</SelectItem>
                                         <SelectItem value="last-year">Last Year</SelectItem>
-                                    <SelectItem value="custom">Custom Range</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                                        <SelectItem value="custom">Custom Range</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                         <DialogFooter>
                             <Button variant="outline" onClick={() => setShowGenerateDialog(false)}>
                                 Cancel
                             </Button>
-                            <Button onClick={() => setShowGenerateDialog(false)}>
-                                Generate Report
-                            </Button>
+                            <Button onClick={() => setShowGenerateDialog(false)}>Generate Report</Button>
                         </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    </DialogContent>
+                </Dialog>
             </div>
         </AppLayout>
     );

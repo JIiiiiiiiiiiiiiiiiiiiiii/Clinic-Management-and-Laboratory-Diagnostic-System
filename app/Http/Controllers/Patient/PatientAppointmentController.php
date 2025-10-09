@@ -21,10 +21,10 @@ class PatientAppointmentController extends Controller
     {
         $user = auth()->user();
         $patient = Patient::where('user_id', $user->id)->first();
-        
+
         $appointments = collect([]);
         $available_doctors = collect([]);
-        
+
         // Load appointments if patient record exists, otherwise show empty state
         if ($patient) {
             // Get patient's appointments using patient_no as the identifier
@@ -46,9 +46,9 @@ class PatientAppointmentController extends Controller
                         'billing_status' => $appointment->billing_status,
                     ];
                 });
-            
+
         }
-        
+
         // Always get available doctors for booking (even without patient record)
         $available_doctors = User::where('role', 'doctor')
             ->where('is_active', true)
@@ -81,7 +81,7 @@ class PatientAppointmentController extends Controller
                     'data' => $notification->data,
                 ];
             });
-        
+
         $unreadCount = Notification::where('user_id', $user->id)
             ->where('read', false)
             ->count();
@@ -100,7 +100,7 @@ class PatientAppointmentController extends Controller
     public function create(): Response
     {
         $user = auth()->user();
-        
+
         // Get available doctors and specialists
         $doctors = User::where('role', 'doctor')
             ->where('is_active', true)
@@ -138,7 +138,7 @@ class PatientAppointmentController extends Controller
                     'data' => $notification->data,
                 ];
             });
-        
+
         $unreadCount = Notification::where('user_id', $user->id)
             ->where('read', false)
             ->count();
@@ -157,7 +157,7 @@ class PatientAppointmentController extends Controller
     public function book(): Response
     {
         $user = auth()->user();
-        
+
         // Get available doctors and specialists with enhanced info
         $doctors = User::where('role', 'doctor')
             ->where('is_active', true)
@@ -203,7 +203,7 @@ class PatientAppointmentController extends Controller
             'ultrasound' => 'Ultrasound',
         ];
 
-        return Inertia::render('patient/DebugAppointmentBooking', [
+        return Inertia::render('patient/appointment-create', [
             'user' => $user,
             'patient' => Patient::where('user_id', $user->id)->first(),
         ]);
@@ -215,10 +215,10 @@ class PatientAppointmentController extends Controller
             'user_id' => auth()->id(),
             'request_data' => $request->all()
         ]);
-        
+
         $user = auth()->user();
         $patient = Patient::where('user_id', $user->id)->first();
-        
+
         // If no patient record, redirect to unified registration
         if (!$patient) {
             return redirect()->route('patient.register.and.book')
@@ -311,7 +311,7 @@ class PatientAppointmentController extends Controller
                 'patient_id' => $patient->id,
                 'appointment_data' => $pendingAppointmentData
             ]);
-            
+
             return back()->withErrors(['error' => 'Failed to submit appointment request. Please try again.']);
         }
     }
@@ -320,7 +320,7 @@ class PatientAppointmentController extends Controller
     {
         $user = auth()->user();
         $patient = Patient::where('user_id', $user->id)->first();
-        
+
         // Verify ownership
         if (!$patient || $appointment->patient_id !== $patient->patient_no) {
             abort(403, 'Access denied.');
@@ -335,7 +335,7 @@ class PatientAppointmentController extends Controller
     {
         $user = auth()->user();
         $patient = Patient::where('user_id', $user->id)->first();
-        
+
         // Verify ownership and allow editing only if pending
         if (!$patient || $appointment->patient_id !== $patient->patient_no) {
             abort(403, 'Access denied.');
@@ -380,7 +380,7 @@ class PatientAppointmentController extends Controller
     {
         $user = auth()->user();
         $patient = Patient::where('user_id', $user->id)->first();
-        
+
         // Verify ownership and allow editing only if pending
         if (!$patient || $appointment->patient_id !== $patient->patient_no) {
             abort(403, 'Access denied.');
@@ -449,7 +449,7 @@ class PatientAppointmentController extends Controller
     {
         $user = auth()->user();
         $patient = Patient::where('user_id', $user->id)->first();
-        
+
         // Verify ownership and allow cancellation only if pending
         if (!$patient || $appointment->patient_id !== $patient->patient_no) {
             abort(403, 'Access denied.');
@@ -469,7 +469,7 @@ class PatientAppointmentController extends Controller
     public function getAvailableDoctors(Request $request)
     {
         $specialistType = $request->get('specialist_type', 'doctor');
-        
+
         $specialists = User::where('role', $specialistType)
             ->where('is_active', true)
             ->select('id', 'name', 'specialization', 'employee_id')
@@ -482,7 +482,7 @@ class PatientAppointmentController extends Controller
     {
         $specialistId = $request->get('specialist_id');
         $date = $request->get('date');
-        
+
         if (!$specialistId || !$date) {
             return response()->json([]);
         }
@@ -528,16 +528,16 @@ class PatientAppointmentController extends Controller
                 $hour = (int)$matches[1];
                 $minute = $matches[2];
                 $ampm = strtoupper($matches[3]);
-                
+
                 if ($ampm === 'PM' && $hour !== 12) {
                     $hour += 12;
                 } elseif ($ampm === 'AM' && $hour === 12) {
                     $hour = 0;
                 }
-                
+
                 return sprintf('%02d:%s:00', $hour, $minute);
             }
-            
+
             // Default fallback
             return '09:00:00';
         }

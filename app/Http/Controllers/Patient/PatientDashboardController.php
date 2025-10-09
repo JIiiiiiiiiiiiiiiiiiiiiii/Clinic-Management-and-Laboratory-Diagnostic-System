@@ -19,10 +19,10 @@ class PatientDashboardController extends Controller
     public function index(Request $request): Response|RedirectResponse
     {
         $user = $request->user();
-        
+
         // Find the patient record associated with this user
         $patient = Patient::where('user_id', $user->id)->first();
-        
+
         // Initialize dashboard data with appointment-focused content
         $dashboardData = [
             'user' => $user,
@@ -62,7 +62,7 @@ class PatientDashboardController extends Controller
 
         // Get recent appointments (last 5)
         $recent_appointments = $appointments->take(5)->values();
-        
+
         // Get upcoming appointments (confirmed, future dates)
         $upcoming_appointments = $appointments->where('status', 'Confirmed')
             ->filter(function($appointment) {
@@ -76,7 +76,7 @@ class PatientDashboardController extends Controller
         $dashboardData['upcoming_appointments'] = $upcoming_appointments;
         $dashboardData['recent_lab_orders'] = []; // Empty for now
         $dashboardData['recent_visits'] = []; // Empty for now
-        
+
         // Get notifications for the user
         $notifications = Notification::where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
@@ -93,14 +93,14 @@ class PatientDashboardController extends Controller
                     'data' => $notification->data,
                 ];
             });
-        
+
         $unreadCount = Notification::where('user_id', $user->id)
             ->where('read', false)
             ->count();
-        
+
         $dashboardData['notifications'] = $notifications;
         $dashboardData['unreadCount'] = $unreadCount;
-        
-        return Inertia::render('patient/AppointmentFocusedDashboard', $dashboardData);
+
+        return Inertia::render('patient/dashboard', $dashboardData);
     }
 }

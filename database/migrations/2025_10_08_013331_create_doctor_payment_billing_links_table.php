@@ -15,12 +15,12 @@ return new class extends Migration
             $table->id();
             $table->foreignId('doctor_payment_id')->constrained('doctor_payments')->onDelete('cascade');
             $table->foreignId('billing_transaction_id')->constrained('billing_transactions')->onDelete('cascade');
-            $table->decimal('amount', 10, 2);
-            $table->string('status')->default('pending'); // pending, paid, cancelled
-            $table->text('notes')->nullable();
+            $table->decimal('payment_amount', 10, 2);
+            $table->enum('status', ['pending', 'paid', 'cancelled'])->default('pending');
             $table->timestamps();
-            
+
             $table->unique(['doctor_payment_id', 'billing_transaction_id'], 'dpbl_unique');
+            $table->index(['billing_transaction_id', 'status']);
         });
     }
 

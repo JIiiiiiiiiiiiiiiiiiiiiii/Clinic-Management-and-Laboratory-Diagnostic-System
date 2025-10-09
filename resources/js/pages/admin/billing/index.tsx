@@ -1,3 +1,4 @@
+import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,31 +12,29 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import Heading from '@/components/heading';
-import { 
-    AlertCircle, 
-    ArrowLeft, 
-    CheckCircle, 
-    Clock, 
-    Download, 
-    Eye, 
-    FileText, 
-    Plus, 
-    Search, 
-    XCircle, 
+import {
+    AlertCircle,
+    Calendar,
+    Check,
+    CheckCircle,
+    Clock,
     CreditCard,
-    Receipt,
     DollarSign,
+    Download,
+    Edit,
+    Eye,
+    FileText,
+    Filter,
+    MoreHorizontal,
+    Plus,
+    Printer,
+    Receipt,
+    Search,
+    Trash2,
     TrendingUp,
     Users,
-    Calendar,
-    Edit,
-    Filter,
-    Printer,
-    Trash2,
-    MoreHorizontal,
     X,
-    Check
+    XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -122,20 +121,20 @@ type PendingAppointment = {
     billing_status: string;
 };
 
-export default function BillingIndex({ 
-    transactions, 
+export default function BillingIndex({
+    transactions,
     pendingAppointments,
     doctorPayments,
     expenses,
     revenueData,
     expenseData,
     doctorPaymentData,
-    summary, 
-    doctors, 
+    summary,
+    doctors,
     filters,
     defaultTab = 'transactions',
-    debug
-}: { 
+    debug,
+}: {
     transactions: any;
     pendingAppointments: PendingAppointment[];
     doctorPayments: any;
@@ -161,8 +160,8 @@ export default function BillingIndex({
     const [paymentReference, setPaymentReference] = useState('');
 
     // Ensure we have data to work with
-    const transactionsData = transactions?.data || [];
-    
+    const transactionsData = Array.isArray(transactions?.data) ? transactions.data : Array.isArray(transactions) ? transactions : [];
+
     // Debug logging
     console.log('Debug info:', debug);
     console.log('Transactions data:', transactions);
@@ -170,36 +169,35 @@ export default function BillingIndex({
     console.log('Sample transaction:', transactionsData[0]);
     console.log('Doctor payments data:', doctorPayments);
     console.log('Doctor payments data count:', doctorPayments?.data?.length || 0);
-    
+
     const filteredTransactions = transactionsData.filter((transaction: BillingTransaction) => {
-        const patientName = transaction.patient ? 
-            `${transaction.patient.first_name} ${transaction.patient.last_name}`.toLowerCase() : '';
+        const patientName = transaction.patient ? `${transaction.patient.first_name} ${transaction.patient.last_name}`.toLowerCase() : '';
         const search = searchTerm.toLowerCase();
-        
-        const matchesSearch = patientName.includes(search) || 
-                            transaction.transaction_id.toLowerCase().includes(search) ||
-                            (transaction.patient?.patient_no || '').toLowerCase().includes(search);
-        
+
+        const matchesSearch =
+            patientName.includes(search) ||
+            transaction.transaction_id.toLowerCase().includes(search) ||
+            (transaction.patient?.patient_no || '').toLowerCase().includes(search);
+
         const matchesStatus = statusFilter === 'all' || transaction.status === statusFilter;
         const matchesPaymentMethod = paymentMethodFilter === 'all' || transaction.payment_method === paymentMethodFilter;
         const matchesDoctor = doctorFilter === 'all' || transaction.doctor?.id.toString() === doctorFilter;
-        
+
         return matchesSearch && matchesStatus && matchesPaymentMethod && matchesDoctor;
     });
-
 
     const getStatusBadge = (status: keyof typeof statusConfig) => {
         const config = statusConfig[status];
         const Icon = config.icon;
-        
+
         const variantMap = {
             draft: 'secondary',
             pending: 'warning',
             paid: 'success',
             cancelled: 'destructive',
-            refunded: 'destructive'
+            refunded: 'destructive',
         };
-        
+
         return (
             <Badge variant={variantMap[status] as any}>
                 <Icon className="mr-1 h-3 w-3" />
@@ -210,25 +208,25 @@ export default function BillingIndex({
 
     const getPaymentMethodBadge = (method: keyof typeof paymentMethodConfig) => {
         const config = paymentMethodConfig[method];
-        return (
-            <Badge className={config.color}>
-                {config.label}
-            </Badge>
-        );
+        return <Badge className={config.color}>{config.label}</Badge>;
     };
 
     const handleFilter = () => {
-        router.get('/admin/billing', {
-            search: searchTerm,
-            status: statusFilter,
-            payment_method: paymentMethodFilter,
-            doctor_id: doctorFilter,
-            date_from: dateFrom,
-            date_to: dateTo,
-        }, {
-            preserveState: true,
-            replace: true,
-        });
+        router.get(
+            '/admin/billing',
+            {
+                search: searchTerm,
+                status: statusFilter,
+                payment_method: paymentMethodFilter,
+                doctor_id: doctorFilter,
+                date_from: dateFrom,
+                date_to: dateTo,
+            },
+            {
+                preserveState: true,
+                replace: true,
+            },
+        );
     };
 
     const handleMarkPaidClick = (transaction: BillingTransaction) => {
@@ -238,10 +236,10 @@ export default function BillingIndex({
 
     const handleMarkPaid = () => {
         if (!selectedTransaction) return;
-        
+
         router.put(
             `/admin/billing/${selectedTransaction.id}/mark-paid`,
-            { 
+            {
                 payment_method: paymentMethod,
                 payment_reference: paymentReference,
             },
@@ -265,8 +263,7 @@ export default function BillingIndex({
             `/admin/billing/${transactionId}/status`,
             { status: newStatus },
             {
-                onSuccess: () => {
-                },
+                onSuccess: () => {},
                 onError: (errors) => {
                     console.error('Status update failed:', errors);
                     alert('Failed to update status. Please try again.');
@@ -278,8 +275,7 @@ export default function BillingIndex({
     const handleDelete = (transactionId: number) => {
         if (confirm('Are you sure you want to delete this transaction? This action cannot be undone.')) {
             router.delete(`/admin/billing/${transactionId}`, {
-                onSuccess: () => {
-                },
+                onSuccess: () => {},
                 onError: (errors) => {
                     console.error('Delete failed:', errors);
                     alert('Failed to delete transaction. Please try again.');
@@ -292,7 +288,7 @@ export default function BillingIndex({
     const handleTransactionReport = () => {
         const reportDateFrom = dateFrom || new Date().toISOString().split('T')[0];
         const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
-        
+
         // Navigate to transaction report with current filters
         router.get('/admin/billing/transaction-report', {
             date_from: reportDateFrom,
@@ -306,7 +302,7 @@ export default function BillingIndex({
     const handleDoctorSummary = () => {
         const reportDateFrom = dateFrom || new Date().toISOString().split('T')[0];
         const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
-        
+
         // Navigate to doctor summary report
         router.get('/admin/billing/reports/doctor-summary', {
             date_from: reportDateFrom,
@@ -318,7 +314,7 @@ export default function BillingIndex({
     const handleHMOReport = () => {
         const reportDateFrom = dateFrom || new Date().toISOString().split('T')[0];
         const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
-        
+
         // Navigate to HMO report
         router.get('/admin/billing/reports/hmo', {
             date_from: reportDateFrom,
@@ -329,7 +325,7 @@ export default function BillingIndex({
     const handleExportAll = () => {
         const reportDateFrom = dateFrom || new Date().toISOString().split('T')[0];
         const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
-        
+
         // Show export options modal or direct export
         const exportUrl = `/admin/billing/reports/export-all?date_from=${reportDateFrom}&date_to=${reportDateTo}&format=excel`;
         window.open(exportUrl, '_blank');
@@ -339,7 +335,7 @@ export default function BillingIndex({
     const handleExportWithFormat = (reportType: string, format: 'excel' | 'pdf' = 'excel') => {
         const reportDateFrom = dateFrom || new Date().toISOString().split('T')[0];
         const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
-        
+
         const exportUrl = `/admin/billing/reports/${reportType}/export?date_from=${reportDateFrom}&date_to=${reportDateTo}&format=${format}`;
         window.open(exportUrl, '_blank');
     };
@@ -348,12 +344,11 @@ export default function BillingIndex({
     const handleQuickExport = (type: 'transactions' | 'doctor-payments' | 'expenses' | 'all') => {
         const reportDateFrom = dateFrom || new Date().toISOString().split('T')[0];
         const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
-        
+
         const exportUrl = `/admin/billing/export/${type}?date_from=${reportDateFrom}&date_to=${reportDateTo}&format=excel`;
         window.open(exportUrl, '_blank');
     };
 
-    
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Billing & Payments" />
@@ -365,25 +360,29 @@ export default function BillingIndex({
                             <Heading title="Billing & Payments" description="Manage all clinic financial transactions" icon={CreditCard} />
                         </div>
                         <div className="flex items-center gap-4">
-                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4 w-52 h-20 flex items-center overflow-hidden">
+                            <div className="flex h-20 w-52 items-center overflow-hidden rounded-xl border bg-white px-6 py-4 shadow-lg">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                    <div className="rounded-lg bg-gray-100 p-2">
                                         <DollarSign className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
-                                        <div className="text-3xl font-bold text-gray-900 whitespace-nowrap leading-tight">₱{summary.total_revenue.toLocaleString()}</div>
-                                        <div className="text-gray-600 text-sm font-medium whitespace-nowrap">Total Revenue</div>
+                                        <div className="text-3xl leading-tight font-bold whitespace-nowrap text-gray-900">
+                                            ₱{summary.total_revenue.toLocaleString()}
+                                        </div>
+                                        <div className="text-sm font-medium whitespace-nowrap text-gray-600">Total Revenue</div>
                                     </div>
                                 </div>
                             </div>
-                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4 w-52 h-20 flex items-center overflow-hidden">
+                            <div className="flex h-20 w-52 items-center overflow-hidden rounded-xl border bg-white px-6 py-4 shadow-lg">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                    <div className="rounded-lg bg-gray-100 p-2">
                                         <TrendingUp className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
-                                        <div className="text-3xl font-bold text-gray-900 whitespace-nowrap leading-tight">{summary.paid_transactions}</div>
-                                        <div className="text-gray-600 text-sm font-medium whitespace-nowrap">Paid Transactions</div>
+                                        <div className="text-3xl leading-tight font-bold whitespace-nowrap text-gray-900">
+                                            {summary.paid_transactions}
+                                        </div>
+                                        <div className="text-sm font-medium whitespace-nowrap text-gray-600">Paid Transactions</div>
                                     </div>
                                 </div>
                             </div>
@@ -393,9 +392,11 @@ export default function BillingIndex({
 
                 {/* Debug Info */}
                 {debug && (
-                    <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
                         <h3 className="font-semibold text-yellow-800">Debug Info:</h3>
-                        <p>Transactions: {debug.transactions_count} (Total: {debug.transactions_total})</p>
+                        <p>
+                            Transactions: {debug.transactions_count} (Total: {debug.transactions_total})
+                        </p>
                         <p>Doctor Payments: {debug.doctor_payments_count}</p>
                         <p>Expenses: {debug.expenses_count}</p>
                     </div>
@@ -416,12 +417,12 @@ export default function BillingIndex({
                         <Card className="shadow-lg">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                    <div className="rounded-lg bg-gray-100 p-2">
                                         <CreditCard className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <CardTitle className="text-lg font-semibold text-gray-900">Billing Transactions</CardTitle>
-                                        <p className="text-sm text-gray-500 mt-1">Manage patient payments and billing records</p>
+                                        <p className="mt-1 text-sm text-gray-500">Manage patient payments and billing records</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -459,20 +460,20 @@ export default function BillingIndex({
                             <CardContent className="p-6">
                                 {/* Filters */}
                                 <div className="mb-6">
-                                    <div className="flex items-center gap-4 flex-wrap">
-                                        <div className="relative flex-1 max-w-md">
-                                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <div className="flex flex-wrap items-center gap-4">
+                                        <div className="relative max-w-md flex-1">
+                                            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
                                             <Input
                                                 placeholder="Search transactions..."
                                                 value={searchTerm}
                                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                                className="pl-10 h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                                className="h-12 rounded-xl border-gray-300 pl-10 shadow-sm focus:border-gray-500 focus:ring-gray-500"
                                             />
                                         </div>
                                         <select
                                             value={statusFilter}
                                             onChange={(e) => setStatusFilter(e.target.value)}
-                                            className="h-12 px-4 border border-gray-200 rounded-xl focus:border-gray-500 focus:ring-gray-500"
+                                            className="h-12 rounded-xl border border-gray-200 px-4 focus:border-gray-500 focus:ring-gray-500"
                                         >
                                             <option value="all">All Status</option>
                                             <option value="draft">Draft</option>
@@ -484,7 +485,7 @@ export default function BillingIndex({
                                         <select
                                             value={paymentMethodFilter}
                                             onChange={(e) => setPaymentMethodFilter(e.target.value)}
-                                            className="h-12 px-4 border border-gray-200 rounded-xl focus:border-gray-500 focus:ring-gray-500"
+                                            className="h-12 rounded-xl border border-gray-200 px-4 focus:border-gray-500 focus:ring-gray-500"
                                         >
                                             <option value="all">All Payment Methods</option>
                                             <option value="cash">Cash</option>
@@ -496,7 +497,7 @@ export default function BillingIndex({
                                         <select
                                             value={doctorFilter}
                                             onChange={(e) => setDoctorFilter(e.target.value)}
-                                            className="h-12 px-4 border border-gray-200 rounded-xl focus:border-gray-500 focus:ring-gray-500"
+                                            className="h-12 rounded-xl border border-gray-200 px-4 focus:border-gray-500 focus:ring-gray-500"
                                         >
                                             <option value="all">All Specialists</option>
                                             {doctors.map((doctor) => (
@@ -535,12 +536,16 @@ export default function BillingIndex({
                                         <TableBody>
                                             {!filteredTransactions || filteredTransactions.length === 0 ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={8} className="text-center py-8">
+                                                    <TableCell colSpan={8} className="py-8 text-center">
                                                         <div className="flex flex-col items-center">
                                                             <CreditCard className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                                                            <h3 className="mb-2 text-lg font-semibold text-gray-600">{searchTerm ? 'No transactions found' : 'No billing transactions yet'}</h3>
+                                                            <h3 className="mb-2 text-lg font-semibold text-gray-600">
+                                                                {searchTerm ? 'No transactions found' : 'No billing transactions yet'}
+                                                            </h3>
                                                             <p className="text-gray-500">
-                                                                {searchTerm ? 'Try adjusting your search terms' : 'Create your first transaction to get started'}
+                                                                {searchTerm
+                                                                    ? 'Try adjusting your search terms'
+                                                                    : 'Create your first transaction to get started'}
                                                             </p>
                                                         </div>
                                                     </TableCell>
@@ -548,97 +553,87 @@ export default function BillingIndex({
                                             ) : (
                                                 filteredTransactions.map((transaction: BillingTransaction) => {
                                                     return (
-                                                    <TableRow key={transaction.id} className="hover:bg-gray-50">
-                                                        <TableCell className="font-medium">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="p-1 bg-gray-100 rounded-full">
-                                                                    <Receipt className="h-4 w-4 text-black" />
+                                                        <TableRow key={transaction.id} className="hover:bg-gray-50">
+                                                            <TableCell className="font-medium">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="rounded-full bg-gray-100 p-1">
+                                                                        <Receipt className="h-4 w-4 text-black" />
+                                                                    </div>
+                                                                    {transaction.transaction_id}
                                                                 </div>
-                                                                {transaction.transaction_id}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div>
-                                                                <div className="font-medium">
-                                                                    {transaction.patient ? 
-                                                                        `${transaction.patient.last_name}, ${transaction.patient.first_name}` : 
-                                                                        'Loading...'
-                                                                    }
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div>
+                                                                    <div className="font-medium">
+                                                                        {transaction.patient
+                                                                            ? `${transaction.patient.last_name}, ${transaction.patient.first_name}`
+                                                                            : 'Loading...'}
+                                                                    </div>
+                                                                    <div className="text-sm text-gray-500">
+                                                                        {transaction.patient?.patient_no || 'Loading...'}
+                                                                    </div>
                                                                 </div>
-                                                                <div className="text-sm text-gray-500">
-                                                                    {transaction.patient?.patient_no || 'Loading...'}
-                                                                </div>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {transaction.doctor ? (
-                                                                <div className="font-medium">{transaction.doctor.name}</div>
-                                                            ) : (
-                                                                <span className="text-gray-400">—</span>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="font-semibold">
-                                                            ₱{transaction.total_amount.toLocaleString()}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {getPaymentMethodBadge(transaction.payment_method)}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {getStatusBadge(transaction.status)}
-                                                        </TableCell>
-                                                        <TableCell className="text-sm text-gray-600">
-                                                            {new Date(transaction.transaction_date).toLocaleDateString()}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="flex gap-2">
-                                                                <Button asChild size="sm">
-                                                                    <Link 
-                                                                        href={`/admin/billing/${transaction.id}`}
-                                                                    >
-                                                                        <Eye className="mr-1 h-3 w-3" />
-                                                                        View
-                                                                    </Link>
-                                                                </Button>
-                                                                {transaction.status === 'pending' && (
-                                                                    <Button
-                                                                        size="sm"
-                                                                        onClick={() => handleMarkPaidClick(transaction)}
-                                                                    >
-                                                                        <CheckCircle className="mr-1 h-3 w-3" />
-                                                                        Mark Paid
-                                                                    </Button>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {transaction.doctor ? (
+                                                                    <div className="font-medium">{transaction.doctor.name}</div>
+                                                                ) : (
+                                                                    <span className="text-gray-400">—</span>
                                                                 )}
-                                                                <DropdownMenu>
-                                                                    <DropdownMenuTrigger asChild>
-                                                                        <Button size="sm" variant="outline">
-                                                                            <MoreHorizontal className="h-3 w-3" />
+                                                            </TableCell>
+                                                            <TableCell className="font-semibold">
+                                                                ₱{transaction.total_amount.toLocaleString()}
+                                                            </TableCell>
+                                                            <TableCell>{getPaymentMethodBadge(transaction.payment_method)}</TableCell>
+                                                            <TableCell>{getStatusBadge(transaction.status)}</TableCell>
+                                                            <TableCell className="text-sm text-gray-600">
+                                                                {new Date(transaction.transaction_date).toLocaleDateString()}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className="flex gap-2">
+                                                                    <Button asChild size="sm">
+                                                                        <Link href={`/admin/billing/${transaction.id}`}>
+                                                                            <Eye className="mr-1 h-3 w-3" />
+                                                                            View
+                                                                        </Link>
+                                                                    </Button>
+                                                                    {transaction.status === 'pending' && (
+                                                                        <Button size="sm" onClick={() => handleMarkPaidClick(transaction)}>
+                                                                            <CheckCircle className="mr-1 h-3 w-3" />
+                                                                            Mark Paid
                                                                         </Button>
-                                                                    </DropdownMenuTrigger>
-                                                                    <DropdownMenuContent align="end">
-                                                                        <DropdownMenuItem asChild>
-                                                                            <Link href={`/admin/billing/${transaction.id}/edit`}>
-                                                                                <Edit className="mr-2 h-4 w-4" />
-                                                                                Edit
-                                                                            </Link>
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuItem asChild>
-                                                                            <Link href={`/admin/billing/${transaction.id}/receipt`}>
-                                                                                <Printer className="mr-2 h-4 w-4" />
-                                                                                Print Receipt
-                                                                            </Link>
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuItem 
-                                                                            onClick={() => handleDelete(transaction.id)}
-                                                                            className="text-red-600"
-                                                                        >
-                                                                            <Trash2 className="mr-2 h-4 w-4" />
-                                                                            Delete
-                                                                        </DropdownMenuItem>
-                                                                    </DropdownMenuContent>
-                                                                </DropdownMenu>
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
+                                                                    )}
+                                                                    <DropdownMenu>
+                                                                        <DropdownMenuTrigger asChild>
+                                                                            <Button size="sm" variant="outline">
+                                                                                <MoreHorizontal className="h-3 w-3" />
+                                                                            </Button>
+                                                                        </DropdownMenuTrigger>
+                                                                        <DropdownMenuContent align="end">
+                                                                            <DropdownMenuItem asChild>
+                                                                                <Link href={`/admin/billing/${transaction.id}/edit`}>
+                                                                                    <Edit className="mr-2 h-4 w-4" />
+                                                                                    Edit
+                                                                                </Link>
+                                                                            </DropdownMenuItem>
+                                                                            <DropdownMenuItem asChild>
+                                                                                <Link href={`/admin/billing/${transaction.id}/receipt`}>
+                                                                                    <Printer className="mr-2 h-4 w-4" />
+                                                                                    Print Receipt
+                                                                                </Link>
+                                                                            </DropdownMenuItem>
+                                                                            <DropdownMenuItem
+                                                                                onClick={() => handleDelete(transaction.id)}
+                                                                                className="text-red-600"
+                                                                            >
+                                                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                                                Delete
+                                                                            </DropdownMenuItem>
+                                                                        </DropdownMenuContent>
+                                                                    </DropdownMenu>
+                                                                </div>
+                                                            </TableCell>
+                                                        </TableRow>
                                                     );
                                                 })
                                             )}
@@ -654,12 +649,12 @@ export default function BillingIndex({
                         <Card className="shadow-lg">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                    <div className="rounded-lg bg-gray-100 p-2">
                                         <Calendar className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <CardTitle className="text-lg font-semibold text-gray-900">Pending Appointments</CardTitle>
-                                        <p className="text-sm text-gray-500 mt-1">Appointments awaiting payment processing</p>
+                                        <p className="mt-1 text-sm text-gray-500">Appointments awaiting payment processing</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -694,7 +689,7 @@ export default function BillingIndex({
                                         <TableBody>
                                             {pendingAppointments.length === 0 ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={7} className="text-center py-8">
+                                                    <TableCell colSpan={7} className="py-8 text-center">
                                                         <div className="flex flex-col items-center">
                                                             <Calendar className="mx-auto mb-4 h-12 w-12 text-gray-400" />
                                                             <h3 className="mb-2 text-lg font-semibold text-gray-600">No pending appointments</h3>
@@ -725,9 +720,7 @@ export default function BillingIndex({
                                                                 <div className="text-gray-500">{appointment.appointment_time}</div>
                                                             </div>
                                                         </TableCell>
-                                                        <TableCell className="font-semibold">
-                                                            ₱{appointment.price.toLocaleString()}
-                                                        </TableCell>
+                                                        <TableCell className="font-semibold">₱{appointment.price.toLocaleString()}</TableCell>
                                                         <TableCell>
                                                             <Badge variant="secondary">
                                                                 <Clock className="mr-1 h-3 w-3" />
@@ -743,7 +736,9 @@ export default function BillingIndex({
                                                                     </Link>
                                                                 </Button>
                                                                 <Button asChild size="sm">
-                                                                    <Link href={`/admin/billing/create-from-appointments?appointment_id=${appointment.id}`}>
+                                                                    <Link
+                                                                        href={`/admin/billing/create-from-appointments?appointment_id=${appointment.id}`}
+                                                                    >
                                                                         <CreditCard className="mr-1 h-3 w-3" />
                                                                         Pay Now
                                                                     </Link>
@@ -765,12 +760,12 @@ export default function BillingIndex({
                         <Card className="shadow-lg">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                    <div className="rounded-lg bg-gray-100 p-2">
                                         <Users className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <CardTitle className="text-lg font-semibold text-gray-900">Doctor Payments</CardTitle>
-                                        <p className="text-sm text-gray-500 mt-1">Manage doctor salary payments and commissions</p>
+                                        <p className="mt-1 text-sm text-gray-500">Manage doctor salary payments and commissions</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -790,12 +785,9 @@ export default function BillingIndex({
                             </CardHeader>
                             <CardContent className="p-6">
                                 {/* Search and Filters */}
-                                <div className="mb-6 flex flex-col sm:flex-row gap-4">
+                                <div className="mb-6 flex flex-col gap-4 sm:flex-row">
                                     <div className="flex-1">
-                                        <Input 
-                                            placeholder="Search payments..." 
-                                            className="w-full"
-                                        />
+                                        <Input placeholder="Search payments..." className="w-full" />
                                     </div>
                                     <div className="flex gap-2">
                                         <Select defaultValue="all">
@@ -828,7 +820,7 @@ export default function BillingIndex({
                                         </Button>
                                     </div>
                                 </div>
-                                
+
                                 {/* Doctor Payments Table */}
                                 <div className="overflow-x-auto rounded-xl border border-gray-200">
                                     <Table>
@@ -848,7 +840,7 @@ export default function BillingIndex({
                                         <TableBody>
                                             {doctorPayments?.data?.length === 0 ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={9} className="text-center py-8">
+                                                    <TableCell colSpan={9} className="py-8 text-center">
                                                         <div className="flex flex-col items-center">
                                                             <Users className="mx-auto mb-4 h-12 w-12 text-gray-400" />
                                                             <h3 className="mb-2 text-lg font-semibold text-gray-600">No doctor payments</h3>
@@ -857,7 +849,12 @@ export default function BillingIndex({
                                                     </TableCell>
                                                 </TableRow>
                                             ) : (
-                                                doctorPayments?.data?.map((payment: any) => (
+                                                (Array.isArray(doctorPayments?.data)
+                                                    ? doctorPayments.data
+                                                    : Array.isArray(doctorPayments)
+                                                      ? doctorPayments
+                                                      : []
+                                                ).map((payment: any) => (
                                                     <TableRow key={payment.id} className="hover:bg-gray-50">
                                                         <TableCell className="font-medium">
                                                             <div className="flex items-center gap-2">
@@ -881,7 +878,15 @@ export default function BillingIndex({
                                                             ₱{payment.net_payment?.toLocaleString() || '0.00'}
                                                         </TableCell>
                                                         <TableCell>
-                                                            <Badge variant={payment.status === 'paid' ? 'default' : payment.status === 'pending' ? 'secondary' : 'destructive'}>
+                                                            <Badge
+                                                                variant={
+                                                                    payment.status === 'paid'
+                                                                        ? 'default'
+                                                                        : payment.status === 'pending'
+                                                                          ? 'secondary'
+                                                                          : 'destructive'
+                                                                }
+                                                            >
                                                                 <div className="flex items-center gap-1">
                                                                     {payment.status === 'pending' && <Clock className="h-3 w-3" />}
                                                                     {payment.status === 'paid' && <Check className="h-3 w-3" />}
@@ -890,9 +895,7 @@ export default function BillingIndex({
                                                                 </div>
                                                             </Badge>
                                                         </TableCell>
-                                                        <TableCell>
-                                                            {new Date(payment.payment_date).toLocaleDateString()}
-                                                        </TableCell>
+                                                        <TableCell>{new Date(payment.payment_date).toLocaleDateString()}</TableCell>
                                                         <TableCell>
                                                             <div className="flex gap-2">
                                                                 <Button asChild size="sm" variant="outline">
@@ -908,7 +911,11 @@ export default function BillingIndex({
                                                                     </Link>
                                                                 </Button>
                                                                 {payment.status === 'pending' && (
-                                                                    <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700">
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        className="text-green-600 hover:text-green-700"
+                                                                    >
                                                                         <Check className="mr-1 h-3 w-3" />
                                                                         Mark Paid
                                                                     </Button>
@@ -930,12 +937,12 @@ export default function BillingIndex({
                         <Card className="shadow-lg">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                    <div className="rounded-lg bg-gray-100 p-2">
                                         <FileText className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <CardTitle className="text-lg font-semibold text-gray-900">Expenses</CardTitle>
-                                        <p className="text-sm text-gray-500 mt-1">Track clinic expenses and costs</p>
+                                        <p className="mt-1 text-sm text-gray-500">Track clinic expenses and costs</p>
                                     </div>
                                 </div>
                                 <Button asChild>
@@ -962,7 +969,7 @@ export default function BillingIndex({
                                         <TableBody>
                                             {expenses?.data?.length === 0 ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={6} className="text-center py-8">
+                                                    <TableCell colSpan={6} className="py-8 text-center">
                                                         <div className="flex flex-col items-center">
                                                             <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
                                                             <h3 className="mb-2 text-lg font-semibold text-gray-600">No expenses</h3>
@@ -973,20 +980,12 @@ export default function BillingIndex({
                                             ) : (
                                                 expenses?.data?.map((expense: any) => (
                                                     <TableRow key={expense.id} className="hover:bg-gray-50">
-                                                        <TableCell className="font-medium">
-                                                            {expense.description}
-                                                        </TableCell>
+                                                        <TableCell className="font-medium">{expense.description}</TableCell>
                                                         <TableCell>
-                                                            <Badge variant="outline">
-                                                                {expense.category?.name || 'General'}
-                                                            </Badge>
+                                                            <Badge variant="outline">{expense.category?.name || 'General'}</Badge>
                                                         </TableCell>
-                                                        <TableCell className="font-semibold">
-                                                            ₱{expense.amount?.toLocaleString()}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {new Date(expense.expense_date).toLocaleDateString()}
-                                                        </TableCell>
+                                                        <TableCell className="font-semibold">₱{expense.amount?.toLocaleString()}</TableCell>
+                                                        <TableCell>{new Date(expense.expense_date).toLocaleDateString()}</TableCell>
                                                         <TableCell>
                                                             <Badge variant={expense.status === 'approved' ? 'default' : 'secondary'}>
                                                                 {expense.status}
@@ -1022,17 +1021,15 @@ export default function BillingIndex({
                     <TabsContent value="reports">
                         <div className="space-y-6">
                             {/* Summary Cards */}
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
                                 <Card className="shadow-lg">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                                                <p className="text-2xl font-bold text-green-600">
-                                                    ₱{summary.total_revenue?.toLocaleString() || '0'}
-                                                </p>
+                                                <p className="text-2xl font-bold text-green-600">₱{summary.total_revenue?.toLocaleString() || '0'}</p>
                                             </div>
-                                            <div className="p-3 bg-green-100 rounded-full">
+                                            <div className="rounded-full bg-green-100 p-3">
                                                 <DollarSign className="h-6 w-6 text-green-600" />
                                             </div>
                                         </div>
@@ -1044,11 +1041,9 @@ export default function BillingIndex({
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm font-medium text-gray-600">Total Expenses</p>
-                                                <p className="text-2xl font-bold text-red-600">
-                                                    ₱{summary.total_expenses?.toLocaleString() || '0'}
-                                                </p>
+                                                <p className="text-2xl font-bold text-red-600">₱{summary.total_expenses?.toLocaleString() || '0'}</p>
                                             </div>
-                                            <div className="p-3 bg-red-100 rounded-full">
+                                            <div className="rounded-full bg-red-100 p-3">
                                                 <FileText className="h-6 w-6 text-red-600" />
                                             </div>
                                         </div>
@@ -1064,7 +1059,7 @@ export default function BillingIndex({
                                                     ₱{summary.total_doctor_payments?.toLocaleString() || '0'}
                                                 </p>
                                             </div>
-                                            <div className="p-3 bg-blue-100 rounded-full">
+                                            <div className="rounded-full bg-blue-100 p-3">
                                                 <Users className="h-6 w-6 text-blue-600" />
                                             </div>
                                         </div>
@@ -1076,11 +1071,9 @@ export default function BillingIndex({
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm font-medium text-gray-600">Net Profit</p>
-                                                <p className="text-2xl font-bold text-purple-600">
-                                                    ₱{summary.net_profit?.toLocaleString() || '0'}
-                                                </p>
+                                                <p className="text-2xl font-bold text-purple-600">₱{summary.net_profit?.toLocaleString() || '0'}</p>
                                             </div>
-                                            <div className="p-3 bg-purple-100 rounded-full">
+                                            <div className="rounded-full bg-purple-100 p-3">
                                                 <TrendingUp className="h-6 w-6 text-purple-600" />
                                             </div>
                                         </div>
@@ -1097,36 +1090,20 @@ export default function BillingIndex({
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="p-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                        <Button 
-                                            variant="outline" 
-                                            className="h-20 flex flex-col gap-2"
-                                            onClick={handleTransactionReport}
-                                        >
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                                        <Button variant="outline" className="flex h-20 flex-col gap-2" onClick={handleTransactionReport}>
                                             <Calendar className="h-6 w-6" />
                                             Transaction Report
                                         </Button>
-                                        <Button 
-                                            variant="outline" 
-                                            className="h-20 flex flex-col gap-2"
-                                            onClick={handleDoctorSummary}
-                                        >
+                                        <Button variant="outline" className="flex h-20 flex-col gap-2" onClick={handleDoctorSummary}>
                                             <Users className="h-6 w-6" />
                                             Doctor Summary
                                         </Button>
-                                        <Button 
-                                            variant="outline" 
-                                            className="h-20 flex flex-col gap-2"
-                                            onClick={handleHMOReport}
-                                        >
+                                        <Button variant="outline" className="flex h-20 flex-col gap-2" onClick={handleHMOReport}>
                                             <FileText className="h-6 w-6" />
                                             HMO Report
                                         </Button>
-                                        <Button 
-                                            variant="outline" 
-                                            className="h-20 flex flex-col gap-2"
-                                            onClick={handleExportAll}
-                                        >
+                                        <Button variant="outline" className="flex h-20 flex-col gap-2" onClick={handleExportAll}>
                                             <Download className="h-6 w-6" />
                                             Export All
                                         </Button>
@@ -1139,37 +1116,33 @@ export default function BillingIndex({
 
                 {/* Mark as Paid Modal */}
                 {showMarkPaidModal && selectedTransaction && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+                    <div className="bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black p-4">
+                        <div className="w-full max-w-md rounded-xl bg-white shadow-2xl">
                             <div className="p-6">
-                                <div className="flex items-center justify-between mb-4">
+                                <div className="mb-4 flex items-center justify-between">
                                     <h3 className="text-lg font-semibold text-gray-900">Mark as Paid</h3>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setShowMarkPaidModal(false)}
-                                    >
+                                    <Button variant="outline" size="sm" onClick={() => setShowMarkPaidModal(false)}>
                                         <X className="h-4 w-4" />
                                     </Button>
                                 </div>
-                                
+
                                 <div className="space-y-4">
                                     <div>
-                                        <p className="text-sm text-gray-600 mb-2">
+                                        <p className="mb-2 text-sm text-gray-600">
                                             Transaction: <span className="font-medium">{selectedTransaction.transaction_id}</span>
                                         </p>
-                                        <p className="text-sm text-gray-600 mb-4">
+                                        <p className="mb-4 text-sm text-gray-600">
                                             Amount: <span className="font-medium">₱{selectedTransaction.total_amount.toLocaleString()}</span>
                                         </p>
                                     </div>
-                                    
+
                                     <div>
                                         <Label htmlFor="payment_method">Payment Method</Label>
                                         <select
                                             id="payment_method"
                                             value={paymentMethod}
                                             onChange={(e) => setPaymentMethod(e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                                            className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-black focus:ring-2 focus:ring-black"
                                         >
                                             <option value="cash">Cash</option>
                                             <option value="card">Card</option>
@@ -1178,7 +1151,7 @@ export default function BillingIndex({
                                             <option value="hmo">HMO</option>
                                         </select>
                                     </div>
-                                    
+
                                     <div>
                                         <Label htmlFor="payment_reference">Payment Reference (Optional)</Label>
                                         <Input
@@ -1189,18 +1162,12 @@ export default function BillingIndex({
                                         />
                                     </div>
                                 </div>
-                                
-                                <div className="flex justify-end gap-3 mt-6">
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setShowMarkPaidModal(false)}
-                                    >
+
+                                <div className="mt-6 flex justify-end gap-3">
+                                    <Button variant="outline" onClick={() => setShowMarkPaidModal(false)}>
                                         Cancel
                                     </Button>
-                                    <Button
-                                        onClick={handleMarkPaid}
-                                        className="bg-green-600 hover:bg-green-700"
-                                    >
+                                    <Button onClick={handleMarkPaid} className="bg-green-600 hover:bg-green-700">
                                         <CheckCircle className="mr-2 h-4 w-4" />
                                         Mark as Paid
                                     </Button>

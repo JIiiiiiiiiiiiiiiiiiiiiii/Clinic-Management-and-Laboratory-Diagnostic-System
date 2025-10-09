@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Patient;
-use App\Models\Patient as PatientModel;
 use App\Models\PatientVisit;
 use App\Models\Appointment;
 use App\Models\LabOrder;
@@ -23,7 +22,7 @@ class DashboardController extends Controller
         $user = $request->user();
 
         if ($user && $user->role === 'patient') {
-            $patient = PatientModel::where('user_id', $user->id)->first();
+            $patient = Patient::where('user_id', $user->id)->first();
 
             $orders = LabOrder::with(['labTests', 'results'])
                 ->when($patient, function ($q) use ($patient) {
