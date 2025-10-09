@@ -42,7 +42,6 @@ type Order = {
 
 export default function ResultsShow({ order, patient, results }: { order: Order; patient: Patient | null; results: Result[] }) {
     const breadcrumbs: BreadcrumbItem[] = [
-        { title: 'Laboratory', href: '/admin/laboratory' },
         { title: 'Lab Orders', href: '/admin/laboratory/orders' },
         { title: `Order #${order.id}`, href: `/admin/laboratory/orders/${order.id}/results/view` },
     ];
@@ -78,7 +77,7 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                                 </Link>
                             </Button>
                             <div>
-                                <h1 className="text-4xl font-bold text-gray-900 mb-2">Order #{order.id}</h1>
+                                <h1 className="text-4xl font-bold text-black mb-2">Order #{order.id}</h1>
                                 <p className="text-lg text-gray-600">
                                     {patient ? (
                                         <>
@@ -98,7 +97,7 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                                     </div>
                                     <div>
                                         <div className="text-3xl font-bold whitespace-nowrap leading-tight">{(results || []).length}</div>
-                                        <div className="text-blue-100 text-sm font-medium whitespace-nowrap">Total Results</div>
+                                        <div className="text-gray-100 text-sm font-medium whitespace-nowrap">Total Results</div>
                                     </div>
                                 </div>
                             </div>
@@ -110,8 +109,8 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                 <Card className="shadow-lg mb-8">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                                <FileText className="h-6 w-6 text-blue-600" />
+                            <div className="p-2 bg-gray-100 rounded-lg">
+                                <FileText className="h-6 w-6 text-black" />
                             </div>
                             <div>
                                 <CardTitle className="text-lg font-semibold text-gray-900">Actions</CardTitle>
@@ -177,8 +176,8 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                         <Card className="shadow-lg">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        <FileText className="h-5 w-5 text-blue-600" />
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <FileText className="h-5 w-5 text-black" />
                                     </div>
                                     <div>
                                         <CardTitle className="text-lg font-semibold text-gray-900">No Results</CardTitle>
@@ -204,8 +203,8 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                                 <Card key={r.id} className="shadow-lg">
                                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-blue-100 rounded-lg">
-                                                <FileText className="h-5 w-5 text-blue-600" />
+                                            <div className="p-2 bg-gray-100 rounded-lg">
+                                                <FileText className="h-5 w-5 text-black" />
                                             </div>
                                             <div>
                                                 <CardTitle className="text-lg font-semibold text-gray-900">
@@ -259,8 +258,8 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                                                     <span>Status</span>
                                                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                                                         r.verified_at 
-                                                            ? 'bg-green-100 text-green-800' 
-                                                            : 'bg-yellow-100 text-yellow-800'
+                                                            ? 'bg-gray-100 text-black' 
+                                                            : 'bg-gray-100 text-black'
                                                     }`}>
                                                         {r.verified_at ? 'Verified' : 'Pending'}
                                                     </span>
@@ -285,8 +284,8 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                     <Card className="shadow-lg">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <FileText className="h-5 w-5 text-blue-600" />
+                                <div className="p-2 bg-gray-100 rounded-lg">
+                                    <FileText className="h-5 w-5 text-black" />
                                 </div>
                                 <div>
                                     <CardTitle className="text-lg font-semibold text-gray-900">Hematology</CardTitle>
@@ -354,8 +353,8 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                     <Card className="shadow-lg">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <FileText className="h-5 w-5 text-blue-600" />
+                                <div className="p-2 bg-gray-100 rounded-lg">
+                                    <FileText className="h-5 w-5 text-black" />
                                 </div>
                                 <div>
                                     <CardTitle className="text-lg font-semibold text-gray-900">Chemistry</CardTitle>

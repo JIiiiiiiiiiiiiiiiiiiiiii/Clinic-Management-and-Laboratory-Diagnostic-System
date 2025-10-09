@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { Head } from '@inertiajs/react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, TrendingUp, Users, DollarSign, FileText, BarChart3, PieChart, Download, Filter, CalendarDays, MoreHorizontal } from 'lucide-react';
-import Heading from '@/components/heading';
+import { Calendar, TrendingUp, Users, DollarSign, FileText, BarChart3, PieChart, Download, Filter, CalendarDays, MoreHorizontal, Search, Plus, FlaskConical } from 'lucide-react';
 
 interface ReportData {
     id: number;
@@ -52,51 +52,42 @@ const mockReportData: ReportData[] = [
     },
     {
         id: 2,
-        name: 'Patient Demographics Report',
+        name: 'Patient Analytics',
         type: 'Analytics',
         dateRange: 'Q4 2024',
-        generatedBy: 'Admin User',
+        generatedBy: 'Dr. Smith',
         status: 'Generated',
-        lastGenerated: '2025-01-10 02:15 PM',
-        downloadUrl: '/reports/demographics-q4-2024.pdf'
+        lastGenerated: '2025-01-10 2:15 PM',
+        downloadUrl: '/reports/patient-analytics-q4-2024.pdf'
     },
     {
         id: 3,
-        name: 'Inventory Status Report',
+        name: 'Inventory Status',
         type: 'Inventory',
         dateRange: 'January 2025',
         generatedBy: 'Admin User',
-        status: 'Generated',
-        lastGenerated: '2025-01-14 09:45 AM',
-        downloadUrl: '/reports/inventory-jan-2025.pdf'
+        status: 'Processing',
+        lastGenerated: '2025-01-14 9:45 AM'
     },
     {
         id: 4,
-        name: 'Staff Performance Report',
+        name: 'Staff Performance',
         type: 'HR',
         dateRange: 'December 2024',
-        generatedBy: 'Admin User',
-        status: 'Processing',
-        lastGenerated: '2025-01-15 11:20 AM'
-    },
-    {
-        id: 5,
-        name: 'Revenue Analysis Report',
-        type: 'Financial',
-        dateRange: 'Q4 2024',
-        generatedBy: 'Admin User',
-        status: 'Failed',
-        lastGenerated: '2025-01-12 03:30 PM'
+        generatedBy: 'HR Manager',
+        status: 'Generated',
+        lastGenerated: '2025-01-12 4:20 PM',
+        downloadUrl: '/reports/staff-performance-dec-2024.pdf'
     }
 ];
 
 const mockFinancialData: FinancialData[] = [
-    { month: 'Jan', revenue: 125000, expenses: 85000, profit: 40000, patientCount: 156 },
-    { month: 'Feb', revenue: 138000, expenses: 92000, profit: 46000, patientCount: 142 },
-    { month: 'Mar', revenue: 145000, expenses: 98000, profit: 47000, patientCount: 168 },
-    { month: 'Apr', revenue: 132000, expenses: 89000, profit: 43000, patientCount: 135 },
-    { month: 'May', revenue: 158000, expenses: 105000, profit: 53000, patientCount: 189 },
-    { month: 'Jun', revenue: 167000, expenses: 112000, profit: 55000, patientCount: 203 }
+    { month: 'Jan', revenue: 45000, expenses: 32000, profit: 13000, patientCount: 120 },
+    { month: 'Feb', revenue: 52000, expenses: 35000, profit: 17000, patientCount: 135 },
+    { month: 'Mar', revenue: 48000, expenses: 33000, profit: 15000, patientCount: 128 },
+    { month: 'Apr', revenue: 55000, expenses: 38000, profit: 17000, patientCount: 142 },
+    { month: 'May', revenue: 60000, expenses: 40000, profit: 20000, patientCount: 155 },
+    { month: 'Jun', revenue: 58000, expenses: 39000, profit: 19000, patientCount: 148 }
 ];
 
 const mockPatientStats: PatientStats[] = [
@@ -115,21 +106,24 @@ export default function ReportsAndAnalytics() {
     const [selectedReportType, setSelectedReportType] = useState('all');
     const [dateRange, setDateRange] = useState('month');
     const [showGenerateDialog, setShowGenerateDialog] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
 
     const filteredReports = mockReportData.filter(report => {
-        return selectedReportType === 'all' || report.type.toLowerCase() === selectedReportType.toLowerCase();
+        const matchesType = selectedReportType === 'all' || report.type.toLowerCase() === selectedReportType.toLowerCase();
+        const matchesSearch = report.name.toLowerCase().includes(searchTerm.toLowerCase());
+        return matchesType && matchesSearch;
     });
 
     const getStatusBadge = (status: string) => {
         switch (status) {
             case 'Generated':
-                return 'bg-green-100 text-green-800 hover:bg-green-100';
+                return 'bg-gray-100 text-black hover:bg-gray-100';
             case 'Processing':
-                return 'bg-blue-100 text-blue-800 hover:bg-blue-100';
+                return 'bg-gray-100 text-black hover:bg-gray-100';
             case 'Failed':
-                return 'bg-red-100 text-red-800 hover:bg-red-100';
+                return 'bg-gray-100 text-black hover:bg-gray-100';
             default:
-                return 'bg-gray-100 text-gray-800 hover:bg-gray-100';
+                return 'bg-gray-100 text-black hover:bg-gray-100';
         }
     };
 
@@ -143,391 +137,199 @@ export default function ReportsAndAnalytics() {
     return (
         <AppLayout breadcrumbs={breadcrumbs as any}>
             <Head title="Reports & Analytics" />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-2">
-                    <Heading title="Reports" description="Generate comprehensive reports and analyze clinic performance" icon={BarChart3} />
-                    <Button onClick={() => setShowGenerateDialog(true)} className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl flex items-center gap-2">
-                        <FileText className="h-5 w-5" />
-                        Generate Report
-                    </Button>
-                </div>
-
-                {/* Key Metrics - Styled like Patient Records header */}
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-4 mb-6">
-                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                            <div className="flex items-center justify-between p-6">
+            <div className="min-h-screen bg-white p-6">
+                {/* Header Section */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-6">
+                                    <div>
+                                <h1 className="text-4xl font-semibold text-black mb-4">Reports & Analytics</h1>
+                                <p className="text-sm text-black mt-1">Generate comprehensive reports and analyze clinic performance</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-lg">
-                                        <DollarSign className="h-6 w-6" />
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <BarChart3 className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
-                                        <h3 className="text-sm font-bold text-white">Total Revenue</h3>
-                                        <p className="text-emerald-100 mt-1 text-xs">Last 6 months</p>
+                                        <div className="text-3xl font-bold text-black">{mockReportData.length}</div>
+                                        <div className="text-black text-sm font-medium">Total Reports</div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        <div className="px-6 py-6">
-                            <div className="text-2xl font-bold text-gray-900">₱{totalRevenue.toLocaleString()}</div>
-                        </div>
-                    </div>
-
-                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                            <div className="flex items-center justify-between p-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-lg">
-                                        <TrendingUp className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-sm font-bold text-white">Total Profit</h3>
-                                        <p className="text-blue-100 mt-1 text-xs">Net profit margin</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="px-6 py-6">
-                            <div className="text-2xl font-bold text-gray-900">₱{totalProfit.toLocaleString()}</div>
-                        </div>
-                    </div>
-
-                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
-                        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-                            <div className="flex items-center justify-between p-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-lg">
-                                        <Users className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-sm font-bold text-white">Total Patients</h3>
-                                        <p className="text-indigo-100 mt-1 text-xs">Last 6 months</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="px-6 py-6">
-                            <div className="text-2xl font-bold text-gray-900">{totalPatients}</div>
-                        </div>
-                    </div>
-
-                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
-                        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
-                            <div className="flex items-center justify-between p-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-lg">
-                                        <FileText className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-sm font-bold text-white">Generated Reports</h3>
-                                        <p className="text-orange-100 mt-1 text-xs">This month</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="px-6 py-6">
-                            <div className="text-2xl font-bold text-gray-900">{mockReportData.filter(r => r.status === 'Generated').length}</div>
                         </div>
                     </div>
                 </div>
 
-                {/* Main Content Tabs */}
-                <Tabs defaultValue="overview" className="space-y-4">
-                    <TabsList>
-                        <TabsTrigger value="overview">Overview</TabsTrigger>
-                        <TabsTrigger value="financial">Financial</TabsTrigger>
-                        <TabsTrigger value="patients">Patients</TabsTrigger>
-                        <TabsTrigger value="reports">Reports</TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="overview" className="space-y-4">
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                            {/* Financial Trend Chart */}
-                            <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
-                                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                                    <div className="flex items-center gap-3 p-6">
-                                        <div className="p-2 bg-white/20 rounded-lg">
-                                            <BarChart3 className="h-6 w-6" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-2xl font-bold text-white">Financial Performance</h3>
-                                            <p className="text-blue-100 mt-1">Revenue vs Expenses (Last 6 months)</p>
-                                        </div>
-                                    </div>
+                {/* Main content layout */}
+                <div className="space-y-6">
+                    <Card className="shadow-lg border-0 rounded-xl bg-white">
+                        <CardHeader className="bg-white border-b border-gray-200">
+                            <CardTitle className="flex items-center gap-3 text-xl font-semibold text-black">
+                                <BarChart3 className="h-5 w-5 text-black" />
+                                Reports & Analytics
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-4">
+                                <div className="relative flex-1 max-w-md">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <Input
+                                        placeholder="Search reports..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="pl-10 h-12 border-gray-200 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                    />
                                 </div>
-                                <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100">
-                                    <div className="space-y-4">
-                                        {mockFinancialData.map((data, index) => (
-                                            <div key={index} className="flex items-center justify-between">
-                                                <span className="text-sm font-medium">{data.month}</span>
-                                                <div className="flex items-center gap-4">
-                                                    <span className="text-sm text-green-600">₱{data.revenue.toLocaleString()}</span>
-                                                    <span className="text-sm text-red-600">₱{data.expenses.toLocaleString()}</span>
-                                                    <span className="text-sm font-medium">₱{data.profit.toLocaleString()}</span>
-                                                </div>
-                                            </div>
+                                <Select value={selectedReportType} onValueChange={setSelectedReportType}>
+                                    <SelectTrigger className="w-48 h-12 border-gray-200 focus:border-gray-500 focus:ring-gray-500">
+                                        <SelectValue placeholder="Filter by type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {reportTypes.map((type) => (
+                                            <SelectItem key={type} value={type}>
+                                                {type === 'all' ? 'All Types' : type}
+                                            </SelectItem>
                                         ))}
-                                    </div>
-                                </div>
+                                    </SelectContent>
+                                </Select>
                             </div>
+                            <Button onClick={() => setShowGenerateDialog(true)} className="bg-gray-600 hover:bg-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl">
+                                <Plus className="mr-3 h-6 w-6" />
+                                Generate Report
+                            </Button>
+                        </div>
 
-                            {/* Patient Demographics */}
-                            <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
-                                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-                                    <div className="flex items-center gap-3 p-6">
-                                        <div className="p-2 bg-white/20 rounded-lg">
-                                            <Users className="h-6 w-6" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-2xl font-bold text-white">Patient Categories</h3>
-                                            <p className="text-indigo-100 mt-1">Distribution of patient types</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="px-6 py-6 bg-gradient-to-br from-purple-50 to-purple-100">
-                                    <div className="space-y-3">
-                                        {mockPatientStats.map((stat, index) => (
-                                            <div key={index} className="flex items-center justify-between">
-                                                <span className="text-sm">{stat.category}</span>
+                            {/* Reports Table */}
+                                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                    <Table>
+                                    <TableHeader className="bg-gray-50">
+                                        <TableRow className="hover:bg-gray-100">
+                                            <TableHead className="font-semibold text-black">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-sm font-medium">{stat.count}</span>
-                                                    <Badge variant="secondary">{stat.percentage}%</Badge>
+                                                    <FileText className="h-4 w-4" />
+                                                    Report Name
                                                 </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </TabsContent>
-
-                    <TabsContent value="financial" className="space-y-4">
-                        <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
-                            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                                <div className="flex items-center gap-3 p-6">
-                                    <div className="p-2 bg-white/20 rounded-lg">
-                                        <DollarSign className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-2xl font-bold text-white">Financial Reports</h3>
-                                        <p className="text-emerald-100 mt-1">Generate and view financial reports</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="px-6 py-6 bg-gradient-to-br from-emerald-50 to-green-100">
-                                <div className="flex items-center gap-4 mb-4">
-                                    <Select value={dateRange} onValueChange={setDateRange}>
-                                        <SelectTrigger className="w-[180px]">
-                                            <SelectValue placeholder="Select date range" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="week">This Week</SelectItem>
-                                            <SelectItem value="month">This Month</SelectItem>
-                                            <SelectItem value="quarter">This Quarter</SelectItem>
-                                            <SelectItem value="year">This Year</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <Button variant="outline" className="rounded-xl border-gray-300 hover:bg-gray-50">
-                                        <Download className="h-4 w-4 mr-2" />
-                                        Export Data
-                                    </Button>
-                                </div>
-                                <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                    <Table>
-                                        <TableHeader className="bg-gray-50">
-                                            <TableRow className="hover:bg-gray-50">
-                                                <TableHead className="font-semibold text-gray-700">Month</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Revenue</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Expenses</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Profit</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Patients</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Actions</TableHead>
+                                            </TableHead>
+                                            <TableHead className="font-semibold text-black">Type</TableHead>
+                                            <TableHead className="font-semibold text-black">Date Range</TableHead>
+                                            <TableHead className="font-semibold text-black">Status</TableHead>
+                                            <TableHead className="font-semibold text-black">Generated By</TableHead>
+                                            <TableHead className="font-semibold text-black">Last Generated</TableHead>
+                                            <TableHead className="font-semibold text-black">Actions</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {mockFinancialData.map((data, index) => (
-                                                <TableRow key={index} className="hover:bg-green-50/50 transition-colors border-b border-gray-100">
-                                                    <TableCell className="font-medium text-gray-900">{data.month}</TableCell>
-                                                    <TableCell className="text-green-600">₱{data.revenue.toLocaleString()}</TableCell>
-                                                    <TableCell className="text-red-600">₱{data.expenses.toLocaleString()}</TableCell>
-                                                    <TableCell className="font-medium text-gray-900">₱{data.profit.toLocaleString()}</TableCell>
-                                                    <TableCell className="text-gray-700">{data.patientCount}</TableCell>
-                                                    <TableCell>
-                                                        <Button variant="outline" size="sm" className="rounded-xl">
-                                                            <Download className="h-4 w-4" />
-                                                        </Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </div>
-                        </div>
-                    </TabsContent>
-
-                    <TabsContent value="patients" className="space-y-4">
-                            <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
-                            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-                                <div className="flex items-center gap-3 p-6">
-                                    <div className="p-2 bg-white/20 rounded-lg">
-                                        <Users className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-2xl font-bold text-white">Patient Analytics</h3>
-                                        <p className="text-indigo-100 mt-1">Patient demographics and trends</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="px-6 py-6 bg-gradient-to-br from-purple-50 to-purple-100">
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                    <div>
-                                        <h4 className="font-medium mb-3">Patient Growth</h4>
-                                        <div className="space-y-2">
-                                            {mockFinancialData.map((data, index) => (
-                                                <div key={index} className="flex items-center justify-between">
-                                                    <span className="text-sm">{data.month}</span>
-                                                    <span className="text-sm font-medium">{data.patientCount}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <h4 className="font-medium mb-3">Category Distribution</h4>
-                                        <div className="space-y-2">
-                                            {mockPatientStats.map((stat, index) => (
-                                                <div key={index} className="flex items-center justify-between">
-                                                    <span className="text-sm">{stat.category}</span>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-sm font-medium">{stat.count}</span>
-                                                        <Badge variant="secondary">{stat.percentage}%</Badge>
+                                        {filteredReports.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={7} className="text-center py-8">
+                                                    <div className="flex flex-col items-center">
+                                                        <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                                        <h3 className="mb-2 text-lg font-semibold text-black">{searchTerm ? 'No reports found' : 'No reports generated yet'}</h3>
+                                                        <p className="text-black">
+                                                            {searchTerm ? 'Try adjusting your search terms' : 'Generate your first report to get started'}
+                                                        </p>
                                                     </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </TabsContent>
-
-                    <TabsContent value="reports" className="space-y-4">
-                        <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                            <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
-                                <div className="flex items-center gap-3 p-6">
-                                    <div className="p-2 bg-white/20 rounded-lg">
-                                        <FileText className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-2xl font-bold text-white">Generated Reports</h3>
-                                        <p className="text-orange-100 mt-1">View and manage all generated reports</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="px-6 py-6 bg-gradient-to-br from-orange-50 to-red-50">
-                                <div className="flex items-center gap-4 mb-4">
-                                    <Select value={selectedReportType} onValueChange={setSelectedReportType}>
-                                        <SelectTrigger className="w-[180px]">
-                                            <SelectValue placeholder="All Report Types" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {reportTypes.map(type => (
-                                                <SelectItem key={type} value={type}>
-                                                    {type === 'all' ? 'All Types' : type}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Button className="h-12 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl">
-                                        <Filter className="h-4 w-4 mr-2" />
-                                        Apply Filters
-                                    </Button>
-                                    <Button className="h-12 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl">
-                                        <Filter className="h-4 w-4 mr-2" />
-                                        Apply Filters
-                                    </Button>
-                                </div>
-                                <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                    <Table>
-                                        <TableHeader className="bg-gray-50">
-                                            <TableRow className="hover:bg-gray-50">
-                                                <TableHead className="font-semibold text-gray-700">Report Name</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Type</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Date Range</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Generated By</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Last Generated</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Actions</TableHead>
+                                                </TableCell>
                                             </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {filteredReports.map((report) => (
-                                                <TableRow key={report.id} className="hover:bg-orange-50/50 transition-colors border-b border-gray-100">
-                                                    <TableCell className="font-medium text-gray-900">{report.name}</TableCell>
-                                                    <TableCell className="text-gray-700">{report.type}</TableCell>
-                                                    <TableCell className="text-gray-700">{report.dateRange}</TableCell>
-                                                    <TableCell className="text-gray-700">{report.generatedBy}</TableCell>
+                                        ) : (
+                                            filteredReports.map((report) => (
+                                                <TableRow key={report.id} className="hover:bg-gray-50">
+                                                    <TableCell className="font-medium">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="p-1 bg-gray-100 rounded-full">
+                                                                <FileText className="h-4 w-4 text-black" />
+                                                            </div>
+                                                            {report.name}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-sm text-black">{report.type}</TableCell>
+                                                    <TableCell className="text-sm text-black">{report.dateRange}</TableCell>
                                                     <TableCell>
                                                         <Badge className={getStatusBadge(report.status)}>
                                                             {report.status}
                                                         </Badge>
                                                     </TableCell>
-                                                    <TableCell className="text-sm text-gray-500">
-                                                        {report.lastGenerated}
-                                                    </TableCell>
+                                                    <TableCell className="text-sm text-black">{report.generatedBy}</TableCell>
+                                                    <TableCell className="text-sm text-black">{report.lastGenerated}</TableCell>
                                                     <TableCell>
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" size="icon" className="rounded-xl">
-                                                                    <MoreHorizontal className="h-4 w-4" />
+                                                        <div className="flex gap-2">
+                                                            {report.downloadUrl && (
+                                                                <Button size="sm" variant="outline">
+                                                                    <Download className="mr-1 h-3 w-3" />
+                                                                    Download
+                                                                </Button>
+                                                            )}
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button size="sm" variant="outline">
+                                                                        <MoreHorizontal className="h-3 w-3" />
                                                                 </Button>
                                                             </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end">
-                                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                                {report.status === 'Generated' && report.downloadUrl && (
-                                                                    <DropdownMenuItem>
-                                                                        <Download className="h-4 w-4 mr-2" />
-                                                                        Download
-                                                                    </DropdownMenuItem>
-                                                                )}
+                                                                <DropdownMenuContent>
                                                                 <DropdownMenuItem>View Details</DropdownMenuItem>
                                                                 <DropdownMenuItem>Regenerate</DropdownMenuItem>
                                                                 <DropdownMenuSeparator />
-                                                                <DropdownMenuItem className="text-red-600">
-                                                                    Delete
-                                                                </DropdownMenuItem>
+                                                                    <DropdownMenuItem className="text-black">Delete</DropdownMenuItem>
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>
+                                                        </div>
                                                     </TableCell>
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    
+                    {/* Quick Tips Section */}
+                    <Card className="shadow-lg border-0 rounded-xl bg-white">
+                        <CardHeader className="bg-white border-b border-gray-200">
+                            <CardTitle className="flex items-center gap-3 text-xl font-semibold text-black">
+                                <FlaskConical className="h-5 w-5 text-black" />
+                                Quick Tips
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-6">
+                            <div className="space-y-4">
+                                <div className="p-3 bg-white rounded-lg border border-gray-200">
+                                    <div className="font-semibold text-black mb-1">Report Types</div>
+                                    <div className="text-sm text-black">Choose the right report type for your needs</div>
+                                </div>
+                                <div className="p-3 bg-white rounded-lg border border-gray-200">
+                                    <div className="font-semibold text-black mb-1">Date Ranges</div>
+                                    <div className="text-sm text-black">Select appropriate date ranges for accurate analysis</div>
+                                </div>
+                                <div className="p-3 bg-white rounded-lg border border-gray-200">
+                                    <div className="font-semibold text-black mb-1">Regular Reports</div>
+                                    <div className="text-sm text-black">Schedule regular reports for consistent monitoring</div>
+                                </div>
+                                <div className="p-3 bg-white rounded-lg border border-gray-200">
+                                    <div className="font-semibold text-black mb-1">Data Accuracy</div>
+                                    <div className="text-sm text-black">Ensure data is up-to-date before generating reports</div>
                                 </div>
                             </div>
-                        </div>
-                    </TabsContent>
-                </Tabs>
-            </div>
+                        </CardContent>
+                    </Card>
+                </div>
 
             {/* Generate Report Dialog */}
             <Dialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
-                <DialogContent className="max-w-md p-0 overflow-hidden rounded-xl">
-                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                        <div className="flex items-center gap-3 p-6">
-                            <div className="p-2 bg-white/20 rounded-lg">
-                                <FileText className="h-6 w-6" />
-                            </div>
-                            <div>
-                                <DialogTitle className="text-2xl font-bold text-white">Generate New Report</DialogTitle>
-                                <DialogDescription className="text-blue-100">Select report type and parameters</DialogDescription>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100 space-y-4">
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Generate New Report</DialogTitle>
+                            <DialogDescription>
+                                Select the type of report you want to generate and specify the date range.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="reportType">Report Type</Label>
+                                <Label htmlFor="report-type">Report Type</Label>
                             <Select>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select report type" />
@@ -541,42 +343,32 @@ export default function ReportsAndAnalytics() {
                             </Select>
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="dateRange">Date Range</Label>
+                                <Label htmlFor="date-range">Date Range</Label>
                             <Select>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select date range" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="week">This Week</SelectItem>
-                                    <SelectItem value="month">This Month</SelectItem>
-                                    <SelectItem value="quarter">This Quarter</SelectItem>
-                                    <SelectItem value="year">This Year</SelectItem>
+                                        <SelectItem value="last-week">Last Week</SelectItem>
+                                        <SelectItem value="last-month">Last Month</SelectItem>
+                                        <SelectItem value="last-quarter">Last Quarter</SelectItem>
+                                        <SelectItem value="last-year">Last Year</SelectItem>
                                     <SelectItem value="custom">Custom Range</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="format">Output Format</Label>
-                            <Select>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select format" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="pdf">PDF</SelectItem>
-                                    <SelectItem value="excel">Excel</SelectItem>
-                                    <SelectItem value="csv">CSV</SelectItem>
-                                </SelectContent>
-                            </Select>
                         </div>
-                        <DialogFooter className="mt-4">
+                        <DialogFooter>
                             <Button variant="outline" onClick={() => setShowGenerateDialog(false)}>
                                 Cancel
                             </Button>
-                            <Button>Generate Report</Button>
+                            <Button onClick={() => setShowGenerateDialog(false)}>
+                                Generate Report
+                            </Button>
                         </DialogFooter>
-                    </div>
                 </DialogContent>
             </Dialog>
+            </div>
         </AppLayout>
     );
 }

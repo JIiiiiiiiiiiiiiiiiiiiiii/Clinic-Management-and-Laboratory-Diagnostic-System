@@ -55,14 +55,14 @@ export default function DoctorCreate() {
                     {/* Basic Information */}
                     <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
                         {/* Header Section - No gaps */}
-                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                        <div className="bg-gray-600 hover:bg-gray-700blue-500 to-blue-600 text-white">
                             <div className="flex items-center gap-3 p-6">
                                 <div className="p-2 bg-white/20 rounded-lg">
                                     <User className="h-6 w-6" />
                                 </div>
                                 <div>
                                     <h3 className="text-2xl font-bold text-white">Basic Information</h3>
-                                    <p className="text-blue-100 mt-1">Doctor's personal and contact details</p>
+                                    <p className="text-gray-100 mt-1">Doctor's personal and contact details</p>
                                 </div>
                             </div>
                         </div>
@@ -78,10 +78,10 @@ export default function DoctorCreate() {
                                         id="name"
                                         value={data.name}
                                         onChange={(e) => setData('name', e.target.value)}
-                                        className={`h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm ${errors.name ? 'border-red-500' : ''}`}
+                                        className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.name ? 'border-gray-500' : ''}`}
                                         placeholder="e.g., Dr. John Smith"
                                     />
-                                    {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
+                                    {errors.name && <p className="text-sm text-black">{errors.name}</p>}
                                 </div>
                                 <div className="space-y-3">
                                     <Label htmlFor="email" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -93,10 +93,10 @@ export default function DoctorCreate() {
                                         type="email"
                                         value={data.email}
                                         onChange={(e) => setData('email', e.target.value)}
-                                        className={`h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm ${errors.email ? 'border-red-500' : ''}`}
+                                        className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.email ? 'border-gray-500' : ''}`}
                                         placeholder="e.g., john.smith@clinic.com"
                                     />
-                                    {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
+                                    {errors.email && <p className="text-sm text-black">{errors.email}</p>}
                                 </div>
                             </div>
                             <div className="mt-6 grid gap-6 md:grid-cols-2">
@@ -110,10 +110,10 @@ export default function DoctorCreate() {
                                         type="password"
                                         value={data.password}
                                         onChange={(e) => setData('password', e.target.value)}
-                                        className={`h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm ${errors.password ? 'border-red-500' : ''}`}
+                                        className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.password ? 'border-gray-500' : ''}`}
                                         placeholder="Minimum 8 characters"
                                     />
-                                    {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
+                                    {errors.password && <p className="text-sm text-black">{errors.password}</p>}
                                 </div>
                                 <div className="space-y-3">
                                     <Label htmlFor="password_confirmation" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -125,10 +125,10 @@ export default function DoctorCreate() {
                                         type="password"
                                         value={data.password_confirmation}
                                         onChange={(e) => setData('password_confirmation', e.target.value)}
-                                        className={`h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm ${errors.password_confirmation ? 'border-red-500' : ''}`}
+                                        className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.password_confirmation ? 'border-gray-500' : ''}`}
                                         placeholder="Confirm password"
                                     />
-                                    {errors.password_confirmation && <p className="text-sm text-red-500">{errors.password_confirmation}</p>}
+                                    {errors.password_confirmation && <p className="text-sm text-black">{errors.password_confirmation}</p>}
                                 </div>
                             </div>
                         </div>
@@ -137,14 +137,14 @@ export default function DoctorCreate() {
                     {/* Professional Information */}
                     <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
                         {/* Header Section - No gaps */}
-                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+                        <div className="bg-gray-600 hover:bg-gray-700purple-500 to-purple-600 text-white">
                             <div className="flex items-center gap-3 p-6">
                                 <div className="p-2 bg-white/20 rounded-lg">
                                     <Stethoscope className="h-6 w-6" />
                                 </div>
                                 <div>
                                     <h3 className="text-2xl font-bold text-white">Professional Information</h3>
-                                    <p className="text-purple-100 mt-1">Medical credentials and specialization</p>
+                                    <p className="text-gray-100 mt-1">Medical credentials and specialization</p>
                                 </div>
                             </div>
                         </div>
@@ -157,10 +157,10 @@ export default function DoctorCreate() {
                                         id="specialization"
                                         value={data.specialization}
                                         onChange={(e) => setData('specialization', e.target.value)}
-                                        className="h-12 border-gray-300 focus:border-purple-500 focus:ring-purple-500 rounded-xl shadow-sm"
+                                        className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                         placeholder="e.g., Internal Medicine, Cardiology"
                                     />
-                                    {errors.specialization && <p className="text-sm text-red-500">{errors.specialization}</p>}
+                                    {errors.specialization && <p className="text-sm text-black">{errors.specialization}</p>}
                                 </div>
                                 <div className="space-y-3">
                                     <Label htmlFor="license_number" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -171,20 +171,20 @@ export default function DoctorCreate() {
                                         id="license_number"
                                         value={data.license_number}
                                         onChange={(e) => setData('license_number', e.target.value)}
-                                        className="h-12 border-gray-300 focus:border-purple-500 focus:ring-purple-500 rounded-xl shadow-sm"
+                                        className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                         placeholder="e.g., PRC-123456"
                                     />
-                                    {errors.license_number && <p className="text-sm text-red-500">{errors.license_number}</p>}
+                                    {errors.license_number && <p className="text-sm text-black">{errors.license_number}</p>}
                                 </div>
                             </div>
                             <div className="mt-6">
-                                <div className="flex items-center space-x-3 p-4 bg-white rounded-xl border border-purple-200">
+                                <div className="flex items-center space-x-3 p-4 bg-white rounded-xl border border-gray-200">
                                     <input
                                         type="checkbox"
                                         id="is_active"
                                         checked={data.is_active}
                                         onChange={(e) => setData('is_active', e.target.checked)}
-                                        className="h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                                        className="h-5 w-5 text-black focus:ring-gray-500 border-gray-300 rounded"
                                     />
                                     <Label htmlFor="is_active" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                         <CheckCircle className="h-5 w-5" />
@@ -203,7 +203,7 @@ export default function DoctorCreate() {
                         <Button 
                             onClick={submit} 
                             disabled={processing}
-                            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl"
+                            className="bg-gray-600 hover:bg-gray-700blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl"
                         >
                             <Save className="mr-3 h-6 w-6" />
                             {processing ? 'Creating...' : 'Create Doctor'}

@@ -103,13 +103,13 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'ordered':
-                return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+                return 'bg-gray-100 text-black border-gray-200';
             case 'processing':
-                return 'bg-blue-100 text-blue-800 border-blue-200';
+                return 'bg-gray-100 text-black border-gray-200';
             case 'completed':
-                return 'bg-green-100 text-green-800 border-green-200';
+                return 'bg-gray-100 text-black border-gray-200';
             case 'cancelled':
-                return 'bg-red-100 text-red-800 border-red-200';
+                return 'bg-gray-100 text-black border-gray-200';
             default:
                 return 'bg-gray-100 text-gray-800 border-gray-200';
         }
@@ -155,7 +155,7 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                 <ArrowLeft className="h-4 w-4" />
                             </Button>
                             <div>
-                                <h1 className="text-4xl font-bold text-gray-900 mb-2">Lab Order #{order.id}</h1>
+                                <h1 className="text-4xl font-bold text-black mb-2">Lab Order #{order.id}</h1>
                                 <div className="flex items-center gap-4">
                                     <Badge className={`${getStatusColor(order.status)} border`}>
                                         {getStatusIcon(order.status)}
@@ -191,8 +191,8 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                         <Card className="shadow-lg">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        <User className="h-6 w-6 text-blue-600" />
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <User className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <CardTitle className="text-lg font-semibold text-gray-900">Patient Information</CardTitle>
@@ -251,8 +251,8 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                         <Card className="shadow-lg">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        <Hash className="h-6 w-6 text-blue-600" />
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <Hash className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <CardTitle className="text-lg font-semibold text-gray-900">Order Details</CardTitle>
@@ -306,15 +306,15 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                         <Card className="shadow-lg">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        <TestTube className="h-6 w-6 text-blue-600" />
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <TestTube className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <CardTitle className="text-lg font-semibold text-gray-900">Requested Tests</CardTitle>
                                         <p className="text-sm text-gray-500 mt-1">Laboratory tests ordered for this patient</p>
                                     </div>
                                 </div>
-                                <Badge variant="outline" className="text-blue-600 border-blue-200">
+                                <Badge variant="outline" className="text-black border-gray-200">
                                     {order.lab_tests.length} test{order.lab_tests.length !== 1 ? 's' : ''}
                                 </Badge>
                             </CardHeader>
@@ -323,7 +323,7 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                     {order.lab_tests.map((test) => (
                                         <div key={test.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
                                             <div className="flex items-center gap-3">
-                                                <TestTube className="h-5 w-5 text-blue-600" />
+                                                <TestTube className="h-5 w-5 text-black" />
                                                 <div>
                                                     <p className="font-medium text-gray-900">{test.name}</p>
                                                     <p className="text-sm text-gray-600">Code: {test.code}</p>
@@ -342,15 +342,15 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                         <Card className="shadow-lg">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        <Activity className="h-6 w-6 text-blue-600" />
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <Activity className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <CardTitle className="text-lg font-semibold text-gray-900">Test Results</CardTitle>
                                         <p className="text-sm text-gray-500 mt-1">Laboratory test results and values</p>
                                     </div>
                                 </div>
-                                <Badge variant="outline" className="text-blue-600 border-blue-200">
+                                <Badge variant="outline" className="text-black border-gray-200">
                                     {order.results.length} result{order.results.length !== 1 ? 's' : ''}
                                 </Badge>
                             </CardHeader>
@@ -361,7 +361,7 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                             <div key={result.id} className="border border-gray-200 rounded-lg p-4">
                                                 <div className="flex items-center justify-between mb-4">
                                                     <div className="flex items-center gap-3">
-                                                        <TestTube className="h-5 w-5 text-blue-600" />
+                                                        <TestTube className="h-5 w-5 text-black" />
                                                         <div>
                                                             <p className="font-medium text-gray-900">{result.test.name}</p>
                                                             <p className="text-sm text-gray-600">Code: {result.test.code}</p>
@@ -429,8 +429,8 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                             <Card className="shadow-lg">
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-blue-100 rounded-lg">
-                                            <FileText className="h-6 w-6 text-blue-600" />
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <FileText className="h-6 w-6 text-black" />
                                         </div>
                                         <div>
                                             <CardTitle className="text-lg font-semibold text-gray-900">Order Notes</CardTitle>

@@ -232,15 +232,15 @@ export default function RecentCardsContainer() {
                                 rows.map((product: { id: number; name: string; stock: number; status: string }) => (
                                     <div key={product.id} className="holographic-card shadow-sm transition-shadow hover:shadow-md flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer">
                                         <div className="flex items-center space-x-4">
-                                            <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center">
-                                                <Package2 className="h-6 w-6 text-white" />
+                                            <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
+                                                <Package2 className="h-6 w-6 text-black" />
                                             </div>
                                             <div>
                                                 <h3 className="font-semibold text-gray-900">{product.name}</h3>
                                                 <p className="text-sm text-gray-600">Stock: {product.stock} units</p>
                                                 <div className="flex items-center mt-1">
                                                     <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                                                        <div className={`h-2 rounded-full ${product.stock > 10 ? 'bg-green-500' : product.stock > 5 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{width: `${Math.min((product.stock / 20) * 100, 100)}%`}}></div>
+                                                        <div className={`h-2 rounded-full ${product.stock > 10 ? 'bg-gray-400' : product.stock > 5 ? 'bg-gray-300' : 'bg-gray-200'}`} style={{width: `${Math.min((product.stock / 20) * 100, 100)}%`}}></div>
                                                     </div>
                                                     <span className="text-xs text-gray-500">{product.stock > 10 ? 'High' : product.stock > 5 ? 'Medium' : 'Low'}</span>
                                                 </div>

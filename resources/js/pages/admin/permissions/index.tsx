@@ -16,7 +16,7 @@ export default function PermissionsIndex() {
             <Head title="Permissions" />
             <div className="p-6">
                 <div className="mb-4 flex items-center justify-between">
-                    <h1 className="text-2xl font-bold">Permissions</h1>
+                    <h1 className="text-4xl font-semibold text-black mb-4">Permissions</h1>
                     <Button asChild>
                         <Link href={route('admin.permissions.create')}>
                             <Plus className="mr-2 h-4 w-4" />
@@ -54,7 +54,7 @@ export default function PermissionsIndex() {
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    className="text-red-600"
+                                                    className="text-black"
                                                     onClick={() => {
                                                         if (confirm('Delete this permission?')) {
                                                             router.delete(route('admin.permissions.destroy', p.id));

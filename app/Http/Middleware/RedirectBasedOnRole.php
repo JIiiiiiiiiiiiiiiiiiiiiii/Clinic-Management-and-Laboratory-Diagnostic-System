@@ -15,7 +15,7 @@ class RedirectBasedOnRole
     {
         $user = $request->user();
 
-        if ($user) {
+        if ($user && method_exists($user, 'getMappedRole')) {
             // Get the mapped role from the user
             $mappedRole = $user->getMappedRole();
 
@@ -31,10 +31,32 @@ class RedirectBasedOnRole
                     return redirect()->route('patient.dashboard');
                 }
             }
+            // If user is hospital staff
+            else if (in_array($mappedRole, ['hospital_admin', 'hospital_staff'])) {
+                // If they're trying to access patient routes, redirect to hospital dashboard
+                if ($request->is('patient*')) {
+                    return redirect()->route('hospital.dashboard');
+                }
+
+                // If they're trying to access admin routes, redirect to hospital dashboard
+                if ($request->is('admin*')) {
+                    return redirect()->route('hospital.dashboard');
+                }
+
+                // If they're on the root or generic dashboard, redirect to hospital dashboard
+                if ($request->is('/') || $request->is('/dashboard')) {
+                    return redirect()->route('hospital.dashboard');
+                }
+            }
             // If user is staff (admin, doctor, lab tech, medtech, cashier)
             else if (in_array($mappedRole, ['admin', 'doctor', 'laboratory_technologist', 'medtech', 'cashier'])) {
                 // If they're trying to access patient routes, redirect to admin dashboard
                 if ($request->is('patient*')) {
+                    return redirect()->route('admin.dashboard');
+                }
+
+                // If they're trying to access hospital routes, redirect to admin dashboard
+                if ($request->is('hospital*')) {
                     return redirect()->route('admin.dashboard');
                 }
 

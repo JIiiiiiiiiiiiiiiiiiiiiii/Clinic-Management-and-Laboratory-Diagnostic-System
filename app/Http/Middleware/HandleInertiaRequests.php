@@ -39,19 +39,17 @@ class HandleInertiaRequests extends Middleware
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
-        $user = $request->user();
-        $mappedRole = $user ? $user->getMappedRole() : null;
-
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
-                'user' => $user ? [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'role' => $mappedRole, // Send the mapped role
+                'user' => $request->user() ? [
+                    'id' => $request->user()->id,
+                    'name' => $request->user()->name,
+                    'email' => $request->user()->email,
+                    'role' => $request->user()->getMappedRole(),
+                    'avatar' => null, // Add avatar if you have one
                 ] : null,
             ],
             'ziggy' => fn (): array => [

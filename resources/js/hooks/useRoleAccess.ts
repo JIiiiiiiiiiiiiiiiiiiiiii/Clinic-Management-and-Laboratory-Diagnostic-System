@@ -34,14 +34,18 @@ export interface RolePermissions {
 
 export function useRoleAccess() {
     const { auth } = usePage().props as any;
-    const userRole = auth?.user?.role || 'patient';
+    const userRole = auth?.user?.role;
 
     const isAdmin = userRole === 'admin';
     const isDoctor = userRole === 'doctor';
     const isLabStaff = userRole === 'laboratory_technologist' || userRole === 'medtech';
     const isCashier = userRole === 'cashier';
     const isPatient = userRole === 'patient';
+    const isHospital = userRole === 'hospital_admin' || userRole === 'hospital_staff';
     const isStaff = isDoctor || isLabStaff || isCashier || isAdmin;
+    
+    // If no role is found, assume staff (safer default for admin interface)
+    const hasValidRole = userRole && (isAdmin || isDoctor || isLabStaff || isCashier || isPatient || isHospital);
 
     const permissions: RolePermissions = {
         // Module Access - Only staff can access admin panel
@@ -102,15 +106,21 @@ export function useRoleAccess() {
 
     // Get the appropriate dashboard route based on role
     const getDashboardRoute = (): string => {
-        if (isPatient) {
+        if (isPatient && hasValidRole) {
             return '/patient/dashboard';
         }
+        if (isHospital) {
+            return '/hospital/dashboard';
+        }
+        // Default to admin dashboard for staff or undefined roles
         return '/admin/dashboard';
     };
 
     // Check if user should be redirected
     const shouldRedirectToPatient = (): boolean => {
-        return isPatient;
+        // Only redirect to patient if explicitly a patient
+        // If role is undefined or invalid, assume staff (admin interface)
+        return isPatient && hasValidRole;
     };
 
     return {
@@ -120,6 +130,7 @@ export function useRoleAccess() {
         isLabStaff,
         isCashier,
         isPatient,
+        isHospital,
         isStaff,
         permissions,
         hasPermission,

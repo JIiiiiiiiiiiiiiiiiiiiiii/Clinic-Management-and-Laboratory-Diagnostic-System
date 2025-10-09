@@ -1,5 +1,5 @@
 import { ChevronRightIcon, type LucideIcon } from "lucide-react"
-import { Link } from "@inertiajs/react"
+import { Link, usePage } from "@inertiajs/react"
 
 import {
   Collapsible,
@@ -21,25 +21,43 @@ export function NavMain({
 }: {
   items: {
     title: string
-    url: string
+    href?: string
+    url?: string
     icon?: LucideIcon
     isActive?: boolean
     items?: {
       title: string
-      url: string
+      href?: string
+      url?: string
     }[]
   }[]
 }) {
+  const page = usePage<any>();
+  const currentUrl = page.url;
+
+  // Function to check if any sub-item is active
+  const isSubItemActive = (subItems: any[]) => {
+    return subItems?.some(subItem => {
+      const subUrl = subItem.href || subItem.url;
+      return subUrl && currentUrl.startsWith(subUrl);
+    }) || false;
+  };
+
   return (
     <SidebarGroup>
       <SidebarMenu>
-        {items.map((item) => (
-          <Collapsible
-            key={item.title}
-            asChild
-            defaultOpen={item.isActive}
-            className="group/collapsible"
-          >
+        {items.map((item) => {
+          // Only open if the current URL matches this item or any of its sub-items
+          const shouldBeOpen = item.url && currentUrl.startsWith(item.url) || 
+                              (item.items && isSubItemActive(item.items));
+          
+          return (
+            <Collapsible
+              key={item.title}
+              asChild
+              defaultOpen={shouldBeOpen}
+              className="group/collapsible"
+            >
             <SidebarMenuItem>
               {item.items ? (
                 <>
@@ -55,7 +73,7 @@ export function NavMain({
                       {item.items?.map((subItem) => (
                         <SidebarMenuSubItem key={subItem.title}>
                           <SidebarMenuSubButton asChild>
-                            <Link href={subItem.url}>
+                            <Link href={subItem.href || subItem.url}>
                               <span>{subItem.title}</span>
                             </Link>
                           </SidebarMenuSubButton>
@@ -66,15 +84,16 @@ export function NavMain({
                 </>
               ) : (
                 <SidebarMenuButton tooltip={item.title} asChild>
-                  <Link href={item.url}>
+                  <Link href={item.href || item.url}>
                     {item.icon && <item.icon />}
                     <span>{item.title}</span>
                   </Link>
                 </SidebarMenuButton>
               )}
             </SidebarMenuItem>
-          </Collapsible>
-        ))}
+            </Collapsible>
+          );
+        })}
       </SidebarMenu>
     </SidebarGroup>
   )

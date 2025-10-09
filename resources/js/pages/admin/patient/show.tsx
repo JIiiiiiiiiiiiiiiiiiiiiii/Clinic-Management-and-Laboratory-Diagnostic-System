@@ -12,12 +12,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PatientPageLayout, PatientActionButton, PatientStatusBadge } from '@/components/patient/PatientPageLayout';
+import { PatientPageLayout, PatientActionButton, PatientStatusBadge, PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { PatientItem } from '@/types/patients';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, Calendar, Edit, Plus, TestTube, Trash2, User, Phone, Mail, MapPin, Clock, Stethoscope, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, Edit, Plus, TestTube, Trash2, User, Phone, Mail, MapPin, Stethoscope, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
 import Heading from '@/components/heading';
 import * as React from 'react';
 
@@ -109,19 +109,11 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
                 </AlertDialog>
 
                 {/* Patient Details Section */}
-                <Card className="shadow-lg mb-8">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                                <User className="h-6 w-6 text-blue-600" />
-                            </div>
-                            <div>
-                                <CardTitle className="text-lg font-semibold text-gray-900">Patient Information</CardTitle>
-                                <p className="text-sm text-gray-500 mt-1">Complete patient profile and medical history</p>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
+                <PatientInfoCard
+                    title="Patient Information"
+                    icon={<User className="h-5 w-5 text-black" />}
+                    className="mb-8"
+                >
                         <Tabs defaultValue={activeTab}>
                             <TabsList className="grid w-full grid-cols-3">
                                 <TabsTrigger value="details">Patient Details</TabsTrigger>
@@ -134,8 +126,8 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
                                     {/* Patient Identification */}
                                     <Card className="shadow-sm">
                                         <div className="flex items-center gap-3 p-4 bg-gray-50 border-b">
-                                            <div className="p-2 bg-blue-100 rounded-lg">
-                                                <User className="h-5 w-5 text-blue-600" />
+                                            <div className="p-2 bg-gray-100 rounded-lg">
+                                                <User className="h-5 w-5 text-black" />
                                             </div>
                                             <h4 className="text-lg font-semibold text-gray-900">Patient Identification</h4>
                                         </div>
@@ -176,8 +168,8 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
                                     {/* Contact Information */}
                                     <Card className="shadow-sm">
                                         <div className="flex items-center gap-3 p-4 bg-gray-50 border-b">
-                                            <div className="p-2 bg-blue-100 rounded-lg">
-                                                <Phone className="h-5 w-5 text-blue-600" />
+                                            <div className="p-2 bg-gray-100 rounded-lg">
+                                                <Phone className="h-5 w-5 text-black" />
                                             </div>
                                             <h4 className="text-lg font-semibold text-gray-900">Contact Information</h4>
                                         </div>
@@ -217,8 +209,8 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
                                     {/* Demographics */}
                                     <Card className="shadow-sm">
                                         <div className="flex items-center gap-3 p-4 bg-gray-50 border-b">
-                                            <div className="p-2 bg-blue-100 rounded-lg">
-                                                <User className="h-5 w-5 text-blue-600" />
+                                            <div className="p-2 bg-gray-100 rounded-lg">
+                                                <User className="h-5 w-5 text-black" />
                                             </div>
                                             <h4 className="text-lg font-semibold text-gray-900">Demographics</h4>
                                         </div>
@@ -239,8 +231,8 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
                                     {/* Emergency Contact */}
                                     <Card className="shadow-sm">
                                         <div className="flex items-center gap-3 p-4 bg-gray-50 border-b">
-                                            <div className="p-2 bg-blue-100 rounded-lg">
-                                                <Phone className="h-5 w-5 text-blue-600" />
+                                            <div className="p-2 bg-gray-100 rounded-lg">
+                                                <Phone className="h-5 w-5 text-black" />
                                             </div>
                                             <h4 className="text-lg font-semibold text-gray-900">Emergency Contact</h4>
                                         </div>
@@ -262,8 +254,8 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
                                 {/* Medical History & Allergies */}
                                 <Card className="shadow-sm">
                                     <div className="flex items-center gap-3 p-4 bg-gray-50 border-b">
-                                        <div className="p-2 bg-blue-100 rounded-lg">
-                                            <Stethoscope className="h-5 w-5 text-blue-600" />
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <Stethoscope className="h-5 w-5 text-black" />
                                         </div>
                                         <h4 className="text-lg font-semibold text-gray-900">Medical History & Allergies</h4>
                                     </div>
@@ -298,8 +290,8 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
                                 <Card className="shadow-sm">
                                     <div className="flex items-center justify-between p-4 bg-gray-50 border-b">
                                         <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-blue-100 rounded-lg">
-                                                <Calendar className="h-5 w-5 text-blue-600" />
+                                            <div className="p-2 bg-gray-100 rounded-lg">
+                                                <Calendar className="h-5 w-5 text-black" />
                                             </div>
                                             <h4 className="text-lg font-semibold text-gray-900">Visit Records</h4>
                                         </div>
@@ -317,8 +309,8 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
                                                     <div key={visit.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center gap-3">
-                                                                <div className="p-2 bg-blue-100 rounded-lg">
-                                                                    <Calendar className="h-4 w-4 text-blue-600" />
+                                                                <div className="p-2 bg-gray-100 rounded-lg">
+                                                                    <Calendar className="h-4 w-4 text-black" />
                                                                 </div>
                                                                 <div>
                                                                     <h5 className="font-semibold text-gray-900">Visit #{visit.visit_number}</h5>
@@ -362,8 +354,8 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
                                 <Card className="shadow-sm">
                                     <div className="flex items-center justify-between p-4 bg-gray-50 border-b">
                                         <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-blue-100 rounded-lg">
-                                                <TestTube className="h-5 w-5 text-blue-600" />
+                                            <div className="p-2 bg-gray-100 rounded-lg">
+                                                <TestTube className="h-5 w-5 text-black" />
                                             </div>
                                             <h4 className="text-lg font-semibold text-gray-900">Laboratory Orders</h4>
                                         </div>
@@ -381,8 +373,8 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
                                                     <div key={order.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center gap-3">
-                                                                <div className="p-2 bg-green-100 rounded-lg">
-                                                                    <TestTube className="h-4 w-4 text-green-600" />
+                                                                <div className="p-2 bg-gray-100 rounded-lg">
+                                                                    <TestTube className="h-4 w-4 text-black" />
                                                                 </div>
                                                                 <div>
                                                                     <h5 className="font-semibold text-gray-900">Lab Order #{order.id}</h5>
@@ -431,35 +423,8 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
                                 </Card>
                             </TabsContent>
                         </Tabs>
-                    </CardContent>
-                </Card>
+                </PatientInfoCard>
 
-                {/* System Information */}
-                <Card className="shadow-lg">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                                <Clock className="h-6 w-6 text-blue-600" />
-                            </div>
-                            <div>
-                                <CardTitle className="text-lg font-semibold text-gray-900">System Information</CardTitle>
-                                <p className="text-sm text-gray-500 mt-1">Record creation and update timestamps</p>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="grid grid-cols-2 gap-6">
-                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                                <p className="text-sm font-medium text-gray-600 mb-2">Created</p>
-                                <p className="text-lg font-bold text-gray-900">{formatDate(patient.created_at)}</p>
-                            </div>
-                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                                <p className="text-sm font-medium text-gray-600 mb-2">Last Updated</p>
-                                <p className="text-lg font-bold text-gray-900">{formatDate(patient.updated_at)}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
             </PatientPageLayout>
         </AppLayout>
     );

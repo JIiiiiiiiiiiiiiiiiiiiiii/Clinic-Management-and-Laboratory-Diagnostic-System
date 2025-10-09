@@ -21,6 +21,9 @@ class DatabaseSeeder extends Seeder
 
         // Seed users with different roles first
         $this->call(UserRoleSeeder::class);
+        
+        // Seed hospital user
+        $this->call(HospitalUserSeeder::class);
 
         // Seed laboratory tests
         $this->call(LabTestSeeder::class);
@@ -28,8 +31,7 @@ class DatabaseSeeder extends Seeder
         // Seed inventory/supplies
         $this->call(InventorySeeder::class);
 
-        // Seed patients
-        $this->call(PatientSeeder::class);
+        // Seed patients (PatientSeeder not found, skipping)
 
         // Seed patient visits
         $this->call(PatientVisitSeeder::class);

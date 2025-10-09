@@ -82,7 +82,9 @@ class User extends Authenticatable
             'medtech',
             'cashier',
             'doctor',
-            'patient'
+            'patient',
+            'hospital_admin',
+            'hospital_staff'
         ];
 
         if (in_array($existingRole, $validRoles)) {
@@ -147,5 +149,11 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->getMappedRole() === 'admin';
+    }
+
+    // Relationship to patient record
+    public function patient()
+    {
+        return $this->hasOne(Patient::class);
     }
 }

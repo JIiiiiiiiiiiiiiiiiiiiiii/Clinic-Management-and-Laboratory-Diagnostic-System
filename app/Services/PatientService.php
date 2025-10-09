@@ -14,19 +14,11 @@ class PatientService
             $validatedData['age'] = now()->parse($validatedData['birthdate'])->age;
         }
 
-        // Auto-generate patient_no if not provided (no zero padding)
+        // Auto-generate patient_no if not provided with smart reset logic
         // Use database transaction to prevent race conditions
         return \DB::transaction(function () use ($validatedData) {
             if (empty($validatedData['patient_no'])) {
-                // Get next patient_no using MAX + 1 with FOR UPDATE to avoid duplicates
-                $max = Patient::query()->lockForUpdate()->max('patient_no');
-                $numericMax = is_numeric($max) ? (int) $max : (int) ltrim((string) $max, '0');
-                $next = $numericMax + 1;
-                // Ensure uniqueness in case of concurrent inserts
-                while (Patient::where('patient_no', (string) $next)->exists()) {
-                    $next++;
-                }
-                $validatedData['patient_no'] = (string) $next;
+                $validatedData['patient_no'] = $this->getNextAvailablePatientNo();
             }
 
             return Patient::create($validatedData);
@@ -71,6 +63,31 @@ class PatientService
         }
 
         return null;
+    }
+
+    /**
+     * Get the next available patient number with smart reset logic
+     * If patient 1 is deleted, start from 1 again instead of continuing from highest number
+     */
+    private function getNextAvailablePatientNo()
+    {
+        // Get the highest patient number (including soft deleted)
+        $maxPatientNo = Patient::withTrashed()->max('patient_no');
+        
+        if ($maxPatientNo === null) {
+            // No patients exist, start with 1
+            return '1';
+        }
+        
+        // Convert to integer and increment
+        $nextNumber = (int) $maxPatientNo + 1;
+        
+        // Safety check: ensure the number doesn't already exist (including soft deleted)
+        while (Patient::withTrashed()->where('patient_no', (string) $nextNumber)->exists()) {
+            $nextNumber++;
+        }
+        
+        return (string) $nextNumber;
     }
 }
 

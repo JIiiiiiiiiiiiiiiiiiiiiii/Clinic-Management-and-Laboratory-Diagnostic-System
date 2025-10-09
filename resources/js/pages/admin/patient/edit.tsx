@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { CustomDatePicker } from '@/components/ui/date-picker';
-import { PatientPageLayout, PatientActionButton } from '@/components/patient/PatientPageLayout';
+import { PatientPageLayout, PatientActionButton, PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { PatientItem } from '@/types/patients';
@@ -120,11 +120,10 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                 icon={<Edit className="h-6 w-6" />}
                 actions={
                     <PatientActionButton
-                        variant="default"
+                        variant="outline"
                         icon={<ArrowLeft className="h-4 w-4" />}
                         label="Back to Patients"
                         href="/admin/patient"
-                        className="bg-gray-600 hover:bg-gray-700 text-white shadow-md hover:shadow-lg transition-all duration-300"
                     />
                 }
             >
@@ -146,19 +145,10 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
 
                 <form onSubmit={handleSubmit} className="space-y-8">
                     {/* Patient Identification */}
-                    <Card className="shadow-lg">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <User className="h-6 w-6 text-blue-600" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-lg font-semibold text-gray-900">Patient Identification</CardTitle>
-                                    <p className="text-sm text-gray-500 mt-1">Basic patient information and demographics</p>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
+                    <PatientInfoCard
+                        title="Patient Identification"
+                        icon={<User className="h-5 w-5 text-black" />}
+                    >
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="last_name" className="text-base font-bold text-gray-700">Last Name *</Label>
@@ -169,7 +159,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                         className="w-full"
                                         required
                                     />
-                                    {errors.last_name && <p className="text-red-500 text-sm">{errors.last_name}</p>}
+                                    {errors.last_name && <p className="text-black text-sm">{errors.last_name}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="first_name" className="text-base font-bold text-gray-700">First Name *</Label>
@@ -180,7 +170,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                         className="w-full"
                                         required
                                     />
-                                    {errors.first_name && <p className="text-red-500 text-sm">{errors.first_name}</p>}
+                                    {errors.first_name && <p className="text-black text-sm">{errors.first_name}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="middle_name" className="text-base font-bold text-gray-700">Middle Name</Label>
@@ -193,15 +183,14 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="birthdate" className="text-base font-bold text-gray-700">Birth Date *</Label>
-                                    <Input
-                                        id="birthdate"
-                                        type="date"
+                                    <CustomDatePicker
                                         value={data.birthdate}
-                                        onChange={(e) => setData('birthdate', e.target.value)}
+                                        onChange={(date) => setData('birthdate', date ? date.toISOString().split('T')[0] : '')}
+                                        placeholder="Select birthdate"
+                                        variant="responsive"
                                         className="w-full"
-                                        required
                                     />
-                                    {errors.birthdate && <p className="text-red-500 text-sm">{errors.birthdate}</p>}
+                                    {errors.birthdate && <p className="text-black text-sm">{errors.birthdate}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="sex" className="text-base font-bold text-gray-700">Sex *</Label>
@@ -214,7 +203,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                             <SelectItem value="Female">Female</SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    {errors.sex && <p className="text-red-500 text-sm">{errors.sex}</p>}
+                                    {errors.sex && <p className="text-black text-sm">{errors.sex}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="civil_status" className="text-base font-bold text-gray-700">Civil Status *</Label>
@@ -229,7 +218,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                             <SelectItem value="Divorced">Divorced</SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    {errors.civil_status && <p className="text-red-500 text-sm">{errors.civil_status}</p>}
+                                    {errors.civil_status && <p className="text-black text-sm">{errors.civil_status}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="nationality" className="text-base font-bold text-gray-700">Nationality</Label>
@@ -242,23 +231,13 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     />
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                    </PatientInfoCard>
 
                     {/* Demographics */}
-                    <Card className="shadow-lg">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <Activity className="h-6 w-6 text-blue-600" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-lg font-semibold text-gray-900">Demographics</CardTitle>
-                                    <p className="text-sm text-gray-500 mt-1">Personal and social information</p>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
+                    <PatientInfoCard
+                        title="Demographics"
+                        icon={<Activity className="h-5 w-5 text-black" />}
+                    >
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="occupation" className="text-base font-bold text-gray-700">Occupation</Label>
@@ -293,23 +272,13 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     </Select>
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                    </PatientInfoCard>
 
                     {/* Contact Information */}
-                    <Card className="shadow-lg">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <Phone className="h-6 w-6 text-blue-600" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-lg font-semibold text-gray-900">Contact Information</CardTitle>
-                                    <p className="text-sm text-gray-500 mt-1">Address and communication details</p>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
+                    <PatientInfoCard
+                        title="Contact Information"
+                        icon={<Phone className="h-5 w-5 text-black" />}
+                    >
                             <div className="space-y-6">
                                 <div className="space-y-2">
                                     <Label htmlFor="present_address" className="text-base font-bold text-gray-700">Present Address *</Label>
@@ -321,7 +290,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                         rows={3}
                                         required
                                     />
-                                    {errors.present_address && <p className="text-red-500 text-sm">{errors.present_address}</p>}
+                                    {errors.present_address && <p className="text-black text-sm">{errors.present_address}</p>}
                                 </div>
                                 <div className="grid gap-6 md:grid-cols-2">
                                     <div className="space-y-2">
@@ -342,27 +311,17 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                             className="w-full"
                                             required
                                         />
-                                        {errors.mobile_no && <p className="text-red-500 text-sm">{errors.mobile_no}</p>}
+                                        {errors.mobile_no && <p className="text-black text-sm">{errors.mobile_no}</p>}
                                     </div>
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                    </PatientInfoCard>
 
                     {/* Emergency Contact */}
-                    <Card className="shadow-lg">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <Heart className="h-6 w-6 text-blue-600" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-lg font-semibold text-gray-900">Emergency Contact</CardTitle>
-                                    <p className="text-sm text-gray-500 mt-1">Emergency contact person details</p>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
+                    <PatientInfoCard
+                        title="Emergency Contact"
+                        icon={<Heart className="h-5 w-5 text-black" />}
+                    >
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="informant_name" className="text-base font-bold text-gray-700">Informant Name *</Label>
@@ -373,7 +332,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                         className="w-full"
                                         required
                                     />
-                                    {errors.informant_name && <p className="text-red-500 text-sm">{errors.informant_name}</p>}
+                                    {errors.informant_name && <p className="text-black text-sm">{errors.informant_name}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="relationship" className="text-base font-bold text-gray-700">Relationship *</Label>
@@ -384,26 +343,16 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                         className="w-full"
                                         required
                                     />
-                                    {errors.relationship && <p className="text-red-500 text-sm">{errors.relationship}</p>}
+                                    {errors.relationship && <p className="text-black text-sm">{errors.relationship}</p>}
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                    </PatientInfoCard>
 
                     {/* Financial/Insurance */}
-                    <Card className="shadow-lg">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <Shield className="h-6 w-6 text-blue-600" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-lg font-semibold text-gray-900">Financial/Insurance Information</CardTitle>
-                                    <p className="text-sm text-gray-500 mt-1">Insurance and financial details</p>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
+                    <PatientInfoCard
+                        title="Financial/Insurance Information"
+                        icon={<Shield className="h-5 w-5 text-black" />}
+                    >
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="company_name" className="text-base font-bold text-gray-700">Company Name</Label>
@@ -426,23 +375,13 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     <Input id="validity" value={data.validity} onChange={(e) => setData('validity', e.target.value)} />
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                    </PatientInfoCard>
 
                     {/* Medical History & Allergies */}
-                    <Card className="shadow-lg">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <Stethoscope className="h-6 w-6 text-blue-600" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-lg font-semibold text-gray-900">Medical History & Allergies</CardTitle>
-                                    <p className="text-sm text-gray-500 mt-1">Medical background and allergy information</p>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
+                    <PatientInfoCard
+                        title="Medical History & Allergies"
+                        icon={<Stethoscope className="h-5 w-5 text-black" />}
+                    >
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="drug_allergies" className="text-base font-bold text-gray-700">Drug Allergies</Label>
@@ -503,34 +442,23 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     />
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                    </PatientInfoCard>
 
                     {/* Action Buttons */}
-                    <Card className="shadow-lg">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <Save className="h-6 w-6 text-blue-600" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-lg font-semibold text-gray-900">Save Changes</CardTitle>
-                                    <p className="text-sm text-gray-500 mt-1">Update patient information</p>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="flex items-center justify-end gap-6">
-                                <Button asChild className="bg-gray-600 hover:bg-gray-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl">
-                                    <Link href="/admin/patient">Cancel</Link>
-                                </Button>
-                                <Button disabled={processing} type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold">
-                                    <Save className="mr-3 h-6 w-6" />
-                                    {processing ? 'Updating Patient...' : 'Update Patient'}
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <PatientInfoCard
+                        title="Save Changes"
+                        icon={<Save className="h-5 w-5 text-black" />}
+                    >
+                        <div className="flex items-center justify-end gap-6">
+                            <Button asChild variant="outline" className="px-8 py-4 text-lg font-semibold rounded-xl">
+                                <Link href="/admin/patient">Cancel</Link>
+                            </Button>
+                            <Button disabled={processing} type="submit" variant="default" className="px-8 py-4 text-lg font-semibold rounded-xl">
+                                <Save className="mr-3 h-6 w-6" />
+                                {processing ? 'Updating Patient...' : 'Update Patient'}
+                            </Button>
+                        </div>
+                    </PatientInfoCard>
                 </form>
             </PatientPageLayout>
         </AppLayout>

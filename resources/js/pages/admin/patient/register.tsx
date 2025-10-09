@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CustomDatePicker } from '@/components/ui/date-picker';
-import { PatientPageLayout, PatientActionButton, PatientFormSection } from '@/components/patient/PatientPageLayout';
+import { PatientPageLayout, PatientActionButton, PatientFormSection, PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { CreatePatientItem } from '@/types/patients';
@@ -203,11 +203,8 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                     {/* Header Section */}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <div className="p-3 bg-blue-100 rounded-xl">
-                                <User className="h-6 w-6 text-blue-600" />
-                            </div>
                             <div>
-                                <h1 className="text-2xl font-bold text-gray-900">Register New Patient</h1>
+                                <h1 className="text-4xl font-bold text-black">Register New Patient</h1>
                                 <p className="text-sm text-gray-600 mt-1">Complete patient registration with step-by-step process</p>
                             </div>
                         </div>
@@ -228,15 +225,15 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                     <Card className="holographic-card shadow-lg overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <Activity className="h-5 w-5 text-blue-600" />
+                                <div className="p-2 bg-gray-100 rounded-lg">
+                                    <Activity className="h-5 w-5 text-black" />
                                 </div>
                                 <div>
                                     <CardTitle className="text-lg font-semibold text-gray-900">Registration Progress</CardTitle>
                                     <p className="text-sm text-gray-500 mt-1">Step {currentStep} of {totalSteps} • {getStepTitle(currentStep)}</p>
                                 </div>
                             </div>
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                            <Badge variant="outline" className="bg-gray-50 text-black border-gray-200">
                                 {Math.round((currentStep / totalSteps) * 100)}% Complete
                             </Badge>
                         </CardHeader>
@@ -247,7 +244,7 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                         <div className={`
                                             flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-300
                                             ${step <= currentStep 
-                                                ? 'bg-blue-600 border-blue-600 text-white' 
+                                                ? 'bg-gray-600 border-gray-600 text-white' 
                                                 : 'bg-white border-gray-300 text-gray-400'
                                             }
                                         `}>
@@ -260,7 +257,7 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                         {step < totalSteps && (
                                             <div className={`
                                                 w-16 h-1 mx-2 transition-all duration-300
-                                                ${step < currentStep ? 'bg-blue-600' : 'bg-gray-300'}
+                                                ${step < currentStep ? 'bg-gray-600' : 'bg-gray-300'}
                                             `} />
                                         )}
                                     </div>
@@ -271,7 +268,7 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
 
                 {/* Error alert / Duplicate confirmation */}
                 {duplicate ? (
-                    <div className="rounded-md border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-800">
+                    <div className="rounded-md border border-gray-300 bg-gray-50 p-4 text-sm text-black">
                         <div className="mb-2 font-medium">Possible duplicate found</div>
                         <div>
                             {duplicate.last_name}, {duplicate.first_name}
@@ -290,7 +287,7 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                     </div>
                 ) : (
                     (flash?.error as string | undefined) && (
-                        <div className="rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-700">{String(flash?.error as string)}</div>
+                        <div className="rounded-md border border-gray-300 bg-gray-50 p-4 text-sm text-black">{String(flash?.error as string)}</div>
                     )
                 )}
 
@@ -318,165 +315,166 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                     <form onSubmit={submit} className="space-y-6">
                         {/* Step 1: Personal Information */}
                         {currentStep === 1 && (
-                            <Card className="holographic-card shadow-lg overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50">
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-blue-100 rounded-lg">
-                                            {getStepIcon(1)}
-                                        </div>
-                                        <div>
-                                            <CardTitle className="text-lg font-semibold text-gray-900">Personal Information</CardTitle>
-                                            <p className="text-sm text-gray-500 mt-1">Basic patient identification and demographics</p>
-                                        </div>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="space-y-6">
-                                    <div className="grid gap-6 md:grid-cols-2">
-                                        <div className="space-y-3">
-                                            <Label htmlFor="last_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <User className="h-4 w-4" />
-                                                Last Name *
-                                            </Label>
-                                            <Input
-                                                id="last_name"
-                                                name="last_name"
-                                                autoComplete="family-name"
-                                                value={data.last_name}
-                                                onChange={(e) => setData('last_name', e.target.value)}
-                                                className={`h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm ${errors.last_name ? 'border-red-500' : ''}`}
-                                                placeholder="Enter last name"
-                                            />
-                                            {errors.last_name && <p className="text-sm text-red-500">{errors.last_name}</p>}
-                                        </div>
-                                        <div className="space-y-3">
-                                            <Label htmlFor="first_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <User className="h-4 w-4" />
-                                                First Name *
-                                            </Label>
-                                            <Input
-                                                id="first_name"
-                                                name="first_name"
-                                                autoComplete="given-name"
-                                                value={data.first_name}
-                                                onChange={(e) => setData('first_name', e.target.value)}
-                                                className={`h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm ${errors.first_name ? 'border-red-500' : ''}`}
-                                                placeholder="Enter first name"
-                                            />
-                                            {errors.first_name && <p className="text-sm text-red-500">{errors.first_name}</p>}
-                                        </div>
-                                    </div>
-                                    <div className="grid gap-6 md:grid-cols-3">
-                                        <div className="space-y-3">
-                                            <Label htmlFor="middle_name" className="text-sm font-semibold text-gray-700">Middle Name</Label>
-                                            <Input
-                                                id="middle_name"
-                                                name="middle_name"
-                                                autoComplete="additional-name"
-                                                value={data.middle_name}
-                                                onChange={(e) => setData('middle_name', e.target.value)}
-                                                className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
-                                                placeholder="Enter middle name"
-                                            />
-                                        </div>
-                                        <div className="space-y-3">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <Calendar className="h-4 w-4 text-gray-700" />
-                                                <span className="text-sm font-semibold text-gray-700">Birthdate *</span>
+                            <PatientInfoCard
+                                title="Personal Information"
+                                icon={getStepIcon(1)}
+                            >
+                                <div className="space-y-6">
+                                    {/* Name Section */}
+                                    <div className="space-y-3">
+                                        <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Full Name</h3>
+                                        <div className="grid gap-4 md:grid-cols-3">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="last_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                    <User className="h-4 w-4" />
+                                                    Last Name *
+                                                </Label>
+                                                <Input
+                                                    id="last_name"
+                                                    name="last_name"
+                                                    autoComplete="family-name"
+                                                    value={data.last_name}
+                                                    onChange={(e) => setData('last_name', e.target.value)}
+                                                    className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.last_name ? 'border-gray-500' : ''}`}
+                                                    placeholder="Enter last name"
+                                                />
+                                                {errors.last_name && <p className="text-sm text-black">{errors.last_name}</p>}
                                             </div>
-                                            <CustomDatePicker
-                                                value={data.birthdate}
-                                                onChange={(date) => onBirthdateChange(date ? date.toISOString().split('T')[0] : '')}
-                                                placeholder="Select birthdate"
-                                                variant="responsive"
-                                                className={`w-full ${errors.birthdate ? 'border-red-500' : ''}`}
-                                            />
-                                            {errors.birthdate && <p className="text-sm text-red-500">{errors.birthdate}</p>}
-                                        </div>
-                                        <div className="space-y-3">
-                                            <Label htmlFor="age" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <Heart className="h-4 w-4" />
-                                                Age *
-                                            </Label>
-                                            <Input
-                                                id="age"
-                                                name="age"
-                                                type="number"
-                                                value={data.age}
-                                                onChange={(e) => setData('age', Number(e.target.value))}
-                                                className={`h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm ${errors.age ? 'border-red-500' : ''}`}
-                                                placeholder="Enter age"
-                                            />
-                                            {errors.age && <p className="text-sm text-red-500">{errors.age}</p>}
-                                        </div>
-                                    </div>
-                                    <div className="grid gap-6 md:grid-cols-3">
-                                        <div className="space-y-3">
-                                            <Label htmlFor="sex" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <Heart className="h-4 w-4" />
-                                                Sex *
-                                            </Label>
-                                            <Select onValueChange={(value: 'male' | 'female') => setData('sex', value)} defaultValue={data.sex}>
-                                                <SelectTrigger id="sex" className={`h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm ${errors.sex ? 'border-red-500' : ''}`}>
-                                                    <SelectValue placeholder="Select sex" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="male">Male</SelectItem>
-                                                    <SelectItem value="female">Female</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            {errors.sex && <p className="text-sm text-red-500">{errors.sex}</p>}
-                                        </div>
-                                        <div className="space-y-3">
-                                            <Label htmlFor="patient_no" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <Shield className="h-4 w-4" />
-                                                Patient No.
-                                            </Label>
-                                            <Input 
-                                                id="patient_no" 
-                                                name="patient_no" 
-                                                value={next_patient_no} 
-                                                readOnly 
-                                                disabled 
-                                                className="h-12 bg-gray-100 border-gray-300 rounded-xl shadow-sm"
-                                            />
-                                        </div>
-                                        <div className="space-y-3">
-                                            <Label htmlFor="nationality" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <Globe className="h-4 w-4" />
-                                                Nationality
-                                            </Label>
-                                            <Input
-                                                id="nationality"
-                                                name="nationality"
-                                                autoComplete="country-name"
-                                                value={data.nationality}
-                                                onChange={(e) => setData('nationality', e.target.value)}
-                                                className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
-                                                placeholder="Enter nationality"
-                                            />
+                                            <div className="space-y-2">
+                                                <Label htmlFor="first_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                    <User className="h-4 w-4" />
+                                                    First Name *
+                                                </Label>
+                                                <Input
+                                                    id="first_name"
+                                                    name="first_name"
+                                                    autoComplete="given-name"
+                                                    value={data.first_name}
+                                                    onChange={(e) => setData('first_name', e.target.value)}
+                                                    className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.first_name ? 'border-gray-500' : ''}`}
+                                                    placeholder="Enter first name"
+                                                />
+                                                {errors.first_name && <p className="text-sm text-black">{errors.first_name}</p>}
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="middle_name" className="text-sm font-semibold text-gray-700">Middle Name</Label>
+                                                <Input
+                                                    id="middle_name"
+                                                    name="middle_name"
+                                                    autoComplete="additional-name"
+                                                    value={data.middle_name}
+                                                    onChange={(e) => setData('middle_name', e.target.value)}
+                                                    className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                                    placeholder="Enter middle name"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
-                                </CardContent>
-                            </Card>
+
+                                    {/* Personal Details Section */}
+                                    <div className="space-y-3">
+                                        <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Personal Details</h3>
+                                        <div className="grid gap-4 md:grid-cols-3">
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Calendar className="h-4 w-4 text-gray-700" />
+                                                    <span className="text-sm font-semibold text-gray-700">Birthdate *</span>
+                                                </div>
+                                                <CustomDatePicker
+                                                    value={data.birthdate}
+                                                    onChange={(date) => onBirthdateChange(date ? date.toISOString().split('T')[0] : '')}
+                                                    placeholder="Select birthdate"
+                                                    variant="responsive"
+                                                    className={`w-full ${errors.birthdate ? 'border-gray-500' : ''}`}
+                                                />
+                                                {errors.birthdate && <p className="text-sm text-black">{errors.birthdate}</p>}
+                                            </div>
+                                            <div className="space-y-2 flex flex-col w-full">
+                                                <Label htmlFor="age" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                    <Heart className="h-4 w-4" />
+                                                    Age *
+                                                </Label>
+                                                <Input
+                                                    id="age"
+                                                    name="age"
+                                                    type="number"
+                                                    value={data.age}
+                                                    onChange={(e) => setData('age', Number(e.target.value))}
+                                                    className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.age ? 'border-gray-500' : ''}`}
+                                                    placeholder="Enter age"
+                                                    style={{ width: '100%', minWidth: '0' }}
+                                                />
+                                                {errors.age && <p className="text-sm text-black">{errors.age}</p>}
+                                            </div>
+                                            <div className="space-y-2 flex flex-col w-full">
+                                                <Label htmlFor="sex" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                    <Heart className="h-4 w-4" />
+                                                    Sex *
+                                                </Label>
+                                                <Select onValueChange={(value: 'male' | 'female') => setData('sex', value)} defaultValue={data.sex}>
+                                                    <SelectTrigger id="sex" className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.sex ? 'border-gray-500' : ''}`} style={{ width: '100%', minWidth: '0' }}>
+                                                        <SelectValue placeholder="Select sex" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="male">Male</SelectItem>
+                                                        <SelectItem value="female">Female</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                {errors.sex && <p className="text-sm text-black">{errors.sex}</p>}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Demographics Section */}
+                                    <div className="space-y-3">
+                                        <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Demographics</h3>
+                                        <div className="grid gap-4 md:grid-cols-2">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="patient_no" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                    <Shield className="h-4 w-4" />
+                                                    Patient No.
+                                                </Label>
+                                                <Input 
+                                                    id="patient_no" 
+                                                    name="patient_no" 
+                                                    value={next_patient_no} 
+                                                    readOnly 
+                                                    disabled 
+                                                    className="h-12 bg-gray-100 border-gray-300 rounded-xl shadow-sm"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="nationality" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                    <Globe className="h-4 w-4" />
+                                                    Nationality
+                                                </Label>
+                                                <Input
+                                                    id="nationality"
+                                                    name="nationality"
+                                                    autoComplete="country-name"
+                                                    value={data.nationality}
+                                                    onChange={(e) => setData('nationality', e.target.value)}
+                                                    className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                                    placeholder="Enter nationality"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </PatientInfoCard>
                         )}
 
                     {/* Step 2: Contact Details */}
                     {currentStep === 2 && (
-                        <Card className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        {getStepIcon(2)}
-                                    </div>
-                                    <div>
-                                        <CardTitle className="text-lg font-semibold text-gray-900">Contact Details</CardTitle>
-                                        <p className="text-sm text-gray-500 mt-1">Address and communication information</p>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
-                                <div className="space-y-6">
-                                    <div className="space-y-3">
+                        <PatientInfoCard
+                            title="Contact Details"
+                            icon={getStepIcon(2)}
+                        >
+                            <div className="space-y-6">
+                                {/* Address Section */}
+                                <div className="space-y-3">
+                                    <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Address Information</h3>
+                                    <div className="space-y-2">
                                         <Label htmlFor="present_address" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                             <MapPin className="h-4 w-4" />
                                             Present Address *
@@ -488,12 +486,17 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                             value={data.present_address}
                                             onChange={(e) => setData('present_address', e.target.value)}
                                             placeholder="Enter complete address"
-                                            className={`min-h-[100px] border-gray-300 focus:border-green-500 focus:ring-green-500 rounded-xl shadow-sm ${errors.present_address ? 'border-red-500' : ''}`}
+                                            className={`min-h-[100px] border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.present_address ? 'border-gray-500' : ''}`}
                                         />
-                                        {errors.present_address && <p className="text-sm text-red-500">{errors.present_address}</p>}
+                                        {errors.present_address && <p className="text-sm text-black">{errors.present_address}</p>}
                                     </div>
-                                    <div className="grid gap-6 md:grid-cols-2">
-                                        <div className="space-y-3">
+                                </div>
+
+                                {/* Contact Numbers Section */}
+                                <div className="space-y-3">
+                                    <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Contact Numbers</h3>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <div className="space-y-2">
                                             <Label htmlFor="telephone_no" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                 <Phone className="h-4 w-4" />
                                                 Telephone No.
@@ -504,11 +507,11 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                                 autoComplete="tel"
                                                 value={data.telephone_no}
                                                 onChange={(e) => setData('telephone_no', e.target.value)}
-                                                className="h-12 border-gray-300 focus:border-green-500 focus:ring-green-500 rounded-xl shadow-sm"
+                                                className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                                 placeholder="Enter telephone number"
                                             />
                                         </div>
-                                        <div className="space-y-3">
+                                        <div className="space-y-2">
                                             <Label htmlFor="mobile_no" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                 <Phone className="h-4 w-4" />
                                                 Mobile No. *
@@ -519,81 +522,68 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                                 autoComplete="tel"
                                                 value={data.mobile_no}
                                                 onChange={(e) => setData('mobile_no', e.target.value)}
-                                                className={`h-12 border-gray-300 focus:border-green-500 focus:ring-green-500 rounded-xl shadow-sm ${errors.mobile_no ? 'border-red-500' : ''}`}
+                                                className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.mobile_no ? 'border-gray-500' : ''}`}
                                                 placeholder="Enter mobile number"
                                             />
-                                            {errors.mobile_no && <p className="text-sm text-red-500">{errors.mobile_no}</p>}
+                                            {errors.mobile_no && <p className="text-sm text-black">{errors.mobile_no}</p>}
                                         </div>
                                     </div>
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </PatientInfoCard>
                     )}
 
                     {/* Step 3: Emergency Contact */}
                     {currentStep === 3 && (
-                        <Card className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        {getStepIcon(3)}
-                                    </div>
-                                    <div>
-                                        <CardTitle className="text-lg font-semibold text-gray-900">Emergency Contact</CardTitle>
-                                        <p className="text-sm text-gray-500 mt-1">Emergency contact person details</p>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
-                                <div className="grid gap-6 md:grid-cols-2">
-                                    <div className="space-y-3">
-                                        <Label htmlFor="informant_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                            <UserCheck className="h-4 w-4" />
-                                            Informant Name *
-                                        </Label>
-                                        <Input
-                                            id="informant_name"
-                                            value={data.informant_name}
-                                            onChange={(e) => setData('informant_name', e.target.value)}
-                                            className={`h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500 rounded-xl shadow-sm ${errors.informant_name ? 'border-red-500' : ''}`}
-                                            placeholder="Enter informant name"
-                                        />
-                                        {errors.informant_name && <p className="text-sm text-red-500">{errors.informant_name}</p>}
-                                    </div>
-                                    <div className="space-y-3">
-                                        <Label htmlFor="relationship" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                            <Heart className="h-4 w-4" />
-                                            Relationship *
-                                        </Label>
-                                        <Input
-                                            id="relationship"
-                                            value={data.relationship}
-                                            onChange={(e) => setData('relationship', e.target.value)}
-                                            className={`h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500 rounded-xl shadow-sm ${errors.relationship ? 'border-red-500' : ''}`}
-                                            placeholder="Enter relationship"
-                                        />
-                                        {errors.relationship && <p className="text-sm text-red-500">{errors.relationship}</p>}
+                        <PatientInfoCard
+                            title="Emergency Contact"
+                            icon={getStepIcon(3)}
+                        >
+                            <div className="space-y-6">
+                                {/* Emergency Contact Information */}
+                                <div className="space-y-3">
+                                    <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Emergency Contact Information</h3>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="informant_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                <UserCheck className="h-4 w-4" />
+                                                Informant Name *
+                                            </Label>
+                                            <Input
+                                                id="informant_name"
+                                                value={data.informant_name}
+                                                onChange={(e) => setData('informant_name', e.target.value)}
+                                                className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.informant_name ? 'border-gray-500' : ''}`}
+                                                placeholder="Enter informant name"
+                                            />
+                                            {errors.informant_name && <p className="text-sm text-black">{errors.informant_name}</p>}
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="relationship" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                <Heart className="h-4 w-4" />
+                                                Relationship *
+                                            </Label>
+                                            <Input
+                                                id="relationship"
+                                                value={data.relationship}
+                                                onChange={(e) => setData('relationship', e.target.value)}
+                                                className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.relationship ? 'border-gray-500' : ''}`}
+                                                placeholder="Enter relationship"
+                                            />
+                                            {errors.relationship && <p className="text-sm text-black">{errors.relationship}</p>}
+                                        </div>
                                     </div>
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </PatientInfoCard>
                     )}
 
                     {/* Step 4: Insurance & Financial */}
                     {currentStep === 4 && (
-                        <Card className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        {getStepIcon(4)}
-                                    </div>
-                                    <div>
-                                        <CardTitle className="text-lg font-semibold text-gray-900">Insurance & Financial</CardTitle>
-                                        <p className="text-sm text-gray-500 mt-1">Insurance and payment information</p>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
+                        <PatientInfoCard
+                            title="Insurance & Financial"
+                            icon={getStepIcon(4)}
+                        >
                                 <div className="grid gap-6 md:grid-cols-2">
                                     <div className="space-y-3">
                                         <Label htmlFor="company_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -605,7 +595,7 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                             name="company_name"
                                             value={data.company_name}
                                             onChange={(e) => setData('company_name', e.target.value)}
-                                            className="h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-xl shadow-sm"
+                                            className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                             placeholder="Enter company name"
                                         />
                                     </div>
@@ -619,7 +609,7 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                             name="hmo_name"
                                             value={data.hmo_name}
                                             onChange={(e) => setData('hmo_name', e.target.value)}
-                                            className="h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-xl shadow-sm"
+                                            className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                             placeholder="Enter HMO name"
                                         />
                                     </div>
@@ -632,7 +622,7 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                             name="hmo_company_id_no"
                                             value={data.hmo_company_id_no}
                                             onChange={(e) => setData('hmo_company_id_no', e.target.value)}
-                                            className="h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-xl shadow-sm"
+                                            className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                             placeholder="Enter ID number"
                                         />
                                     </div>
@@ -643,7 +633,7 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                             name="validation_approval_code"
                                             value={data.validation_approval_code}
                                             onChange={(e) => setData('validation_approval_code', e.target.value)}
-                                            className="h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-xl shadow-sm"
+                                            className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                             placeholder="Enter approval code"
                                         />
                                     </div>
@@ -654,30 +644,20 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                             name="validity"
                                             value={data.validity}
                                             onChange={(e) => setData('validity', e.target.value)}
-                                            className="h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-xl shadow-sm"
+                                            className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                             placeholder="Enter validity period"
                                         />
                                     </div>
                                 </div>
-                            </CardContent>
-                        </Card>
+                        </PatientInfoCard>
                     )}
 
                     {/* Step 5: Medical History */}
                     {currentStep === 5 && (
-                        <Card className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        {getStepIcon(5)}
-                                    </div>
-                                    <div>
-                                        <CardTitle className="text-lg font-semibold text-gray-900">Medical History</CardTitle>
-                                        <p className="text-sm text-gray-500 mt-1">Medical background and allergy information</p>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
+                        <PatientInfoCard
+                            title="Medical History"
+                            icon={getStepIcon(5)}
+                        >
                                 <div className="space-y-6">
                                     <div className="grid gap-6 md:grid-cols-2">
                                         <div className="space-y-3">
@@ -690,7 +670,7 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                                 name="drug_allergies"
                                                 value={data.drug_allergies}
                                                 onChange={(e) => setData('drug_allergies', e.target.value)}
-                                                className="h-12 border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-xl shadow-sm"
+                                                className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                                 placeholder="Enter allergies or NONE"
                                             />
                                         </div>
@@ -704,7 +684,7 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                                 name="food_allergies"
                                                 value={data.food_allergies}
                                                 onChange={(e) => setData('food_allergies', e.target.value)}
-                                                className="h-12 border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-xl shadow-sm"
+                                                className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                                 placeholder="Enter allergies or NONE"
                                             />
                                         </div>
@@ -721,7 +701,7 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                             value={data.past_medical_history}
                                             onChange={(e) => setData('past_medical_history', e.target.value)}
                                             placeholder="Previous medical conditions, surgeries, hospitalizations"
-                                            className="min-h-[100px] border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-xl shadow-sm"
+                                            className="min-h-[100px] border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                         />
                                     </div>
 
@@ -736,7 +716,7 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                             value={data.family_history}
                                             onChange={(e) => setData('family_history', e.target.value)}
                                             placeholder="Family medical history, hereditary conditions"
-                                            className="min-h-[100px] border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-xl shadow-sm"
+                                            className="min-h-[100px] border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                         />
                                     </div>
 
@@ -751,7 +731,7 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                             value={data.social_personal_history}
                                             onChange={(e) => setData('social_personal_history', e.target.value)}
                                             placeholder="Lifestyle, habits, occupation, social factors"
-                                            className="min-h-[100px] border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-xl shadow-sm"
+                                            className="min-h-[100px] border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                         />
                                     </div>
 
@@ -766,12 +746,11 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                             value={data.obstetrics_gynecology_history}
                                             onChange={(e) => setData('obstetrics_gynecology_history', e.target.value)}
                                             placeholder="Pregnancy history, menstrual history, gynecological conditions"
-                                            className="min-h-[100px] border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-xl shadow-sm"
+                                            className="min-h-[100px] border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                         />
                                     </div>
                                 </div>
-                            </CardContent>
-                        </Card>
+                        </PatientInfoCard>
                     )}
 
                         {/* Navigation Buttons */}
@@ -795,7 +774,7 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                     <Button
                                         type="button"
                                         onClick={nextStep}
-                                        className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 h-12 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold"
+                                        className="bg-gray-600 hover:bg-gray-700blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 h-12 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold"
                                     >
                                         Next Step
                                         <ArrowLeft className="ml-2 h-5 w-5 rotate-180" />
@@ -804,7 +783,7 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                     <Button 
                                         disabled={processing} 
                                         type="submit"
-                                        className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-8 py-3 h-12 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold"
+                                        className="bg-gray-600 hover:bg-gray-700green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-8 py-3 h-12 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold"
                                     >
                                         <Save className="mr-3 h-6 w-6" />
                                         {processing ? 'Creating Patient...' : 'Complete Registration'}

@@ -94,7 +94,7 @@ export default function EditProduct({ product, flash }: EditProductProps) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Edit Item - ${product.name}`} />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 pb-12">
+            <div className="min-h-screen bg-white p-6 pb-12">
                 {/* Header Section */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
@@ -113,20 +113,20 @@ export default function EditProduct({ product, flash }: EditProductProps) {
 
                 {/* Flash Messages */}
                 {flash?.success && (
-                    <div className="rounded-md bg-green-50 p-4">
+                    <div className="rounded-md bg-gray-50 p-4">
                         <div className="flex">
                             <div className="ml-3">
-                                <p className="text-sm font-medium text-green-800">{flash.success}</p>
+                                <p className="text-sm font-medium text-black">{flash.success}</p>
                             </div>
                         </div>
                     </div>
                 )}
 
                 {flash?.error && (
-                    <div className="rounded-md bg-red-50 p-4">
+                    <div className="rounded-md bg-gray-50 p-4">
                         <div className="flex">
                             <div className="ml-3">
-                                <p className="text-sm font-medium text-red-800">{flash.error}</p>
+                                <p className="text-sm font-medium text-black">{flash.error}</p>
                             </div>
                         </div>
                     </div>
@@ -136,16 +136,16 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                     <div className="grid gap-6 md:grid-cols-2">
                         {/* Basic Information */}
                         <div className="holographic-card shadow-xl border-0 overflow-hidden rounded-2xl bg-white hover:shadow-2xl transition-all duration-300">
-                            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                            <div className="bg-white border-b border-gray-200 text-black">
                                 <div className="flex items-center gap-2 text-xl p-6">
                                     <Package className="h-5 w-5" />
                                     Basic Information
                                 </div>
                             </div>
-                            <div className="px-6 py-8 space-y-4 bg-gradient-to-br from-blue-50 to-blue-100">
+                            <div className="px-6 py-8 space-y-4 bg-white">
                                 <div className="space-y-2">
                                     <Label htmlFor="name">
-                                        Item Name <span className="text-red-500">*</span>
+                                        Item Name <span className="text-black">*</span>
                                     </Label>
                                     <Input
                                         id="name"
@@ -153,17 +153,17 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                                         type="text"
                                         value={data.name}
                                         onChange={(e) => setData('name', e.target.value)}
-                                        className={errors.name ? 'border-red-500' : ''}
+                                        className={errors.name ? 'border-gray-500' : ''}
                                         placeholder="Enter item name"
                                         ref={firstInputRef}
                                         autoComplete="off"
                                     />
-                                    {errors.name && <p className="text-sm text-red-600">{errors.name}</p>}
+                                    {errors.name && <p className="text-sm text-black">{errors.name}</p>}
                                 </div>
 
                                 <div className="space-y-2">
                                     <Label htmlFor="code">
-                                        Item Code <span className="text-red-500">*</span>
+                                        Item Code <span className="text-black">*</span>
                                     </Label>
                                     <Input
                                         id="code"
@@ -171,11 +171,11 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                                         type="text"
                                         value={data.code}
                                         onChange={(e) => setData('code', e.target.value)}
-                                        className={errors.code ? 'border-red-500' : ''}
+                                        className={errors.code ? 'border-gray-500' : ''}
                                         placeholder="Enter item code"
                                         autoComplete="off"
                                     />
-                                    {errors.code && <p className="text-sm text-red-600">{errors.code}</p>}
+                                    {errors.code && <p className="text-sm text-black">{errors.code}</p>}
                                 </div>
 
                                 <div className="space-y-2">
@@ -185,11 +185,11 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                                         name="description"
                                         value={data.description}
                                         onChange={(e) => setData('description', e.target.value)}
-                                        className={errors.description ? 'border-red-500' : ''}
+                                        className={errors.description ? 'border-gray-500' : ''}
                                         placeholder="Enter item description"
                                         rows={3}
                                     />
-                                    {errors.description && <p className="text-sm text-red-600">{errors.description}</p>}
+                                    {errors.description && <p className="text-sm text-black">{errors.description}</p>}
                                 </div>
 
                                 <div className="space-y-2">
@@ -209,7 +209,7 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                                         <option value="Personal Protective Equipment">Personal Protective Equipment</option>
                                         <option value="Laboratory Supplies">Laboratory Supplies</option>
                                     </select>
-                                    {errors.category && <p className="text-sm text-red-600">{errors.category}</p>}
+                                    {errors.category && <p className="text-sm text-black">{errors.category}</p>}
                                 </div>
 
                                 <div className="space-y-2">
@@ -234,23 +234,23 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                                         <option value="g">Grams (g)</option>
                                         <option value="kg">Kilograms (kg)</option>
                                     </select>
-                                    {errors.unit_of_measure && <p className="text-sm text-red-600">{errors.unit_of_measure}</p>}
+                                    {errors.unit_of_measure && <p className="text-sm text-black">{errors.unit_of_measure}</p>}
                                 </div>
                             </div>
                         </div>
 
                         {/* Pricing & Stock */}
                         <div className="holographic-card shadow-xl border-0 overflow-hidden rounded-2xl bg-white hover:shadow-2xl transition-all duration-300">
-                            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+                            <div className="bg-white border-b border-gray-200 text-black">
                                 <div className="flex items-center gap-2 text-xl p-6">
                                     <Package className="h-5 w-5" />
                                     Pricing & Stock Management
                                 </div>
                             </div>
-                            <div className="px-6 py-8 space-y-4 bg-gradient-to-br from-purple-50 to-purple-100">
+                            <div className="px-6 py-8 space-y-4 bg-white">
                                 <div className="space-y-2">
                                     <Label htmlFor="unit_cost">
-                                        Unit Cost (₱) <span className="text-red-500">*</span>
+                                        Unit Cost (₱) <span className="text-black">*</span>
                                     </Label>
                                     <Input
                                         id="unit_cost"
@@ -260,15 +260,15 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                                         min="0"
                                         value={data.unit_cost}
                                         onChange={(e) => setData('unit_cost', e.target.value)}
-                                        className={errors.unit_cost ? 'border-red-500' : ''}
+                                        className={errors.unit_cost ? 'border-gray-500' : ''}
                                         placeholder="0.00"
                                     />
-                                    {errors.unit_cost && <p className="text-sm text-red-600">{errors.unit_cost}</p>}
+                                    {errors.unit_cost && <p className="text-sm text-black">{errors.unit_cost}</p>}
                                 </div>
 
                                 <div className="space-y-2">
                                     <Label htmlFor="minimum_stock_level">
-                                        Minimum Stock Level <span className="text-red-500">*</span>
+                                        Minimum Stock Level <span className="text-black">*</span>
                                     </Label>
                                     <Input
                                         id="minimum_stock_level"
@@ -277,15 +277,15 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                                         min="0"
                                         value={data.minimum_stock_level}
                                         onChange={(e) => setData('minimum_stock_level', e.target.value)}
-                                        className={errors.minimum_stock_level ? 'border-red-500' : ''}
+                                        className={errors.minimum_stock_level ? 'border-gray-500' : ''}
                                         placeholder="0"
                                     />
-                                    {errors.minimum_stock_level && <p className="text-sm text-red-600">{errors.minimum_stock_level}</p>}
+                                    {errors.minimum_stock_level && <p className="text-sm text-black">{errors.minimum_stock_level}</p>}
                                 </div>
 
                                 <div className="space-y-2">
                                     <Label htmlFor="maximum_stock_level">
-                                        Maximum Stock Level <span className="text-red-500">*</span>
+                                        Maximum Stock Level <span className="text-black">*</span>
                                     </Label>
                                     <Input
                                         id="maximum_stock_level"
@@ -294,10 +294,10 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                                         min="0"
                                         value={data.maximum_stock_level}
                                         onChange={(e) => setData('maximum_stock_level', e.target.value)}
-                                        className={errors.maximum_stock_level ? 'border-red-500' : ''}
+                                        className={errors.maximum_stock_level ? 'border-gray-500' : ''}
                                         placeholder="0"
                                     />
-                                    {errors.maximum_stock_level && <p className="text-sm text-red-600">{errors.maximum_stock_level}</p>}
+                                    {errors.maximum_stock_level && <p className="text-sm text-black">{errors.maximum_stock_level}</p>}
                                 </div>
 
                                 <div className="space-y-4">
@@ -348,7 +348,7 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                             variant="outline" 
                             onClick={() => router.visit('/admin/inventory/products')} 
                             disabled={processing}
-                            className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl"
+                            className="bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl"
                         >
                             <ArrowLeft className="mr-3 h-6 w-6" />
                             Cancel
@@ -356,7 +356,7 @@ export default function EditProduct({ product, flash }: EditProductProps) {
                         <Button 
                             type="submit" 
                             disabled={processing}
-                            className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl"
+                            className="bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl"
                         >
                             {processing ? (
                                 <>

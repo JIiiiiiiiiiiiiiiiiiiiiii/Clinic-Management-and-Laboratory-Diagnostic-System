@@ -1,365 +1,266 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
-import Heading from '@/components/heading';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router } from '@inertiajs/react';
-import {
-    AlertTriangle,
-    ArrowDown,
-    ArrowUp,
-    BarChart3,
-    BriefcaseMedical,
-    CheckCircle,
-    Clock,
-    Package,
-    TrendingDown,
-    TrendingUp,
+import { Head, Link, router } from '@inertiajs/react';
+import { 
+    Package, 
+    AlertTriangle, 
+    Clock, 
+    TrendingDown, 
+    CheckCircle, 
+    BarChart3, 
+    TrendingUp, 
     Users,
+    ArrowUp,
+    ArrowDown,
+    Search,
+    Plus,
+    Edit,
+    Eye,
+    Trash2,
+    FlaskConical
 } from 'lucide-react';
+import { useState } from 'react';
+
+type InventoryStats = {
+    total_products: number;
+    low_stock_products: number;
+    expiring_soon: number;
+    expired_stock: number;
+    total_value: number;
+    recent_transactions: number;
+};
+
+type PendingApproval = {
+    id: number;
+    product_name: string;
+    quantity: number;
+    type: string;
+    requested_by: string;
+    created_at: string;
+};
+
+type RecentTransaction = {
+    id: number;
+    product_name: string;
+    quantity: number;
+    type: 'in' | 'out';
+    reason: string;
+    created_at: string;
+};
+
+type LowStockItem = {
+    id: number;
+    name: string;
+    current_stock: number;
+    minimum_stock: number;
+    unit: string;
+};
+
+interface InventoryDashboardProps {
+    stats: InventoryStats;
+    pendingApprovals: PendingApproval[];
+    recentTransactions: RecentTransaction[];
+    lowStockItems: LowStockItem[];
+}
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Inventory',
+        title: 'Inventory Management',
         href: '/admin/inventory',
     },
 ];
 
-interface InventoryStats {
-    total_products: number;
-    active_products: number;
-    low_stock_products: number;
-    expiring_soon: number;
-    expired_stock: number;
-}
-
-interface Transaction {
-    id: number;
-    type: string;
-    subtype: string;
-    quantity: number;
-    transaction_date: string;
-    approval_status: string;
-    product: {
-        name: string;
-        code: string;
-    };
-    user: {
-        name: string;
-    };
-    approved_by?: {
-        name: string;
-    };
-}
-
-interface TopConsumedProduct {
-    product: {
-        name: string;
-        code: string;
-    };
-    total_quantity: number;
-}
-
-interface LowStockItem {
-    id: number;
-    name: string;
-    code: string;
-    total_stock: number;
-    min_level: number;
-}
-
-interface InventoryDashboardProps {
-    stats: InventoryStats;
-    recentTransactions: Transaction[];
-    pendingApprovals: Transaction[];
-    topConsumedProducts: TopConsumedProduct[];
-    lowStockItems?: LowStockItem[];
-}
-
 export default function InventoryDashboard({
     stats,
-    recentTransactions,
-    pendingApprovals,
-    topConsumedProducts,
+    pendingApprovals = [],
+    recentTransactions = [],
     lowStockItems = [],
 }: InventoryDashboardProps) {
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredLowStock = lowStockItems.filter((item) => {
+        const search = searchTerm.toLowerCase();
+        return item.name.toLowerCase().includes(search);
+    });
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Inventory Management" />
-            <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+            <div className="min-h-screen bg-white p-6">
                 {/* Header Section */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
-                        <Heading title="Inventory Management" description="Track and manage clinic items and equipment" icon={Package} />
+                        <div className="flex items-center gap-6">
+                            <div>
+                                <h1 className="text-4xl font-semibold text-black mb-4">Inventory Management</h1>
+                                <p className="text-sm text-black mt-1">Track and manage clinic items and equipment</p>
+                            </div>
+                        </div>
                         <div className="flex items-center gap-4">
-                            <Button 
-                                onClick={() => router.visit('/admin/inventory/transactions/create')}
-                                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl"
-                            >
-                                <Package className="mr-3 h-5 w-5" />
-                                Record Movement
-                            </Button>
-                            <Button 
-                                variant="outline" 
-                                onClick={() => router.visit('/admin/inventory/products/create')}
-                                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl"
-                            >
-                                <BriefcaseMedical className="mr-3 h-5 w-5" />
-                                Add Item
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Statistics Cards */}
-                <div className="mb-8 flex flex-wrap items-start gap-2 sm:gap-3 md:gap-4">
-                    {/* Card 1: Total Items */}
-                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all cursor-pointer w-full flex-1 min-w-[140px] sm:min-w-[160px] md:min-w-[180px] lg:min-w-[192px]">
-                        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white h-24 flex items-center">
-                            <div className="flex items-center justify-between p-4 w-full">
-                                <div className="flex items-center gap-2 sm:gap-3">
-                                    <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
-                                        <Package className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-white" />
+                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <Package className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
-                                        <h3 className="text-xs sm:text-sm font-bold text-white leading-tight">Total Items</h3>
-                                        <p className="text-emerald-100 text-xs leading-tight">All products</p>
+                                        <div className="text-3xl font-bold text-black">{stats.total_products}</div>
+                                        <div className="text-black text-sm font-medium">Total Items</div>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                        <div className="px-4 sm:px-6 py-3">
-                            <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.total_products}</div>
-                        </div>
-                    </div>
-
-                    {/* Card 2: Low Stock */}
-                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all cursor-pointer w-full flex-1 min-w-[140px] sm:min-w-[160px] md:min-w-[180px] lg:min-w-[192px]">
-                        <div className="bg-gradient-to-r from-yellow-500 to-amber-500 text-white h-24 flex items-center">
-                            <div className="flex items-center justify-between p-4 w-full">
-                                <div className="flex items-center gap-2 sm:gap-3">
-                                    <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
-                                        <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xs sm:text-sm font-bold text-white leading-tight">Low Stock</h3>
-                                        <p className="text-yellow-100 text-xs leading-tight">Needs restock</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="px-4 sm:px-6 py-4">
-                            <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.low_stock_products}</div>
-                        </div>
-                    </div>
-
-                    {/* Card 3: Expiring Soon */}
-                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all cursor-pointer w-full flex-1 min-w-[140px] sm:min-w-[160px] md:min-w-[180px] lg:min-w-[192px]">
-                        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white h-24 flex items-center">
-                            <div className="flex items-center justify-between p-4 w-full">
-                                <div className="flex items-center gap-2 sm:gap-3">
-                                    <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
-                                        <Clock className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xs sm:text-sm font-bold text-white leading-tight">Expiring Soon</h3>
-                                        <p className="text-orange-100 text-xs leading-tight">Within 30 days</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="px-4 sm:px-6 py-6">
-                            <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.expiring_soon}</div>
-                        </div>
-                    </div>
-
-                    {/* Card 4: Expired Stock */}
-                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all cursor-pointer w-full flex-1 min-w-[140px] sm:min-w-[160px] md:min-w-[180px] lg:min-w-[192px]">
-                        <div className="bg-gradient-to-r from-red-600 to-pink-600 text-white h-24 flex items-center">
-                            <div className="flex items-center justify-between p-4 w-full">
-                                <div className="flex items-center gap-2 sm:gap-3">
-                                    <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
-                                        <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xs sm:text-sm font-bold text-white leading-tight">Expired Stock</h3>
-                                        <p className="text-red-100 text-xs leading-tight">Past expiry</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="px-4 sm:px-6 py-4">
-                            <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.expired_stock}</div>
-                        </div>
-                    </div>
-
-                    {/* Card 5: Pending Approvals */}
-                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all cursor-pointer w-full flex-1 min-w-[140px] sm:min-w-[160px] md:min-w-[180px] lg:min-w-[192px]">
-                        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white h-24 flex items-center">
-                            <div className="flex items-center justify-between p-4 w-full">
-                                <div className="flex items-center gap-2 sm:gap-3">
-                                    <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
-                                        <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xs sm:text-sm font-bold text-white leading-tight">Pending Approvals</h3>
-                                        <p className="text-indigo-100 text-xs leading-tight">Awaiting review</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="px-4 sm:px-6 py-3">
-                            <div className="text-xl sm:text-2xl font-bold text-gray-900">{pendingApprovals.length}</div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Spacing between cards and content sections */}
-                <div className="mt-12"></div>
-
-                {/* Quick Actions - 4 buttons with same Admin Dashboard icon background color */}
-                <div className="mb-12">
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                        <Button 
-                            className="h-auto flex-col p-6 holographic-card shadow-lg hover:shadow-2xl overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all duration-300 cursor-pointer !bg-gradient-to-br !from-[#1075bb] !to-[#0b5a8f] !border-0 !text-white hover:!from-[#0b5a8f] hover:!to-[#084a7a]" 
-                            onClick={() => router.visit('/admin/inventory/products')}
-                        >
-                            <Package className="mb-3 h-8 w-8 text-white" />
-                            <span className="font-semibold text-lg text-white">Manage Items</span>
-                            <span className="text-sm text-white">View and edit items</span>
-                        </Button>
-
-                        <Button 
-                            className="h-auto flex-col p-6 holographic-card shadow-lg hover:shadow-2xl overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all duration-300 cursor-pointer !bg-gradient-to-br !from-[#1075bb] !to-[#0b5a8f] !border-0 !text-white hover:!from-[#0b5a8f] hover:!to-[#084a7a]" 
-                            onClick={() => router.visit('/admin/inventory/transactions')}
-                        >
-                            <BarChart3 className="mb-3 h-8 w-8 text-white" />
-                            <span className="font-semibold text-lg text-white">View Transactions</span>
-                            <span className="text-sm text-white">Track all movements</span>
-                        </Button>
-
-                        <Button 
-                            className="h-auto flex-col p-6 holographic-card shadow-lg hover:shadow-2xl overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all duration-300 cursor-pointer !bg-gradient-to-br !from-[#1075bb] !to-[#0b5a8f] !border-0 !text-white hover:!from-[#0b5a8f] hover:!to-[#084a7a]" 
-                            onClick={() => router.visit('/admin/inventory/reports')}
-                        >
-                            <TrendingUp className="mb-3 h-8 w-8 text-white" />
-                            <span className="font-semibold text-lg text-white">Generate Reports</span>
-                            <span className="text-sm text-white">Used/rejected supplies</span>
-                        </Button>
-
-                        <Button
-                            className="h-auto flex-col p-6 holographic-card shadow-lg hover:shadow-2xl overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all duration-300 cursor-pointer !bg-gradient-to-br !from-[#1075bb] !to-[#0b5a8f] !border-0 !text-white hover:!from-[#0b5a8f] hover:!to-[#084a7a]"
-                            onClick={() => router.visit('/admin/inventory/reports/stock-levels')}
-                        >
-                            <Users className="mb-3 h-8 w-8 text-white" />
-                            <span className="font-semibold text-lg text-white">Stock Levels</span>
-                            <span className="text-sm text-white">Current inventory status</span>
-                        </Button>
-                    </div>
-                </div>
-
-                <div className="grid gap-8 md:grid-cols-2">
-                    {/* Recent Transactions */}
-                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
-                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white">
-                            <div className="flex items-center gap-3 p-6">
-                                <div className="p-2 bg-white/20 rounded-lg">
-                                    <ArrowUp className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-bold text-white">Recent Movements</h3>
-                                    <p className="text-green-100 mt-1">Latest supply transactions</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="px-6 py-6 bg-gradient-to-br from-green-50 to-green-100">
-                            <div className="space-y-4">
-                                {recentTransactions.length > 0 ? (
-                                    recentTransactions.map((transaction) => (
-                                        <div key={transaction.id} className="flex items-center justify-between p-4 bg-white rounded-lg border border-green-200">
-                                            <div className="flex items-center space-x-3">
-                                                {transaction.type === 'in' ? (
-                                                    <ArrowUp className="h-5 w-5 text-green-500" />
-                                                ) : (
-                                                    <ArrowDown className="h-5 w-5 text-red-500" />
-                                                )}
-                                                <div>
-                                                    <p className="text-sm font-medium text-gray-900">{transaction.product.name}</p>
-                                                    <p className="text-xs text-gray-600">
-                                                        {transaction.subtype} • {transaction.user.name}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-sm font-medium text-gray-900">
-                                                    {transaction.type === 'in' ? '+' : ''}
-                                                    {transaction.quantity}
-                                                </p>
-                                                <Badge
-                                                    variant={
-                                                        transaction.approval_status === 'approved'
-                                                            ? 'success'
-                                                            : transaction.approval_status === 'pending'
-                                                              ? 'warning'
-                                                              : 'destructive'
-                                                    }
-                                                    className="text-xs"
-                                                >
-                                                    {transaction.approval_status}
-                                                </Badge>
-                                            </div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <p className="text-sm text-gray-600 text-center py-4">No recent transactions</p>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Top Consumed Items */}
-                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
-                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
-                            <div className="flex items-center gap-3 p-6">
-                                <div className="p-2 bg-white/20 rounded-lg">
-                                    <TrendingUp className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-bold text-white">Top Consumed Items</h3>
-                                    <p className="text-purple-100 mt-1">This month's usage</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="px-6 py-6 bg-gradient-to-br from-purple-50 to-purple-100">
-                            <div className="space-y-4">
-                                {topConsumedProducts.length > 0 ? (
-                                    topConsumedProducts.map((item, index) => (
-                                        <div key={item.product.code} className="flex items-center justify-between p-4 bg-white rounded-lg border border-purple-200">
-                                            <div className="flex items-center space-x-3">
-                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-sm font-bold text-purple-600">
-                                                    {index + 1}
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-medium text-gray-900">{item.product.name}</p>
-                                                    <p className="text-xs text-gray-600">{item.product.code}</p>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-lg font-bold text-purple-600">{item.total_quantity}</p>
-                                                <p className="text-xs text-gray-600">units consumed</p>
-                                            </div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <p className="text-sm text-gray-600 text-center py-4">No consumption data available</p>
-                                )}
                             </div>
                         </div>
                     </div>
                 </div>
 
-                
+                {/* Main content */}
+                <div className="w-full">
+                    <PatientInfoCard
+                        title="Inventory Overview"
+                        icon={<Package className="h-5 w-5 text-black" />}
+                        actions={
+                            <div className="flex items-center gap-2">
+                                <Button 
+                                    onClick={() => router.visit('/admin/inventory/transactions/create')}
+                                    className="bg-gray-600 hover:bg-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
+                                >
+                                    <Package className="mr-2 h-4 w-4" />
+                                    Record Movement
+                                </Button>
+                                <Button 
+                                    onClick={() => router.visit('/admin/inventory/products/create')}
+                                    className="bg-gray-600 hover:bg-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
+                                >
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Add Item
+                                </Button>
+                            </div>
+                        }
+                    >
+                            {/* Statistics Grid */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                                <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Package className="h-4 w-4 text-black" />
+                                        <span className="text-sm font-medium text-gray-800">Total Items</span>
+                                    </div>
+                                    <div className="text-2xl font-bold text-gray-900">{stats.total_products}</div>
+                                </div>
+                                <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <AlertTriangle className="h-4 w-4 text-black" />
+                                        <span className="text-sm font-medium text-gray-800">Low Stock</span>
+                                    </div>
+                                    <div className="text-2xl font-bold text-gray-900">{stats.low_stock_products}</div>
+                                </div>
+                                <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Clock className="h-4 w-4 text-black" />
+                                        <span className="text-sm font-medium text-gray-800">Expiring Soon</span>
+                                    </div>
+                                    <div className="text-2xl font-bold text-gray-900">{stats.expiring_soon}</div>
+                                </div>
+                                <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <TrendingDown className="h-4 w-4 text-black" />
+                                        <span className="text-sm font-medium text-gray-800">Expired</span>
+                                    </div>
+                                    <div className="text-2xl font-bold text-gray-900">{stats.expired_stock}</div>
+                                </div>
+                            </div>
+
+                            {/* Low Stock Items Table */}
+                            <div className="mb-6">
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="relative flex-1 max-w-md">
+                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                        <Input
+                                            placeholder="Search low stock items..."
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            className="pl-10 h-12 border-gray-200 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                    <Table>
+                                    <TableHeader className="bg-gray-50">
+                                        <TableRow className="hover:bg-gray-100">
+                                            <TableHead className="font-semibold text-black">
+                                                    <div className="flex items-center gap-2">
+                                                        <AlertTriangle className="h-4 w-4" />
+                                                        Item Name
+                                                    </div>
+                                                </TableHead>
+                                            <TableHead className="font-semibold text-black">Current Stock</TableHead>
+                                            <TableHead className="font-semibold text-black">Minimum Stock</TableHead>
+                                            <TableHead className="font-semibold text-black">Unit</TableHead>
+                                            <TableHead className="font-semibold text-black">Status</TableHead>
+                                            <TableHead className="font-semibold text-black">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {filteredLowStock.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={6} className="text-center py-8">
+                                                        <div className="flex flex-col items-center">
+                                                            <Package className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                                        <h3 className="mb-2 text-lg font-semibold text-black">{searchTerm ? 'No items found' : 'No low stock items'}</h3>
+                                                        <p className="text-black">
+                                                                {searchTerm ? 'Try adjusting your search terms' : 'All items are well stocked'}
+                                                            </p>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                filteredLowStock.map((item) => (
+                                                    <TableRow key={item.id} className="hover:bg-gray-50">
+                                                        <TableCell className="font-medium">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="p-1 bg-gray-100 rounded-full">
+                                                                    <AlertTriangle className="h-4 w-4 text-black" />
+                                                                </div>
+                                                                {item.name}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-sm text-black">{item.current_stock}</TableCell>
+                                                        <TableCell className="text-sm text-black">{item.minimum_stock}</TableCell>
+                                                        <TableCell className="text-sm text-black">{item.unit}</TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="destructive">
+                                                                Low Stock
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex gap-2">
+                                                                <Button asChild size="sm">
+                                                                    <Link href={`/admin/inventory/products/${item.id}/edit`}>
+                                                                        <Edit className="mr-1 h-3 w-3" />
+                                                                        Edit
+                                                                    </Link>
+                                                                </Button>
+                                                                <Button asChild size="sm" variant="outline">
+                                                                    <Link href={`/admin/inventory/products/${item.id}`}>
+                                                                        <Eye className="mr-1 h-3 w-3" />
+                                                                        View
+                                                                    </Link>
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
+                    </PatientInfoCard>
+                </div>
             </div>
         </AppLayout>
     );

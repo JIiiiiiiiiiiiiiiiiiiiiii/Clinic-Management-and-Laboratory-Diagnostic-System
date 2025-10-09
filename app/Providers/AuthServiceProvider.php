@@ -8,7 +8,10 @@ use App\Models\LabResult;
 use App\Policies\PatientPolicy;
 use App\Policies\LabOrderPolicy;
 use App\Policies\LabResultPolicy;
+use App\Providers\CustomUserProvider;
+use App\Http\Guards\SessionAuthGuard;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
+use Illuminate\Support\Facades\Auth;
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -29,6 +32,11 @@ class AuthServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Policies are auto-registered from the $policies array.
+        
+        // Register custom user provider
+        Auth::provider('custom', function ($app, $config) {
+            return new CustomUserProvider();
+        });
     }
 }
 

@@ -14,19 +14,9 @@ const patientNavItems: NavItem[] = [
         icon: Home,
     },
     {
-        title: 'Medical Records',
-        href: '/patient/records',
-        icon: FileText,
-    },
-    {
         title: 'Appointments',
         href: '/patient/appointments',
         icon: Calendar,
-    },
-    {
-        title: 'Test Results',
-        href: '/patient/test-results',
-        icon: Heart,
     },
     {
         title: 'Profile',

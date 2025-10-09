@@ -139,13 +139,13 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'ordered':
-                return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+                return 'bg-gray-100 text-black border-gray-200';
             case 'processing':
-                return 'bg-blue-100 text-blue-800 border-blue-200';
+                return 'bg-gray-100 text-black border-gray-200';
             case 'completed':
-                return 'bg-green-100 text-green-800 border-green-200';
+                return 'bg-gray-100 text-black border-gray-200';
             case 'cancelled':
-                return 'bg-red-100 text-red-800 border-red-200';
+                return 'bg-gray-100 text-black border-gray-200';
             default:
                 return 'bg-gray-100 text-gray-800 border-gray-200';
         }
@@ -192,13 +192,13 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                     <div key={fieldKey} className="space-y-2">
                         <Label htmlFor={fieldId} className="text-sm font-semibold text-gray-700">
                             {field.label}
-                            {field.required && <span className="ml-1 text-red-500">*</span>}
+                            {field.required && <span className="ml-1 text-black">*</span>}
                         </Label>
                         <Input
                             {...commonProps}
                             type="text"
                             placeholder={field.placeholder}
-                            className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                            className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                         />
                         {field.unit && <span className="ml-2 text-sm text-gray-500">{field.unit}</span>}
                     </div>
@@ -209,7 +209,7 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                     <div key={fieldKey} className="space-y-2">
                         <Label htmlFor={fieldId} className="text-sm font-semibold text-gray-700">
                             {field.label}
-                            {field.required && <span className="ml-1 text-red-500">*</span>}
+                            {field.required && <span className="ml-1 text-black">*</span>}
                         </Label>
                         <Input
                             {...commonProps}
@@ -218,7 +218,7 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                             min={field.min}
                             max={field.max}
                             placeholder={field.placeholder}
-                            className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                            className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                         />
                         {field.unit && <span className="ml-2 text-sm text-gray-500">{field.unit}</span>}
                     </div>
@@ -229,10 +229,10 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                     <div key={fieldKey} className="space-y-2">
                         <Label htmlFor={fieldId} className="text-sm font-semibold text-gray-700">
                             {field.label}
-                            {field.required && <span className="ml-1 text-red-500">*</span>}
+                            {field.required && <span className="ml-1 text-black">*</span>}
                         </Label>
                         <Select value={value} onValueChange={(val) => updateResult(testId, fieldPath, val)}>
-                            <SelectTrigger className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm">
+                            <SelectTrigger className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm">
                                 <SelectValue placeholder={field.placeholder || 'Select...'} />
                             </SelectTrigger>
                             <SelectContent>
@@ -251,12 +251,12 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                     <div key={fieldKey} className="space-y-2">
                         <Label htmlFor={fieldId} className="text-sm font-semibold text-gray-700">
                             {field.label}
-                            {field.required && <span className="ml-1 text-red-500">*</span>}
+                            {field.required && <span className="ml-1 text-black">*</span>}
                         </Label>
                         <Textarea
                             {...commonProps}
                             placeholder={field.placeholder}
-                            className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                            className="border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                             rows={3}
                         />
                     </div>
@@ -267,13 +267,13 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                     <div key={fieldKey} className="space-y-2">
                         <Label htmlFor={fieldId} className="text-sm font-semibold text-gray-700">
                             {field.label}
-                            {field.required && <span className="ml-1 text-red-500">*</span>}
+                            {field.required && <span className="ml-1 text-black">*</span>}
                         </Label>
                         <Input
                             {...commonProps}
                             type="text"
                             placeholder={field.placeholder}
-                            className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                            className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                         />
                     </div>
                 );
@@ -288,15 +288,15 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
             <Card key={test.id} className="shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                            <TestTube className="h-6 w-6 text-blue-600" />
+                        <div className="p-2 bg-gray-100 rounded-lg">
+                            <TestTube className="h-6 w-6 text-black" />
                         </div>
                         <div>
                             <CardTitle className="text-lg font-semibold text-gray-900">{test.name}</CardTitle>
                             <p className="text-sm text-gray-500 mt-1">Code: {test.code}</p>
                         </div>
                     </div>
-                    <Badge variant="outline" className="text-blue-600 border-blue-200">
+                    <Badge variant="outline" className="text-black border-gray-200">
                         {Object.keys(schema.sections).length} section{Object.keys(schema.sections).length !== 1 ? 's' : ''}
                     </Badge>
                 </CardHeader>
@@ -414,7 +414,7 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                                 <ArrowLeft className="h-4 w-4" />
                             </Button>
                             <div>
-                                <h1 className="text-4xl font-bold text-gray-900 mb-2">Lab Results Entry</h1>
+                                <h1 className="text-4xl font-bold text-black mb-2">Lab Results Entry</h1>
                                 <div className="flex items-center gap-4">
                                     <Badge className={`${getStatusColor(order.status)} border`}>
                                         {getStatusIcon(order.status)}
@@ -447,8 +447,8 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                         <Card className="shadow-lg">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        <User className="h-6 w-6 text-blue-600" />
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <User className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <CardTitle className="text-lg font-semibold text-gray-900">Patient</CardTitle>
@@ -500,8 +500,8 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                         <Card className="shadow-lg">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        <Hash className="h-6 w-6 text-blue-600" />
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <Hash className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <CardTitle className="text-lg font-semibold text-gray-900">Order Details</CardTitle>
@@ -542,8 +542,8 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                         <Card className="shadow-lg">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        <Activity className="h-6 w-6 text-blue-600" />
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <Activity className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <CardTitle className="text-lg font-semibold text-gray-900">Actions</CardTitle>
@@ -599,15 +599,15 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                         <Card className="shadow-lg">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        <TestTube className="h-6 w-6 text-blue-600" />
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <TestTube className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <CardTitle className="text-lg font-semibold text-gray-900">Test Results</CardTitle>
                                         <p className="text-sm text-gray-500 mt-1">Enter laboratory test results for this order</p>
                                     </div>
                                 </div>
-                                <Badge variant="outline" className="text-blue-600 border-blue-200">
+                                <Badge variant="outline" className="text-black border-gray-200">
                                     {tests.length} test{tests.length !== 1 ? 's' : ''}
                                 </Badge>
                             </CardHeader>

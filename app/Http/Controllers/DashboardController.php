@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Patient;
 use App\Models\Patient as PatientModel;
 use App\Models\PatientVisit;
+use App\Models\Appointment;
 use App\Models\LabOrder;
 use App\Models\LabResult;
 use App\Models\Supply\Supply as Item;
@@ -45,7 +46,7 @@ class DashboardController extends Controller
             'newPatientsThisMonth' => Patient::whereYear('created_at', now()->year)
                 ->whereMonth('created_at', now()->month)
                 ->count(),
-            'todayAppointments' => PatientVisit::whereDate('arrival_date', now()->toDateString())->count(),
+            'todayAppointments' => Appointment::whereDate('appointment_date', now()->toDateString())->count(),
             'pendingLabTests' => LabResult::whereNull('verified_at')->count(),
             'lowStockSupplies' => DB::table('supply_stock_levels')
                 ->join('supplies', 'supplies.id', '=', 'supply_stock_levels.product_id')

@@ -24,10 +24,6 @@ type TestRow = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Laboratory Diagnostics',
-        href: '/admin/laboratory',
-    },
-    {
         title: 'Test Templates',
         href: '/admin/laboratory/tests',
     },
@@ -65,13 +61,16 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-6">
-                            <Heading title="Lab Test Templates" description="Manage laboratory diagnostic test templates" icon={TestTube} />
+                            <div>
+                                <h1 className="text-4xl font-semibold text-black mb-4">Lab Test Templates</h1>
+                                <p className="text-sm text-black mt-1">Manage laboratory diagnostic test templates and configurations</p>
+                            </div>
                         </div>
                         <div className="flex items-center gap-4">
                             <div className="bg-white rounded-xl shadow-lg border px-6 py-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        <TestTube className="h-6 w-6 text-blue-600" />
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <TestTube className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <div className="text-3xl font-bold text-gray-900">{tests.length}</div>
@@ -88,8 +87,8 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
                     <Card className="md:col-span-2 shadow-lg">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <TestTube className="h-6 w-6 text-blue-600" />
+                                <div className="p-2 bg-gray-100 rounded-lg">
+                                    <TestTube className="h-6 w-6 text-black" />
                                 </div>
                                 <div>
                                     <CardTitle className="text-lg font-semibold text-gray-900">Test Templates</CardTitle>
@@ -112,7 +111,7 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
                                         placeholder="Search tests by name or code..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                                        className="pl-10 h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                             </div>
@@ -153,8 +152,8 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
                                             <TableRow key={test.id} className="hover:bg-gray-50">
                                                 <TableCell className="font-medium">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="p-1 bg-blue-100 rounded-full">
-                                                            <TestTube className="h-4 w-4 text-blue-600" />
+                                                        <div className="p-1 bg-gray-100 rounded-full">
+                                                            <TestTube className="h-4 w-4 text-black" />
                                                         </div>
                                                         {test.name}
                                                     </div>
@@ -163,7 +162,7 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
                                                 <TableCell className="text-sm text-gray-600">{getFieldCount(test)} fields</TableCell>
                                                 <TableCell className="text-sm text-gray-600">v{test.version}</TableCell>
                                                 <TableCell>
-                                                    <Badge variant={test.is_active ? 'success' : 'secondary'}>
+                                                    <Badge variant={test.is_active ? 'default' : 'secondary'}>
                                                         {test.is_active ? 'Active' : 'Inactive'}
                                                     </Badge>
                                                 </TableCell>
@@ -193,8 +192,8 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
                     <Card className="shadow-lg sticky top-0 self-start">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <FlaskConical className="h-6 w-6 text-blue-600" />
+                                <div className="p-2 bg-gray-100 rounded-lg">
+                                    <FlaskConical className="h-6 w-6 text-black" />
                                 </div>
                                 <div>
                                     <CardTitle className="text-lg font-semibold text-gray-900">Quick Tips</CardTitle>

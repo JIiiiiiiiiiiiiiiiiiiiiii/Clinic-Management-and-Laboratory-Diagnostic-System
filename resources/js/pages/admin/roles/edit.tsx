@@ -32,7 +32,7 @@ export default function EditRole() {
                             <div>
                                 <label className="text-sm">Name</label>
                                 <Input value={data.name} onChange={(e) => setData('name', e.target.value)} />
-                                {errors.name && <div className="text-sm text-red-600">{errors.name}</div>}
+                                {errors.name && <div className="text-sm text-black">{errors.name}</div>}
                             </div>
                             <div>
                                 <div className="text-sm font-medium">Permissions</div>
@@ -52,7 +52,7 @@ export default function EditRole() {
                                         </label>
                                     ))}
                                 </div>
-                                {errors.permissions && <div className="text-sm text-red-600">{String(errors.permissions)}</div>}
+                                {errors.permissions && <div className="text-sm text-black">{String(errors.permissions)}</div>}
                             </div>
                             <div className="flex gap-2">
                                 <Button type="submit" disabled={processing}>

@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { CustomDatePicker } from '@/components/ui/date-picker';
 import AppLayout from '@/layouts/app-layout';
 import Heading from '@/components/heading';
 import { type BreadcrumbItem } from '@/types';
@@ -155,10 +156,10 @@ export default function CreateTransaction({
 
                 {/* Flash Messages */}
                 {flash?.success && (
-                    <div className="rounded-md bg-green-50 p-4">
+                    <div className="rounded-md bg-gray-50 p-4">
                         <div className="flex">
                             <div className="ml-3">
-                                <p className="text-sm font-medium text-green-800">
+                                <p className="text-sm font-medium text-black">
                                     {flash.success}
                                 </p>
                             </div>
@@ -167,10 +168,10 @@ export default function CreateTransaction({
                 )}
 
                 {flash?.error && (
-                    <div className="rounded-md bg-red-50 p-4">
+                    <div className="rounded-md bg-gray-50 p-4">
                         <div className="flex">
                             <div className="ml-3">
-                                <p className="text-sm font-medium text-red-800">{flash.error}</p>
+                                <p className="text-sm font-medium text-black">{flash.error}</p>
                             </div>
                         </div>
                     </div>
@@ -180,7 +181,7 @@ export default function CreateTransaction({
                     <div className="grid gap-8 md:grid-cols-2" data-layout="fixed-columns" style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '2rem'}}>
                         {/* Transaction Details */}
                         <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                            <div className="bg-white border-b border-gray-200 text-black">
                                 <div className="flex items-center gap-3 p-6">
                                     <div className="p-2 bg-white/20 rounded-lg">
                                         {data.type === 'in' ? (
@@ -193,17 +194,17 @@ export default function CreateTransaction({
                                         <h3 className="text-2xl font-bold text-white">
                                             Movement Details
                                         </h3>
-                                        <p className="text-blue-100 mt-1">
+                                        <p className="text-gray-100 mt-1">
                                             Basic transaction information
                                         </p>
                                     </div>
                                 </div>
                             </div>
-                            <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100">
+                            <div className="px-6 py-6 bg-white">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label htmlFor="product_id">
-                                            Item <span className="text-red-500">*</span>
+                                            Item <span className="text-black">*</span>
                                         </Label>
                                         <select
                                             id="product_id"
@@ -221,7 +222,7 @@ export default function CreateTransaction({
                                             ))}
                                         </select>
                                         {errors.product_id && (
-                                            <p className="text-sm text-red-600">
+                                            <p className="text-sm text-black">
                                                 {errors.product_id}
                                             </p>
                                         )}
@@ -229,7 +230,7 @@ export default function CreateTransaction({
 
                                     <div className="space-y-2">
                                         <Label htmlFor="type">
-                                            Movement Type <span className="text-red-500">*</span>
+                                            Movement Type <span className="text-black">*</span>
                                         </Label>
                                         <select
                                             id="type"
@@ -243,13 +244,13 @@ export default function CreateTransaction({
                                             <option value="adjustment">Adjustment</option>
                                         </select>
                                         {errors.type && (
-                                            <p className="text-sm text-red-600">{errors.type}</p>
+                                            <p className="text-sm text-black">{errors.type}</p>
                                         )}
                                     </div>
 
                                     <div className="space-y-2">
                                         <Label htmlFor="subtype">
-                                            Subtype <span className="text-red-500">*</span>
+                                            Subtype <span className="text-black">*</span>
                                         </Label>
                                         <select
                                             id="subtype"
@@ -266,13 +267,13 @@ export default function CreateTransaction({
                                             ))}
                                         </select>
                                         {errors.subtype && (
-                                            <p className="text-sm text-red-600">{errors.subtype}</p>
+                                            <p className="text-sm text-black">{errors.subtype}</p>
                                         )}
                                     </div>
 
                                     <div className="space-y-2">
                                         <Label htmlFor="quantity">
-                                            Quantity <span className="text-red-500">*</span>
+                                            Quantity <span className="text-black">*</span>
                                         </Label>
                                         <div className="flex flex-wrap items-center gap-2">
                                             <Input
@@ -284,7 +285,7 @@ export default function CreateTransaction({
                                                 onChange={(e) =>
                                                     setData('quantity', e.target.value)
                                                 }
-                                                className={errors.quantity ? 'border-red-500' : ''}
+                                                className={errors.quantity ? 'border-gray-500' : ''}
                                                 placeholder="0"
                                             />
                                             {selectedProduct?.unit_of_measure && (
@@ -300,7 +301,7 @@ export default function CreateTransaction({
                                             )}
                                         </div>
                                         {errors.quantity && (
-                                            <p className="text-sm text-red-600">
+                                            <p className="text-sm text-black">
                                                 {errors.quantity}
                                             </p>
                                         )}
@@ -316,37 +317,32 @@ export default function CreateTransaction({
                                             min="0"
                                             value={data.unit_cost}
                                             onChange={(e) => setData('unit_cost', e.target.value)}
-                                            className={errors.unit_cost ? 'border-red-500' : ''}
+                                            className={errors.unit_cost ? 'border-gray-500' : ''}
                                             placeholder={
                                                 selectedProduct?.unit_cost?.toString() || '0.00'
                                             }
                                         />
                                         {errors.unit_cost && (
-                                            <p className="text-sm text-red-600">
+                                            <p className="text-sm text-black">
                                                 {errors.unit_cost}
                                             </p>
                                         )}
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor="transaction_date">
+                                    <div>
+                                        <Label htmlFor="transaction_date" className="mb-1 block">
                                             Movement Date{' '}
-                                            <span className="text-red-500">*</span>
+                                            <span className="text-black">*</span>
                                         </Label>
-                                        <Input
-                                            id="transaction_date"
-                                            name="transaction_date"
-                                            type="date"
+                                        <CustomDatePicker
                                             value={data.transaction_date}
-                                            onChange={(e) =>
-                                                setData('transaction_date', e.target.value)
-                                            }
-                                            className={
-                                                errors.transaction_date ? 'border-red-500' : ''
-                                            }
+                                            onChange={(date) => setData('transaction_date', date ? date.toISOString().split('T')[0] : '')}
+                                            placeholder="Select transaction date"
+                                            variant="responsive"
+                                            className={`w-full ${errors.transaction_date ? 'border-gray-500' : ''}`}
                                         />
                                         {errors.transaction_date && (
-                                            <p className="text-sm text-red-600">
+                                            <p className="text-sm text-black">
                                                 {errors.transaction_date}
                                             </p>
                                         )}
@@ -363,11 +359,11 @@ export default function CreateTransaction({
                                                 setData('transaction_time', e.target.value)
                                             }
                                             className={
-                                                errors.transaction_time ? 'border-red-500' : ''
+                                                errors.transaction_time ? 'border-gray-500' : ''
                                             }
                                         />
                                         {errors.transaction_time && (
-                                            <p className="text-sm text-red-600">
+                                            <p className="text-sm text-black">
                                                 {errors.transaction_time}
                                             </p>
                                         )}
@@ -378,7 +374,7 @@ export default function CreateTransaction({
 
                         {/* Additional Information */}
                         <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+                            <div className="bg-white border-b border-gray-200 text-black">
                                 <div className="flex items-center gap-3 p-6">
                                     <div className="p-2 bg-white/20 rounded-lg">
                                         <Users className="h-8 w-8" />
@@ -387,13 +383,13 @@ export default function CreateTransaction({
                                         <h3 className="text-2xl font-bold text-white">
                                             Additional Information
                                         </h3>
-                                        <p className="text-purple-100 mt-1">
+                                        <p className="text-gray-100 mt-1">
                                             Optional details and tracking
                                         </p>
                                     </div>
                                 </div>
                             </div>
-                            <div className="px-6 py-6 bg-gradient-to-br from-purple-50 to-purple-100">
+                            <div className="px-6 py-6 bg-white">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {selectedProduct?.requires_lot_tracking && (
                                         <div className="space-y-2">
@@ -407,12 +403,12 @@ export default function CreateTransaction({
                                                     setData('lot_number', e.target.value)
                                                 }
                                                 className={
-                                                    errors.lot_number ? 'border-red-500' : ''
+                                                    errors.lot_number ? 'border-gray-500' : ''
                                                 }
                                                 placeholder="Enter lot number"
                                             />
                                             {errors.lot_number && (
-                                                <p className="text-sm text-red-600">
+                                                <p className="text-sm text-black">
                                                     {errors.lot_number}
                                                 </p>
                                             )}
@@ -420,22 +416,17 @@ export default function CreateTransaction({
                                     )}
 
                                     {selectedProduct?.requires_expiry_tracking && (
-                                        <div className="space-y-2">
-                                            <Label htmlFor="expiry_date">Expiry Date</Label>
-                                            <Input
-                                                id="expiry_date"
-                                                name="expiry_date"
-                                                type="date"
+                                        <div>
+                                            <Label htmlFor="expiry_date" className="mb-1 block">Expiry Date</Label>
+                                            <CustomDatePicker
                                                 value={data.expiry_date}
-                                                onChange={(e) =>
-                                                    setData('expiry_date', e.target.value)
-                                                }
-                                                className={
-                                                    errors.expiry_date ? 'border-red-500' : ''
-                                                }
+                                                onChange={(date) => setData('expiry_date', date ? date.toISOString().split('T')[0] : '')}
+                                                placeholder="Select expiry date"
+                                                variant="responsive"
+                                                className={`w-full ${errors.expiry_date ? 'border-gray-500' : ''}`}
                                             />
                                             {errors.expiry_date && (
-                                                <p className="text-sm text-red-600">
+                                                <p className="text-sm text-black">
                                                     {errors.expiry_date}
                                                 </p>
                                             )}
@@ -461,13 +452,13 @@ export default function CreateTransaction({
                                                     }
                                                     className={
                                                         errors.usage_location
-                                                            ? 'border-red-500'
+                                                            ? 'border-gray-500'
                                                             : ''
                                                     }
                                                     placeholder="e.g., Emergency Department"
                                                 />
                                                 {errors.usage_location && (
-                                                    <p className="text-sm text-red-600">
+                                                    <p className="text-sm text-black">
                                                         {errors.usage_location}
                                                     </p>
                                                 )}
@@ -487,13 +478,13 @@ export default function CreateTransaction({
                                                     }
                                                     className={
                                                         errors.usage_purpose
-                                                            ? 'border-red-500'
+                                                            ? 'border-gray-500'
                                                             : ''
                                                     }
                                                     placeholder="e.g., Patient wound dressing"
                                                 />
                                                 {errors.usage_purpose && (
-                                                    <p className="text-sm text-red-600">
+                                                    <p className="text-sm text-black">
                                                         {errors.usage_purpose}
                                                     </p>
                                                 )}
@@ -518,7 +509,7 @@ export default function CreateTransaction({
                                                     ))}
                                                 </select>
                                                 {errors.charged_to && (
-                                                    <p className="text-sm text-red-600">
+                                                    <p className="text-sm text-black">
                                                         {errors.charged_to}
                                                     </p>
                                                 )}
@@ -539,12 +530,12 @@ export default function CreateTransaction({
                                                 setData('reference_number', e.target.value)
                                             }
                                             className={
-                                                errors.reference_number ? 'border-red-500' : ''
+                                                errors.reference_number ? 'border-gray-500' : ''
                                             }
                                             placeholder="e.g., PO-2024-001"
                                         />
                                         {errors.reference_number && (
-                                            <p className="text-sm text-red-600">
+                                            <p className="text-sm text-black">
                                                 {errors.reference_number}
                                             </p>
                                         )}
@@ -557,12 +548,12 @@ export default function CreateTransaction({
                                             name="notes"
                                             value={data.notes}
                                             onChange={(e) => setData('notes', e.target.value)}
-                                            className={errors.notes ? 'border-red-500' : ''}
+                                            className={errors.notes ? 'border-gray-500' : ''}
                                             placeholder="Additional notes or comments"
                                             rows={3}
                                         />
                                         {errors.notes && (
-                                            <p className="text-sm text-red-600">
+                                            <p className="text-sm text-black">
                                                 {errors.notes}
                                             </p>
                                         )}
@@ -586,7 +577,7 @@ export default function CreateTransaction({
                         <Button 
                             type="submit" 
                             disabled={processing}
-                            className="rounded-xl bg-gradient-to-r from-green-500 to-green-600 px-8 py-3 text-lg font-semibold text-white shadow-lg transition-all duration-300 hover:from-green-600 hover:to-green-700 hover:shadow-xl"
+                            className="rounded-xl bg-white border border-gray-300 hover:bg-gray-50 px-8 py-3 text-lg font-semibold text-black shadow-lg transition-all duration-300 hover:shadow-xl"
                         >
                             {processing ? (
                                 <>

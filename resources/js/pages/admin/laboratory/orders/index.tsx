@@ -34,20 +34,16 @@ type Order = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Laboratory Diagnostics',
-        href: '/admin/laboratory',
-    },
-    {
         title: 'Lab Orders',
         href: '/admin/laboratory/orders',
     },
 ];
 
 const statusConfig = {
-    ordered: { label: 'Ordered', color: 'bg-blue-500', icon: Clock },
-    processing: { label: 'Processing', color: 'bg-yellow-500', icon: AlertCircle },
-    completed: { label: 'Completed', color: 'bg-green-500', icon: CheckCircle },
-    cancelled: { label: 'Cancelled', color: 'bg-red-500', icon: XCircle },
+    ordered: { label: 'Ordered', color: 'bg-gray-500', icon: Clock },
+    processing: { label: 'Processing', color: 'bg-gray-500', icon: AlertCircle },
+    completed: { label: 'Completed', color: 'bg-gray-500', icon: CheckCircle },
+    cancelled: { label: 'Cancelled', color: 'bg-gray-500', icon: XCircle },
 };
 
 export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
@@ -103,7 +99,7 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Lab Orders" />
-            <div className="min-h-screen bg-gray-50 p-6">
+            <div className="min-h-screen bg-white p-6">
                 {/* Header Section */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
@@ -113,8 +109,8 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                         <div className="flex items-center gap-4">
                             <div className="bg-white rounded-xl shadow-lg border px-6 py-4 w-52 h-20 flex items-center overflow-hidden">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        <FileText className="h-6 w-6 text-blue-600" />
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <FileText className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <div className="text-3xl font-bold text-gray-900 whitespace-nowrap leading-tight">{orders.length}</div>
@@ -130,8 +126,8 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                 <Card className="shadow-lg mb-8">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                                <FileText className="h-6 w-6 text-blue-600" />
+                            <div className="p-2 bg-gray-100 rounded-lg">
+                                <FileText className="h-6 w-6 text-black" />
                             </div>
                             <div>
                                 <CardTitle className="text-lg font-semibold text-gray-900">Lab Orders</CardTitle>
@@ -182,7 +178,7 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                         placeholder="Search by patient name, test name, or order ID..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                                        className="pl-10 h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                             </div>
@@ -222,8 +218,8 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                             <TableRow key={order.id} className="hover:bg-gray-50">
                                                 <TableCell className="font-medium">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="p-1 bg-blue-100 rounded-full">
-                                                            <FileText className="h-4 w-4 text-blue-600" />
+                                                        <div className="p-1 bg-gray-100 rounded-full">
+                                                            <FileText className="h-4 w-4 text-black" />
                                                         </div>
                                                         #{order.id}
                                                     </div>

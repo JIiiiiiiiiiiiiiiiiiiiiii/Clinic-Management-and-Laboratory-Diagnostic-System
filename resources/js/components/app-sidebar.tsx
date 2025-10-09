@@ -19,7 +19,7 @@ import {
   UserCheckIcon,
   UsersIcon,
 } from "lucide-react"
-import { Link } from "@inertiajs/react"
+import { Link, usePage } from "@inertiajs/react"
 
 import {
   DropdownMenu,
@@ -64,7 +64,6 @@ const data = {
       title: "Patients",
       url: "/admin/patient",
       icon: UsersIcon,
-      isActive: true,
       items: [
         {
           title: "All Patients",
@@ -80,7 +79,6 @@ const data = {
       title: "Laboratory",
       url: "/admin/laboratory",
       icon: FlaskConicalIcon,
-      isActive: true,
       items: [
         {
           title: "Lab Orders",
@@ -100,7 +98,6 @@ const data = {
       title: "Inventory",
       url: "/admin/inventory",
       icon: PackageIcon,
-      isActive: true,
       items: [
         {
           title: "Overview",
@@ -121,6 +118,25 @@ const data = {
       ],
     },
     {
+      title: "Appointments",
+      url: "/admin/appointments",
+      icon: CalendarIcon,
+      items: [
+        {
+          title: "All Appointments",
+          url: "/admin/appointments",
+        },
+        {
+          title: "Pending Requests",
+          url: "/admin/pending-appointments",
+        },
+        {
+          title: "Doctor Availability",
+          url: "/admin/appointments/availability",
+        },
+      ],
+    },
+    {
       title: "Analytics",
       url: "/admin/reports",
       icon: BarChartIcon,
@@ -128,19 +144,47 @@ const data = {
   ],
   navSecondary: [
     {
-      title: "Appointments",
-      url: "/admin/appointments",
-      icon: CalendarIcon,
-    },
-    {
-      title: "Doctors",
-      url: "/admin/doctors",
+      title: "Specialist Management",
+      url: "/admin/specialists",
       icon: UserCheckIcon,
+      isActive: true,
+      items: [
+        {
+          title: "Doctors",
+          url: "/admin/specialists/doctors",
+        },
+        {
+          title: "Nurses",
+          url: "/admin/specialists/nurses",
+        },
+        {
+          title: "Med Techs",
+          url: "/admin/specialists/medtechs",
+        },
+      ],
     },
     {
       title: "Billing",
       url: "/admin/billing",
       icon: CreditCardIcon,
+      items: [
+        {
+          title: "Transactions",
+          url: "/admin/billing",
+        },
+        {
+          title: "Doctor Payments",
+          url: "/admin/billing/doctor-payments",
+        },
+        {
+          title: "Expenses",
+          url: "/admin/billing/expenses",
+        },
+        {
+          title: "Reports",
+          url: "/admin/billing/reports",
+        },
+      ],
     },
   ],
   documents: [
@@ -163,6 +207,9 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const page = usePage<any>();
+  const { auth } = page.props;
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -188,7 +235,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavDocuments items={data.documents} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={auth.user} />
       </SidebarFooter>
     </Sidebar>
   )

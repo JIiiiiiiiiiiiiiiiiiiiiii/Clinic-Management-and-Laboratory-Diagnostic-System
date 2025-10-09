@@ -5,6 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { CustomDatePicker } from '@/components/ui/date-picker';
 import AppLayout from '@/layouts/app-layout';
 import Heading from '@/components/heading';
 import { type BreadcrumbItem } from '@/types';
@@ -94,7 +95,7 @@ export default function RejectedSuppliesReport({ rejectedSupplies, summary, filt
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Rejected Supplies Report" />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+            <div className="min-h-screen bg-white p-6">
                 {/* Header Section */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
@@ -106,7 +107,7 @@ export default function RejectedSuppliesReport({ rejectedSupplies, summary, filt
                             </Button>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
+                                    <Button className="bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
                                         <Download className="mr-2 h-4 w-4" />
                                         Export
                                     </Button>
@@ -121,108 +122,105 @@ export default function RejectedSuppliesReport({ rejectedSupplies, summary, filt
                     </div>
                 </div>
 
-                {/* Date Filters */}
+                {/* Combined Report Card */}
                 <div className="holographic-card shadow-lg border-0 mb-8 overflow-hidden rounded-xl bg-white">
-                    <div className="bg-gradient-to-r from-red-500 to-red-600 text-white">
+                    <div className="bg-white border-b border-gray-200 text-black">
                         <div className="flex items-center gap-3 p-6">
-                            <div className="p-2 bg-gradient-to-br from-red-400 to-red-500 rounded-lg">
-                                <Calendar className="h-6 w-6 text-white" />
+                            <div className="p-2 bg-gray-100 rounded-lg">
+                                <FileText className="h-6 w-6 text-black" />
                             </div>
                             <div>
-                                <h3 className="text-2xl font-bold text-white">Date Range Filter</h3>
-                                <p className="text-red-100 mt-1">Filter reports by specific date ranges</p>
+                                <h3 className="text-2xl font-bold text-black">Rejected Supplies Report</h3>
+                                <p className="text-gray-600 mt-1">Complete report with filters, summary, and detailed transactions</p>
                             </div>
                         </div>
                     </div>
-                    <div className="px-6 py-6 bg-gradient-to-br from-red-50 to-red-100">
-                        <div className="grid gap-6 md:grid-cols-3">
-                            <div className="space-y-2">
-                                <Label htmlFor="start_date" className="text-base font-semibold text-gray-700">Start Date</Label>
-                                <Input id="start_date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-12 border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-xl shadow-sm" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="end_date" className="text-base font-semibold text-gray-700">End Date</Label>
-                                <Input id="end_date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-12 border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-xl shadow-sm" />
-                            </div>
-                            <div className="flex items-end">
-                                <Button onClick={handleFilter} className="w-full h-12 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl">
-                                    Apply Filter
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Summary Cards */}
-                <div className="grid gap-6 md:grid-cols-3 mb-8">
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white hover:shadow-xl transition-all duration-300">
-                        <div className="bg-gradient-to-r from-red-500 to-red-600 text-white">
-                            <div className="flex items-center justify-between p-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gradient-to-br from-red-400 to-red-500 rounded-lg">
-                                        <FileText className="h-6 w-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-white">Total Rejections</h3>
-                                        <p className="text-red-100 text-sm">Rejected supply transactions</p>
-                                    </div>
+                    <div className="px-6 py-6 bg-white">
+                        {/* Date Range Filter */}
+                        <div className="mb-8">
+                            <h4 className="text-lg font-semibold text-black mb-4">Date Range Filter</h4>
+                            <div className="flex flex-wrap gap-2 items-end">
+                                <div className="flex-1 min-w-[200px]">
+                                    <Label htmlFor="start_date" className="text-base font-semibold text-gray-700 mb-1 block">Start Date</Label>
+                                    <CustomDatePicker
+                                        value={startDate}
+                                        onChange={(date) => setStartDate(date ? date.toISOString().split('T')[0] : '')}
+                                        placeholder="Select start date"
+                                        variant="responsive"
+                                        className="w-full"
+                                    />
                                 </div>
-                                <div className="text-3xl font-bold text-white">{rejectedSupplies.length}</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white hover:shadow-xl transition-all duration-300">
-                        <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
-                            <div className="flex items-center justify-between p-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gradient-to-br from-orange-400 to-orange-500 rounded-lg">
-                                        <FileText className="h-6 w-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-white">Total Products</h3>
-                                        <p className="text-orange-100 text-sm">Different products rejected</p>
-                                    </div>
+                                <div className="flex-1 min-w-[200px]">
+                                    <Label htmlFor="end_date" className="text-base font-semibold text-gray-700 mb-1 block">End Date</Label>
+                                    <CustomDatePicker
+                                        value={endDate}
+                                        onChange={(date) => setEndDate(date ? date.toISOString().split('T')[0] : '')}
+                                        placeholder="Select end date"
+                                        variant="responsive"
+                                        className="w-full"
+                                    />
                                 </div>
-                                <div className="text-3xl font-bold text-white">{Object.keys(summary).length}</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white hover:shadow-xl transition-all duration-300">
-                        <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white">
-                            <div className="flex items-center justify-between p-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg">
-                                        <FileText className="h-6 w-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-white">Total Value</h3>
-                                        <p className="text-yellow-100 text-sm">Total cost of rejected supplies</p>
-                                    </div>
-                                </div>
-                                <div className="text-3xl font-bold text-white">
-                                    ₱{Number(Object.values(summary).reduce((sum, item) => sum + (Number(item.total_cost) || 0), 0)).toFixed(2)}
+                                <div className="flex-none">
+                                    <Button onClick={handleFilter} className="h-12 bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl px-6">
+                                        Apply Filter
+                                    </Button>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                {/* Product Summary */}
-                <div className="holographic-card shadow-lg border-0 mb-8 overflow-hidden rounded-xl bg-white">
-                    <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
-                        <div className="flex items-center gap-3 p-6">
-                            <div className="p-2 bg-gradient-to-br from-purple-400 to-purple-500 rounded-lg">
-                                <FileText className="h-6 w-6 text-white" />
+                        {/* Summary Cards */}
+                        <div className="grid gap-6 md:grid-cols-3 mb-8">
+                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <FileText className="h-6 w-6 text-black" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-lg font-bold text-black">Total Rejections</h4>
+                                            <p className="text-gray-600 text-sm">Rejected supply transactions</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-3xl font-bold text-black">{rejectedSupplies.length}</div>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="text-2xl font-bold text-white">Product Summary</h3>
-                                <p className="text-purple-100 mt-1">Summary of all rejected supplies by product</p>
+
+                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <FileText className="h-6 w-6 text-black" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-lg font-bold text-black">Total Products</h4>
+                                            <p className="text-gray-600 text-sm">Different products rejected</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-3xl font-bold text-black">{Object.keys(summary).length}</div>
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <FileText className="h-6 w-6 text-black" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-lg font-bold text-black">Total Value</h4>
+                                            <p className="text-gray-600 text-sm">Total cost of rejected supplies</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-3xl font-bold text-black">
+                                        ₱{Number(Object.values(summary).reduce((sum, item) => sum + (Number(item.total_cost) || 0), 0)).toFixed(2)}
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div className="px-6 py-6 bg-gradient-to-br from-purple-50 to-purple-100">
+
+                        {/* Product Summary */}
+                        <div className="mb-8">
+                            <h4 className="text-lg font-semibold text-black mb-4">Product Summary</h4>
                         {Object.keys(summary).length > 0 ? (
                             <div className="overflow-x-auto rounded-xl border border-gray-200">
                                 <Table>
@@ -236,7 +234,7 @@ export default function RejectedSuppliesReport({ rejectedSupplies, summary, filt
                                     </TableHeader>
                                     <TableBody>
                                         {Object.values(summary).map((item) => (
-                                            <TableRow key={item.product?.code || Math.random()} className="hover:bg-purple-50/50 transition-colors border-b border-gray-100">
+                                            <TableRow key={item.product?.code || Math.random()} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100">
                                                 <TableCell>
                                                     <div>
                                                         <div className="font-medium text-gray-900">{item.product?.name || 'Unknown'}</div>
@@ -245,11 +243,7 @@ export default function RejectedSuppliesReport({ rejectedSupplies, summary, filt
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="font-medium text-gray-900">{item.total_quantity}</div>
-                                                    <div className="text-sm text-gray-600">
-                                                        {'unit_of_measure' in (item.product ?? {}) && (item.product as any).unit_of_measure
-                                                            ? (item.product as any).unit_of_measure
-                                                            : 'units'}
-                                                    </div>
+                                                    <div className="text-sm text-gray-600">{item.product?.unit_of_measure || 'units'}</div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="font-medium text-gray-900">₱{Number(item.total_cost || 0).toFixed(2)}</div>
@@ -272,22 +266,11 @@ export default function RejectedSuppliesReport({ rejectedSupplies, summary, filt
                             </div>
                         )}
                     </div>
-                </div>
-
-                {/* Detailed Transactions */}
-                <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white">
-                    <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white">
-                        <div className="flex items-center gap-3 p-6">
-                            <div className="p-2 bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg">
-                                <FileText className="h-6 w-6 text-white" />
-                            </div>
-                            <div>
-                                <h3 className="text-2xl font-bold text-white">Detailed Rejections</h3>
-                                <p className="text-indigo-100 mt-1">Complete rejection history with all details</p>
-                            </div>
                         </div>
-                    </div>
-                    <div className="px-6 py-6 bg-gradient-to-br from-indigo-50 to-indigo-100">
+
+                        {/* Detailed Transactions */}
+                        <div>
+                            <h4 className="text-lg font-semibold text-black mb-4">Detailed Rejections</h4>
                         {rejectedSupplies.length > 0 ? (
                             <div className="overflow-x-auto rounded-xl border border-gray-200">
                                 <Table>
@@ -303,7 +286,7 @@ export default function RejectedSuppliesReport({ rejectedSupplies, summary, filt
                                     </TableHeader>
                                     <TableBody>
                                         {rejectedSupplies.map((supply) => (
-                                            <TableRow key={supply.id} className="hover:bg-indigo-50/50 transition-colors border-b border-gray-100">
+                                            <TableRow key={supply.id} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100">
                                                 <TableCell>
                                                     <div>
                                                         <div className="font-medium text-gray-900">{new Date(supply.transaction_date).toLocaleDateString()}</div>
@@ -343,9 +326,9 @@ export default function RejectedSuppliesReport({ rejectedSupplies, summary, filt
                                 </div>
                             </div>
                         )}
+                        </div>
                     </div>
                 </div>
-            </div>
         </AppLayout>
     );
 }

@@ -16,14 +16,14 @@ class DoctorController extends Controller
             ->orderBy('name')
             ->get();
 
-        return Inertia::render('admin/doctors/index', [
+        return Inertia::render('admin/specialists/doctors/index', [
             'doctors' => $doctors,
         ]);
     }
 
     public function create()
     {
-        return Inertia::render('admin/doctors/create');
+        return Inertia::render('admin/specialists/doctors/create');
     }
 
     public function store(Request $request)
@@ -55,7 +55,7 @@ class DoctorController extends Controller
             return back()->with('error', 'User is not a doctor.');
         }
 
-        return Inertia::render('admin/doctors/edit', [
+        return Inertia::render('admin/specialists/doctors/edit', [
             'doctor' => $doctor,
         ]);
     }

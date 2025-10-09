@@ -82,7 +82,7 @@ export default function ShowProduct({ product }: ShowProductProps) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Item Details - ${product.name}`} />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 pb-12">
+            <div className="min-h-screen bg-white p-6 pb-12">
                 {/* Header Section */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
@@ -99,14 +99,14 @@ export default function ShowProduct({ product }: ShowProductProps) {
                         <div className="flex items-center gap-4">
                             <Button 
                                 onClick={() => router.visit(`/admin/inventory/transactions/create?product_id=${product.id}`)}
-                                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl"
+                                className="bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl"
                             >
                                 <Plus className="mr-3 h-6 w-6" />
                                 Record Movement
                             </Button>
                             <Button 
                                 onClick={() => router.visit(`/admin/inventory/products/${product.id}/edit`)}
-                                className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl"
+                                className="bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl"
                             >
                                 <Edit className="mr-3 h-6 w-6" />
                                 Edit Item
@@ -118,13 +118,13 @@ export default function ShowProduct({ product }: ShowProductProps) {
                 <div className="grid gap-6 md:grid-cols-3">
                     {/* Item Information */}
                     <div className="holographic-card shadow-xl border-0 overflow-hidden rounded-2xl bg-white hover:shadow-2xl transition-all duration-300 md:col-span-2">
-                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                        <div className="bg-white border-b border-gray-200 text-black">
                             <div className="flex items-center gap-2 text-xl p-6">
                                 <Package className="h-5 w-5" />
                                 Item Information
                             </div>
                         </div>
-                        <div className="px-6 py-8 space-y-6 bg-gradient-to-br from-blue-50 to-blue-100">
+                        <div className="px-6 py-8 space-y-6 bg-white">
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div>
                                     <label className="text-sm font-medium text-muted-foreground">Item Name</label>
@@ -186,13 +186,13 @@ export default function ShowProduct({ product }: ShowProductProps) {
 
                     {/* Stock Overview */}
                     <div className="holographic-card shadow-xl border-0 overflow-hidden rounded-2xl bg-white hover:shadow-2xl transition-all duration-300">
-                        <div className="bg-gradient-to-r from-green-500 to-green-600 text-white">
+                        <div className="bg-white border-b border-gray-200 text-black">
                             <div className="flex items-center gap-2 text-xl p-6">
                                 <TrendingUp className="h-5 w-5" />
                                 Stock Overview
                             </div>
                         </div>
-                        <div className="px-6 py-8 space-y-4 bg-gradient-to-br from-green-50 to-green-100">
+                        <div className="px-6 py-8 space-y-4 bg-white">
                             <div className="text-center">
                                 <div className="text-3xl font-bold">{product.current_stock}</div>
                                 <p className="text-sm text-muted-foreground">Current Stock</p>
@@ -229,13 +229,13 @@ export default function ShowProduct({ product }: ShowProductProps) {
                 {/* Stock Levels by Lot */}
                 {product.stock_levels && product.stock_levels.length > 0 && (
                     <div className="holographic-card shadow-xl border-0 overflow-hidden rounded-2xl bg-white hover:shadow-2xl transition-all duration-300">
-                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+                        <div className="bg-white border-b border-gray-200 text-black">
                             <div className="flex items-center gap-2 text-xl p-6">
                                 <Calendar className="h-5 w-5" />
                                 Stock Levels by Lot
                             </div>
                         </div>
-                        <div className="px-6 py-8 bg-gradient-to-br from-purple-50 to-purple-100">
+                        <div className="px-6 py-8 bg-white">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead>
@@ -288,21 +288,21 @@ export default function ShowProduct({ product }: ShowProductProps) {
                 {/* Recent Transactions */}
                 {product.recent_transactions && product.recent_transactions.length > 0 && (
                     <div className="holographic-card shadow-xl border-0 overflow-hidden rounded-2xl bg-white hover:shadow-2xl transition-all duration-300">
-                        <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+                        <div className="bg-white border-b border-gray-200 text-black">
                             <div className="flex items-center gap-2 text-xl p-6">
                                 <Calendar className="h-5 w-5" />
                                 Recent Transactions
                             </div>
                         </div>
-                        <div className="px-6 py-8 bg-gradient-to-br from-orange-50 to-orange-100">
+                        <div className="px-6 py-8 bg-white">
                             <div className="space-y-3">
                                 {product.recent_transactions.map((transaction) => (
                                     <div key={transaction.id} className="flex items-center justify-between rounded-lg border p-3">
                                         <div className="flex items-center gap-3">
                                             {transaction.type === 'in' ? (
-                                                <TrendingUp className="h-4 w-4 text-green-500" />
+                                                <TrendingUp className="h-4 w-4 text-black" />
                                             ) : (
-                                                <TrendingDown className="h-4 w-4 text-red-500" />
+                                                <TrendingDown className="h-4 w-4 text-black" />
                                             )}
                                             <div>
                                                 <p className="font-medium">{transaction.subtype}</p>

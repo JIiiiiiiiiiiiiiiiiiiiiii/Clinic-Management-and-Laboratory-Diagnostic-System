@@ -13,7 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PatientPageLayout, PatientActionButton } from '@/components/patient/PatientPageLayout';
+import { CustomDatePicker } from '@/components/ui/date-picker';
+import { PatientPageLayout, PatientActionButton, PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { PatientItem } from '@/types/patients';
@@ -124,7 +125,7 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
             <PatientPageLayout
                 title="Edit Visit"
                 description={`${patient.first_name} ${patient.last_name} - Patient No: ${patient.patient_no}`}
-                icon={<Edit className="h-6 w-6 text-blue-600" />}
+                icon={<Edit className="h-6 w-6 text-black" />}
                 actions={
                     <PatientActionButton
                         variant="outline"
@@ -138,7 +139,7 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
 
                 {/* Error alert */}
                 {((usePage().props as any).flash?.error as string | undefined) && (
-                    <div className="rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-700">
+                    <div className="rounded-md border border-gray-300 bg-gray-50 p-4 text-sm text-black">
                         {String((usePage().props as any).flash?.error as string)}
                     </div>
                 )}
@@ -166,32 +167,21 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
 
                 <form onSubmit={submit} className="space-y-8">
                     {/* Arrival Information */}
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                        {/* Header Section */}
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                            <div className="flex items-center gap-3 p-6">
-                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
-                                    <Calendar className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-bold text-white">Arrival Information</h3>
-                                    <p className="text-blue-100 mt-1">Patient arrival details and timing</p>
-                                </div>
-                            </div>
-                        </div>
-                        {/* Content Section */}
-                        <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100">
+                    <PatientInfoCard
+                        title="Arrival Information"
+                        icon={<Calendar className="h-5 w-5 text-black" />}
+                    >
                             <div className="grid gap-6 md:grid-cols-3">
                                 <div className="space-y-2">
                                     <Label htmlFor="arrival_date" className="text-base font-bold text-gray-700">Arrival Date *</Label>
-                                    <Input
-                                        id="arrival_date"
-                                        type="date"
+                                    <CustomDatePicker
                                         value={data.arrival_date}
-                                        onChange={(e) => setData('arrival_date', e.target.value)}
-                                        className={`h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm ${errors.arrival_date ? 'border-red-500' : ''}`}
+                                        onChange={(date) => setData('arrival_date', date ? date.toISOString().split('T')[0] : '')}
+                                        placeholder="Select arrival date"
+                                        variant="responsive"
+                                        className={`w-full ${errors.arrival_date ? 'border-gray-500' : ''}`}
                                     />
-                                    {errors.arrival_date && <p className="text-sm text-red-500">{errors.arrival_date}</p>}
+                                    {errors.arrival_date && <p className="text-sm text-black">{errors.arrival_date}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="arrival_time" className="text-base font-bold text-gray-700">Arrival Time *</Label>
@@ -200,9 +190,9 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                         type="time"
                                         value={data.arrival_time}
                                         onChange={(e) => setData('arrival_time', e.target.value)}
-                                        className={`h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm ${errors.arrival_time ? 'border-red-500' : ''}`}
+                                        className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.arrival_time ? 'border-gray-500' : ''}`}
                                     />
-                                    {errors.arrival_time && <p className="text-sm text-red-500">{errors.arrival_time}</p>}
+                                    {errors.arrival_time && <p className="text-sm text-black">{errors.arrival_time}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="mode_of_arrival" className="text-base font-bold text-gray-700">Mode of Arrival</Label>
@@ -211,29 +201,17 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                         value={data.mode_of_arrival}
                                         onChange={(e) => setData('mode_of_arrival', e.target.value)}
                                         placeholder="e.g., Ambulance, Walk-in, Private vehicle"
-                                        className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                                        className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                    </PatientInfoCard>
 
                     {/* Visit Details */}
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                        {/* Header Section */}
-                        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
-                            <div className="flex items-center gap-3 p-6">
-                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
-                                    <Stethoscope className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-bold text-white">Visit Details</h3>
-                                    <p className="text-emerald-100 mt-1">Medical consultation and physician information</p>
-                                </div>
-                            </div>
-                        </div>
-                        {/* Content Section */}
-                        <div className="px-6 py-6 bg-gradient-to-br from-emerald-50 to-emerald-100">
+                    <PatientInfoCard
+                        title="Visit Details"
+                        icon={<Stethoscope className="h-5 w-5 text-black" />}
+                    >
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="attending_physician" className="text-base font-bold text-gray-700">Attending Physician *</Label>
@@ -242,7 +220,7 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                             onValueChange={(value: string) => setData('attending_physician', value)}
                                             defaultValue={data.attending_physician || undefined}
                                         >
-                                            <SelectTrigger id="attending_physician" className={`h-12 border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 rounded-xl shadow-sm ${errors.attending_physician ? 'border-red-500' : ''}`}>
+                                            <SelectTrigger id="attending_physician" className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.attending_physician ? 'border-gray-500' : ''}`}>
                                                 <SelectValue placeholder="Select doctor" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -258,10 +236,10 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                             id="attending_physician"
                                             value={data.attending_physician}
                                             onChange={(e) => setData('attending_physician', e.target.value)}
-                                            className={`h-12 border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 rounded-xl shadow-sm ${errors.attending_physician ? 'border-red-500' : ''}`}
+                                            className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.attending_physician ? 'border-gray-500' : ''}`}
                                         />
                                     )}
-                                    {errors.attending_physician && <p className="text-sm text-red-500">{errors.attending_physician}</p>}
+                                    {errors.attending_physician && <p className="text-sm text-black">{errors.attending_physician}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="time_seen" className="text-base font-bold text-gray-700">Time Seen *</Label>
@@ -270,9 +248,9 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                         type="time"
                                         value={data.time_seen}
                                         onChange={(e) => setData('time_seen', e.target.value)}
-                                        className={`h-12 border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 rounded-xl shadow-sm ${errors.time_seen ? 'border-red-500' : ''}`}
+                                        className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.time_seen ? 'border-gray-500' : ''}`}
                                     />
-                                    {errors.time_seen && <p className="text-sm text-red-500">{errors.time_seen}</p>}
+                                    {errors.time_seen && <p className="text-sm text-black">{errors.time_seen}</p>}
                                 </div>
                             </div>
                             <div className="mt-6">
@@ -283,29 +261,17 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                         value={data.reason_for_consult}
                                         onChange={(e) => setData('reason_for_consult', e.target.value)}
                                         placeholder="Primary reason for seeking medical attention"
-                                        className="border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 rounded-xl shadow-sm"
+                                        className="border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                    </PatientInfoCard>
 
                     {/* Vital Signs */}
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                        {/* Header Section */}
-                        <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white">
-                            <div className="flex items-center gap-3 p-6">
-                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
-                                    <Heart className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-bold text-white">Vital Signs</h3>
-                                    <p className="text-red-100 mt-1">Patient vital signs and measurements</p>
-                                </div>
-                            </div>
-                        </div>
-                        {/* Content Section */}
-                        <div className="px-6 py-6 bg-gradient-to-br from-red-50 to-red-100">
+                    <PatientInfoCard
+                        title="Vital Signs"
+                        icon={<Heart className="h-5 w-5 text-black" />}
+                    >
                             <div className="grid gap-6 md:grid-cols-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="blood_pressure" className="text-base font-bold text-gray-700">Blood Pressure</Label>
@@ -314,7 +280,7 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                         value={data.blood_pressure}
                                         onChange={(e) => setData('blood_pressure', e.target.value)}
                                         placeholder="e.g., 120/80"
-                                        className="h-12 border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-xl shadow-sm"
+                                        className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -324,7 +290,7 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                         value={data.heart_rate}
                                         onChange={(e) => setData('heart_rate', e.target.value)}
                                         placeholder="bpm"
-                                        className="h-12 border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-xl shadow-sm"
+                                        className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -334,7 +300,7 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                         value={data.respiratory_rate}
                                         onChange={(e) => setData('respiratory_rate', e.target.value)}
                                         placeholder="breaths/min"
-                                        className="h-12 border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-xl shadow-sm"
+                                        className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -344,7 +310,7 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                         value={data.temperature}
                                         onChange={(e) => setData('temperature', e.target.value)}
                                         placeholder="°C"
-                                        className="h-12 border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-xl shadow-sm"
+                                        className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                             </div>
@@ -357,7 +323,7 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                         step="0.1"
                                         value={data.weight_kg}
                                         onChange={(e) => setData('weight_kg', Number(e.target.value))}
-                                        className="h-12 border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-xl shadow-sm"
+                                        className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -368,7 +334,7 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                         step="0.1"
                                         value={data.height_cm}
                                         onChange={(e) => setData('height_cm', Number(e.target.value))}
-                                        className="h-12 border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-xl shadow-sm"
+                                        className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -378,7 +344,7 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                         value={data.pain_assessment_scale}
                                         onChange={(e) => setData('pain_assessment_scale', e.target.value)}
                                         placeholder="0-10"
-                                        className="h-12 border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-xl shadow-sm"
+                                        className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -388,29 +354,17 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                         value={data.oxygen_saturation}
                                         onChange={(e) => setData('oxygen_saturation', e.target.value)}
                                         placeholder="%"
-                                        className="h-12 border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-xl shadow-sm"
+                                        className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                    </PatientInfoCard>
 
                     {/* Medical Assessment */}
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                        {/* Header Section */}
-                        <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white">
-                            <div className="flex items-center gap-3 p-6">
-                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
-                                    <Activity className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-bold text-white">Medical Assessment</h3>
-                                    <p className="text-purple-100 mt-1">Clinical evaluation and medical findings</p>
-                                </div>
-                            </div>
-                        </div>
-                        {/* Content Section */}
-                        <div className="px-6 py-6 bg-gradient-to-br from-purple-50 to-purple-100">
+                    <PatientInfoCard
+                        title="Medical Assessment"
+                        icon={<Activity className="h-5 w-5 text-black" />}
+                    >
                             <div className="space-y-6">
                                 <div className="space-y-2">
                                     <Label htmlFor="history_of_present_illness" className="text-base font-bold text-gray-700">History of Present Illness</Label>
@@ -419,7 +373,7 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                         value={data.history_of_present_illness}
                                         onChange={(e) => setData('history_of_present_illness', e.target.value)}
                                         placeholder="Detailed history of current symptoms"
-                                        className="border-gray-300 focus:border-purple-500 focus:ring-purple-500 rounded-xl shadow-sm"
+                                        className="border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -429,7 +383,7 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                         value={data.pertinent_physical_findings}
                                         onChange={(e) => setData('pertinent_physical_findings', e.target.value)}
                                         placeholder="Physical examination findings"
-                                        className="border-gray-300 focus:border-purple-500 focus:ring-purple-500 rounded-xl shadow-sm"
+                                        className="border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -439,7 +393,7 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                         value={data.plan_management}
                                         onChange={(e) => setData('plan_management', e.target.value)}
                                         placeholder="Treatment plan and management"
-                                        className="border-gray-300 focus:border-purple-500 focus:ring-purple-500 rounded-xl shadow-sm"
+                                        className="border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -449,7 +403,7 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                         value={data.assessment_diagnosis}
                                         onChange={(e) => setData('assessment_diagnosis', e.target.value)}
                                         placeholder="Clinical assessment and diagnosis"
-                                        className="border-gray-300 focus:border-purple-500 focus:ring-purple-500 rounded-xl shadow-sm"
+                                        className="border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -459,34 +413,22 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                         value={data.lmp}
                                         onChange={(e) => setData('lmp', e.target.value)}
                                         placeholder="Date of last period"
-                                        className="h-12 border-gray-300 focus:border-purple-500 focus:ring-purple-500 rounded-xl shadow-sm"
+                                        className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                    </PatientInfoCard>
 
                     {/* Visit Status */}
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                        {/* Header Section */}
-                        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-                            <div className="flex items-center gap-3 p-6">
-                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
-                                    <Clock className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-bold text-white">Visit Status</h3>
-                                    <p className="text-indigo-100 mt-1">Visit completion status and notes</p>
-                                </div>
-                            </div>
-                        </div>
-                        {/* Content Section */}
-                        <div className="px-6 py-6 bg-gradient-to-br from-indigo-50 to-indigo-100">
+                    <PatientInfoCard
+                        title="Visit Status"
+                        icon={<Clock className="h-5 w-5 text-black" />}
+                    >
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="status" className="text-base font-bold text-gray-700">Status *</Label>
                                     <Select onValueChange={(value: any) => setData('status', value)} defaultValue={data.status}>
-                                        <SelectTrigger id="status" className="h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-xl shadow-sm">
+                                        <SelectTrigger id="status" className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm">
                                             <SelectValue placeholder="Select status" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -503,42 +445,30 @@ export default function EditVisit({ patient, visit, doctors }: EditVisitProps) {
                                         value={data.notes}
                                         onChange={(e) => setData('notes', e.target.value)}
                                         placeholder="Additional notes about this visit"
-                                        className="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-xl shadow-sm"
+                                        className="border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                    </PatientInfoCard>
 
                     {/* Action Buttons */}
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                        <div className="bg-gradient-to-r from-gray-600 to-gray-700 text-white">
-                            <div className="flex items-center gap-3 p-6">
-                                <div className="p-2 bg-gradient-to-r from-[#063970] to-[#052b54] rounded-lg border border-white/60">
-                                    <Save className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-bold text-white">Save Changes</h3>
-                                    <p className="text-gray-100 mt-1">Update visit information</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="px-6 py-6 bg-gradient-to-br from-gray-50 to-gray-100">
+                    <PatientInfoCard
+                        title="Save Changes"
+                        icon={<Save className="h-5 w-5 text-black" />}
+                    >
                             <div className="flex items-center justify-end gap-6">
                                 <PatientActionButton
                                     variant="outline"
                                     icon={<ArrowLeft className="h-4 w-4" />}
                                     label="Cancel"
                                     href={`/admin/patient/${patient.id}?tab=visits`}
-                                    className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl"
                                 />
-                                <Button disabled={processing} type="submit" className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-8 py-4 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold">
+                                <Button disabled={processing} type="submit" variant="default" className="px-8 py-4 text-lg font-semibold rounded-xl">
                                     <Save className="mr-3 h-6 w-6" />
                                     {processing ? 'Saving...' : 'Save Changes'}
                                 </Button>
                             </div>
-                        </div>
-                    </div>
+                    </PatientInfoCard>
                 </form>
             </PatientPageLayout>
         </AppLayout>

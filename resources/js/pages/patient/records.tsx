@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
@@ -12,39 +13,52 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Medical Records', href: '/patient/records' },
 ];
 
-// Mock data - in real app this would come from props
-const medicalRecords = [
-    {
-        id: 1,
-        date: '2025-04-20',
-        type: 'Consultation',
-        doctor: 'Dr. Smith',
-        diagnosis: 'Hypertension',
-        treatment: 'Lisinopril 10mg daily',
-        notes: 'Blood pressure elevated, monitor weekly',
-        status: 'Active',
-    },
-    {
-        id: 2,
-        date: '2025-03-15',
-        type: 'Annual Check-up',
-        doctor: 'Dr. Johnson',
-        diagnosis: 'Healthy',
-        treatment: 'None required',
-        notes: 'All vitals normal, continue healthy lifestyle',
-        status: 'Completed',
-    },
-    {
-        id: 3,
-        date: '2025-02-10',
-        type: 'Follow-up',
-        doctor: 'Dr. Smith',
-        diagnosis: 'Hypertension',
-        treatment: 'Lisinopril 10mg daily',
-        notes: 'Blood pressure improving, continue medication',
-        status: 'Completed',
-    },
-];
+interface PatientRecordsProps {
+    user: {
+        name: string;
+        email: string;
+        role: string;
+    };
+    patient?: {
+        id: number;
+        first_name: string;
+        last_name: string;
+        patient_no: string;
+    };
+    records: {
+        visits: Array<{
+            id: number;
+            visit_date: string;
+            chief_complaint: string;
+            diagnosis: string;
+            treatment: string;
+            vital_signs: {
+                blood_pressure: string;
+                temperature: string;
+                pulse_rate: string;
+                respiratory_rate: string;
+            };
+            notes: string;
+        }>;
+        lab_orders: Array<{
+            id: number;
+            created_at: string;
+            tests: string[];
+            status: string;
+            notes: string;
+        }>;
+        lab_results: Array<{
+            id: number;
+            test_name: string;
+            result_value: string;
+            normal_range: string;
+            unit: string;
+            status: string;
+            verified_at: string | null;
+            created_at: string;
+        }>;
+    };
+}
 
 const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -56,53 +70,45 @@ const getStatusBadge = (status: string) => {
     return statusConfig[status as keyof typeof statusConfig] || 'bg-gray-100 text-gray-800';
 };
 
-export default function PatientRecords() {
+export default function PatientRecords({ user, patient, records }: PatientRecordsProps) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Medical Records" />
             <div className="min-h-screen bg-gray-50 p-6">
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">Medical Records</h1>
+                    <h1 className="text-4xl font-bold text-black">Medical Records</h1>
                     <p className="text-gray-500">Your complete medical history and treatment records</p>
                 </div>
 
                 {/* Summary Cards */}
                 <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-gray-500">Total Records</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{medicalRecords.length}</div>
-                        </CardContent>
-                    </Card>
+                    <PatientInfoCard
+                        title="Total Records"
+                        icon={<FileText className="h-5 w-5 text-blue-600" />}
+                    >
+                        <div className="text-2xl font-bold">{records.visits.length}</div>
+                    </PatientInfoCard>
 
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-gray-500">Active Treatments</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-blue-600">{medicalRecords.filter((r) => r.status === 'Active').length}</div>
-                        </CardContent>
-                    </Card>
+                    <PatientInfoCard
+                        title="Active Treatments"
+                        icon={<Heart className="h-5 w-5 text-red-600" />}
+                    >
+                        <div className="text-2xl font-bold text-blue-600">{records.visits.filter((r) => r.diagnosis && r.diagnosis !== 'Healthy').length}</div>
+                    </PatientInfoCard>
 
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-gray-500">Last Visit</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-green-600">{medicalRecords[0]?.date || 'N/A'}</div>
-                        </CardContent>
-                    </Card>
+                    <PatientInfoCard
+                        title="Last Visit"
+                        icon={<Calendar className="h-5 w-5 text-green-600" />}
+                    >
+                        <div className="text-2xl font-bold text-green-600">{records.visits[0]?.visit_date || 'N/A'}</div>
+                    </PatientInfoCard>
 
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-gray-500">Primary Doctor</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-purple-600">Dr. Smith</div>
-                        </CardContent>
-                    </Card>
+                    <PatientInfoCard
+                        title="Primary Doctor"
+                        icon={<User className="h-5 w-5 text-purple-600" />}
+                    >
+                        <div className="text-2xl font-bold text-purple-600">St. James Clinic</div>
+                    </PatientInfoCard>
                 </div>
 
                 {/* Medical Records Table */}
@@ -136,35 +142,37 @@ export default function PatientRecords() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {medicalRecords.map((record) => (
+                                {records.visits.map((record) => (
                                     <TableRow key={record.id}>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <Calendar className="h-4 w-4 text-gray-500" />
-                                                {record.date}
+                                                {record.visit_date}
                                             </div>
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <FileText className="h-4 w-4 text-blue-500" />
-                                                {record.type}
+                                                Medical Visit
                                             </div>
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <User className="h-4 w-4 text-green-500" />
-                                                {record.doctor}
+                                                St. James Clinic
                                             </div>
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <Heart className="h-4 w-4 text-red-500" />
-                                                {record.diagnosis}
+                                                {record.diagnosis || 'N/A'}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="max-w-xs">{record.treatment}</TableCell>
+                                        <TableCell className="max-w-xs">{record.treatment || 'N/A'}</TableCell>
                                         <TableCell>
-                                            <Badge className={getStatusBadge(record.status)}>{record.status}</Badge>
+                                            <Badge className={getStatusBadge(record.diagnosis ? 'Active' : 'Completed')}>
+                                                {record.diagnosis ? 'Active' : 'Completed'}
+                                            </Badge>
                                         </TableCell>
                                         <TableCell>
                                             <Button variant="outline" size="sm">

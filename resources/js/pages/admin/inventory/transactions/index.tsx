@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { CustomDatePicker } from '@/components/ui/date-picker';
 import AppLayout from '@/layouts/app-layout';
 import Heading from '@/components/heading';
 import { type BreadcrumbItem } from '@/types';
@@ -161,7 +162,7 @@ export default function TransactionsIndex({ transactions, filters }: Transaction
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Inventory Transactions" />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 pb-12">
+            <div className="min-h-screen bg-white p-6 pb-12">
                 {/* Header Section */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
@@ -169,7 +170,7 @@ export default function TransactionsIndex({ transactions, filters }: Transaction
                         <div className="flex items-center gap-4">
                             <Button 
                                 onClick={() => router.visit('/admin/inventory/transactions/create')}
-                                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl"
+                                className="bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl"
                             >
                                 <Plus className="mr-3 h-6 w-6" />
                                 Record Movement
@@ -178,48 +179,43 @@ export default function TransactionsIndex({ transactions, filters }: Transaction
                     </div>
                 </div>
 
-                {/* Filters */}
-                <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white mb-8">
-                    <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                {/* Combined Filters and Supply Movements */}
+                <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
+                    <div className="bg-white border-b border-gray-200 text-black">
                         <div className="flex items-center gap-3 p-6">
                             <div className="p-2 bg-white/20 rounded-lg">
-                                <Search className="h-6 w-6" />
+                                <ArrowUp className="h-8 w-8" />
                             </div>
                             <div>
-                                <h3 className="text-2xl font-bold text-white">Filters</h3>
-                                <p className="text-blue-100 mt-1">Search and filter transactions</p>
+                                <h3 className="text-2xl font-bold text-black">Supply Movements</h3>
+                                <p className="text-gray-600 mt-1">{transactions.total} total transactions</p>
                             </div>
                         </div>
                     </div>
-                    <div className="px-6 py-8 space-y-6 bg-gradient-to-br from-blue-50 to-blue-100">
-                        <div className="grid gap-4 md:grid-cols-6">
-                            <div className="space-y-2">
-                                <Label htmlFor="search">Search</Label>
-                                <div className="flex gap-2">
+                    
+                    {/* Filters Section */}
+                    <div className="px-6 py-6 bg-gray-50 border-b border-gray-200">
+                        <div className="flex flex-wrap gap-2 items-end">
+                            <div className="flex-1 min-w-[250px]">
+                                <Label htmlFor="search" className="mb-1 block">Search</Label>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                                     <Input
                                         id="search"
-                                        placeholder="Search transactions..."
+                                        placeholder="Search transactions by product, user, or ID..."
                                         value={search}
                                         onChange={(e) => setSearch(e.target.value)}
                                         onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                                        className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                                        className="pl-10 h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                     />
-                                    <Button 
-                                        variant="secondary" 
-                                        size="icon" 
-                                        onClick={handleSearch}
-                                        className="h-12 w-12 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300"
-                                    >
-                                        <Search className="h-4 w-4" />
-                                    </Button>
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="type">Type</Label>
+                            <div className="flex-1 min-w-[150px]">
+                                <Label htmlFor="type" className="mb-1 block">Type</Label>
                                 <select
                                     id="type"
-                                    className="flex h-12 w-full rounded-xl border border-gray-300 bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
+                                    className="flex h-12 w-full rounded-xl border border-gray-300 bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
                                     value={type}
                                     onChange={(e) => setType(e.target.value)}
                                 >
@@ -230,11 +226,11 @@ export default function TransactionsIndex({ transactions, filters }: Transaction
                                 </select>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="approval_status">Status</Label>
+                            <div className="flex-1 min-w-[150px]">
+                                <Label htmlFor="approval_status" className="mb-1 block">Status</Label>
                                 <select
                                     id="approval_status"
-                                    className="flex h-12 w-full rounded-xl border border-gray-300 bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
+                                    className="flex h-12 w-full rounded-xl border border-gray-300 bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
                                     value={approvalStatus}
                                     onChange={(e) => setApprovalStatus(e.target.value)}
                                 >
@@ -245,54 +241,41 @@ export default function TransactionsIndex({ transactions, filters }: Transaction
                                 </select>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="date_from">From Date</Label>
-                                <Input 
-                                    id="date_from" 
-                                    type="date" 
-                                    value={dateFrom} 
-                                    onChange={(e) => setDateFrom(e.target.value)}
-                                    className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                            <div className="flex-1 min-w-[180px]">
+                                <Label htmlFor="date_from" className="mb-1 block">From Date</Label>
+                                <CustomDatePicker
+                                    value={dateFrom}
+                                    onChange={(date) => setDateFrom(date ? date.toISOString().split('T')[0] : '')}
+                                    placeholder="Select start date"
+                                    variant="responsive"
+                                    className="w-full"
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="date_to">To Date</Label>
-                                <Input 
-                                    id="date_to" 
-                                    type="date" 
-                                    value={dateTo} 
-                                    onChange={(e) => setDateTo(e.target.value)}
-                                    className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                            <div className="flex-1 min-w-[180px]">
+                                <Label htmlFor="date_to" className="mb-1 block">To Date</Label>
+                                <CustomDatePicker
+                                    value={dateTo}
+                                    onChange={(date) => setDateTo(date ? date.toISOString().split('T')[0] : '')}
+                                    placeholder="Select end date"
+                                    variant="responsive"
+                                    className="w-full"
                                 />
                             </div>
 
-                            <div className="flex items-end">
+                            <div className="flex-none">
                                 <Button 
                                     onClick={handleSearch} 
-                                    className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl"
+                                    className="h-12 bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-lg hover:shadow-xl transition-all duration-300 px-6 text-base font-semibold rounded-xl"
                                 >
                                     Apply Filters
                                 </Button>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Transactions Table */}
-                <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                    <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white">
-                        <div className="flex items-center gap-3 p-6">
-                            <div className="p-2 bg-white/20 rounded-lg">
-                                <ArrowUp className="h-8 w-8" />
-                            </div>
-                            <div>
-                                <h3 className="text-2xl font-bold text-white">Supply Movements</h3>
-                                <p className="text-green-100 mt-1">{transactions.total} total transactions</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="px-6 py-6 bg-gradient-to-br from-green-50 to-green-100">
+                    {/* Transactions Table */}
+                    <div className="px-6 py-6 bg-white">
                         {transactions.data.length > 0 ? (
                             <div className="overflow-x-auto rounded-xl border border-gray-200">
                                 <Table>
@@ -309,10 +292,10 @@ export default function TransactionsIndex({ transactions, filters }: Transaction
                                     </TableHeader>
                                     <TableBody>
                                         {transactions.data.map((transaction) => (
-                                            <TableRow key={transaction.id} className="hover:bg-green-50/50 transition-colors border-b border-gray-100">
+                                            <TableRow key={transaction.id} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100">
                                                 <TableCell>
                                                     <div>
-                                                        <div className="font-semibold text-green-600">#{transaction.id}</div>
+                                                        <div className="font-semibold text-black">#{transaction.id}</div>
                                                         <div className="text-sm text-gray-600">{transaction.subtype}</div>
                                                     </div>
                                                 </TableCell>
@@ -325,9 +308,9 @@ export default function TransactionsIndex({ transactions, filters }: Transaction
                                                 <TableCell>
                                                     <div className="flex items-center gap-2">
                                                         {transaction.type === 'in' ? (
-                                                            <ArrowUp className="h-4 w-4 text-green-500" />
+                                                            <ArrowUp className="h-4 w-4 text-black" />
                                                         ) : (
-                                                            <ArrowDown className="h-4 w-4 text-red-500" />
+                                                            <ArrowDown className="h-4 w-4 text-black" />
                                                         )}
                                                         <span className="capitalize font-medium text-gray-900">{transaction.type}</span>
                                                     </div>
@@ -355,7 +338,7 @@ export default function TransactionsIndex({ transactions, filters }: Transaction
                                                 <TableCell>
                                                     <div className="flex items-center gap-2">
                                                         <Button
-                                                            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
+                                                            className="bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
                                                             onClick={() => router.visit(`/admin/inventory/transactions/${transaction.id}`)}
                                                         >
                                                             <Eye className="mr-2 h-4 w-4" /> View
@@ -363,13 +346,13 @@ export default function TransactionsIndex({ transactions, filters }: Transaction
                                                         {transaction.approval_status === 'pending' && (
                                                             <>
                                                                 <Button
-                                                                    className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
+                                                                    className="bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
                                                                     onClick={() => handleApprove(transaction.id)}
                                                                 >
                                                                     <CheckCircle className="mr-2 h-4 w-4" /> Approve
                                                                 </Button>
                                                                 <Button
-                                                                    className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
+                                                                    className="bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
                                                                     onClick={() => handleReject(transaction.id)}
                                                                 >
                                                                     <XCircle className="mr-2 h-4 w-4" /> Reject
@@ -402,7 +385,7 @@ export default function TransactionsIndex({ transactions, filters }: Transaction
                 {/* Pagination */}
                 {transactions.last_page > 1 && (
                     <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                        <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100">
+                        <div className="px-6 py-4 bg-white">
                             <div className="flex items-center justify-between">
                                 <p className="text-sm text-muted-foreground">
                                     Showing {(transactions.current_page - 1) * transactions.per_page + 1} to{' '}
@@ -414,7 +397,7 @@ export default function TransactionsIndex({ transactions, filters }: Transaction
                                         size="sm"
                                         disabled={transactions.current_page === 1}
                                         onClick={() => router.get(`/admin/inventory/transactions?page=${transactions.current_page - 1}`)}
-                                        className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                                        className="bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-lg hover:shadow-xl transition-all duration-300"
                                     >
                                         Previous
                                     </Button>
@@ -426,7 +409,7 @@ export default function TransactionsIndex({ transactions, filters }: Transaction
                                         size="sm"
                                         disabled={transactions.current_page === transactions.last_page}
                                         onClick={() => router.get(`/admin/inventory/transactions?page=${transactions.current_page + 1}`)}
-                                        className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                                        className="bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-lg hover:shadow-xl transition-all duration-300"
                                     >
                                         Next
                                     </Button>

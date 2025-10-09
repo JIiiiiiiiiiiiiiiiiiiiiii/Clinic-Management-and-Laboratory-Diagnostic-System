@@ -1,312 +1,1214 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { CreditCard, Filter, Plus, Receipt, Search } from 'lucide-react';
 import Heading from '@/components/heading';
+import { 
+    AlertCircle, 
+    ArrowLeft, 
+    CheckCircle, 
+    Clock, 
+    Download, 
+    Eye, 
+    FileText, 
+    Plus, 
+    Search, 
+    XCircle, 
+    CreditCard,
+    Receipt,
+    DollarSign,
+    TrendingUp,
+    Users,
+    Calendar,
+    Edit,
+    Filter,
+    Printer,
+    Trash2,
+    MoreHorizontal,
+    X,
+    Check
+} from 'lucide-react';
+import { useState } from 'react';
+
+type BillingTransaction = {
+    id: number;
+    transaction_id: string;
+    patient: {
+        id: number;
+        first_name: string;
+        last_name: string;
+        patient_no: string;
+    };
+    doctor: {
+        id: number;
+        name: string;
+    } | null;
+    payment_type: 'cash' | 'health_card' | 'discount';
+    total_amount: number;
+    discount_amount: number;
+    hmo_provider: string | null;
+    payment_method: 'cash' | 'card' | 'bank_transfer' | 'check' | 'hmo';
+    status: 'draft' | 'pending' | 'paid' | 'cancelled' | 'refunded';
+    description: string | null;
+    transaction_date: string;
+    due_date: string | null;
+    created_at: string;
+    items: Array<{
+        id: number;
+        item_type: string;
+        item_name: string;
+        quantity: number;
+        unit_price: number;
+        total_price: number;
+    }>;
+};
+
+type Summary = {
+    total_revenue: number;
+    pending_amount: number;
+    total_transactions: number;
+    paid_transactions: number;
+    total_expenses: number;
+    total_doctor_payments: number;
+    net_profit: number;
+};
+
+type Doctor = {
+    id: number;
+    name: string;
+};
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/admin/dashboard' },
-    { title: 'Billing', href: '/admin/billing' },
-];
-
-// Mock data - in real app this would come from props
-const billingRecords = [
     {
-        id: 1,
-        patientName: 'John Doe',
-        patientId: 'P001',
-        service: 'Consultation',
-        amount: 500.0,
-        status: 'Paid',
-        dueDate: '2025-04-24',
-        paymentMethod: 'Cash',
-        invoiceNumber: 'INV-001',
-        date: '2025-04-24',
-    },
-    {
-        id: 2,
-        patientName: 'Jane Smith',
-        patientId: 'P002',
-        service: 'Laboratory Test',
-        amount: 1200.0,
-        status: 'Pending',
-        dueDate: '2025-04-25',
-        paymentMethod: 'Credit Card',
-        invoiceNumber: 'INV-002',
-        date: '2025-04-24',
-    },
-    {
-        id: 3,
-        patientName: 'Bob Johnson',
-        patientId: 'P003',
-        service: 'Medicine',
-        amount: 350.0,
-        status: 'Paid',
-        dueDate: '2025-04-23',
-        paymentMethod: 'Cash',
-        invoiceNumber: 'INV-003',
-        date: '2025-04-23',
-    },
-    {
-        id: 4,
-        patientName: 'Alice Brown',
-        patientId: 'P004',
-        service: 'X-Ray',
-        amount: 800.0,
-        status: 'Overdue',
-        dueDate: '2025-04-20',
-        paymentMethod: 'Pending',
-        invoiceNumber: 'INV-004',
-        date: '2025-04-20',
+        title: 'Billing',
+        href: '/admin/billing',
     },
 ];
 
-const getStatusBadge = (status: string) => {
-    const statusConfig = {
-        Paid: 'bg-green-100 text-green-800',
-        Pending: 'bg-yellow-100 text-yellow-800',
-        Overdue: 'bg-red-100 text-red-800',
-        Partial: 'bg-blue-100 text-blue-800',
+const statusConfig = {
+    draft: { label: 'Draft', color: 'bg-gray-500', icon: FileText },
+    pending: { label: 'Pending', color: 'bg-yellow-500', icon: Clock },
+    paid: { label: 'Paid', color: 'bg-green-500', icon: CheckCircle },
+    cancelled: { label: 'Cancelled', color: 'bg-red-500', icon: XCircle },
+    refunded: { label: 'Refunded', color: 'bg-orange-500', icon: AlertCircle },
+};
+
+const paymentMethodConfig = {
+    cash: { label: 'Cash', color: 'bg-green-100 text-green-800' },
+    card: { label: 'Card', color: 'bg-blue-100 text-blue-800' },
+    bank_transfer: { label: 'Bank Transfer', color: 'bg-purple-100 text-purple-800' },
+    check: { label: 'Check', color: 'bg-yellow-100 text-yellow-800' },
+    hmo: { label: 'HMO', color: 'bg-indigo-100 text-indigo-800' },
+};
+
+type PendingAppointment = {
+    id: number;
+    patient_name: string;
+    patient_id: string;
+    appointment_type: string;
+    price: number;
+    appointment_date: string;
+    appointment_time: string;
+    specialist_name: string;
+    billing_status: string;
+};
+
+export default function BillingIndex({ 
+    transactions, 
+    pendingAppointments,
+    doctorPayments,
+    expenses,
+    revenueData,
+    expenseData,
+    doctorPaymentData,
+    summary, 
+    doctors, 
+    filters,
+    defaultTab = 'transactions',
+    debug
+}: { 
+    transactions: any;
+    pendingAppointments: PendingAppointment[];
+    doctorPayments: any;
+    expenses: any;
+    revenueData: any[];
+    expenseData: any[];
+    doctorPaymentData: any[];
+    summary: Summary;
+    doctors: Doctor[];
+    filters: any;
+    defaultTab?: string;
+    debug?: any;
+}) {
+    const [searchTerm, setSearchTerm] = useState(filters.search || '');
+    const [statusFilter, setStatusFilter] = useState(filters.status || 'all');
+    const [paymentMethodFilter, setPaymentMethodFilter] = useState(filters.payment_method || 'all');
+    const [doctorFilter, setDoctorFilter] = useState(filters.doctor_id || 'all');
+    const [dateFrom, setDateFrom] = useState(filters.date_from || '');
+    const [dateTo, setDateTo] = useState(filters.date_to || '');
+    const [showMarkPaidModal, setShowMarkPaidModal] = useState(false);
+    const [selectedTransaction, setSelectedTransaction] = useState<BillingTransaction | null>(null);
+    const [paymentMethod, setPaymentMethod] = useState('cash');
+    const [paymentReference, setPaymentReference] = useState('');
+
+    // Ensure we have data to work with
+    const transactionsData = transactions?.data || [];
+    
+    // Debug logging
+    console.log('Debug info:', debug);
+    console.log('Transactions data:', transactions);
+    console.log('Transactions data count:', transactionsData.length);
+    console.log('Sample transaction:', transactionsData[0]);
+    console.log('Doctor payments data:', doctorPayments);
+    console.log('Doctor payments data count:', doctorPayments?.data?.length || 0);
+    
+    const filteredTransactions = transactionsData.filter((transaction: BillingTransaction) => {
+        const patientName = transaction.patient ? 
+            `${transaction.patient.first_name} ${transaction.patient.last_name}`.toLowerCase() : '';
+        const search = searchTerm.toLowerCase();
+        
+        const matchesSearch = patientName.includes(search) || 
+                            transaction.transaction_id.toLowerCase().includes(search) ||
+                            (transaction.patient?.patient_no || '').toLowerCase().includes(search);
+        
+        const matchesStatus = statusFilter === 'all' || transaction.status === statusFilter;
+        const matchesPaymentMethod = paymentMethodFilter === 'all' || transaction.payment_method === paymentMethodFilter;
+        const matchesDoctor = doctorFilter === 'all' || transaction.doctor?.id.toString() === doctorFilter;
+        
+        return matchesSearch && matchesStatus && matchesPaymentMethod && matchesDoctor;
+    });
+
+
+    const getStatusBadge = (status: keyof typeof statusConfig) => {
+        const config = statusConfig[status];
+        const Icon = config.icon;
+        
+        const variantMap = {
+            draft: 'secondary',
+            pending: 'warning',
+            paid: 'success',
+            cancelled: 'destructive',
+            refunded: 'destructive'
+        };
+        
+        return (
+            <Badge variant={variantMap[status] as any}>
+                <Icon className="mr-1 h-3 w-3" />
+                {config.label}
+            </Badge>
+        );
     };
 
-    return statusConfig[status as keyof typeof statusConfig] || 'bg-gray-100 text-gray-800';
-};
+    const getPaymentMethodBadge = (method: keyof typeof paymentMethodConfig) => {
+        const config = paymentMethodConfig[method];
+        return (
+            <Badge className={config.color}>
+                {config.label}
+            </Badge>
+        );
+    };
 
-const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-PH', {
-        style: 'currency',
-        currency: 'PHP',
-    }).format(amount);
-};
+    const handleFilter = () => {
+        router.get('/admin/billing', {
+            search: searchTerm,
+            status: statusFilter,
+            payment_method: paymentMethodFilter,
+            doctor_id: doctorFilter,
+            date_from: dateFrom,
+            date_to: dateTo,
+        }, {
+            preserveState: true,
+            replace: true,
+        });
+    };
 
-export default function BillingIndex() {
-    const { permissions, canAccessModule } = useRoleAccess();
+    const handleMarkPaidClick = (transaction: BillingTransaction) => {
+        setSelectedTransaction(transaction);
+        setShowMarkPaidModal(true);
+    };
 
-    // Redirect if user doesn't have access to billing
-    if (!permissions.canAccessBilling) {
-        router.visit('/admin/dashboard');
-        return null;
-    }
+    const handleMarkPaid = () => {
+        if (!selectedTransaction) return;
+        
+        router.put(
+            `/admin/billing/${selectedTransaction.id}/mark-paid`,
+            { 
+                payment_method: paymentMethod,
+                payment_reference: paymentReference,
+            },
+            {
+                onSuccess: () => {
+                    setShowMarkPaidModal(false);
+                    setSelectedTransaction(null);
+                    setPaymentMethod('cash');
+                    setPaymentReference('');
+                },
+                onError: (errors) => {
+                    console.error('Mark as paid failed:', errors);
+                    alert('Failed to mark transaction as paid. Please try again.');
+                },
+            },
+        );
+    };
 
-    const totalRevenue = billingRecords.reduce((sum, record) => sum + record.amount, 0);
-    const paidAmount = billingRecords.filter((r) => r.status === 'Paid').reduce((sum, record) => sum + record.amount, 0);
-    const pendingAmount = billingRecords.filter((r) => r.status === 'Pending').reduce((sum, record) => sum + record.amount, 0);
-    const overdueAmount = billingRecords.filter((r) => r.status === 'Overdue').reduce((sum, record) => sum + record.amount, 0);
+    const handleStatusUpdate = (transactionId: number, newStatus: string) => {
+        router.put(
+            `/admin/billing/${transactionId}/status`,
+            { status: newStatus },
+            {
+                onSuccess: () => {
+                },
+                onError: (errors) => {
+                    console.error('Status update failed:', errors);
+                    alert('Failed to update status. Please try again.');
+                },
+            },
+        );
+    };
 
+    const handleDelete = (transactionId: number) => {
+        if (confirm('Are you sure you want to delete this transaction? This action cannot be undone.')) {
+            router.delete(`/admin/billing/${transactionId}`, {
+                onSuccess: () => {
+                },
+                onError: (errors) => {
+                    console.error('Delete failed:', errors);
+                    alert('Failed to delete transaction. Please try again.');
+                },
+            });
+        }
+    };
+
+    // Report Action Functions
+    const handleTransactionReport = () => {
+        const reportDateFrom = dateFrom || new Date().toISOString().split('T')[0];
+        const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
+        
+        // Navigate to transaction report with current filters
+        router.get('/admin/billing/transaction-report', {
+            date_from: reportDateFrom,
+            date_to: reportDateTo,
+            status: statusFilter,
+            payment_method: paymentMethodFilter,
+            doctor_id: doctorFilter,
+        });
+    };
+
+    const handleDoctorSummary = () => {
+        const reportDateFrom = dateFrom || new Date().toISOString().split('T')[0];
+        const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
+        
+        // Navigate to doctor summary report
+        router.get('/admin/billing/reports/doctor-summary', {
+            date_from: reportDateFrom,
+            date_to: reportDateTo,
+            doctor_id: doctorFilter,
+        });
+    };
+
+    const handleHMOReport = () => {
+        const reportDateFrom = dateFrom || new Date().toISOString().split('T')[0];
+        const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
+        
+        // Navigate to HMO report
+        router.get('/admin/billing/reports/hmo', {
+            date_from: reportDateFrom,
+            date_to: reportDateTo,
+        });
+    };
+
+    const handleExportAll = () => {
+        const reportDateFrom = dateFrom || new Date().toISOString().split('T')[0];
+        const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
+        
+        // Show export options modal or direct export
+        const exportUrl = `/admin/billing/reports/export-all?date_from=${reportDateFrom}&date_to=${reportDateTo}&format=excel`;
+        window.open(exportUrl, '_blank');
+    };
+
+    // Enhanced Export Functions with Format Options
+    const handleExportWithFormat = (reportType: string, format: 'excel' | 'pdf' = 'excel') => {
+        const reportDateFrom = dateFrom || new Date().toISOString().split('T')[0];
+        const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
+        
+        const exportUrl = `/admin/billing/reports/${reportType}/export?date_from=${reportDateFrom}&date_to=${reportDateTo}&format=${format}`;
+        window.open(exportUrl, '_blank');
+    };
+
+    // Quick Export Functions
+    const handleQuickExport = (type: 'transactions' | 'doctor-payments' | 'expenses' | 'all') => {
+        const reportDateFrom = dateFrom || new Date().toISOString().split('T')[0];
+        const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
+        
+        const exportUrl = `/admin/billing/export/${type}?date_from=${reportDateFrom}&date_to=${reportDateTo}&format=excel`;
+        window.open(exportUrl, '_blank');
+    };
+
+    
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Billing Management" />
-
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+            <Head title="Billing & Payments" />
+            <div className="min-h-screen bg-white p-6">
+                {/* Header Section */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
-                        <Heading title="Billing Management" description="Manage patient billing, payments, and invoices" icon={CreditCard} />
-                        {permissions.canCreateBilling && (
-                            <Button asChild className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
-                                <Link href="/admin/billing/create">
-                                    <Plus className="mr-2 h-5 w-5" />
-                                    New Invoice
-                                </Link>
-                            </Button>
-                        )}
-                    </div>
-                </div>
-
-                {/* Financial Overview Cards (glassy metrics like Reports) */}
-                <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
-                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                            <div className="flex items-center justify-between p-6">
+                        <div className="flex items-center gap-6">
+                            <Heading title="Billing & Payments" description="Manage all clinic financial transactions" icon={CreditCard} />
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4 w-52 h-20 flex items-center overflow-hidden">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-lg">
-                                        <CreditCard className="h-6 w-6" />
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <DollarSign className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
-                                        <h3 className="text-sm font-bold text-white">Total Revenue</h3>
-                                        <p className="text-emerald-100 mt-1 text-xs">All time</p>
+                                        <div className="text-3xl font-bold text-gray-900 whitespace-nowrap leading-tight">₱{summary.total_revenue.toLocaleString()}</div>
+                                        <div className="text-gray-600 text-sm font-medium whitespace-nowrap">Total Revenue</div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        <div className="px-6 py-6">
-                            <div className="text-2xl font-bold text-gray-900">{formatCurrency(totalRevenue)}</div>
-                        </div>
-                    </div>
-
-                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                            <div className="flex items-center justify-between p-6">
+                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4 w-52 h-20 flex items-center overflow-hidden">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-lg">
-                                        <Receipt className="h-6 w-6" />
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <TrendingUp className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
-                                        <h3 className="text-sm font-bold text-white">Paid Amount</h3>
-                                        <p className="text-blue-100 mt-1 text-xs">Settled invoices</p>
+                                        <div className="text-3xl font-bold text-gray-900 whitespace-nowrap leading-tight">{summary.paid_transactions}</div>
+                                        <div className="text-gray-600 text-sm font-medium whitespace-nowrap">Paid Transactions</div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        <div className="px-6 py-6">
-                            <div className="text-2xl font-bold text-gray-900">{formatCurrency(paidAmount)}</div>
-                        </div>
-                    </div>
-
-                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
-                        <div className="bg-gradient-to-r from-yellow-500 to-amber-500 text-white">
-                            <div className="flex items-center justify-between p-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-lg">
-                                        <Filter className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-sm font-bold text-white">Pending Payment</h3>
-                                        <p className="text-amber-100 mt-1 text-xs">Awaiting settlement</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="px-6 py-6">
-                            <div className="text-2xl font-bold text-gray-900">{formatCurrency(pendingAmount)}</div>
-                        </div>
-                    </div>
-
-                    <div className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all">
-                        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
-                            <div className="flex items-center justify-between p-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-lg">
-                                        <CreditCard className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-sm font-bold text-white">Overdue Amount</h3>
-                                        <p className="text-orange-100 mt-1 text-xs">Past due</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="px-6 py-6">
-                            <div className="text-2xl font-bold text-gray-900">{formatCurrency(overdueAmount)}</div>
                         </div>
                     </div>
                 </div>
 
-                {/* Billing Section */}
-                <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                    {/* Header Section - Consistent with Patient Management */}
-                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                        <div className="flex items-center justify-between p-6">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-white/20 rounded-lg">
-                                    <CreditCard className="h-6 w-6" />
+                {/* Debug Info */}
+                {debug && (
+                    <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <h3 className="font-semibold text-yellow-800">Debug Info:</h3>
+                        <p>Transactions: {debug.transactions_count} (Total: {debug.transactions_total})</p>
+                        <p>Doctor Payments: {debug.doctor_payments_count}</p>
+                        <p>Expenses: {debug.expenses_count}</p>
+                    </div>
+                )}
+
+                {/* Main Content with Tabs */}
+                <Tabs defaultValue={defaultTab} className="space-y-6">
+                    <TabsList className="grid w-full grid-cols-5">
+                        <TabsTrigger value="transactions">Transactions</TabsTrigger>
+                        <TabsTrigger value="pending-appointments">Pending Appointments</TabsTrigger>
+                        <TabsTrigger value="doctor-payments">Doctor Payments</TabsTrigger>
+                        <TabsTrigger value="expenses">Expenses</TabsTrigger>
+                        <TabsTrigger value="reports">Reports</TabsTrigger>
+                    </TabsList>
+
+                    {/* Transactions Tab */}
+                    <TabsContent value="transactions">
+                        <Card className="shadow-lg">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <CreditCard className="h-6 w-6 text-black" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-lg font-semibold text-gray-900">Billing Transactions</CardTitle>
+                                        <p className="text-sm text-gray-500 mt-1">Manage patient payments and billing records</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h3 className="text-2xl font-bold text-white">Billing Records</h3>
-                                    <p className="text-blue-100 mt-1">Search, filter and manage invoices and payments</p>
+                                <div className="flex items-center gap-3">
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button asChild>
+                                                    <Link href="/admin/billing/create">
+                                                        <Plus className="mr-2 h-5 w-5" />
+                                                        New Transaction
+                                                    </Link>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Create New Transaction</TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="outline">
+                                                <Download className="mr-2 h-5 w-5" />
+                                                Export
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onClick={() => window.open('/admin/billing/export?format=excel', '_self')}>
+                                                Excel
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => window.open('/admin/billing/export?format=pdf', '_self')}>
+                                                PDF
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </div>
-                            </div>
-                            {permissions.canCreateBilling && (
-                                <Button asChild className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
-                                    <Link href="/admin/billing/create">
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                {/* Filters */}
+                                <div className="mb-6">
+                                    <div className="flex items-center gap-4 flex-wrap">
+                                        <div className="relative flex-1 max-w-md">
+                                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                            <Input
+                                                placeholder="Search transactions..."
+                                                value={searchTerm}
+                                                onChange={(e) => setSearchTerm(e.target.value)}
+                                                className="pl-10 h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                            />
+                                        </div>
+                                        <select
+                                            value={statusFilter}
+                                            onChange={(e) => setStatusFilter(e.target.value)}
+                                            className="h-12 px-4 border border-gray-200 rounded-xl focus:border-gray-500 focus:ring-gray-500"
+                                        >
+                                            <option value="all">All Status</option>
+                                            <option value="draft">Draft</option>
+                                            <option value="pending">Pending</option>
+                                            <option value="paid">Paid</option>
+                                            <option value="cancelled">Cancelled</option>
+                                            <option value="refunded">Refunded</option>
+                                        </select>
+                                        <select
+                                            value={paymentMethodFilter}
+                                            onChange={(e) => setPaymentMethodFilter(e.target.value)}
+                                            className="h-12 px-4 border border-gray-200 rounded-xl focus:border-gray-500 focus:ring-gray-500"
+                                        >
+                                            <option value="all">All Payment Methods</option>
+                                            <option value="cash">Cash</option>
+                                            <option value="card">Card</option>
+                                            <option value="bank_transfer">Bank Transfer</option>
+                                            <option value="check">Check</option>
+                                            <option value="hmo">HMO</option>
+                                        </select>
+                                        <select
+                                            value={doctorFilter}
+                                            onChange={(e) => setDoctorFilter(e.target.value)}
+                                            className="h-12 px-4 border border-gray-200 rounded-xl focus:border-gray-500 focus:ring-gray-500"
+                                        >
+                                            <option value="all">All Specialists</option>
+                                            {doctors.map((doctor) => (
+                                                <option key={doctor.id} value={doctor.id.toString()}>
+                                                    {doctor.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <Button onClick={handleFilter} className="h-12 px-6">
+                                            <Filter className="mr-2 h-4 w-4" />
+                                            Apply Filters
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {/* Transactions Table */}
+                                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                    <Table>
+                                        <TableHeader className="bg-gray-50">
+                                            <TableRow className="hover:bg-gray-50">
+                                                <TableHead className="font-semibold text-gray-700">
+                                                    <div className="flex items-center gap-2">
+                                                        <Receipt className="h-4 w-4" />
+                                                        Transaction ID
+                                                    </div>
+                                                </TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Patient</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Specialist</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Amount</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Payment Method</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Status</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Date</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {!filteredTransactions || filteredTransactions.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={8} className="text-center py-8">
+                                                        <div className="flex flex-col items-center">
+                                                            <CreditCard className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                                            <h3 className="mb-2 text-lg font-semibold text-gray-600">{searchTerm ? 'No transactions found' : 'No billing transactions yet'}</h3>
+                                                            <p className="text-gray-500">
+                                                                {searchTerm ? 'Try adjusting your search terms' : 'Create your first transaction to get started'}
+                                                            </p>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                filteredTransactions.map((transaction: BillingTransaction) => {
+                                                    return (
+                                                    <TableRow key={transaction.id} className="hover:bg-gray-50">
+                                                        <TableCell className="font-medium">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="p-1 bg-gray-100 rounded-full">
+                                                                    <Receipt className="h-4 w-4 text-black" />
+                                                                </div>
+                                                                {transaction.transaction_id}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div>
+                                                                <div className="font-medium">
+                                                                    {transaction.patient ? 
+                                                                        `${transaction.patient.last_name}, ${transaction.patient.first_name}` : 
+                                                                        'Loading...'
+                                                                    }
+                                                                </div>
+                                                                <div className="text-sm text-gray-500">
+                                                                    {transaction.patient?.patient_no || 'Loading...'}
+                                                                </div>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {transaction.doctor ? (
+                                                                <div className="font-medium">{transaction.doctor.name}</div>
+                                                            ) : (
+                                                                <span className="text-gray-400">—</span>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="font-semibold">
+                                                            ₱{transaction.total_amount.toLocaleString()}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {getPaymentMethodBadge(transaction.payment_method)}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {getStatusBadge(transaction.status)}
+                                                        </TableCell>
+                                                        <TableCell className="text-sm text-gray-600">
+                                                            {new Date(transaction.transaction_date).toLocaleDateString()}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex gap-2">
+                                                                <Button asChild size="sm">
+                                                                    <Link 
+                                                                        href={`/admin/billing/${transaction.id}`}
+                                                                    >
+                                                                        <Eye className="mr-1 h-3 w-3" />
+                                                                        View
+                                                                    </Link>
+                                                                </Button>
+                                                                {transaction.status === 'pending' && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        onClick={() => handleMarkPaidClick(transaction)}
+                                                                    >
+                                                                        <CheckCircle className="mr-1 h-3 w-3" />
+                                                                        Mark Paid
+                                                                    </Button>
+                                                                )}
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button size="sm" variant="outline">
+                                                                            <MoreHorizontal className="h-3 w-3" />
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end">
+                                                                        <DropdownMenuItem asChild>
+                                                                            <Link href={`/admin/billing/${transaction.id}/edit`}>
+                                                                                <Edit className="mr-2 h-4 w-4" />
+                                                                                Edit
+                                                                            </Link>
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem asChild>
+                                                                            <Link href={`/admin/billing/${transaction.id}/receipt`}>
+                                                                                <Printer className="mr-2 h-4 w-4" />
+                                                                                Print Receipt
+                                                                            </Link>
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem 
+                                                                            onClick={() => handleDelete(transaction.id)}
+                                                                            className="text-red-600"
+                                                                        >
+                                                                            <Trash2 className="mr-2 h-4 w-4" />
+                                                                            Delete
+                                                                        </DropdownMenuItem>
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                    );
+                                                })
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* Pending Appointments Tab */}
+                    <TabsContent value="pending-appointments">
+                        <Card className="shadow-lg">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <Calendar className="h-6 w-6 text-black" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-lg font-semibold text-gray-900">Pending Appointments</CardTitle>
+                                        <p className="text-sm text-gray-500 mt-1">Appointments awaiting payment processing</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <Button asChild>
+                                        <Link href="/admin/billing/create-from-appointments">
+                                            <Plus className="mr-2 h-5 w-5" />
+                                            Create Transaction
+                                        </Link>
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                {/* Pending Appointments Table */}
+                                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                    <Table>
+                                        <TableHeader className="bg-gray-50">
+                                            <TableRow className="hover:bg-gray-50">
+                                                <TableHead className="font-semibold text-gray-700">
+                                                    <div className="flex items-center gap-2">
+                                                        <Calendar className="h-4 w-4" />
+                                                        Patient
+                                                    </div>
+                                                </TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Appointment Type</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Specialist</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Date & Time</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Price</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Status</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {pendingAppointments.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={7} className="text-center py-8">
+                                                        <div className="flex flex-col items-center">
+                                                            <Calendar className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                                            <h3 className="mb-2 text-lg font-semibold text-gray-600">No pending appointments</h3>
+                                                            <p className="text-gray-500">All appointments have been processed for billing</p>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                pendingAppointments.map((appointment: PendingAppointment) => (
+                                                    <TableRow key={appointment.id} className="hover:bg-gray-50">
+                                                        <TableCell className="font-medium">
+                                                            <div>
+                                                                <div className="font-medium">{appointment.patient_name}</div>
+                                                                <div className="text-sm text-gray-500">{appointment.patient_id}</div>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline" className="capitalize">
+                                                                {appointment.appointment_type}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="font-medium">{appointment.specialist_name}</div>
+                                                        </TableCell>
+                                                        <TableCell className="text-sm text-gray-600">
+                                                            <div>
+                                                                <div>{new Date(appointment.appointment_date).toLocaleDateString()}</div>
+                                                                <div className="text-gray-500">{appointment.appointment_time}</div>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="font-semibold">
+                                                            ₱{appointment.price.toLocaleString()}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="secondary">
+                                                                <Clock className="mr-1 h-3 w-3" />
+                                                                Pending Payment
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex gap-2">
+                                                                <Button asChild size="sm" variant="outline">
+                                                                    <Link href={`/admin/appointments/${appointment.id}`}>
+                                                                        <Eye className="mr-1 h-3 w-3" />
+                                                                        View
+                                                                    </Link>
+                                                                </Button>
+                                                                <Button asChild size="sm">
+                                                                    <Link href={`/admin/billing/create-from-appointments?appointment_id=${appointment.id}`}>
+                                                                        <CreditCard className="mr-1 h-3 w-3" />
+                                                                        Pay Now
+                                                                    </Link>
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* Doctor Payments Tab */}
+                    <TabsContent value="doctor-payments">
+                        <Card className="shadow-lg">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <Users className="h-6 w-6 text-black" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-lg font-semibold text-gray-900">Doctor Payments</CardTitle>
+                                        <p className="text-sm text-gray-500 mt-1">Manage doctor salary payments and commissions</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <Button asChild>
+                                        <Link href="/admin/billing/doctor-payments/create">
+                                            <Plus className="mr-2 h-5 w-5" />
+                                            New Payment
+                                        </Link>
+                                    </Button>
+                                    <Button asChild variant="outline">
+                                        <Link href="/admin/billing/doctor-summary">
+                                            <TrendingUp className="mr-2 h-5 w-5" />
+                                            Summary Report
+                                        </Link>
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                {/* Search and Filters */}
+                                <div className="mb-6 flex flex-col sm:flex-row gap-4">
+                                    <div className="flex-1">
+                                        <Input 
+                                            placeholder="Search payments..." 
+                                            className="w-full"
+                                        />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Select defaultValue="all">
+                                            <SelectTrigger className="w-[140px]">
+                                                <SelectValue placeholder="All Status" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Status</SelectItem>
+                                                <SelectItem value="pending">Pending</SelectItem>
+                                                <SelectItem value="paid">Paid</SelectItem>
+                                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <Select defaultValue="all">
+                                            <SelectTrigger className="w-[140px]">
+                                                <SelectValue placeholder="All Doctors" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Doctors</SelectItem>
+                                                {doctors?.map((doctor: any) => (
+                                                    <SelectItem key={doctor.id} value={doctor.id.toString()}>
+                                                        {doctor.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <Button variant="outline">
+                                            <Filter className="mr-2 h-4 w-4" />
+                                            Apply Filters
+                                        </Button>
+                                    </div>
+                                </div>
+                                
+                                {/* Doctor Payments Table */}
+                                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                    <Table>
+                                        <TableHeader className="bg-gray-50">
+                                            <TableRow className="hover:bg-gray-50">
+                                                <TableHead className="font-semibold text-gray-700">Doctor</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Basic Salary</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Deductions</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Holiday Pay</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Incentives</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Net Payment</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Status</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Payment Date</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {doctorPayments?.data?.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={9} className="text-center py-8">
+                                                        <div className="flex flex-col items-center">
+                                                            <Users className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                                            <h3 className="mb-2 text-lg font-semibold text-gray-600">No doctor payments</h3>
+                                                            <p className="text-gray-500">Create your first doctor payment</p>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                doctorPayments?.data?.map((payment: any) => (
+                                                    <TableRow key={payment.id} className="hover:bg-gray-50">
+                                                        <TableCell className="font-medium">
+                                                            <div className="flex items-center gap-2">
+                                                                <Users className="h-4 w-4 text-gray-500" />
+                                                                {payment.doctor?.name || 'N/A'}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="font-semibold">
+                                                            ₱{payment.basic_salary?.toLocaleString() || '0.00'}
+                                                        </TableCell>
+                                                        <TableCell className="text-red-600">
+                                                            -₱{payment.deductions?.toLocaleString() || '0.00'}
+                                                        </TableCell>
+                                                        <TableCell className="text-green-600">
+                                                            +₱{payment.holiday_pay?.toLocaleString() || '0.00'}
+                                                        </TableCell>
+                                                        <TableCell className="text-green-600">
+                                                            +₱{payment.incentives?.toLocaleString() || '0.00'}
+                                                        </TableCell>
+                                                        <TableCell className="font-semibold">
+                                                            ₱{payment.net_payment?.toLocaleString() || '0.00'}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant={payment.status === 'paid' ? 'default' : payment.status === 'pending' ? 'secondary' : 'destructive'}>
+                                                                <div className="flex items-center gap-1">
+                                                                    {payment.status === 'pending' && <Clock className="h-3 w-3" />}
+                                                                    {payment.status === 'paid' && <Check className="h-3 w-3" />}
+                                                                    {payment.status === 'cancelled' && <X className="h-3 w-3" />}
+                                                                    {payment.status}
+                                                                </div>
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {new Date(payment.payment_date).toLocaleDateString()}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex gap-2">
+                                                                <Button asChild size="sm" variant="outline">
+                                                                    <Link href={`/admin/billing/doctor-payments/${payment.id}`}>
+                                                                        <Eye className="mr-1 h-3 w-3" />
+                                                                        View
+                                                                    </Link>
+                                                                </Button>
+                                                                <Button asChild size="sm" variant="outline">
+                                                                    <Link href={`/admin/billing/doctor-payments/${payment.id}/edit`}>
+                                                                        <Edit className="mr-1 h-3 w-3" />
+                                                                        Edit
+                                                                    </Link>
+                                                                </Button>
+                                                                {payment.status === 'pending' && (
+                                                                    <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700">
+                                                                        <Check className="mr-1 h-3 w-3" />
+                                                                        Mark Paid
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* Expenses Tab */}
+                    <TabsContent value="expenses">
+                        <Card className="shadow-lg">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <FileText className="h-6 w-6 text-black" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-lg font-semibold text-gray-900">Expenses</CardTitle>
+                                        <p className="text-sm text-gray-500 mt-1">Track clinic expenses and costs</p>
+                                    </div>
+                                </div>
+                                <Button asChild>
+                                    <Link href="/admin/billing/expenses/create">
                                         <Plus className="mr-2 h-5 w-5" />
-                                        New Invoice
+                                        New Expense
                                     </Link>
                                 </Button>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Content Section */}
-                    <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100">
-                        {/* Filters and Search */}
-                        <div className="mb-6">
-                            <div className="flex flex-col gap-4 md:flex-row md:items-center">
-                                <div className="relative flex-1 max-w-md">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        placeholder="Search by patient name, invoice number, or service..."
-                                        className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
-                                    />
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                {/* Expenses Table */}
+                                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                    <Table>
+                                        <TableHeader className="bg-gray-50">
+                                            <TableRow className="hover:bg-gray-50">
+                                                <TableHead className="font-semibold text-gray-700">Description</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Category</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Amount</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Date</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Status</TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {expenses?.data?.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={6} className="text-center py-8">
+                                                        <div className="flex flex-col items-center">
+                                                            <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                                            <h3 className="mb-2 text-lg font-semibold text-gray-600">No expenses</h3>
+                                                            <p className="text-gray-500">Create your first expense record</p>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                expenses?.data?.map((expense: any) => (
+                                                    <TableRow key={expense.id} className="hover:bg-gray-50">
+                                                        <TableCell className="font-medium">
+                                                            {expense.description}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline">
+                                                                {expense.category?.name || 'General'}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell className="font-semibold">
+                                                            ₱{expense.amount?.toLocaleString()}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {new Date(expense.expense_date).toLocaleDateString()}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant={expense.status === 'approved' ? 'default' : 'secondary'}>
+                                                                {expense.status}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex gap-2">
+                                                                <Button asChild size="sm" variant="outline">
+                                                                    <Link href={`/admin/billing/expenses/${expense.id}`}>
+                                                                        <Eye className="mr-1 h-3 w-3" />
+                                                                        View
+                                                                    </Link>
+                                                                </Button>
+                                                                <Button asChild size="sm" variant="outline">
+                                                                    <Link href={`/admin/billing/expenses/${expense.id}/edit`}>
+                                                                        <Edit className="mr-1 h-3 w-3" />
+                                                                        Edit
+                                                                    </Link>
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <Button className="h-12 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl">
-                                        <Filter className="mr-2 h-4 w-4" />
-                                        Apply Filters
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* Reports Tab */}
+                    <TabsContent value="reports">
+                        <div className="space-y-6">
+                            {/* Summary Cards */}
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                <Card className="shadow-lg">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                                                <p className="text-2xl font-bold text-green-600">
+                                                    ₱{summary.total_revenue?.toLocaleString() || '0'}
+                                                </p>
+                                            </div>
+                                            <div className="p-3 bg-green-100 rounded-full">
+                                                <DollarSign className="h-6 w-6 text-green-600" />
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="shadow-lg">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-600">Total Expenses</p>
+                                                <p className="text-2xl font-bold text-red-600">
+                                                    ₱{summary.total_expenses?.toLocaleString() || '0'}
+                                                </p>
+                                            </div>
+                                            <div className="p-3 bg-red-100 rounded-full">
+                                                <FileText className="h-6 w-6 text-red-600" />
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="shadow-lg">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-600">Doctor Payments</p>
+                                                <p className="text-2xl font-bold text-blue-600">
+                                                    ₱{summary.total_doctor_payments?.toLocaleString() || '0'}
+                                                </p>
+                                            </div>
+                                            <div className="p-3 bg-blue-100 rounded-full">
+                                                <Users className="h-6 w-6 text-blue-600" />
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="shadow-lg">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-600">Net Profit</p>
+                                                <p className="text-2xl font-bold text-purple-600">
+                                                    ₱{summary.net_profit?.toLocaleString() || '0'}
+                                                </p>
+                                            </div>
+                                            <div className="p-3 bg-purple-100 rounded-full">
+                                                <TrendingUp className="h-6 w-6 text-purple-600" />
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {/* Quick Actions */}
+                            <Card className="shadow-lg">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-3 text-lg font-semibold text-gray-900">
+                                        <TrendingUp className="h-5 w-5 text-black" />
+                                        Report Actions
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        <Button 
+                                            variant="outline" 
+                                            className="h-20 flex flex-col gap-2"
+                                            onClick={handleTransactionReport}
+                                        >
+                                            <Calendar className="h-6 w-6" />
+                                            Transaction Report
+                                        </Button>
+                                        <Button 
+                                            variant="outline" 
+                                            className="h-20 flex flex-col gap-2"
+                                            onClick={handleDoctorSummary}
+                                        >
+                                            <Users className="h-6 w-6" />
+                                            Doctor Summary
+                                        </Button>
+                                        <Button 
+                                            variant="outline" 
+                                            className="h-20 flex flex-col gap-2"
+                                            onClick={handleHMOReport}
+                                        >
+                                            <FileText className="h-6 w-6" />
+                                            HMO Report
+                                        </Button>
+                                        <Button 
+                                            variant="outline" 
+                                            className="h-20 flex flex-col gap-2"
+                                            onClick={handleExportAll}
+                                        >
+                                            <Download className="h-6 w-6" />
+                                            Export All
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </TabsContent>
+                </Tabs>
+
+                {/* Mark as Paid Modal */}
+                {showMarkPaidModal && selectedTransaction && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+                            <div className="p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-lg font-semibold text-gray-900">Mark as Paid</h3>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setShowMarkPaidModal(false)}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                                
+                                <div className="space-y-4">
+                                    <div>
+                                        <p className="text-sm text-gray-600 mb-2">
+                                            Transaction: <span className="font-medium">{selectedTransaction.transaction_id}</span>
+                                        </p>
+                                        <p className="text-sm text-gray-600 mb-4">
+                                            Amount: <span className="font-medium">₱{selectedTransaction.total_amount.toLocaleString()}</span>
+                                        </p>
+                                    </div>
+                                    
+                                    <div>
+                                        <Label htmlFor="payment_method">Payment Method</Label>
+                                        <select
+                                            id="payment_method"
+                                            value={paymentMethod}
+                                            onChange={(e) => setPaymentMethod(e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                                        >
+                                            <option value="cash">Cash</option>
+                                            <option value="card">Card</option>
+                                            <option value="bank_transfer">Bank Transfer</option>
+                                            <option value="check">Check</option>
+                                            <option value="hmo">HMO</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div>
+                                        <Label htmlFor="payment_reference">Payment Reference (Optional)</Label>
+                                        <Input
+                                            id="payment_reference"
+                                            value={paymentReference}
+                                            onChange={(e) => setPaymentReference(e.target.value)}
+                                            placeholder="Enter payment reference number"
+                                        />
+                                    </div>
+                                </div>
+                                
+                                <div className="flex justify-end gap-3 mt-6">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setShowMarkPaidModal(false)}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        onClick={handleMarkPaid}
+                                        className="bg-green-600 hover:bg-green-700"
+                                    >
+                                        <CheckCircle className="mr-2 h-4 w-4" />
+                                        Mark as Paid
                                     </Button>
                                 </div>
                             </div>
                         </div>
-
-                        {/* Billing Records Table */}
-                        <div className="overflow-x-auto rounded-xl border border-gray-200">
-                            <Table>
-                                <TableHeader className="bg-gray-50">
-                                    <TableRow className="hover:bg-gray-50">
-                                        <TableHead className="font-semibold text-gray-700">Patient</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Service</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Amount</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Due Date</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Payment Method</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Invoice #</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {billingRecords.map((record) => (
-                                        <TableRow key={record.id} className="hover:bg-blue-50/50 transition-colors border-b border-gray-100">
-                                            <TableCell>
-                                                <div>
-                                                    <div className="font-medium text-gray-900">{record.patientName}</div>
-                                                    <div className="text-sm text-gray-500">ID: {record.patientId}</div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <Receipt className="h-4 w-4 text-blue-500" />
-                                                    {record.service}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="font-medium text-gray-900">{formatCurrency(record.amount)}</TableCell>
-                                            <TableCell>
-                                                <Badge className={getStatusBadge(record.status)}>{record.status}</Badge>
-                                            </TableCell>
-                                            <TableCell className="text-gray-700">{record.dueDate}</TableCell>
-                                            <TableCell className="text-gray-700">{record.paymentMethod}</TableCell>
-                                            <TableCell className="font-mono text-gray-900">{record.invoiceNumber}</TableCell>
-                                            <TableCell>
-                                                <div className="flex gap-3">
-                                                    <Button asChild className="bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl">
-                                                        <Link href={`/admin/billing/${record.id}`}>View</Link>
-                                                    </Button>
-                                                    {record.status === 'Pending' && permissions.canEditBilling && (
-                                                        <Button asChild className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl">
-                                                            <Link href={`/admin/billing/${record.id}/payment`}>
-                                                                <CreditCard className="mr-2 h-4 w-4" />
-                                                                Payment
-                                                            </Link>
-                                                        </Button>
-                                                    )}
-                                                    {permissions.canEditBilling && (
-                                                        <Button asChild className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl">
-                                                            <Link href={`/admin/billing/${record.id}/edit`}>Edit</Link>
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
                     </div>
-                </div>
+                )}
             </div>
         </AppLayout>
     );

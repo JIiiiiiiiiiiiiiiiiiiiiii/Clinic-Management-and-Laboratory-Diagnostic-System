@@ -85,7 +85,7 @@ export default function CreateProduct({ flash }: CreateProductProps) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Create Item" />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 pb-12">
+            <div className="min-h-screen bg-white p-6 pb-12">
                 {/* Header Section */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
@@ -104,20 +104,20 @@ export default function CreateProduct({ flash }: CreateProductProps) {
 
                 {/* Flash Messages */}
                 {flash?.success && (
-                    <div className="rounded-md bg-green-50 p-4">
+                    <div className="rounded-md bg-gray-50 p-4">
                         <div className="flex">
                             <div className="ml-3">
-                                <p className="text-sm font-medium text-green-800">{flash.success}</p>
+                                <p className="text-sm font-medium text-black">{flash.success}</p>
                             </div>
                         </div>
                     </div>
                 )}
 
                 {flash?.error && (
-                    <div className="rounded-md bg-red-50 p-4">
+                    <div className="rounded-md bg-gray-50 p-4">
                         <div className="flex">
                             <div className="ml-3">
-                                <p className="text-sm font-medium text-red-800">{flash.error}</p>
+                                <p className="text-sm font-medium text-black">{flash.error}</p>
                             </div>
                         </div>
                     </div>
@@ -127,7 +127,7 @@ export default function CreateProduct({ flash }: CreateProductProps) {
                     <div className="grid gap-8 md:grid-cols-2" data-layout="fixed-columns" style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '2rem'}}>
                         {/* Basic Information */}
                         <div className="holographic-card overflow-hidden rounded-lg border-0 bg-white shadow-lg">
-                            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                            <div className="bg-white border-b border-gray-200 text-black">
                                 <div className="flex items-center gap-3 p-6">
                                     <div className="rounded-lg bg-white/20 p-2">
                                         <Package className="h-6 w-6" />
@@ -136,17 +136,17 @@ export default function CreateProduct({ flash }: CreateProductProps) {
                                         <h3 className="text-2xl font-bold text-white">
                                             Basic Information
                                         </h3>
-                                        <p className="mt-1 text-blue-100">
+                                        <p className="mt-1 text-gray-100">
                                             Essential product details
                                         </p>
                                     </div>
                                 </div>
                             </div>
-                            <div className="bg-gradient-to-br from-blue-50 to-blue-100 px-6 py-6">
+                            <div className="bg-white px-6 py-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label htmlFor="name">
-                                            Item Name <span className="text-red-500">*</span>
+                                            Item Name <span className="text-black">*</span>
                                         </Label>
                                         <Input
                                             id="name"
@@ -154,17 +154,17 @@ export default function CreateProduct({ flash }: CreateProductProps) {
                                             type="text"
                                             value={data.name}
                                             onChange={(e) => setData('name', e.target.value)}
-                                            className={errors.name ? 'border-red-500' : ''}
+                                            className={errors.name ? 'border-gray-500' : ''}
                                             placeholder="Enter product name"
                                             ref={firstInputRef}
                                             autoComplete="off"
                                         />
-                                        {errors.name && <p className="text-sm text-red-600">{errors.name}</p>}
+                                        {errors.name && <p className="text-sm text-black">{errors.name}</p>}
                                     </div>
 
                                     <div className="space-y-2">
                                         <Label htmlFor="code">
-                                            Item Code <span className="text-red-500">*</span>
+                                            Item Code <span className="text-black">*</span>
                                         </Label>
                                         <div className="flex gap-2">
                                             <Input
@@ -173,7 +173,7 @@ export default function CreateProduct({ flash }: CreateProductProps) {
                                                 type="text"
                                                 value={data.code}
                                                 onChange={(e) => setData('code', e.target.value)}
-                                                className={errors.code ? 'border-red-500' : ''}
+                                                className={errors.code ? 'border-gray-500' : ''}
                                                 placeholder="Enter product code"
                                                 autoComplete="off"
                                             />
@@ -181,7 +181,7 @@ export default function CreateProduct({ flash }: CreateProductProps) {
                                                 Generate
                                             </Button>
                                         </div>
-                                        {errors.code && <p className="text-sm text-red-600">{errors.code}</p>}
+                                        {errors.code && <p className="text-sm text-black">{errors.code}</p>}
                                     </div>
 
                                     <div className="space-y-2 md:col-span-2">
@@ -191,11 +191,11 @@ export default function CreateProduct({ flash }: CreateProductProps) {
                                             name="description"
                                             value={data.description}
                                             onChange={(e) => setData('description', e.target.value)}
-                                            className={errors.description ? 'border-red-500' : ''}
+                                            className={errors.description ? 'border-gray-500' : ''}
                                             placeholder="Enter product description"
                                             rows={3}
                                         />
-                                        {errors.description && <p className="text-sm text-red-600">{errors.description}</p>}
+                                        {errors.description && <p className="text-sm text-black">{errors.description}</p>}
                                     </div>
 
                                     <div className="space-y-2">
@@ -215,7 +215,7 @@ export default function CreateProduct({ flash }: CreateProductProps) {
                                             <option value="Personal Protective Equipment">Personal Protective Equipment</option>
                                             <option value="Laboratory Supplies">Laboratory Supplies</option>
                                         </select>
-                                        {errors.category && <p className="text-sm text-red-600">{errors.category}</p>}
+                                        {errors.category && <p className="text-sm text-black">{errors.category}</p>}
                                     </div>
 
                                     <div className="space-y-2">
@@ -240,7 +240,7 @@ export default function CreateProduct({ flash }: CreateProductProps) {
                                             <option value="g">Grams (g)</option>
                                             <option value="kg">Kilograms (kg)</option>
                                         </select>
-                                        {errors.unit_of_measure && <p className="text-sm text-red-600">{errors.unit_of_measure}</p>}
+                                        {errors.unit_of_measure && <p className="text-sm text-black">{errors.unit_of_measure}</p>}
                                     </div>
                                 </div>
                             </div>
@@ -248,7 +248,7 @@ export default function CreateProduct({ flash }: CreateProductProps) {
 
                         {/* Pricing & Stock */}
                         <div className="holographic-card overflow-hidden rounded-lg border-0 bg-white shadow-lg">
-                            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+                            <div className="bg-white border-b border-gray-200 text-black">
                                 <div className="flex items-center gap-3 p-6">
                                     <div className="rounded-lg bg-white/20 p-2">
                                         <Package className="h-6 w-6" />
@@ -257,17 +257,17 @@ export default function CreateProduct({ flash }: CreateProductProps) {
                                         <h3 className="text-2xl font-bold text-white">
                                             Pricing & Stock Management
                                         </h3>
-                                        <p className="mt-1 text-purple-100">
+                                        <p className="mt-1 text-gray-100">
                                             Cost and inventory settings
                                         </p>
                                     </div>
                                 </div>
                             </div>
-                            <div className="bg-gradient-to-br from-purple-50 to-purple-100 px-6 py-6">
+                            <div className="bg-white px-6 py-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label htmlFor="unit_cost">
-                                            Unit Cost (₱) <span className="text-red-500">*</span>
+                                            Unit Cost (₱) <span className="text-black">*</span>
                                         </Label>
                                         <Input
                                             id="unit_cost"
@@ -277,15 +277,15 @@ export default function CreateProduct({ flash }: CreateProductProps) {
                                             min="0"
                                             value={data.unit_cost}
                                             onChange={(e) => setData('unit_cost', e.target.value)}
-                                            className={errors.unit_cost ? 'border-red-500' : ''}
+                                            className={errors.unit_cost ? 'border-gray-500' : ''}
                                             placeholder="0.00"
                                         />
-                                        {errors.unit_cost && <p className="text-sm text-red-600">{errors.unit_cost}</p>}
+                                        {errors.unit_cost && <p className="text-sm text-black">{errors.unit_cost}</p>}
                                     </div>
 
                                     <div className="space-y-2">
                                         <Label htmlFor="minimum_stock_level">
-                                            Minimum Stock Level <span className="text-red-500">*</span>
+                                            Minimum Stock Level <span className="text-black">*</span>
                                         </Label>
                                         <Input
                                             id="minimum_stock_level"
@@ -294,15 +294,15 @@ export default function CreateProduct({ flash }: CreateProductProps) {
                                             min="0"
                                             value={data.minimum_stock_level}
                                             onChange={(e) => setData('minimum_stock_level', e.target.value)}
-                                            className={errors.minimum_stock_level ? 'border-red-500' : ''}
+                                            className={errors.minimum_stock_level ? 'border-gray-500' : ''}
                                             placeholder="0"
                                         />
-                                        {errors.minimum_stock_level && <p className="text-sm text-red-600">{errors.minimum_stock_level}</p>}
+                                        {errors.minimum_stock_level && <p className="text-sm text-black">{errors.minimum_stock_level}</p>}
                                     </div>
 
                                     <div className="space-y-2">
                                         <Label htmlFor="maximum_stock_level">
-                                            Maximum Stock Level <span className="text-red-500">*</span>
+                                            Maximum Stock Level <span className="text-black">*</span>
                                         </Label>
                                         <Input
                                             id="maximum_stock_level"
@@ -311,10 +311,10 @@ export default function CreateProduct({ flash }: CreateProductProps) {
                                             min="0"
                                             value={data.maximum_stock_level}
                                             onChange={(e) => setData('maximum_stock_level', e.target.value)}
-                                            className={errors.maximum_stock_level ? 'border-red-500' : ''}
+                                            className={errors.maximum_stock_level ? 'border-gray-500' : ''}
                                             placeholder="0"
                                         />
-                                        {errors.maximum_stock_level && <p className="text-sm text-red-600">{errors.maximum_stock_level}</p>}
+                                        {errors.maximum_stock_level && <p className="text-sm text-black">{errors.maximum_stock_level}</p>}
                                     </div>
 
                                     <div className="space-y-4 md:col-span-2">
@@ -362,7 +362,7 @@ export default function CreateProduct({ flash }: CreateProductProps) {
                         <Button 
                             type="submit" 
                             disabled={processing}
-                            className="rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 px-8 py-3 text-lg font-semibold text-white shadow-lg transition-all duration-300 hover:from-blue-600 hover:to-blue-700 hover:shadow-xl"
+                            className="rounded-xl bg-white border border-gray-300 hover:bg-gray-50 px-8 py-3 text-lg font-semibold text-black shadow-lg transition-all duration-300 hover:shadow-xl"
                         >
                             {processing ? (
                                 <>

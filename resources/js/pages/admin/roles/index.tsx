@@ -40,14 +40,14 @@ const getStatusVariant = (status: string): 'success' | 'destructive' | 'warning'
 
 const getRoleBadge = (role: string) => {
     const roleConfig = {
-        Admin: 'bg-purple-100 text-purple-800',
-        Doctor: 'bg-blue-100 text-blue-800',
-        'Laboratory Technologist': 'bg-green-100 text-green-800',
-        Cashier: 'bg-orange-100 text-orange-800',
-        Patient: 'bg-gray-100 text-gray-800',
+        Admin: 'bg-gray-100 text-black',
+        Doctor: 'bg-gray-100 text-black',
+        'Laboratory Technologist': 'bg-gray-100 text-black',
+        Cashier: 'bg-gray-100 text-black',
+        Patient: 'bg-gray-100 text-black',
     };
 
-    return roleConfig[role as keyof typeof roleConfig] || 'bg-gray-100 text-gray-800';
+    return roleConfig[role as keyof typeof roleConfig] || 'bg-gray-100 text-black';
 };
 
 export default function RolesIndex() {
@@ -61,7 +61,7 @@ export default function RolesIndex() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Roles & Permissions Management" />
 
-            <div className="min-h-screen bg-gray-50 p-6">
+            <div className="min-h-screen bg-white p-6">
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
                         <Heading title="Roles & Permissions" description="Manage user roles, permissions, and system access control" icon={Shield} />
@@ -88,7 +88,7 @@ export default function RolesIndex() {
                 <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
                     <div className="holographic-card bg-white shadow-sm cursor-pointer rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300">
                         <div className="flex h-28">
-                            <div className="w-24 h-full bg-purple-500 flex items-center justify-center rounded-l-xl">
+                            <div className="w-24 h-full bg-gray-500 flex items-center justify-center rounded-l-xl">
                                 <Shield className="h-8 w-8 text-white" />
                             </div>
                             <div className="flex-1 p-4">
@@ -101,7 +101,7 @@ export default function RolesIndex() {
 
                     <div className="holographic-card bg-white shadow-sm cursor-pointer rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300">
                         <div className="flex h-28">
-                            <div className="w-24 h-full bg-blue-500 flex items-center justify-center rounded-l-xl">
+                            <div className="w-24 h-full bg-gray-500 flex items-center justify-center rounded-l-xl">
                                 <Users className="h-8 w-8 text-white" />
                             </div>
                             <div className="flex-1 p-4">
@@ -114,7 +114,7 @@ export default function RolesIndex() {
 
                     <div className="holographic-card bg-white shadow-sm cursor-pointer rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300">
                         <div className="flex h-28">
-                            <div className="w-24 h-full bg-green-500 flex items-center justify-center rounded-l-xl">
+                            <div className="w-24 h-full bg-gray-500 flex items-center justify-center rounded-l-xl">
                                 <Users className="h-8 w-8 text-white" />
                             </div>
                             <div className="flex-1 p-4">
@@ -127,7 +127,7 @@ export default function RolesIndex() {
 
                     <div className="holographic-card bg-white shadow-sm cursor-pointer rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300">
                         <div className="flex h-28">
-                            <div className="w-24 h-full bg-orange-500 flex items-center justify-center rounded-l-xl">
+                            <div className="w-24 h-full bg-gray-500 flex items-center justify-center rounded-l-xl">
                                 <Shield className="h-8 w-8 text-white" />
                             </div>
                             <div className="flex-1 p-4">
@@ -142,7 +142,7 @@ export default function RolesIndex() {
                 {/* Roles Management */}
                 <div className="mb-8">
                     <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                        <div className="bg-gray-600 hover:bg-gray-700 text-white">
                             <div className="flex items-center justify-between p-6">
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 bg-white/20 rounded-lg">
@@ -150,10 +150,10 @@ export default function RolesIndex() {
                                     </div>
                                 <div>
                                         <h3 className="text-2xl font-bold text-white">System Roles</h3>
-                                        <p className="text-purple-100 mt-1">Manage user roles and their associated permissions</p>
+                                        <p className="text-gray-100 mt-1">Manage user roles and their associated permissions</p>
                                     </div>
                                 </div>
-                                <Button asChild className="bg-white text-purple-600 hover:bg-purple-50 hover:text-purple-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
+                                <Button asChild className="bg-white text-black hover:bg-gray-50 hover:text-black shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
                                     <Link href={route('admin.roles.create')}>
                                         <Plus className="mr-2 h-4 w-4" />
                                         Create Role
@@ -161,7 +161,7 @@ export default function RolesIndex() {
                                 </Button>
                             </div>
                         </div>
-                        <div className="px-6 py-6 bg-gradient-to-br from-purple-50 to-purple-100">
+                        <div className="px-6 py-6 bg-gray-50">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -179,7 +179,7 @@ export default function RolesIndex() {
                                         <TableRow key={role.id}>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
-                                                    <Shield className="h-4 w-4 text-purple-500" />
+                                                    <Shield className="h-4 w-4 text-black" />
                                                     <span className="font-medium">{role.name}</span>
                                                 </div>
                                             </TableCell>
@@ -211,7 +211,7 @@ export default function RolesIndex() {
                                                             </Button>
                                                         </DialogTrigger>
                                                         <DialogContent className="p-0 overflow-hidden rounded-xl">
-                                                            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                                                            <div className="bg-gray-600 hover:bg-gray-700 text-white">
                                                                 <div className="flex items-center gap-3 p-6">
                                                                     <div className="p-2 bg-white/20 rounded-lg">
                                                                         <Shield className="h-6 w-6" />
@@ -221,7 +221,7 @@ export default function RolesIndex() {
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                            <div className="px-6 py-6 bg-gradient-to-br from-purple-50 to-purple-100">
+                                                            <div className="px-6 py-6 bg-gray-50">
                                                             <DialogHeader>
                                                                 <DialogTitle className="sr-only">Edit Role</DialogTitle>
                                                             </DialogHeader>
@@ -237,7 +237,7 @@ export default function RolesIndex() {
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
-                                                            className="text-red-600 hover:text-red-700"
+                                                            className="text-black hover:text-black"
                                                             onClick={() => {
                                                                 if (confirm('Delete this role?')) {
                                                                     router.delete(route('admin.roles.destroy', role.id));
@@ -261,7 +261,7 @@ export default function RolesIndex() {
                 {/* User Management */}
                 <div className="mb-8">
                     <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                        <div className="bg-gray-600 hover:bg-gray-700 text-white">
                             <div className="flex items-center justify-between p-6">
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 bg-white/20 rounded-lg">
@@ -269,7 +269,7 @@ export default function RolesIndex() {
                                     </div>
                                 <div>
                                         <h3 className="text-2xl font-bold text-white">User Accounts</h3>
-                                        <p className="text-blue-100 mt-1">Manage user accounts and their role assignments</p>
+                                        <p className="text-gray-100 mt-1">Manage user accounts and their role assignments</p>
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
@@ -279,12 +279,12 @@ export default function RolesIndex() {
                                     </div>
                                     <Dialog>
                                         <DialogTrigger asChild>
-                                            <Button className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
+                                            <Button className="bg-white text-black hover:bg-gray-50 hover:text-black shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
                                                 <Plus className="mr-2 h-4 w-4" /> Add User
                                             </Button>
                                         </DialogTrigger>
                                         <DialogContent className="p-0 overflow-hidden rounded-xl">
-                                            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                                            <div className="bg-gray-600 hover:bg-gray-700 text-white">
                                                 <div className="flex items-center gap-3 p-6">
                                                     <div className="p-2 bg-white/20 rounded-lg">
                                                         <Users className="h-6 w-6" />
@@ -294,7 +294,7 @@ export default function RolesIndex() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100">
+                                            <div className="px-6 py-6 bg-gray-50">
                                             <DialogHeader>
                                                     <DialogTitle className="sr-only">Add User</DialogTitle>
                                             </DialogHeader>
@@ -305,7 +305,7 @@ export default function RolesIndex() {
                                 </div>
                             </div>
                         </div>
-                        <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100">
+                        <div className="px-6 py-6 bg-gray-50">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -366,18 +366,18 @@ export default function RolesIndex() {
                 {/* Permission Matrix */}
                 <div className="mb-8">
                     <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                        <div className="bg-gray-600 hover:bg-gray-700 text-white">
                             <div className="flex items-center gap-3 p-6">
                                 <div className="p-2 bg-white/20 rounded-lg">
                                     <Shield className="h-6 w-6" />
                                 </div>
                                 <div>
                                     <h3 className="text-2xl font-bold text-white">Permission Matrix</h3>
-                                    <p className="text-emerald-100 mt-1">Overview of permissions for each role</p>
+                                    <p className="text-gray-100 mt-1">Overview of permissions for each role</p>
                                 </div>
                             </div>
                         </div>
-                        <div className="px-6 py-6 bg-gradient-to-br from-emerald-50 to-green-100">
+                        <div className="px-6 py-6 bg-gray-50">
                             <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
                                 <Table>
                                     <TableHeader>
@@ -503,7 +503,7 @@ function RoleForm({ availablePermissions, onSaved }: { availablePermissions: str
             <div>
                 <label className="text-sm">Name</label>
                 <Input value={data.name} onChange={(e) => setData('name', e.target.value)} />
-                {errors.name && <div className="text-sm text-red-600">{errors.name}</div>}
+                {errors.name && <div className="text-sm text-black">{errors.name}</div>}
             </div>
             <div>
                 <div className="text-sm font-medium">Permissions</div>
@@ -524,7 +524,7 @@ function RoleForm({ availablePermissions, onSaved }: { availablePermissions: str
                         </label>
                     ))}
                 </div>
-                {errors.permissions && <div className="text-sm text-red-600">{String(errors.permissions)}</div>}
+                {errors.permissions && <div className="text-sm text-black">{String(errors.permissions)}</div>}
             </div>
             <div className="flex gap-2">
                 <Button type="submit" disabled={processing}>
@@ -557,7 +557,7 @@ function RoleEditForm({
             <div>
                 <label className="text-sm">Name</label>
                 <Input value={data.name} onChange={(e) => setData('name', e.target.value)} />
-                {errors.name && <div className="text-sm text-red-600">{errors.name}</div>}
+                {errors.name && <div className="text-sm text-black">{errors.name}</div>}
             </div>
             <div>
                 <div className="text-sm font-medium">Permissions</div>
@@ -578,7 +578,7 @@ function RoleEditForm({
                         </label>
                     ))}
                 </div>
-                {errors.permissions && <div className="text-sm text-red-600">{String(errors.permissions)}</div>}
+                {errors.permissions && <div className="text-sm text-black">{String(errors.permissions)}</div>}
             </div>
             <div className="flex gap-2">
                 <Button type="submit" disabled={processing}>
@@ -614,18 +614,18 @@ function AddUserForm({ onSaved }: { onSaved: () => void }) {
             <div>
                 <label className="text-sm">Name</label>
                 <Input value={data.name} onChange={(e) => setData('name', e.target.value)} />
-                {errors.name && <div className="text-sm text-red-600">{errors.name}</div>}
+                {errors.name && <div className="text-sm text-black">{errors.name}</div>}
             </div>
             <div>
                 <label className="text-sm">Email</label>
                 <Input type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} />
-                {errors.email && <div className="text-sm text-red-600">{errors.email}</div>}
+                {errors.email && <div className="text-sm text-black">{errors.email}</div>}
             </div>
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                 <div>
                     <label className="text-sm">Password</label>
                     <Input type="password" value={data.password} onChange={(e) => setData('password', e.target.value)} />
-                    {errors.password && <div className="text-sm text-red-600">{errors.password}</div>}
+                    {errors.password && <div className="text-sm text-black">{errors.password}</div>}
                 </div>
                 <div>
                     <label className="text-sm">Confirm Password</label>

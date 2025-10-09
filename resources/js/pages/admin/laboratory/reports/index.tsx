@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { CustomDatePicker } from '@/components/ui/date-picker';
+import { PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
@@ -22,8 +24,7 @@ type OrderLite = {
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Laboratory', href: '/admin/laboratory' },
-    { title: 'Reports', href: '/admin/laboratory/reports' },
+    { title: 'Laboratory Reports', href: '/admin/laboratory/reports' },
 ];
 
 export default function LaboratoryReportsIndex({ orders = [], tests = [] }: { orders?: OrderLite[]; tests?: LabTest[] }) {
@@ -75,8 +76,8 @@ export default function LaboratoryReportsIndex({ orders = [], tests = [] }: { or
                         <div className="flex items-center gap-4">
                             <div className="bg-white rounded-xl shadow-lg border px-6 py-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        <BarChart3 className="h-6 w-6 text-blue-600" />
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <BarChart3 className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <div className="text-3xl font-bold text-gray-900">{orders.length}</div>
@@ -89,71 +90,58 @@ export default function LaboratoryReportsIndex({ orders = [], tests = [] }: { or
                 </div>
 
                 {/* Unified Reports Interface */}
-                <Card className="shadow-lg">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                                <BarChart3 className="h-6 w-6 text-blue-600" />
-                            </div>
-                            <div>
-                                <CardTitle className="text-lg font-semibold text-gray-900">Laboratory Reports</CardTitle>
-                                <p className="text-sm text-gray-500 mt-1">Filter, analyze, and export laboratory data with advanced reporting tools</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <Badge variant="outline" className="text-blue-600 border-blue-200">
+                <PatientInfoCard
+                    title="Laboratory Reports"
+                    icon={<BarChart3 className="h-5 w-5 text-black" />}
+                >
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-4">
+                            <Badge variant="outline" className="text-black border-gray-200">
                                 {filtered.length} of {orders.length} orders
                             </Badge>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline">
-                                        <Download className="mr-2 h-4 w-4" />
-                                        Export Data
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handleExportOrders('excel')}>
-                                        <FileDown className="mr-2 h-4 w-4" />
-                                        Excel Spreadsheet
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleExportOrders('pdf')}>
-                                        <FileDown className="mr-2 h-4 w-4" />
-                                        PDF Report
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleExportOrders('word')}>
-                                        <FileDown className="mr-2 h-4 w-4" />
-                                        Word Document
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
                         </div>
-                    </CardHeader>
-                    <CardContent className="p-6">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button className="bg-gray-600 hover:bg-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl">
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Export Data
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleExportOrders('excel')}>
+                                    <FileDown className="mr-2 h-4 w-4" />
+                                    Excel Spreadsheet
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleExportOrders('pdf')}>
+                                    <FileDown className="mr-2 h-4 w-4" />
+                                    PDF Report
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleExportOrders('word')}>
+                                    <FileDown className="mr-2 h-4 w-4" />
+                                    Word Document
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                         {/* Filters Section */}
                         <div className="mb-8">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="p-2 bg-gray-100 rounded-lg">
-                                    <Filter className="h-5 w-5 text-gray-600" />
-                                </div>
-                                <h3 className="text-lg font-semibold text-gray-900">Search & Filter</h3>
-                            </div>
-                            <div className="grid gap-6 md:grid-cols-4">
-                                <div>
-                                    <Label className="text-sm font-semibold text-gray-700 mb-2 block">Search Orders</Label>
-                                    <div className="relative">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                <div className="space-y-2 w-full">
+                                    <Label className="text-sm font-semibold text-gray-800 mb-2 block">Search Orders</Label>
+                                    <div className="relative w-full">
                                         <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
                                         <Input
-                                            className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                                            className="pl-10 h-12 w-full border-gray-200 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                             placeholder="Order # or patient name"
                                             value={search}
                                             onChange={(e) => setSearch(e.target.value)}
                                         />
                                     </div>
                                 </div>
-                                <div>
-                                    <Label className="text-sm font-semibold text-gray-700 mb-2 block">Test Type</Label>
+                                <div className="space-y-2 w-full">
+                                    <Label className="text-sm font-semibold text-gray-800 mb-2 block">Test Type</Label>
                                     <select
-                                        className="h-12 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        className="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-500 focus:ring-gray-500"
                                         value={testId}
                                         onChange={(e) => setTestId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
                                     >
@@ -165,29 +153,25 @@ export default function LaboratoryReportsIndex({ orders = [], tests = [] }: { or
                                         ))}
                                     </select>
                                 </div>
-                                <div>
-                                    <Label className="text-sm font-semibold text-gray-700 mb-2 block">From Date</Label>
-                                    <div className="relative">
-                                        <Calendar className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                        <Input 
-                                            type="date" 
-                                            value={dateFrom} 
-                                            onChange={(e) => setDateFrom(e.target.value)} 
-                                            className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
-                                        />
-                                    </div>
+                                <div className="w-full">
+                                    <CustomDatePicker
+                                        label="From Date"
+                                        value={dateFrom ? new Date(dateFrom) : undefined}
+                                        onChange={(date) => setDateFrom(date ? date.toISOString().split('T')[0] : '')}
+                                        placeholder="Select start date"
+                                        variant="responsive"
+                                        className="w-full"
+                                    />
                                 </div>
-                                <div>
-                                    <Label className="text-sm font-semibold text-gray-700 mb-2 block">To Date</Label>
-                                    <div className="relative">
-                                        <Calendar className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                        <Input 
-                                            type="date" 
-                                            value={dateTo} 
-                                            onChange={(e) => setDateTo(e.target.value)} 
-                                            className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
-                                        />
-                                    </div>
+                                <div className="w-full">
+                                    <CustomDatePicker
+                                        label="To Date"
+                                        value={dateTo ? new Date(dateTo) : undefined}
+                                        onChange={(date) => setDateTo(date ? date.toISOString().split('T')[0] : '')}
+                                        placeholder="Select end date"
+                                        variant="responsive"
+                                        className="w-full"
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -226,8 +210,8 @@ export default function LaboratoryReportsIndex({ orders = [], tests = [] }: { or
                                             <div className="p-6">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-4">
-                                                        <div className="p-3 bg-blue-100 rounded-lg">
-                                                            <TestTube className="h-6 w-6 text-blue-600" />
+                                                        <div className="p-3 bg-gray-100 rounded-lg">
+                                                            <TestTube className="h-6 w-6 text-black" />
                                                         </div>
                                                         <div>
                                                             <h4 className="text-lg font-semibold text-gray-900">Order #{order.id}</h4>
@@ -245,7 +229,7 @@ export default function LaboratoryReportsIndex({ orders = [], tests = [] }: { or
                                                             variant="outline"
                                                             size="sm"
                                                             onClick={() => router.visit(`/admin/laboratory/orders/${order.id}`)}
-                                                            className="hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200"
+                                                            className="hover:bg-gray-50 hover:text-black transition-colors duration-200"
                                                         >
                                                             <Eye className="mr-2 h-4 w-4" />
                                                             View Details
@@ -272,8 +256,7 @@ export default function LaboratoryReportsIndex({ orders = [], tests = [] }: { or
                                 </div>
                             )}
                         </div>
-                    </CardContent>
-                </Card>
+                    </PatientInfoCard>
             </div>
         </AppLayout>
     );

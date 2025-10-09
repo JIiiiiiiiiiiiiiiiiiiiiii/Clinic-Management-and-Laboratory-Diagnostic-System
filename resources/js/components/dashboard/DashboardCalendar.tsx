@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Plus, Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import { useState } from 'react';
 import { CustomCalendar } from './CustomCalendar';
 
@@ -85,13 +85,6 @@ export function DashboardCalendar() {
                         <CardTitle className="text-lg font-semibold text-gray-900">
                             Calendar
                         </CardTitle>
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-200 transition-colors"
-                        >
-                            <Plus className="h-4 w-4" />
-                        </Button>
                     </div>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">

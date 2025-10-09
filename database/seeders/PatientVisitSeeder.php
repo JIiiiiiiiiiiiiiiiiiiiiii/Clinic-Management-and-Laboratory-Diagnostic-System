@@ -6,13 +6,13 @@ use App\Models\Patient;
 use App\Models\PatientVisit;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Faker\Factory as Faker;
+use Faker\Factory;
 
 class PatientVisitSeeder extends Seeder
 {
     public function run(): void
     {
-        $faker = Faker::create();
+        $faker = Factory::create();
 
         // Get some patients and doctors
         $patients = Patient::limit(10)->get();

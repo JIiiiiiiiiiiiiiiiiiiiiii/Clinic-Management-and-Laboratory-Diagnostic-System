@@ -73,7 +73,7 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Stock Levels Report" />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+            <div className="min-h-screen bg-white p-6">
                 {/* Header Section */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
@@ -85,7 +85,7 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                             </Button>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
+                                    <Button className="bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
                                         <Download className="mr-2 h-4 w-4" />
                                         Export
                                     </Button>
@@ -100,92 +100,87 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                     </div>
                 </div>
 
-                {/* Summary Cards */}
-                <div className="grid gap-6 md:grid-cols-4 mb-8">
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white hover:shadow-xl transition-all duration-300">
-                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-                            <div className="flex items-center justify-between p-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg">
-                                        <Package className="h-6 w-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-white">Total Supplies</h3>
-                                        <p className="text-blue-100 text-sm">Active supplies</p>
-                                    </div>
-                                </div>
-                                <div className="text-3xl font-bold text-white">{products.length}</div>
+                {/* Combined Report Card */}
+                <div className="holographic-card shadow-lg border-0 mb-8 overflow-hidden rounded-xl bg-white">
+                    <div className="bg-white border-b border-gray-200 text-black">
+                        <div className="flex items-center gap-3 p-6">
+                            <div className="p-2 bg-gray-100 rounded-lg">
+                                <Package className="h-6 w-6 text-black" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-bold text-black">Stock Levels Report</h3>
+                                <p className="text-gray-600 mt-1">Complete report with summary and detailed stock information</p>
                             </div>
                         </div>
                     </div>
-
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white hover:shadow-xl transition-all duration-300">
-                        <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white">
-                            <div className="flex items-center justify-between p-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg">
-                                        <TrendingDown className="h-6 w-6 text-white" />
+                    <div className="px-6 py-6 bg-white">
+                        {/* Summary Cards */}
+                        <div className="grid gap-6 md:grid-cols-4 mb-8">
+                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <Package className="h-6 w-6 text-black" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-lg font-bold text-black">Total Supplies</h4>
+                                            <p className="text-gray-600 text-sm">Active supplies</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-white">Low Stock</h3>
-                                        <p className="text-yellow-100 text-sm">Need restocking</p>
-                                    </div>
+                                    <div className="text-3xl font-bold text-black">{products.length}</div>
                                 </div>
-                                <div className="text-3xl font-bold text-white">{lowStockProducts.length}</div>
                             </div>
-                        </div>
-                    </div>
 
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white hover:shadow-xl transition-all duration-300">
-                        <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
-                            <div className="flex items-center justify-between p-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gradient-to-br from-orange-400 to-orange-500 rounded-lg">
-                                        <TrendingUp className="h-6 w-6 text-white" />
+                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <TrendingDown className="h-6 w-6 text-black" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-lg font-bold text-black">Low Stock</h4>
+                                            <p className="text-gray-600 text-sm">Need restocking</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-white">Expiring Soon</h3>
-                                        <p className="text-orange-100 text-sm">Within 30 days</p>
-                                    </div>
+                                    <div className="text-3xl font-bold text-black">{lowStockProducts.length}</div>
                                 </div>
-                                <div className="text-3xl font-bold text-white">{expiringSoon.length}</div>
                             </div>
-                        </div>
-                    </div>
 
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white hover:shadow-xl transition-all duration-300">
-                        <div className="bg-gradient-to-r from-red-500 to-red-600 text-white">
-                            <div className="flex items-center justify-between p-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gradient-to-br from-red-400 to-red-500 rounded-lg">
-                                        <TrendingDown className="h-6 w-6 text-white" />
+                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <TrendingUp className="h-6 w-6 text-black" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-lg font-bold text-black">Expiring Soon</h4>
+                                            <p className="text-gray-600 text-sm">Within 30 days</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-white">Expired</h3>
-                                        <p className="text-red-100 text-sm">Past expiry date</p>
-                                    </div>
+                                    <div className="text-3xl font-bold text-black">{expiringSoon.length}</div>
                                 </div>
-                                <div className="text-3xl font-bold text-white">{expiredStock.length}</div>
                             </div>
-                        </div>
-                    </div>
-                </div>
 
-                {/* Low Stock Alert */}
-                {lowStockProducts.length > 0 && (
-                    <div className="holographic-card shadow-lg border-0 mb-8 overflow-hidden rounded-xl bg-white">
-                        <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white">
-                            <div className="flex items-center gap-3 p-6">
-                                <div className="p-2 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg">
-                                    <TrendingDown className="h-6 w-6 text-white" />
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-bold text-white">Low Stock Alert</h3>
-                                    <p className="text-yellow-100 mt-1">Supplies that need immediate restocking</p>
+                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <TrendingDown className="h-6 w-6 text-black" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-lg font-bold text-black">Expired</h4>
+                                            <p className="text-gray-600 text-sm">Past expiry date</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-3xl font-bold text-black">{expiredStock.length}</div>
                                 </div>
                             </div>
                         </div>
-                        <div className="px-6 py-6 bg-gradient-to-br from-yellow-50 to-yellow-100">
+
+                        {/* Low Stock Alert */}
+                        {lowStockProducts.length > 0 && (
+                            <div className="mb-8">
+                                <h4 className="text-lg font-semibold text-black mb-4">Low Stock Alert</h4>
                             <div className="overflow-x-auto rounded-xl border border-gray-200">
                                 <Table>
                                     <TableHeader className="bg-gray-50">
@@ -199,7 +194,7 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                                     </TableHeader>
                                     <TableBody>
                                         {lowStockProducts.map((product: any) => (
-                                            <TableRow key={product.id} className="hover:bg-yellow-50/50 transition-colors border-b border-gray-100">
+                                            <TableRow key={product.id} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100">
                                                 <TableCell>
                                                     <div>
                                                         <div className="font-medium text-gray-900">{product.name}</div>
@@ -207,7 +202,7 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="font-medium text-yellow-600">{product.current_stock}</div>
+                                                    <div className="font-medium text-black">{product.current_stock}</div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="font-medium text-gray-900">{product.minimum_stock_level}</div>
@@ -218,7 +213,7 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                                                 <TableCell>
                                                     <Button
                                                         size="sm"
-                                                        className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-lg"
+                                                        className="bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-lg"
                                                         onClick={() =>
                                                             router.visit(`/admin/inventory/transactions/create?product_id=${product.id}&type=in`)
                                                         }
@@ -232,23 +227,11 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                                 </Table>
                             </div>
                         </div>
-                    </div>
-                )}
+                        )}
 
-                {/* All Products Stock Levels */}
-                <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white">
-                    <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white">
-                        <div className="flex items-center gap-3 p-6">
-                            <div className="p-2 bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg">
-                                <Package className="h-6 w-6 text-white" />
-                            </div>
-                            <div>
-                                <h3 className="text-2xl font-bold text-white">All Supplies Stock Levels</h3>
-                                <p className="text-indigo-100 mt-1">Complete inventory overview with status indicators</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="px-6 py-6 bg-gradient-to-br from-indigo-50 to-indigo-100">
+                        {/* All Products Stock Levels */}
+                        <div>
+                            <h4 className="text-lg font-semibold text-black mb-4">All Supplies Stock Levels</h4>
                         {products.length > 0 ? (
                             <div className="overflow-x-auto rounded-xl border border-gray-200">
                                 <Table>
@@ -267,7 +250,7 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                                         {products.map((product) => {
                                             const stockStatus = getStockStatus(product);
                                             return (
-                                                <TableRow key={product.id} className="hover:bg-indigo-50/50 transition-colors border-b border-gray-100">
+                                                <TableRow key={product.id} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100">
                                                     <TableCell>
                                                         <div>
                                                             <div className="font-medium text-gray-900">{product.name}</div>
@@ -311,6 +294,7 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                                 </div>
                             </div>
                         )}
+                        </div>
                     </div>
                 </div>
             </div>

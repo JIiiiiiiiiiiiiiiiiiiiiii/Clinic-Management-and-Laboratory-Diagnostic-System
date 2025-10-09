@@ -23,7 +23,6 @@ export default function TestCreate(): React.ReactElement {
     const [processing, setProcessing] = useState(false);
 
     const breadcrumbs: BreadcrumbItem[] = [
-        { title: 'Laboratory', href: '/admin/laboratory' },
         { title: 'Test Templates', href: '/admin/laboratory/tests' },
         { title: 'Create New Test', href: '/admin/laboratory/tests/create' },
     ];
@@ -101,8 +100,8 @@ export default function TestCreate(): React.ReactElement {
             <Card className="shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                            <Eye className="h-6 w-6 text-blue-600" />
+                        <div className="p-2 bg-gray-100 rounded-lg">
+                            <Eye className="h-6 w-6 text-black" />
                         </div>
                         <div>
                             <CardTitle className="text-lg font-semibold text-gray-900">Test Preview</CardTitle>
@@ -120,8 +119,8 @@ export default function TestCreate(): React.ReactElement {
                             <div key={sectionKey} className="bg-white rounded-xl border border-gray-200 shadow-sm">
                                 <div className="bg-gray-50 p-4 rounded-t-xl">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-blue-100 rounded-lg">
-                                            <TestTube className="h-5 w-5 text-blue-600" />
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <TestTube className="h-5 w-5 text-black" />
                                         </div>
                                         <h4 className="text-lg font-semibold text-gray-900">{section.title}</h4>
                                     </div>
@@ -145,8 +144,8 @@ export default function TestCreate(): React.ReactElement {
                             </div>
                         ))}
                         {Object.keys(schema.sections || {}).length === 0 && (
-                            <div className="py-12 text-center bg-white rounded-xl border-2 border-dashed border-indigo-300">
-                                <div className="text-indigo-400 mb-4">
+                            <div className="py-12 text-center bg-white rounded-xl border-2 border-dashed border-gray-300">
+                                <div className="text-gray-400 mb-4">
                                     <TestTube className="h-12 w-12 mx-auto" />
                                 </div>
                                 <p className="text-lg font-semibold text-gray-700 mb-2">No sections to preview</p>
@@ -170,7 +169,7 @@ export default function TestCreate(): React.ReactElement {
                                 <ArrowLeft className="h-4 w-4" />
                             </Button>
                             <div>
-                                <h1 className="text-4xl font-bold text-gray-900 mb-2">Create New Lab Test</h1>
+                                <h1 className="text-4xl font-bold text-black mb-2">Create New Lab Test</h1>
                                 <p className="text-lg text-gray-600">Design a new laboratory diagnostic test template</p>
                             </div>
                         </div>
@@ -184,8 +183,8 @@ export default function TestCreate(): React.ReactElement {
                         <Card className="shadow-lg">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        <TestTube className="h-6 w-6 text-blue-600" />
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <TestTube className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <CardTitle className="text-lg font-semibold text-gray-900">Basic Information</CardTitle>
@@ -212,7 +211,7 @@ export default function TestCreate(): React.ReactElement {
                                                 id="name" 
                                                 value={data.name}
                                                 onChange={(e) => setDataAny('name', e.target.value)}
-                                                className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                                                className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                             />
                                         </div>
                                         <div>
@@ -221,7 +220,7 @@ export default function TestCreate(): React.ReactElement {
                                                 id="code" 
                                                 value={data.code}
                                                 onChange={(e) => setDataAny('code', e.target.value)}
-                                                className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                                                className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                             />
                                         </div>
                                     </div>
@@ -231,7 +230,7 @@ export default function TestCreate(): React.ReactElement {
                                             id="description" 
                                             value={data.description}
                                             onChange={(e) => setDataAny('description', e.target.value)}
-                                            className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                                            className="border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                             rows={3}
                                         />
                                     </div>
@@ -240,7 +239,7 @@ export default function TestCreate(): React.ReactElement {
                                             id="is_active"
                                             checked={data.is_active}
                                             onChange={(e) => setDataAny('is_active', e.target.checked)}
-                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                            className="h-4 w-4 text-black focus:ring-gray-500 border-gray-300 rounded"
                                         />
                                         <Label htmlFor="is_active" className="text-sm font-semibold text-gray-700">Active (available for ordering)</Label>
                                     </div>
@@ -251,8 +250,8 @@ export default function TestCreate(): React.ReactElement {
                         <Card className="shadow-lg">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        <Plus className="h-6 w-6 text-blue-600" />
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <Plus className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <CardTitle className="text-lg font-semibold text-gray-900">Test Sections</CardTitle>
@@ -305,7 +304,7 @@ export default function TestCreate(): React.ReactElement {
                                                             }));
                                                         }}
                                                         placeholder="Section name (e.g., Hematology)"
-                                                        className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm mt-2"
+                                                        className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm mt-2"
                                                     />
                                                 </div>
                                                 {Object.entries(section.fields || {}).map(([fieldKey, field]: [string, any]) => (
@@ -339,7 +338,7 @@ export default function TestCreate(): React.ReactElement {
                                                                             }
                                                                         }));
                                                                     }}
-                                                                    className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                                                                    className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                                                 />
                                                             </div>
                                                             <div>
@@ -365,7 +364,7 @@ export default function TestCreate(): React.ReactElement {
                                                                         }));
                                                                     }}
                                                                     placeholder="Enter placeholder text"
-                                                                    className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                                                                    className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                                                 />
                                                             </div>
                                                         </div>
@@ -384,8 +383,8 @@ export default function TestCreate(): React.ReactElement {
                                         </div>
                                     ))}
                                     {Object.keys(schema.sections || {}).length === 0 && (
-                                        <div className="py-12 text-center bg-white rounded-xl border-2 border-dashed border-blue-300">
-                                            <div className="text-blue-400 mb-4">
+                                        <div className="py-12 text-center bg-white rounded-xl border-2 border-dashed border-gray-300">
+                                            <div className="text-gray-400 mb-4">
                                                 <Plus className="h-12 w-12 mx-auto" />
                                             </div>
                                             <p className="text-lg font-semibold text-gray-700 mb-2">No sections defined yet</p>

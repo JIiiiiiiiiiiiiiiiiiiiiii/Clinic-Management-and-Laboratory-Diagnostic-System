@@ -89,12 +89,12 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                     <div key={fieldKey} className="space-y-2">
                         <Label htmlFor={fieldId} className="text-sm font-semibold text-gray-700">
                             {field.label}
-                            {field.required && <span className="ml-1 text-red-500">*</span>}
+                            {field.required && <span className="ml-1 text-black">*</span>}
                         </Label>
                         <Input 
                             {...commonProps} 
                             placeholder={field.placeholder}
-                            className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                            className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                         />
                         {field.unit && <span className="ml-2 text-sm text-gray-500">{field.unit}</span>}
                     </div>
@@ -105,7 +105,7 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                     <div key={fieldKey} className="space-y-2">
                         <Label htmlFor={fieldId} className="text-sm font-semibold text-gray-700">
                             {field.label}
-                            {field.required && <span className="ml-1 text-red-500">*</span>}
+                            {field.required && <span className="ml-1 text-black">*</span>}
                         </Label>
                         <Input
                             {...commonProps}
@@ -114,7 +114,7 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                             min={field.min}
                             max={field.max}
                             placeholder={field.placeholder}
-                            className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                            className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                         />
                         {field.unit && <span className="ml-2 text-sm text-gray-500">{field.unit}</span>}
                     </div>
@@ -125,10 +125,10 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                     <div key={fieldKey} className="space-y-2">
                         <Label htmlFor={fieldId} className="text-sm font-semibold text-gray-700">
                             {field.label}
-                            {field.required && <span className="ml-1 text-red-500">*</span>}
+                            {field.required && <span className="ml-1 text-black">*</span>}
                         </Label>
                         <Select value={value} onValueChange={(val) => updateResult(testId, fieldPath, val)}>
-                            <SelectTrigger className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm">
+                            <SelectTrigger className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm">
                                 <SelectValue placeholder={field.placeholder || 'Select...'} />
                             </SelectTrigger>
                             <SelectContent>
@@ -147,13 +147,13 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                     <div key={fieldKey} className="space-y-2">
                         <Label htmlFor={fieldId} className="text-sm font-semibold text-gray-700">
                             {field.label}
-                            {field.required && <span className="ml-1 text-red-500">*</span>}
+                            {field.required && <span className="ml-1 text-black">*</span>}
                         </Label>
                         <Textarea 
                             {...commonProps} 
                             placeholder={field.placeholder} 
                             rows={field.rows || 3}
-                            className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                            className="border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                         />
                     </div>
                 );
@@ -165,7 +165,7 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                         <Input 
                             {...commonProps} 
                             placeholder={field.placeholder}
-                            className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl shadow-sm"
+                            className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                         />
                     </div>
                 );
@@ -180,8 +180,8 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
             <Card key={test.id} className="shadow-lg mb-8">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                            <FileText className="h-5 w-5 text-blue-600" />
+                        <div className="p-2 bg-gray-100 rounded-lg">
+                            <FileText className="h-5 w-5 text-black" />
                         </div>
                         <div>
                             <CardTitle className="text-lg font-semibold text-gray-900">{test.name}</CardTitle>
@@ -310,7 +310,7 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                                 <span aria-hidden>←</span>
                             </Button>
                             <div>
-                                <h1 className="text-4xl font-bold text-gray-900 mb-2">Lab Results Entry</h1>
+                                <h1 className="text-4xl font-bold text-black mb-2">Lab Results Entry</h1>
                                 <p className="text-lg text-gray-600">
                                     Order #{order.id} • {new Date(order.created_at).toLocaleDateString()}
                                 </p>
@@ -324,7 +324,7 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                                     </div>
                                     <div>
                                         <div className="text-2xl font-bold whitespace-nowrap leading-tight">{order.status}</div>
-                                        <div className="text-blue-100 text-xs font-medium whitespace-nowrap">Status</div>
+                                        <div className="text-gray-100 text-xs font-medium whitespace-nowrap">Status</div>
                                     </div>
                                 </div>
                             </div>
@@ -336,8 +336,8 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                 <Card className="shadow-lg mb-8">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                                <CheckCircle className="h-6 w-6 text-blue-600" />
+                            <div className="p-2 bg-gray-100 rounded-lg">
+                                <CheckCircle className="h-6 w-6 text-black" />
                             </div>
                             <div>
                                 <CardTitle className="text-lg font-semibold text-gray-900">Results Actions</CardTitle>
@@ -403,8 +403,8 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                     <Card className="shadow-lg">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <FileText className="h-5 w-5 text-blue-600" />
+                                <div className="p-2 bg-gray-100 rounded-lg">
+                                    <FileText className="h-5 w-5 text-black" />
                                 </div>
                                 <div>
                                     <CardTitle className="text-lg font-semibold text-gray-900">No Tests Available</CardTitle>

@@ -33,7 +33,7 @@ const quickAccessActions: QuickAccessAction[] = [
         description: 'Register new patient',
         icon: Plus,
         href: '/admin/patient/create',
-        bgColor: 'bg-blue-500',
+        bgColor: 'bg-gray-100',
         permission: 'canAccessPatients'
     },
     {
@@ -41,7 +41,7 @@ const quickAccessActions: QuickAccessAction[] = [
         description: 'Book new appointment',
         icon: Calendar,
         href: '/admin/appointments/create',
-        bgColor: 'bg-purple-500',
+        bgColor: 'bg-gray-100',
         permission: 'canAccessAppointments'
     },
     {
@@ -49,7 +49,7 @@ const quickAccessActions: QuickAccessAction[] = [
         description: 'Create lab test order',
         icon: FlaskConical,
         href: '/admin/laboratory/orders/create',
-        bgColor: 'bg-orange-500',
+        bgColor: 'bg-gray-100',
         permission: 'canAccessLaboratory'
     },
     {
@@ -57,7 +57,7 @@ const quickAccessActions: QuickAccessAction[] = [
         description: 'Handle billing & payments',
         icon: CreditCard,
         href: '/admin/billing',
-        bgColor: 'bg-green-500',
+        bgColor: 'bg-gray-100',
         permission: 'canAccessBilling'
     },
     {
@@ -65,7 +65,7 @@ const quickAccessActions: QuickAccessAction[] = [
         description: 'Browse patient records',
         icon: Users,
         href: '/admin/patient',
-        bgColor: 'bg-indigo-500',
+        bgColor: 'bg-gray-100',
         permission: 'canAccessPatients'
     },
     {
@@ -73,7 +73,7 @@ const quickAccessActions: QuickAccessAction[] = [
         description: 'Enter test results',
         icon: ClipboardList,
         href: '/admin/laboratory/results',
-        bgColor: 'bg-red-500',
+        bgColor: 'bg-gray-100',
         permission: 'canAccessLaboratory'
     },
     {
@@ -81,7 +81,7 @@ const quickAccessActions: QuickAccessAction[] = [
         description: 'Manage supplies',
         icon: Package2,
         href: '/admin/inventory',
-        bgColor: 'bg-yellow-500',
+        bgColor: 'bg-gray-100',
         permission: 'canAccessInventory'
     },
     {
@@ -89,7 +89,7 @@ const quickAccessActions: QuickAccessAction[] = [
         description: 'Find patient data',
         icon: Search,
         href: '/admin/patient?search=',
-        bgColor: 'bg-cyan-500',
+        bgColor: 'bg-gray-100',
         permission: 'canAccessPatients'
     },
     {
@@ -97,7 +97,7 @@ const quickAccessActions: QuickAccessAction[] = [
         description: 'Generate analytics',
         icon: Activity,
         href: '/admin/reports',
-        bgColor: 'bg-blue-500',
+        bgColor: 'bg-gray-100',
         permission: 'canAccessReports'
     },
     {
@@ -105,7 +105,7 @@ const quickAccessActions: QuickAccessAction[] = [
         description: 'Doctor management',
         icon: Shield,
         href: '/admin/doctors',
-        bgColor: 'bg-blue-500',
+        bgColor: 'bg-gray-100',
         permission: 'canAccessInventory'
     },
     {
@@ -113,7 +113,7 @@ const quickAccessActions: QuickAccessAction[] = [
         description: 'Configure system',
         icon: Settings,
         href: '/admin/settings',
-        bgColor: 'bg-blue-500',
+        bgColor: 'bg-gray-100',
         permission: 'canAccessSettings'
     },
     {
@@ -121,7 +121,7 @@ const quickAccessActions: QuickAccessAction[] = [
         description: 'Add quick notes',
         icon: FileText,
         href: '#',
-        bgColor: 'bg-violet-500'
+        bgColor: 'bg-gray-100'
     }
 ];
 
@@ -156,7 +156,7 @@ export default function QuickAccessModule() {
                                         <div className="flex h-24">
                                             {/* Icon Section - Colored background fills top to bottom */}
                                             <div className={`w-20 h-full ${action.bgColor} flex items-center justify-center rounded-l-xl`}>
-                                                <action.icon className="h-8 w-8 text-white" />
+                                                <action.icon className="h-8 w-8 text-black" />
                                             </div>
                                             {/* Text Section - All content on the right */}
                                             <div className="flex-1 p-4 flex flex-col justify-center">

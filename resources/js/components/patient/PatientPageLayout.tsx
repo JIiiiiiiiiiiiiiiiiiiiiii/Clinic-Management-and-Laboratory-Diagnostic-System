@@ -46,7 +46,7 @@ export function PatientPageLayout({
                             </div>
                         )}
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+                            <h1 className="text-4xl font-semibold text-black mb-4">{title}</h1>
                             {description && (
                                 <p className="text-sm text-gray-600 mt-1">{description}</p>
                             )}
@@ -181,7 +181,7 @@ export function PatientInfoCard({
         <Card className={`holographic-card shadow-lg overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50 hover:bg-white/80 transition-all duration-300 ${className}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
+                    <div className="p-2 bg-gray-100 rounded-lg">
                         {icon}
                     </div>
                     <div>
@@ -214,7 +214,7 @@ export function PatientFormSection({
         <Card className={`holographic-card shadow-lg overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50 hover:bg-white/80 transition-all duration-300 ${className}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
+                    <div className="p-2 bg-gray-100 rounded-lg">
                         {icon}
                     </div>
                     <div>

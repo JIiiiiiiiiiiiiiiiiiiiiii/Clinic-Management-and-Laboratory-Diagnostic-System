@@ -23,7 +23,7 @@ export default function CreatePermission() {
                             <div>
                                 <label className="text-sm">Name</label>
                                 <Input value={data.name} onChange={(e) => setData('name', e.target.value)} />
-                                {errors.name && <div className="text-sm text-red-600">{errors.name}</div>}
+                                {errors.name && <div className="text-sm text-black">{errors.name}</div>}
                             </div>
                             <div className="flex gap-2">
                                 <Button type="submit" disabled={processing}>

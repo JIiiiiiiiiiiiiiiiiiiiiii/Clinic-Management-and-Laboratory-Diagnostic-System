@@ -68,24 +68,21 @@ interface ShowTransactionProps {
 export default function ShowTransaction({ transaction }: ShowTransactionProps) {
     const getStatusBadge = (status: string) => {
         const statusConfig = {
-            pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-            approved: 'bg-green-100 text-green-800 border-green-200',
-            rejected: 'bg-red-100 text-red-800 border-red-200',
+            pending: 'bg-gray-100 text-black border-gray-200',
+            approved: 'bg-gray-100 text-black border-gray-200',
+            rejected: 'bg-gray-100 text-black border-gray-200',
         };
         return statusConfig[status as keyof typeof statusConfig] || 'bg-gray-100 text-gray-800 border-gray-200';
     };
 
     const getTypeIcon = (type: string) => {
         return type === 'in' ? (
-            <ArrowUp className="h-6 w-6 text-green-500" />
+            <ArrowUp className="h-6 w-6 text-black" />
         ) : (
-            <ArrowDown className="h-6 w-6 text-red-500" />
+            <ArrowDown className="h-6 w-6 text-black" />
         );
     };
 
-    const getTypeColor = (type: string) => {
-        return type === 'in' ? 'from-green-500 to-green-600' : 'from-red-500 to-red-600';
-    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -121,22 +118,22 @@ export default function ShowTransaction({ transaction }: ShowTransactionProps) {
                 <div className="grid gap-8 md:grid-cols-2">
                     {/* Transaction Details */}
                     <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                        <div className={`bg-gradient-to-r ${getTypeColor(transaction.type)} text-white`}>
+                        <div className="bg-white border-b border-gray-200 text-black">
                             <div className="flex items-center gap-3 p-6">
                                 <div className="p-2 bg-white/20 rounded-lg">
                                     {getTypeIcon(transaction.type)}
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-bold text-white">
+                                    <h3 className="text-2xl font-bold text-black">
                                         Transaction Details
                                     </h3>
-                                    <p className="text-white/80 mt-1">
+                                    <p className="text-gray-600 mt-1">
                                         {transaction.subtype.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                                     </p>
                                 </div>
                             </div>
                         </div>
-                        <div className="px-6 py-6 bg-gradient-to-br from-slate-50 to-slate-100">
+                        <div className="px-6 py-6 bg-white">
                             <div className="space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
@@ -209,22 +206,22 @@ export default function ShowTransaction({ transaction }: ShowTransactionProps) {
 
                     {/* Product Information */}
                     <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                        <div className="bg-white border-b border-gray-200 text-black">
                             <div className="flex items-center gap-3 p-6">
                                 <div className="p-2 bg-white/20 rounded-lg">
                                     <Package className="h-8 w-8" />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-bold text-white">
+                                    <h3 className="text-2xl font-bold text-black">
                                         Product Information
                                     </h3>
-                                    <p className="text-blue-100 mt-1">
+                                    <p className="text-gray-600 mt-1">
                                         Item details and specifications
                                     </p>
                                 </div>
                             </div>
                         </div>
-                        <div className="px-6 py-6 bg-gradient-to-br from-blue-50 to-blue-100">
+                        <div className="px-6 py-6 bg-white">
                             <div className="space-y-6">
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-gray-500">Product Name</label>
@@ -273,22 +270,22 @@ export default function ShowTransaction({ transaction }: ShowTransactionProps) {
 
                     {/* User Information */}
                     <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+                        <div className="bg-white border-b border-gray-200 text-black">
                             <div className="flex items-center gap-3 p-6">
                                 <div className="p-2 bg-white/20 rounded-lg">
                                     <User className="h-8 w-8" />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-bold text-white">
+                                    <h3 className="text-2xl font-bold text-black">
                                         User Information
                                     </h3>
-                                    <p className="text-purple-100 mt-1">
+                                    <p className="text-gray-600 mt-1">
                                         Transaction creator and approver details
                                     </p>
                                 </div>
                             </div>
                         </div>
-                        <div className="px-6 py-6 bg-gradient-to-br from-purple-50 to-purple-100">
+                        <div className="px-6 py-6 bg-white">
                             <div className="space-y-6">
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-gray-500">Created By</label>
@@ -328,22 +325,22 @@ export default function ShowTransaction({ transaction }: ShowTransactionProps) {
 
                     {/* Additional Information */}
                     <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-lg bg-white">
-                        <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white">
+                        <div className="bg-white border-b border-gray-200 text-black">
                             <div className="flex items-center gap-3 p-6">
                                 <div className="p-2 bg-white/20 rounded-lg">
                                     <Calendar className="h-8 w-8" />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-bold text-white">
+                                    <h3 className="text-2xl font-bold text-black">
                                         Additional Information
                                     </h3>
-                                    <p className="text-emerald-100 mt-1">
+                                    <p className="text-gray-600 mt-1">
                                         Usage details and notes
                                     </p>
                                 </div>
                             </div>
                         </div>
-                        <div className="px-6 py-6 bg-gradient-to-br from-emerald-50 to-emerald-100">
+                        <div className="px-6 py-6 bg-white">
                             <div className="space-y-6">
                                 {transaction.reference_number && (
                                     <div className="space-y-2">
@@ -396,14 +393,14 @@ export default function ShowTransaction({ transaction }: ShowTransactionProps) {
                         <>
                             <Button 
                                 onClick={() => router.post(`/admin/inventory/transactions/${transaction.id}/approve`)}
-                                className="rounded-xl bg-gradient-to-r from-green-500 to-green-600 px-8 py-3 text-lg font-semibold text-white shadow-lg transition-all duration-300 hover:from-green-600 hover:to-green-700 hover:shadow-xl"
+                                className="rounded-xl bg-white border border-gray-300 hover:bg-gray-50 px-8 py-3 text-lg font-semibold text-black shadow-lg transition-all duration-300 hover:shadow-xl"
                             >
                                 <CheckCircle className="mr-3 h-5 w-5" />
                                 Approve Transaction
                             </Button>
                             <Button 
                                 onClick={() => router.post(`/admin/inventory/transactions/${transaction.id}/reject`)}
-                                className="rounded-xl bg-gradient-to-r from-red-500 to-red-600 px-8 py-3 text-lg font-semibold text-white shadow-lg transition-all duration-300 hover:from-red-600 hover:to-red-700 hover:shadow-xl"
+                                className="rounded-xl bg-white border border-gray-300 hover:bg-gray-50 px-8 py-3 text-lg font-semibold text-black shadow-lg transition-all duration-300 hover:shadow-xl"
                             >
                                 <XCircle className="mr-3 h-5 w-5" />
                                 Reject Transaction

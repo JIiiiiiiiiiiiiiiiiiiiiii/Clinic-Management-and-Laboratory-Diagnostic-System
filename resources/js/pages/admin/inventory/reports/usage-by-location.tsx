@@ -5,6 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { CustomDatePicker } from '@/components/ui/date-picker';
 import AppLayout from '@/layouts/app-layout';
 import Heading from '@/components/heading';
 import { type BreadcrumbItem } from '@/types';
@@ -82,7 +83,7 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Usage by Location Report" />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+            <div className="min-h-screen bg-white p-6">
                 {/* Header Section */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
@@ -94,7 +95,7 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
                             </Button>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button className="bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
+                                    <Button className="bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
                                         <Download className="mr-2 h-4 w-4" />
                                         Export
                                     </Button>
@@ -109,115 +110,112 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
                     </div>
                 </div>
 
-                {/* Date Filters */}
+                {/* Combined Report Card */}
                 <div className="holographic-card shadow-lg border-0 mb-8 overflow-hidden rounded-xl bg-white">
-                    <div className="bg-gradient-to-r from-teal-500 to-teal-600 text-white">
+                    <div className="bg-white border-b border-gray-200 text-black">
                         <div className="flex items-center gap-3 p-6">
-                            <div className="p-2 bg-gradient-to-br from-teal-400 to-teal-500 rounded-lg">
-                                <Calendar className="h-6 w-6 text-white" />
+                            <div className="p-2 bg-gray-100 rounded-lg">
+                                <Users className="h-6 w-6 text-black" />
                             </div>
                             <div>
-                                <h3 className="text-2xl font-bold text-white">Date Range Filter</h3>
-                                <p className="text-teal-100 mt-1">Filter reports by specific date ranges</p>
+                                <h3 className="text-2xl font-bold text-black">Usage by Location Report</h3>
+                                <p className="text-gray-600 mt-1">Complete report with filters, summary, and location breakdown</p>
                             </div>
                         </div>
                     </div>
-                    <div className="px-6 py-6 bg-gradient-to-br from-teal-50 to-teal-100">
-                        <div className="grid gap-6 md:grid-cols-3">
-                            <div className="space-y-2">
-                                <Label htmlFor="start_date" className="text-base font-semibold text-gray-700">Start Date</Label>
-                                <Input id="start_date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-12 border-gray-300 focus:border-teal-500 focus:ring-teal-500 rounded-xl shadow-sm" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="end_date" className="text-base font-semibold text-gray-700">End Date</Label>
-                                <Input id="end_date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-12 border-gray-300 focus:border-teal-500 focus:ring-teal-500 rounded-xl shadow-sm" />
-                            </div>
-                            <div className="flex items-end">
-                                <Button onClick={handleFilter} className="w-full h-12 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl">
-                                    Apply Filter
-                                </Button>
+                    <div className="px-6 py-6 bg-white">
+                        {/* Date Range Filter */}
+                        <div className="mb-8">
+                            <h4 className="text-lg font-semibold text-black mb-4">Date Range Filter</h4>
+                            <div className="flex flex-wrap gap-2 items-end">
+                                <div className="flex-1 min-w-[200px]">
+                                    <Label htmlFor="start_date" className="text-base font-semibold text-gray-700 mb-1 block">Start Date</Label>
+                                    <CustomDatePicker
+                                        value={startDate}
+                                        onChange={(date) => setStartDate(date ? date.toISOString().split('T')[0] : '')}
+                                        placeholder="Select start date"
+                                        variant="responsive"
+                                        className="w-full"
+                                    />
+                                </div>
+                                <div className="flex-1 min-w-[200px]">
+                                    <Label htmlFor="end_date" className="text-base font-semibold text-gray-700 mb-1 block">End Date</Label>
+                                    <CustomDatePicker
+                                        value={endDate}
+                                        onChange={(date) => setEndDate(date ? date.toISOString().split('T')[0] : '')}
+                                        placeholder="Select end date"
+                                        variant="responsive"
+                                        className="w-full"
+                                    />
+                                </div>
+                                <div className="flex-none">
+                                    <Button onClick={handleFilter} className="h-12 bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl px-6">
+                                        Apply Filter
+                                    </Button>
+                                </div>
                             </div>
                         </div>
-                    </div>
+
+                        {/* Summary Cards */}
+                        <div className="grid gap-6 md:grid-cols-3 mb-8">
+                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <Users className="h-6 w-6 text-black" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-lg font-bold text-black">Total Locations</h4>
+                                            <p className="text-gray-600 text-sm">Departments using supplies</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-3xl font-bold text-black">{Object.keys(usageByLocation || {}).length}</div>
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <Users className="h-6 w-6 text-black" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-lg font-bold text-black">Total Products</h4>
+                                            <p className="text-gray-600 text-sm">Product-location combinations</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-3xl font-bold text-black">
+                                        {Object.values(usageByLocation || {}).reduce((sum, usages) => sum + (usages?.length || 0), 0)}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <Users className="h-6 w-6 text-black" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-lg font-bold text-black">Total Value</h4>
+                                            <p className="text-gray-600 text-sm">Total cost across all locations</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-3xl font-bold text-black">
+                                        ₱
+                                        {Number(
+                                            Object.values(usageByLocation || {})
+                                                .flat()
+                                                .reduce((sum, usage: any) => sum + (Number(usage?.total_cost) || 0), 0),
+                                        ).toFixed(2)}
+                                    </div>
+                                </div>
+                            </div>
                 </div>
 
-                {/* Summary Cards */}
-                <div className="grid gap-6 md:grid-cols-3 mb-8">
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white hover:shadow-xl transition-all duration-300">
-                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-                            <div className="flex items-center justify-between p-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg">
-                                        <Users className="h-6 w-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-white">Total Locations</h3>
-                                        <p className="text-blue-100 text-sm">Departments using supplies</p>
-                                    </div>
-                                </div>
-                                <div className="text-3xl font-bold text-white">{Object.keys(usageByLocation || {}).length}</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white hover:shadow-xl transition-all duration-300">
-                        <div className="bg-gradient-to-r from-green-500 to-green-600 text-white">
-                            <div className="flex items-center justify-between p-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gradient-to-br from-green-400 to-green-500 rounded-lg">
-                                        <Users className="h-6 w-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-white">Total Products</h3>
-                                        <p className="text-green-100 text-sm">Product-location combinations</p>
-                                    </div>
-                                </div>
-                                <div className="text-3xl font-bold text-white">
-                                    {Object.values(usageByLocation || {}).reduce((sum, usages) => sum + (usages?.length || 0), 0)}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white hover:shadow-xl transition-all duration-300">
-                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
-                            <div className="flex items-center justify-between p-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gradient-to-br from-purple-400 to-purple-500 rounded-lg">
-                                        <Users className="h-6 w-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-white">Total Value</h3>
-                                        <p className="text-purple-100 text-sm">Total cost across all locations</p>
-                                    </div>
-                                </div>
-                                <div className="text-3xl font-bold text-white">
-                                    ₱
-                                    {Number(
-                                        Object.values(usageByLocation || {})
-                                            .flat()
-                                            .reduce((sum, usage: any) => sum + (Number(usage?.total_cost) || 0), 0),
-                                    ).toFixed(2)}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Location Summary */}
-                <div className="holographic-card shadow-lg border-0 mb-8 overflow-hidden rounded-xl bg-white">
-                    <div className="bg-gradient-to-r from-cyan-500 to-cyan-600 text-white">
-                        <div className="flex items-center gap-3 p-6">
-                            <div className="p-2 bg-gradient-to-br from-cyan-400 to-cyan-500 rounded-lg">
-                                <Users className="h-6 w-6 text-white" />
-                            </div>
-                            <div>
-                                <h3 className="text-2xl font-bold text-white">Location Summary</h3>
-                                <p className="text-cyan-100 mt-1">Summary of supply usage by location</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="px-6 py-6 bg-gradient-to-br from-cyan-50 to-cyan-100">
+                        {/* Location Summary */}
+                        <div className="mb-8">
+                            <h4 className="text-lg font-semibold text-black mb-4">Location Summary</h4>
                         {Object.keys(usageByLocation || {}).length > 0 ? (
                             <div className="overflow-x-auto rounded-xl border border-gray-200">
                                 <Table>
@@ -233,7 +231,7 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
                                         {Object.keys(usageByLocation || {}).map((location) => {
                                             const totals = getTotalUsageByLocation(location);
                                             return (
-                                                <TableRow key={location} className="hover:bg-cyan-50/50 transition-colors border-b border-gray-100">
+                                                <TableRow key={location} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100">
                                                     <TableCell>
                                                         <div className="font-medium text-gray-900">{location}</div>
                                                     </TableCell>
@@ -264,61 +262,61 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
                     </div>
                 </div>
 
-                {/* Detailed Usage by Location */}
-                {Object.keys(usageByLocation || {}).length > 0 && (
-                    <div className="space-y-6">
-                        {Object.entries(usageByLocation || {}).map(([location, usages]) => (
-                            <div key={location} className="holographic-card shadow-lg border-0 overflow-hidden rounded-xl bg-white">
-                                <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white">
-                                    <div className="flex items-center gap-3 p-6">
-                                <div className="p-2 bg-gradient-to-br from-emerald-400 to-emerald-500 rounded-lg">
-                                    <Users className="h-6 w-6 text-white" />
-                                </div>
-                                        <div>
-                                            <h3 className="text-2xl font-bold text-white">{location}</h3>
-                                            <p className="text-emerald-100 mt-1">Detailed usage breakdown for this location</p>
+                        {/* Detailed Usage by Location */}
+                        {Object.keys(usageByLocation || {}).length > 0 && (
+                            <div>
+                                <h4 className="text-lg font-semibold text-black mb-4">Detailed Breakdown by Location</h4>
+                                <div className="space-y-6">
+                                    {Object.entries(usageByLocation || {}).map(([location, usages]) => (
+                                        <div key={location} className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className="p-2 bg-gray-100 rounded-lg">
+                                                    <Users className="h-6 w-6 text-black" />
+                                                </div>
+                                                <div>
+                                                    <h5 className="text-lg font-bold text-black">{location}</h5>
+                                                    <p className="text-gray-600 text-sm">Detailed usage breakdown for this location</p>
+                                                </div>
+                                            </div>
+                                            <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                                <Table>
+                                                    <TableHeader className="bg-gray-50">
+                                                        <TableRow className="hover:bg-gray-50">
+                                                            <TableHead className="font-semibold text-gray-700">Product</TableHead>
+                                                            <TableHead className="font-semibold text-gray-700">Total Quantity</TableHead>
+                                                            <TableHead className="font-semibold text-gray-700">Total Cost</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {(usages || []).map((usage) => (
+                                                            <TableRow key={`${location}-${usage.product_id}`} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100">
+                                                                <TableCell>
+                                                                    <div>
+                                                                        <div className="font-medium text-gray-900">{usage.product.name}</div>
+                                                                        <div className="text-sm text-gray-600">{usage.product.code}</div>
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <div className="font-medium text-gray-900">{usage.total_quantity}</div>
+                                                                    <div className="text-sm text-gray-600">
+                                                                        {usage.product.unit_of_measure || 'units'}
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <div className="font-medium text-gray-900">₱{Number(usage.total_cost || 0).toFixed(2)}</div>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                                <div className="px-6 py-6 bg-gradient-to-br from-emerald-50 to-emerald-100">
-                                    <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                        <Table>
-                                            <TableHeader className="bg-gray-50">
-                                                <TableRow className="hover:bg-gray-50">
-                                                    <TableHead className="font-semibold text-gray-700">Product</TableHead>
-                                                    <TableHead className="font-semibold text-gray-700">Total Quantity</TableHead>
-                                                    <TableHead className="font-semibold text-gray-700">Total Cost</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {(usages || []).map((usage) => (
-                                                    <TableRow key={`${location}-${usage.product_id}`} className="hover:bg-emerald-50/50 transition-colors border-b border-gray-100">
-                                                        <TableCell>
-                                                            <div>
-                                                                <div className="font-medium text-gray-900">{usage.product.name}</div>
-                                                                <div className="text-sm text-gray-600">{usage.product.code}</div>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="font-medium text-gray-900">{usage.total_quantity}</div>
-                                                            <div className="text-sm text-gray-600">
-                                                                {usage.product.unit_of_measure || 'units'}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="font-medium text-gray-900">₱{Number(usage.total_cost || 0).toFixed(2)}</div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
+                                    ))}
                                 </div>
                             </div>
-                        ))}
+                        )}
                     </div>
-                )}
-            </div>
+                </div>
         </AppLayout>
     );
 }

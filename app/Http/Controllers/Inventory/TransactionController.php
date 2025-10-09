@@ -14,6 +14,7 @@ class TransactionController extends Controller
 {
     public function index(Request $request)
     {
+        \Log::info('TransactionController::index called');
         $query = Transaction::with(['product', 'user', 'approvedBy', 'chargedTo']);
 
         // Search functionality
@@ -50,11 +51,30 @@ class TransactionController extends Controller
                             ->orderBy('created_at', 'desc')
                             ->paginate(20);
 
+        // Calculate statistics
+        $stats = [
+            'total_transactions' => Transaction::count(),
+            'pending_approvals' => Transaction::where('approval_status', 'pending')->count(),
+            'approved_today' => Transaction::where('approval_status', 'approved')
+                ->whereDate('transaction_date', today())
+                ->count(),
+            'total_value' => Transaction::where('approval_status', 'approved')
+                ->sum('total_cost') ?? 0,
+        ];
+
+        \Log::info('TransactionController::index returning data', [
+            'transactions_count' => $transactions->count(),
+            'total' => $transactions->total(),
+            'first_transaction' => $transactions->first()
+        ]);
+        
         return Inertia::render('admin/inventory/transactions/index', [
             'transactions' => $transactions,
             'filters' => $request->only(['search', 'type', 'approval_status', 'date_from', 'date_to']),
+            'stats' => $stats,
         ]);
     }
+
 
     public function create(Request $request)
     {

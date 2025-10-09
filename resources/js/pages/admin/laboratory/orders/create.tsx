@@ -51,8 +51,8 @@ export default function LabOrdersCreate({ patients = [] }: { patients?: Patient[
                         <Card className="shadow-lg">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                        <User2 className="h-6 w-6 text-blue-600" />
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <User2 className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
                                         <CardTitle className="text-lg font-semibold text-gray-900">Choose Patient</CardTitle>
@@ -61,20 +61,29 @@ export default function LabOrdersCreate({ patients = [] }: { patients?: Patient[
                                 </div>
                             </CardHeader>
                             <CardContent className="p-6">
-                                <div className="mb-4 flex items-center">
-                                    <Search className="mr-2 h-4 w-4 text-blue-600" />
-                                    <Input placeholder="Search by name..." value={query} onChange={(e) => setQuery(e.target.value)} className="w-80 h-12 border-gray-300 rounded-xl shadow-sm" />
+                                <div className="mb-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="relative flex-1 max-w-md">
+                                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                            <Input
+                                                placeholder="Search by patient name..."
+                                                value={query}
+                                                onChange={(e) => setQuery(e.target.value)}
+                                                className="pl-10 h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                                     {filtered.map((p) => (
                                         <div
                                             key={p.id}
-                                            className="bg-white rounded-xl border border-blue-200 shadow-sm cursor-pointer transition-colors hover:bg-blue-50"
+                                            className="bg-white rounded-xl border border-gray-200 shadow-sm cursor-pointer transition-colors hover:bg-gray-50"
                                             onClick={() => router.visit(`/admin/laboratory/patients/${p.id}/orders`)}
                                         >
                                             <div className="flex items-center gap-3 p-4">
-                                                <User2 className="h-6 w-6 text-blue-600" />
+                                                <User2 className="h-6 w-6 text-black" />
                                                 <div>
                                                     <div className="font-medium">
                                                         {p.last_name}, {p.first_name}
@@ -95,8 +104,8 @@ export default function LabOrdersCreate({ patients = [] }: { patients?: Patient[
                     <Card className="shadow-lg sticky top-0 self-start">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <User2 className="h-6 w-6 text-blue-600" />
+                                <div className="p-2 bg-gray-100 rounded-lg">
+                                    <User2 className="h-6 w-6 text-black" />
                                 </div>
                                 <div>
                                     <CardTitle className="text-lg font-semibold text-gray-900">Quick Tips</CardTitle>

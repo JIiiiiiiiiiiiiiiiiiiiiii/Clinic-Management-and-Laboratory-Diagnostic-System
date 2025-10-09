@@ -11,6 +11,9 @@ class Patient extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        // User relationship
+        'user_id',
+        
         // Patient Identification
         'last_name',
         'first_name',
@@ -97,5 +100,20 @@ class Patient extends Model
     public function latestVisit()
     {
         return $this->hasOne(PatientVisit::class)->latest();
+    }
+
+    public function transfers()
+    {
+        return $this->hasMany(PatientTransfer::class);
+    }
+
+    public function appointments()
+    {
+        return $this->hasMany(Appointment::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }
