@@ -51,9 +51,11 @@ Route::middleware(['auth', 'verified'])
         Route::prefix('reports')->name('reports.')->group(function () {
             Route::get('/', [HospitalReportController::class, 'index'])->name('index');
             Route::get('/patients', [HospitalReportController::class, 'patients'])->name('patients');
-            Route::get('/appointments', [HospitalReportController::class, 'appointments'])->name('appointments');
-            Route::get('/transactions', [HospitalReportController::class, 'transactions'])->name('transactions');
+            Route::get('/laboratory', [HospitalReportController::class, 'laboratory'])->name('laboratory');
             Route::get('/inventory', [HospitalReportController::class, 'inventory'])->name('inventory');
+            Route::get('/appointments', [HospitalReportController::class, 'appointments'])->name('appointments');
+            Route::get('/specialist-management', [HospitalReportController::class, 'specialistManagement'])->name('specialist.management');
+            Route::get('/billing', [HospitalReportController::class, 'transactions'])->name('billing');
             Route::get('/transfers', [HospitalReportController::class, 'transfers'])->name('transfers');
             Route::get('/clinic-operations', [HospitalReportController::class, 'clinicOperations'])->name('clinic.operations');
             Route::get('/export/{type}', [HospitalReportController::class, 'export'])->name('export');

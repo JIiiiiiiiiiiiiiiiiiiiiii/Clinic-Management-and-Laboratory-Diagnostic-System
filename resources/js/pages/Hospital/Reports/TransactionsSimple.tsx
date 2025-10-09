@@ -43,9 +43,9 @@ interface Props {
 
 export default function HospitalReportsTransactions({ user, transactions, stats, dateRange, filters }: Props) {
   const breadcrumbs: BreadcrumbItem[] = [
-    { label: 'Hospital Dashboard', href: route('hospital.dashboard') },
-    { label: 'Reports', href: route('hospital.reports.index') },
-    { label: 'Transaction Reports', href: route('hospital.reports.transactions') },
+    { title: 'Hospital Dashboard', href: route('hospital.dashboard') },
+    { title: 'Reports', href: route('hospital.reports.index') },
+    { title: 'Transaction Reports', href: route('hospital.reports.transactions') },
   ];
 
   return (

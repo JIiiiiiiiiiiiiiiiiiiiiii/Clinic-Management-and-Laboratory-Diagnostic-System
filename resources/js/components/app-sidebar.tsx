@@ -137,7 +137,7 @@ const data = {
       ],
     },
     {
-      title: "Analytics",
+      title: "Reports",
       url: "/admin/reports",
       icon: BarChartIcon,
     },

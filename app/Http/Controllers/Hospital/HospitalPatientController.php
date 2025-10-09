@@ -15,26 +15,50 @@ class HospitalPatientController extends Controller
 {
     public function index(Request $request): Response
     {
-        // Simple test with minimal data
-        return Inertia::render('Hospital/Patients/IndexSimple', [
-            'patients' => [
-                'data' => [],
-                'links' => [],
-                'meta' => []
-            ],
-            'stats' => [
-                'total_patients' => 0,
-                'male_patients' => 0,
-                'female_patients' => 0,
-                'new_this_month' => 0,
-            ],
-            'filters' => [],
+        $query = Patient::query();
+
+        // Search functionality
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('patient_id', 'like', "%{$search}%")
+                  ->orWhere('contact_number', 'like', "%{$search}%");
+            });
+        }
+
+        // Filter by transfer status
+        if ($request->has('transfer_status')) {
+            $transferStatus = $request->transfer_status;
+            if ($transferStatus === 'transferred') {
+                $query->whereHas('transfers', function($q) {
+                    $q->where('status', 'completed');
+                });
+            } elseif ($transferStatus === 'pending') {
+                $query->whereHas('transfers', function($q) {
+                    $q->where('status', 'pending');
+                });
+            } elseif ($transferStatus === 'not_transferred') {
+                $query->whereDoesntHave('transfers');
+            }
+        }
+
+        $patients = $query->with(['transfers' => function($q) {
+            $q->latest();
+        }])
+        ->orderBy('created_at', 'desc')
+        ->paginate(15);
+
+        return Inertia::render('Hospital/Patients/Index', [
+            'patients' => $patients,
+            'filters' => $request->only(['search', 'transfer_status']),
         ]);
     }
 
     public function create(): Response
     {
-        return Inertia::render('Hospital/Patients/CreateSimple');
+        return Inertia::render('Hospital/Patients/Create');
     }
 
     public function store(Request $request)
@@ -43,45 +67,35 @@ class HospitalPatientController extends Controller
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
-            'birthdate' => 'required|date',
-            'sex' => 'required|in:male,female',
-            'mobile_no' => 'nullable|string|max:20',
-            'telephone_no' => 'nullable|string|max:20',
-            'present_address' => 'nullable|string|max:500',
-            'occupation' => 'nullable|string|max:255',
-            'civil_status' => 'nullable|string|max:50',
-            'nationality' => 'nullable|string|max:100',
-            'religion' => 'nullable|string|max:100',
-            'informant_name' => 'nullable|string|max:255',
-            'relationship' => 'nullable|string|max:100',
-            'drug_allergies' => 'nullable|string',
-            'food_allergies' => 'nullable|string',
-            'past_medical_history' => 'nullable|string',
-            'family_history' => 'nullable|string',
-            'social_personal_history' => 'nullable|string',
-            'obstetrics_gynecology_history' => 'nullable|string',
+            'date_of_birth' => 'required|date',
+            'gender' => 'required|in:male,female,other',
+            'contact_number' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:255',
+            'address' => 'nullable|string|max:500',
+            'emergency_contact_name' => 'nullable|string|max:255',
+            'emergency_contact_number' => 'nullable|string|max:20',
+            'medical_history' => 'nullable|string',
+            'allergies' => 'nullable|string',
+            'current_medications' => 'nullable|string',
         ]);
 
-        // Calculate age from birthdate
-        $age = \Carbon\Carbon::parse($validated['birthdate'])->age;
-
-        // Generate patient number
-        $maxPatientNo = Patient::max('patient_no');
-        $nextPatientNo = $maxPatientNo ? $maxPatientNo + 1 : 1;
+        // Generate patient ID
+        $patientId = 'P' . str_pad(Patient::count() + 1, 6, '0', STR_PAD_LEFT);
 
         $patient = Patient::create([
             ...$validated,
-            'age' => $age,
-            'patient_no' => $nextPatientNo,
-            'user_id' => null, // Hospital patients don't have user accounts initially
+            'patient_id' => $patientId,
+            'created_by' => auth()->id(),
         ]);
 
         return redirect()->route('hospital.patients.show', $patient)
-            ->with('success', 'Patient created successfully and added to admin system.');
+            ->with('success', 'Patient created successfully.');
     }
 
     public function show(Patient $patient): Response
     {
+        $patient->load(['transfers', 'visits', 'appointments']);
+        
         return Inertia::render('Hospital/Patients/Show', [
             'patient' => $patient,
         ]);
@@ -159,57 +173,5 @@ class HospitalPatientController extends Controller
             'patient' => $patient,
             'transfers' => $transfers,
         ]);
-    }
-
-    /**
-     * Show refer patient form
-     */
-    public function refer(): Response
-    {
-        // Simple test data to match working structure
-        $patients = [
-            [
-                'id' => 1,
-                'patient_no' => 'P001',
-                'full_name' => 'Test Patient 1'
-            ],
-            [
-                'id' => 2,
-                'patient_no' => 'P002', 
-                'full_name' => 'Test Patient 2'
-            ]
-        ];
-
-        return Inertia::render('Hospital/Patients/ReferSimple', [
-            'patients' => $patients,
-        ]);
-    }
-
-    /**
-     * Process patient referral
-     */
-    public function processReferral(Request $request)
-    {
-        $validated = $request->validate([
-            'patient_id' => 'required|exists:patients,id',
-            'referral_reason' => 'required|string|max:500',
-            'priority' => 'required|in:low,medium,high,urgent',
-            'specialist_type' => 'required|string|max:100',
-            'notes' => 'nullable|string|max:1000',
-        ]);
-
-        // Create referral record
-        $referral = \App\Models\PatientReferral::create([
-            'patient_id' => $validated['patient_id'],
-            'referral_reason' => $validated['referral_reason'],
-            'priority' => $validated['priority'],
-            'specialist_type' => $validated['specialist_type'],
-            'notes' => $validated['notes'],
-            'status' => 'pending',
-            'referred_by' => auth()->id(),
-        ]);
-
-        return redirect()->route('hospital.patients.index')
-            ->with('success', 'Patient referral created successfully.');
     }
 }

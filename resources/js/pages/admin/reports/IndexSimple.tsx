@@ -45,16 +45,16 @@ interface DateRange {
 interface Props {
   user: any;
   summary: Summary;
-  chartData: any[];
+  chartData: ChartData;
   recentActivities: any[];
   dateRange: DateRange;
   activeTab?: string;
 }
 
-export default function HospitalReportsIndex({ user, summary, chartData, recentActivities, dateRange, activeTab = 'daily' }: Props) {
+export default function AdminReportsIndex({ user, summary, chartData, recentActivities, dateRange, activeTab = 'daily' }: Props) {
   const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Hospital Dashboard', href: route('hospital.dashboard') },
-    { title: 'Reports', href: route('hospital.reports.index') },
+    { title: 'Admin Dashboard', href: route('admin.dashboard') },
+    { title: 'Reports', href: route('admin.reports.index') },
   ];
 
   const [currentTab, setCurrentTab] = useState(activeTab);
@@ -62,14 +62,14 @@ export default function HospitalReportsIndex({ user, summary, chartData, recentA
   const handleTabChange = (tab: string) => {
     setCurrentTab(tab);
     // Update URL with period parameter
-    router.get(route('hospital.reports.index'), { period: tab }, {
+    router.get(route('admin.reports.index'), { period: tab }, {
       preserveState: true,
       replace: true
     });
   };
 
   const handleExportAll = (period: string) => {
-    window.location.href = `${route('hospital.reports.export', 'all')}?period=${period}`;
+    window.location.href = `${route('admin.reports.export', 'all')}?period=${period}`;
   };
 
   const reportCategories = [
@@ -77,37 +77,37 @@ export default function HospitalReportsIndex({ user, summary, chartData, recentA
       title: 'Laboratory',
       description: 'Track lab tests and results',
       icon: TestTube,
-      href: route('hospital.reports.laboratory')
+      href: route('admin.reports.laboratory')
     },
     {
       title: 'Inventory',
       description: 'Track supply usage and stock levels',
       icon: Package,
-      href: route('hospital.reports.inventory')
+      href: route('admin.reports.inventory')
     },
     {
       title: 'Appointments',
       description: 'Track appointment trends and status',
       icon: Calendar,
-      href: route('hospital.reports.appointments')
+      href: route('admin.reports.appointments')
     },
     {
       title: 'Specialist Management',
       description: 'Monitor specialist referrals and management',
       icon: UserCheck,
-      href: route('hospital.reports.specialist.management')
+      href: route('admin.reports.specialist.management')
     },
     {
       title: 'Billing',
       description: 'Monitor billing and payment data',
       icon: CreditCard,
-      href: route('hospital.reports.billing')
+      href: route('admin.reports.billing')
     }
   ];
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
-      <Head title="Hospital Reports" />
+      <Head title="Admin Reports" />
       
       <div className="space-y-6">
         {/* Header */}
@@ -148,6 +148,7 @@ export default function HospitalReportsIndex({ user, summary, chartData, recentA
               </Button>
             </div>
 
+
             {/* Daily Report Categories */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {reportCategories.map((report, index) => (
@@ -181,6 +182,7 @@ export default function HospitalReportsIndex({ user, summary, chartData, recentA
               </Button>
             </div>
 
+
             {/* Monthly Report Categories */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {reportCategories.map((report, index) => (
@@ -213,6 +215,7 @@ export default function HospitalReportsIndex({ user, summary, chartData, recentA
                 Export Yearly Reports
               </Button>
             </div>
+
 
             {/* Yearly Report Categories */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

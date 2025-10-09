@@ -684,6 +684,20 @@ Route::prefix('admin')
             Route::get('/export/{type}', [AnalyticsController::class, 'exportReport'])->name('export');
         });
 
+        // Comprehensive Reports Routes - All staff can access
+        Route::prefix('reports')->name('reports.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Hospital\HospitalReportController::class, 'index'])->name('index');
+            Route::get('/patients', [App\Http\Controllers\Hospital\HospitalReportController::class, 'patients'])->name('patients');
+            Route::get('/laboratory', [App\Http\Controllers\Hospital\HospitalReportController::class, 'laboratory'])->name('laboratory');
+            Route::get('/inventory', [App\Http\Controllers\Hospital\HospitalReportController::class, 'inventory'])->name('inventory');
+            Route::get('/appointments', [App\Http\Controllers\Hospital\HospitalReportController::class, 'appointments'])->name('appointments');
+            Route::get('/specialist-management', [App\Http\Controllers\Hospital\HospitalReportController::class, 'specialistManagement'])->name('specialist.management');
+            Route::get('/billing', [App\Http\Controllers\Hospital\HospitalReportController::class, 'transactions'])->name('billing');
+            Route::get('/transfers', [App\Http\Controllers\Hospital\HospitalReportController::class, 'transfers'])->name('transfers');
+            Route::get('/clinic-operations', [App\Http\Controllers\Hospital\HospitalReportController::class, 'clinicOperations'])->name('clinic.operations');
+            Route::get('/export/{type}', [App\Http\Controllers\Hospital\HospitalReportController::class, 'export'])->name('export');
+        });
+
         // Inventory routes - All authenticated staff can access
         Route::prefix('inventory')->name('inventory.')->group(function () {
             Route::get('/', [InventoryController::class, 'index'])->name('index');
