@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CustomDatePicker } from '@/components/ui/date-picker';
+// import { CustomDatePicker } from '@/components/ui/date-picker';
 import { PatientPageLayout, PatientActionButton, PatientFormSection, PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
@@ -380,12 +380,11 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                                     <Calendar className="h-4 w-4 text-gray-700" />
                                                     <span className="text-sm font-semibold text-gray-700">Birthdate *</span>
                                                 </div>
-                                                <CustomDatePicker
+                                                <Input
+                                                    type="date"
                                                     value={data.birthdate}
-                                                    onChange={(date) => onBirthdateChange(date ? date.toISOString().split('T')[0] : '')}
-                                                    placeholder="Select birthdate"
-                                                    variant="responsive"
-                                                    className={`w-full ${errors.birthdate ? 'border-gray-500' : ''}`}
+                                                    onChange={(e) => onBirthdateChange(e.target.value)}
+                                                    className={`w-full ${errors.birthdate ? 'border-red-500' : ''}`}
                                                 />
                                                 {errors.birthdate && <p className="text-sm text-black">{errors.birthdate}</p>}
                                             </div>

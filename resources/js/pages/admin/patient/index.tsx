@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CustomDatePicker } from '@/components/ui/date-picker';
+// import { CustomDatePicker } from '@/components/ui/date-picker';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PatientPageLayout, PatientActionButton, PatientInfoCard, PatientStatusBadge } from '@/components/patient/PatientPageLayout';
@@ -226,7 +226,7 @@ export default function Patient(props: {
                                                 router.visit(
                                                     `/admin/patient?p_page=${patients_pagination.current_page - 1}&p_search=${encodeURIComponent(
                                                         pSearch,
-                                                    )}&p_sort_by=${patients_filters?.p_sort_by || 'last_name'}&p_sort_dir=${patients_filters?.p_sort_dir || 'asc'}`,
+                                                    )}&p_sort_by=${patients_filters?.p_sort_by || 'patient_no'}&p_sort_dir=${patients_filters?.p_sort_dir || 'asc'}`,
                                                 )
                                             }
                                             className="px-4 py-2"
@@ -246,7 +246,7 @@ export default function Patient(props: {
                                                 router.visit(
                                                     `/admin/patient?p_page=${patients_pagination.current_page + 1}&p_search=${encodeURIComponent(
                                                         pSearch,
-                                                    )}&p_sort_by=${patients_filters?.p_sort_by || 'last_name'}&p_sort_dir=${patients_filters?.p_sort_dir || 'asc'}`,
+                                                    )}&p_sort_by=${patients_filters?.p_sort_by || 'patient_no'}&p_sort_dir=${patients_filters?.p_sort_dir || 'asc'}`,
                                                 )
                                             }
                                             className="px-4 py-2"
@@ -266,31 +266,21 @@ export default function Patient(props: {
                                 <div className="flex flex-wrap gap-3 items-end">
                                     <div className="flex-1 min-w-[180px]">
                                         <label className="mb-1 block text-sm font-medium text-gray-700">Start Date</label>
-                                        <CustomDatePicker
-                                            value={(visits_filters as any)?.v_start || ''}
-                                            onChange={(date) => {
-                                                const input = document.querySelector('input[name="v_start"]') as HTMLInputElement;
-                                                if (input) input.value = date ? date.toISOString().split('T')[0] : '';
-                                            }}
-                                            placeholder="Select start date"
-                                            variant="responsive"
+                                        <Input
+                                            type="date"
+                                            name="v_start"
+                                            defaultValue={(visits_filters as any)?.v_start || ''}
                                             className="h-10 w-full"
                                         />
-                                        <input type="hidden" name="v_start" value={(visits_filters as any)?.v_start || ''} />
                                     </div>
                                     <div className="flex-1 min-w-[180px]">
                                         <label className="mb-1 block text-sm font-medium text-gray-700">End Date</label>
-                                        <CustomDatePicker
-                                            value={(visits_filters as any)?.v_end || ''}
-                                            onChange={(date) => {
-                                                const input = document.querySelector('input[name="v_end"]') as HTMLInputElement;
-                                                if (input) input.value = date ? date.toISOString().split('T')[0] : '';
-                                            }}
-                                            placeholder="Select end date"
-                                            variant="responsive"
+                                        <Input
+                                            type="date"
+                                            name="v_end"
+                                            defaultValue={(visits_filters as any)?.v_end || ''}
                                             className="h-10 w-full"
                                         />
-                                        <input type="hidden" name="v_end" value={(visits_filters as any)?.v_end || ''} />
                                     </div>
                                     <div>
                                         <label className="mb-2 block text-sm font-medium text-gray-700">Doctor</label>

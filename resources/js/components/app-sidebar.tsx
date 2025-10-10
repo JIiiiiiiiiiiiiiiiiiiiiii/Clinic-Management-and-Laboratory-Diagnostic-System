@@ -104,12 +104,16 @@ const data = {
           url: "/admin/inventory",
         },
         {
-          title: "Products",
-          url: "/admin/inventory/products",
+          title: "Create Product",
+          url: "/admin/inventory/create",
         },
         {
-          title: "Transactions",
-          url: "/admin/inventory/transactions",
+          title: "Doctor & Nurse Supplies",
+          url: "/admin/inventory/doctor-nurse",
+        },
+        {
+          title: "Med Tech Supplies",
+          url: "/admin/inventory/medtech",
         },
         {
           title: "Reports",

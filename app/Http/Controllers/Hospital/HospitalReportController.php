@@ -187,30 +187,8 @@ class HospitalReportController extends Controller
      */
     public function inventory(Request $request): Response
     {
-        // Determine if this is an admin route
-        $isAdminRoute = $request->route()->getName() && str_starts_with($request->route()->getName(), 'admin.');
-        $componentPath = $isAdminRoute ? 'admin/reports/InventorySimple' : 'Hospital/Reports/InventorySimple';
-        
-        // Simple inventory reports with minimal data
-        return Inertia::render($componentPath, [
-            'user' => $request->user(),
-            'inventory' => [
-                'data' => [],
-                'links' => [],
-                'meta' => []
-            ],
-            'stats' => [
-                'total_items' => 0,
-                'low_stock_items' => 0,
-                'out_of_stock_items' => 0,
-                'total_value' => 0
-            ],
-            'dateRange' => [
-                'start' => now()->startOfMonth()->toDateString(),
-                'end' => now()->endOfMonth()->toDateString()
-            ],
-            'filters' => []
-        ]);
+        // Redirect to the new inventory reports page
+        return redirect()->route('admin.inventory.reports');
     }
 
     /**

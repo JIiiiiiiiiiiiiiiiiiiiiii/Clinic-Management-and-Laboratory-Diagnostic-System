@@ -22,6 +22,7 @@ class Report extends Model
         'status',
         'created_by',
         'updated_by',
+        'exported_at',
     ];
 
     protected $casts = [
@@ -29,6 +30,7 @@ class Report extends Model
         'data' => 'array',
         'start_date' => 'date',
         'end_date' => 'date',
+        'exported_at' => 'datetime',
     ];
 
     // Relationships

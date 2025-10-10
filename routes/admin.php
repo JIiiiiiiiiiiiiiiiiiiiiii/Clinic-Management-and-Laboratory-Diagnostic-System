@@ -38,6 +38,41 @@ Route::prefix('admin')
         // Dashboard - All authenticated staff can access
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+        // Test route for debugging
+        Route::get('/patient-test', function () {
+            return response()->json([
+                'message' => 'Admin patient route is working!',
+                'timestamp' => now(),
+                'user' => auth()->user() ? auth()->user()->name : 'Not authenticated'
+            ]);
+        })->name('patient.test');
+
+        // Simple HTML test route
+        Route::get('/patient-html-test', function () {
+            return '<html><body><h1>Admin Patient Route Test</h1><p>This route is working!</p><p>User: ' . (auth()->user() ? auth()->user()->name : 'Not authenticated') . '</p></body></html>';
+        })->name('patient.html.test');
+
+        // Simple patient list without Inertia
+        Route::get('/patient-simple', function () {
+            try {
+                $patients = \App\Models\Patient::take(5)->get();
+                $html = '<html><body><h1>Patient List (Simple)</h1>';
+                $html .= '<p>Found ' . $patients->count() . ' patients</p>';
+                foreach ($patients as $patient) {
+                    $html .= '<p>' . $patient->first_name . ' ' . $patient->last_name . ' (#' . $patient->patient_no . ')</p>';
+                }
+                $html .= '</body></html>';
+                return $html;
+            } catch (\Exception $e) {
+                return '<html><body><h1>Error</h1><p>' . $e->getMessage() . '</p></body></html>';
+            }
+        })->name('patient.simple');
+
+        // Test route to bypass Inertia completely
+        Route::get('/patient-bypass', function () {
+            return '<html><body><h1>Patient Route Bypass Test</h1><p>This route works without Inertia!</p><p>User: ' . (auth()->user() ? auth()->user()->name : 'Not authenticated') . '</p></body></html>';
+        })->name('patient.bypass');
+
         // Patient CRUD routes (URLs -> /admin/patient) - All staff can access
         Route::resource('patient', PatientController::class)->names([
             'index' => 'patient.index',
@@ -698,35 +733,99 @@ Route::prefix('admin')
             Route::get('/export/{type}', [App\Http\Controllers\Hospital\HospitalReportController::class, 'export'])->name('export');
         });
 
+        // Test route for debugging
+        Route::get('/test-inventory', function () {
+            $items = \App\Models\InventoryItem::all();
+            $data = [];
+            foreach ($items as $item) {
+                $data[] = [
+                    'id' => $item->id,
+                    'name' => $item->item_name,
+                    'stock' => $item->stock,
+                    'consumed' => $item->consumed,
+                    'rejected' => $item->rejected,
+                ];
+            }
+            return response()->json($data);
+        });
+
+        // Test reject functionality
+        Route::post('/test-reject/{id}', function ($id) {
+            $item = \App\Models\InventoryItem::findOrFail($id);
+            $item->removeStock(1, true); // Reject 1 item
+            return response()->json([
+                'success' => true,
+                'item' => [
+                    'id' => $item->id,
+                    'name' => $item->item_name,
+                    'stock' => $item->stock,
+                    'consumed' => $item->consumed,
+                    'rejected' => $item->rejected,
+                ]
+            ]);
+        });
+
+        // Test rejected items functionality
+        Route::get('/test-rejected-items', function () {
+            $itemsWithRejections = \App\Models\InventoryItem::where('rejected', '>', 0)->get();
+            $totalRejected = \App\Models\InventoryItem::getTotalRejected();
+            $rejectedMovements = \App\Models\InventoryMovement::with(['inventoryItem'])
+                ->where('movement_type', 'OUT')
+                ->where('remarks', 'like', '%rejected%')
+                ->get();
+            
+            return response()->json([
+                'success' => true,
+                'totalRejectedItems' => $totalRejected,
+                'itemsWithRejections' => $itemsWithRejections->map(function($item) {
+                    return [
+                        'id' => $item->id,
+                        'name' => $item->item_name,
+                        'code' => $item->item_code,
+                        'rejected' => $item->rejected,
+                        'consumed' => $item->consumed,
+                        'stock' => $item->stock,
+                        'rejectionRate' => $item->getRejectionRate()
+                    ];
+                }),
+                'rejectedMovements' => $rejectedMovements->map(function($movement) {
+                    return [
+                        'id' => $movement->id,
+                        'item_name' => $movement->inventoryItem->item_name,
+                        'quantity' => $movement->quantity,
+                        'remarks' => $movement->remarks,
+                        'created_by' => $movement->created_by,
+                        'created_at' => $movement->created_at->format('Y-m-d H:i:s')
+                    ];
+                }),
+                'summary' => [
+                    'totalRejectedItems' => $totalRejected,
+                    'totalRejectedProducts' => $itemsWithRejections->count(),
+                    'totalRejectedMovements' => $rejectedMovements->count()
+                ]
+            ]);
+        });
+
         // Inventory routes - All authenticated staff can access
         Route::prefix('inventory')->name('inventory.')->group(function () {
-            Route::get('/', [InventoryController::class, 'index'])->name('index');
-
-            // Products
-            Route::resource('products', ProductController::class);
-
-            // Transactions
-            Route::resource('transactions', TransactionController::class);
-            Route::post('transactions/{transaction}/approve', [TransactionController::class, 'approve'])->name('transactions.approve');
-            Route::post('transactions/{transaction}/reject', [TransactionController::class, 'reject'])->name('transactions.reject');
-
-            // Reports
-            Route::prefix('reports')->name('reports.')->group(function () {
-                Route::get('/', [ReportController::class, 'index'])->name('index');
-                Route::get('used-supplies', [ReportController::class, 'usedSupplies'])->name('used-supplies');
-                Route::get('rejected-supplies', [ReportController::class, 'rejectedSupplies'])->name('rejected-supplies');
-                Route::get('in-out-supplies', [ReportController::class, 'inOutSupplies'])->name('in-out-supplies');
-                Route::get('stock-levels', [ReportController::class, 'stockLevels'])->name('stock-levels');
-                Route::get('stock-levels/export', [ReportController::class, 'exportStockLevels'])->name('stock-levels.export');
-                Route::get('daily-consumption', [ReportController::class, 'dailyConsumption'])->name('daily-consumption');
-                Route::get('usage-by-location', [ReportController::class, 'usageByLocation'])->name('usage-by-location');
-                Route::get('used-supplies/export', [ReportController::class, 'exportUsedSupplies'])->name('used-supplies.export');
-                Route::get('rejected-supplies/export', [ReportController::class, 'exportRejectedSupplies'])->name('rejected-supplies.export');
-                Route::get('in-out-supplies/export', [ReportController::class, 'exportInOutSupplies'])->name('in-out-supplies.export');
-                Route::get('daily-consumption/export', [ReportController::class, 'exportDailyConsumption'])->name('daily-consumption.export');
-                Route::get('usage-by-location/export', [ReportController::class, 'exportUsageByLocation'])->name('usage-by-location.export');
-                Route::get('export-all', [ReportController::class, 'exportAllReports'])->name('export-all');
-            });
+            Route::get('/', [App\Http\Controllers\InventoryController::class, 'index'])->name('index');
+            Route::get('/create', [App\Http\Controllers\InventoryController::class, 'create'])->name('create');
+            Route::post('/', [App\Http\Controllers\InventoryController::class, 'store'])->name('store');
+            
+            // Category-specific pages (must come before {id} routes)
+            Route::get('/doctor-nurse', [App\Http\Controllers\InventoryController::class, 'doctorNurse'])->name('doctor-nurse');
+            Route::get('/medtech', [App\Http\Controllers\InventoryController::class, 'medTech'])->name('medtech');
+            
+            // Reports routes (must come before general /reports route)
+            Route::get('/reports', [App\Http\Controllers\InventoryController::class, 'reports'])->name('reports');
+            Route::get('/reports/export', [App\Http\Controllers\InventoryController::class, 'exportReport'])->name('reports.export');
+            
+            // ID-based routes (must come after specific routes)
+            Route::get('/{id}', [App\Http\Controllers\InventoryController::class, 'show'])->name('show');
+            Route::get('/{id}/edit', [App\Http\Controllers\InventoryController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [App\Http\Controllers\InventoryController::class, 'update'])->name('update');
+            Route::delete('/{id}', [App\Http\Controllers\InventoryController::class, 'destroy'])->name('destroy');
+            Route::post('/{id}/movement', [App\Http\Controllers\InventoryController::class, 'movement'])->name('movement');
         });
 
         // Notifications Routes - All staff can access

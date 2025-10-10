@@ -66,28 +66,38 @@ class PatientService
     }
 
     /**
-     * Get the next available patient number with smart reset logic
-     * If patient 1 is deleted, start from 1 again instead of continuing from highest number
+     * Get the next available patient number with sequential numbering
+     * Ensures patient numbers are always sequential: 1, 2, 3, 4, etc.
      */
     private function getNextAvailablePatientNo()
     {
-        // Get the highest patient number (including soft deleted)
-        $maxPatientNo = Patient::withTrashed()->max('patient_no');
+        // Get all existing patient numbers (including soft deleted) and sort them
+        $existingNumbers = Patient::withTrashed()
+            ->pluck('patient_no')
+            ->map(function ($no) {
+                return (int) $no; // Convert to integer for proper sorting
+            })
+            ->sort()
+            ->values()
+            ->toArray();
         
-        if ($maxPatientNo === null) {
-            // No patients exist, start with 1
+        // If no patients exist, start with 1
+        if (empty($existingNumbers)) {
             return '1';
         }
         
-        // Convert to integer and increment
-        $nextNumber = (int) $maxPatientNo + 1;
-        
-        // Safety check: ensure the number doesn't already exist (including soft deleted)
-        while (Patient::withTrashed()->where('patient_no', (string) $nextNumber)->exists()) {
-            $nextNumber++;
+        // Find the first missing number in the sequence
+        $expectedNumber = 1;
+        foreach ($existingNumbers as $existingNumber) {
+            if ($existingNumber === $expectedNumber) {
+                $expectedNumber++;
+            } else {
+                // Found a gap, use this number
+                break;
+            }
         }
         
-        return (string) $nextNumber;
+        return (string) $expectedNumber;
     }
 }
 
