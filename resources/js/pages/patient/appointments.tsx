@@ -142,8 +142,8 @@ export default function PatientAppointments({
     useEffect(() => {
         // Set up real-time listeners for appointment updates
         const setupRealtimeUpdates = () => {
-            // Get user ID from auth data
-            const userId = auth?.user?.id || 1; // Default to 1 if not available
+            // Get user ID from props
+            const userId = user?.id || 1; // Default to 1 if not available
             
             // Listen for appointment status updates
             (window as any).Echo?.private(`patient.appointments.${userId}`)
@@ -182,13 +182,13 @@ export default function PatientAppointments({
 
         // Cleanup on unmount
         return () => {
-            const userId = auth?.user?.id || 1;
+            const userId = user?.id || 1;
             if ((window as any).Echo) {
                 (window as any).Echo.leave(`patient.appointments.${userId}`);
                 (window as any).Echo.leave(`patient.notifications.${userId}`);
             }
         };
-    }, [auth?.user?.id]);
+    }, [user?.id]);
 
     // Update local state when props change
     useEffect(() => {

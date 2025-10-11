@@ -123,7 +123,7 @@ export default function StJamesDashboard({
                                         Book Appointment Now
                                     </Button>
                                 </Link>
-                                <Link href={route('patient.appointments.index')}>
+                                <Link href={route('patient.appointments')}>
                                     <Button variant="outline" size="lg" className="px-8 py-3 text-lg border-green-600 text-green-600 hover:bg-green-50">
                                         <Clock className="mr-2 h-5 w-5" />
                                         View My Appointments
@@ -361,7 +361,7 @@ export default function StJamesDashboard({
                                 Check your upcoming appointments, reschedule if needed, 
                                 or cancel appointments that are no longer required.
                             </p>
-                            <Link href={route('patient.appointments.index')}>
+                            <Link href={route('patient.appointments')}>
                                 <Button variant="outline" className="w-full py-3 border-green-600 text-green-600 hover:bg-green-50">
                                     <Clock className="mr-2 h-5 w-5" />
                                     View Appointments

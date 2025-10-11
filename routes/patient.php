@@ -271,6 +271,20 @@ Route::middleware(['auth'])
         Route::get('/appointments', [PatientAppointmentController::class, 'index'])->name('appointments');
         Route::get('/appointments/create', [PatientAppointmentController::class, 'create'])->name('appointments.create');
         Route::get('/appointments/book', [PatientAppointmentController::class, 'book'])->name('appointments.book');
+        
+        // Test route for appointments
+        Route::get('/appointments-test', function () {
+            $user = auth()->user();
+            $patient = \App\Models\Patient::where('user_id', $user->id)->first();
+            
+            return response()->json([
+                'message' => 'Appointments route is working!',
+                'user_id' => $user->id,
+                'patient_exists' => $patient ? true : false,
+                'patient_id' => $patient ? $patient->id : null,
+                'timestamp' => now()
+            ]);
+        })->name('appointments.test');
 
         // Medical Records
         Route::get('/records', [PatientRecordController::class, 'index'])->name('records');
@@ -278,6 +292,31 @@ Route::middleware(['auth'])
         // Test Results
         Route::get('/test-results', [PatientTestResultController::class, 'index'])->name('test-results');
 
+
+        // Profile
+        Route::get('/profile', function () {
+            $user = auth()->user();
+            $patient = \App\Models\Patient::where('user_id', $user->id)->first();
+            
+            return Inertia::render('patient/profile', [
+                'user' => $user,
+                'patient' => $patient,
+            ]);
+        })->name('profile');
+        
+        Route::put('/profile', function (Request $request) {
+            $user = auth()->user();
+            
+            $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|max:255|unique:users,email,' . $user->id,
+                'phone' => 'nullable|string|max:20',
+            ]);
+            
+            $user->update($request->only(['name', 'email', 'phone']));
+            
+            return redirect()->route('patient.profile')->with('success', 'Profile updated successfully!');
+        })->name('profile.update');
 
         // Contact
         Route::get('/contact', function () {
