@@ -1,14 +1,25 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DataTable } from '@/components/ui/data-table';
+import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { Head } from '@inertiajs/react';
-import { Calendar, DollarSign, Download, FileText, TrendingUp } from 'lucide-react';
+import { ColumnDef } from '@tanstack/react-table';
+import { format as formatDate } from 'date-fns';
+import { Calendar as CalendarIcon, DollarSign, Download, FileText, MoreHorizontal, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
+import type { DateRange } from 'react-day-picker';
 
 interface Transaction {
     id: number;
@@ -37,29 +48,133 @@ interface FinancialReportsProps {
         total: number;
     };
     summary: Summary;
+    chartData?: {
+        monthly_revenue: Array<{ month: string; revenue: number }>;
+        payment_methods: Array<{ payment_method: string; count: number; amount: number }>;
+    };
+    filterOptions?: {
+        doctors: Array<{ id: number; name: string }>;
+        departments: string[];
+        statuses: string[];
+        payment_methods: string[];
+        hmo_providers: string[];
+    };
+    metadata?: {
+        generated_at: string;
+        generated_by: string;
+        generated_by_role: string;
+        system_version: string;
+    };
 }
 
 const breadcrumbs = [
     { label: 'Dashboard', href: '/admin/dashboard' },
-    { label: 'Reports & Analytics', href: '/admin/reports' },
+    { label: 'Reports', href: '/admin/reports' },
     { label: 'Financial Reports', href: '/admin/reports/financial' },
 ];
 
-export default function FinancialReports({ transactions, summary }: FinancialReportsProps) {
-    const [dateFrom, setDateFrom] = useState(summary.date_from);
-    const [dateTo, setDateTo] = useState(summary.date_to);
-    const [paymentMethod, setPaymentMethod] = useState('all');
+// Column definitions for the data table
+const columns: ColumnDef<Transaction>[] = [
+    {
+        accessorKey: 'id',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Transaction ID" />,
+        cell: ({ row }) => <div className="font-medium">#{row.getValue('id')}</div>,
+    },
+    {
+        accessorKey: 'patient_name',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Patient Name" />,
+        cell: ({ row }) => <div className="font-medium">{row.getValue('patient_name')}</div>,
+    },
+    {
+        accessorKey: 'doctor_name',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Doctor" />,
+        cell: ({ row }) => <div>{row.getValue('doctor_name')}</div>,
+    },
+    {
+        accessorKey: 'total_amount',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Amount" />,
+        cell: ({ row }) => {
+            const amount = parseFloat(row.getValue('total_amount') || '0');
+            const formatted = new Intl.NumberFormat('en-PH', {
+                style: 'currency',
+                currency: 'PHP',
+            }).format(amount);
+            return <div className="text-right font-medium">{formatted}</div>;
+        },
+    },
+    {
+        accessorKey: 'payment_method',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Payment Method" />,
+        cell: ({ row }) => <div>{row.getValue('payment_method')}</div>,
+    },
+    {
+        accessorKey: 'transaction_date',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
+        cell: ({ row }) => {
+            const date = new Date(row.getValue('transaction_date'));
+            return <div>{date.toLocaleDateString()}</div>;
+        },
+    },
+    {
+        accessorKey: 'status',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+        cell: ({ row }) => {
+            const status = row.getValue('status') as string;
+            return <Badge variant={status === 'completed' ? 'default' : 'secondary'}>{status}</Badge>;
+        },
+    },
+    {
+        id: 'actions',
+        enableHiding: false,
+        cell: ({ row }) => {
+            const transaction = row.original;
+
+            return (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => navigator.clipboard.writeText(transaction.id.toString())}>
+                            Copy transaction ID
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem>View details</DropdownMenuItem>
+                        <DropdownMenuItem>Edit transaction</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            );
+        },
+    },
+];
+
+export default function FinancialReports({ transactions, summary, chartData, filterOptions, metadata }: FinancialReportsProps) {
+    const [search, setSearch] = useState('');
     const [isExporting, setIsExporting] = useState(false);
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({
+        from: new Date(new Date().getFullYear(), new Date().getMonth(), 1), // First day of current month
+        to: new Date(), // Today
+    });
 
     const handleExport = async (format: 'excel' | 'pdf' | 'csv') => {
         try {
             setIsExporting(true);
             const params = new URLSearchParams({
                 format,
-                date_from: dateFrom,
-                date_to: dateTo,
-                payment_method: paymentMethod,
             });
+
+            // Add date range parameters if selected
+            if (dateRange?.from) {
+                params.append('date_from', formatDate(dateRange.from, 'yyyy-MM-dd'));
+            }
+            if (dateRange?.to) {
+                params.append('date_to', formatDate(dateRange.to, 'yyyy-MM-dd'));
+            }
+
             window.location.href = `/admin/reports/export?type=financial&${params.toString()}`;
 
             setTimeout(() => {
@@ -116,6 +231,117 @@ export default function FinancialReports({ transactions, summary }: FinancialRep
                         </div>
                     </div>
 
+                    {/* Date Range Picker */}
+                    <Card className="mb-8 rounded-xl border-0 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-lg">
+                        <CardHeader className="border-b border-blue-100 bg-transparent">
+                            <CardTitle className="flex items-center gap-3 text-lg font-semibold text-blue-900">
+                                <CalendarIcon className="h-5 w-5" />
+                                Date Range Filter
+                            </CardTitle>
+                            <p className="text-sm text-blue-700">Select a date range to filter financial data</p>
+                        </CardHeader>
+                        <CardContent className="p-6">
+                            <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+                                <div className="flex flex-col gap-4 md:flex-row md:items-end">
+                                    <div className="flex flex-col gap-2">
+                                        <Label htmlFor="date_from" className="text-sm font-medium text-blue-900">
+                                            From Date
+                                        </Label>
+                                        <Input
+                                            id="date_from"
+                                            type="date"
+                                            value={dateRange?.from ? formatDate(dateRange.from, 'yyyy-MM-dd') : ''}
+                                            onChange={(e) => {
+                                                const fromDate = e.target.value ? new Date(e.target.value) : undefined;
+                                                setDateRange((prev) => ({
+                                                    ...prev,
+                                                    from: fromDate,
+                                                    to: prev?.to,
+                                                }));
+                                            }}
+                                            className="w-full md:w-[200px]"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <Label htmlFor="date_to" className="text-sm font-medium text-blue-900">
+                                            To Date
+                                        </Label>
+                                        <Input
+                                            id="date_to"
+                                            type="date"
+                                            value={dateRange?.to ? formatDate(dateRange.to, 'yyyy-MM-dd') : ''}
+                                            onChange={(e) => {
+                                                const toDate = e.target.value ? new Date(e.target.value) : undefined;
+                                                setDateRange((prev) => ({
+                                                    ...prev,
+                                                    from: prev?.from,
+                                                    to: toDate,
+                                                }));
+                                            }}
+                                            className="w-full md:w-[200px]"
+                                        />
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                const today = new Date();
+                                                const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                                                setDateRange({ from: firstDay, to: today });
+                                            }}
+                                            className="text-xs"
+                                        >
+                                            This Month
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                const today = new Date();
+                                                const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                                                const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
+                                                setDateRange({ from: firstDay, to: lastDay });
+                                            }}
+                                            className="text-xs"
+                                        >
+                                            Last Month
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                const today = new Date();
+                                                const firstDay = new Date(today.getFullYear(), 0, 1);
+                                                setDateRange({ from: firstDay, to: today });
+                                            }}
+                                            className="text-xs"
+                                        >
+                                            This Year
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        variant="default"
+                                        className="bg-blue-600 hover:bg-blue-700"
+                                        onClick={() => {
+                                            // Apply date range filter logic here
+                                            console.log('Applying date range:', dateRange);
+                                        }}
+                                    >
+                                        Apply Filter
+                                    </Button>
+                                    <Button variant="outline" onClick={() => setDateRange(undefined)}>
+                                        Clear
+                                    </Button>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
                     {/* Summary Cards */}
                     <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
                         <Card className="rounded-xl border-0 bg-white shadow-lg">
@@ -160,7 +386,7 @@ export default function FinancialReports({ transactions, summary }: FinancialRep
                         <Card className="rounded-xl border-0 bg-white shadow-lg">
                             <CardHeader className="border-b border-gray-200 bg-white">
                                 <CardTitle className="flex items-center gap-3 text-lg font-semibold text-black">
-                                    <Calendar className="h-5 w-5 text-orange-600" />
+                                    <CalendarIcon className="h-5 w-5 text-orange-600" />
                                     Date Range
                                 </CardTitle>
                             </CardHeader>
@@ -173,52 +399,7 @@ export default function FinancialReports({ transactions, summary }: FinancialRep
                         </Card>
                     </div>
 
-                    {/* Filters */}
-                    <Card className="mb-8 rounded-xl border-0 bg-white shadow-lg">
-                        <CardHeader className="border-b border-gray-200 bg-white">
-                            <CardTitle className="flex items-center gap-3 text-lg font-semibold text-black">
-                                <Calendar className="h-5 w-5 text-black" />
-                                Filters
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-6">
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                                <div>
-                                    <Label htmlFor="date_from">From Date</Label>
-                                    <Input
-                                        id="date_from"
-                                        type="date"
-                                        value={dateFrom}
-                                        onChange={(e) => setDateFrom(e.target.value)}
-                                        className="mt-1"
-                                    />
-                                </div>
-                                <div>
-                                    <Label htmlFor="date_to">To Date</Label>
-                                    <Input id="date_to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="mt-1" />
-                                </div>
-                                <div>
-                                    <Label htmlFor="payment_method">Payment Method</Label>
-                                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                                        <SelectTrigger className="mt-1">
-                                            <SelectValue placeholder="Select payment method" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Methods</SelectItem>
-                                            <SelectItem value="cash">Cash</SelectItem>
-                                            <SelectItem value="card">Card</SelectItem>
-                                            <SelectItem value="hmo">HMO</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="flex items-end">
-                                    <Button className="w-full">Apply Filters</Button>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Transactions Table */}
+                    {/* Transactions Data Table */}
                     <Card className="rounded-xl border-0 bg-white shadow-lg">
                         <CardHeader className="border-b border-gray-200 bg-white">
                             <CardTitle className="flex items-center gap-3 text-lg font-semibold text-black">
@@ -227,49 +408,30 @@ export default function FinancialReports({ transactions, summary }: FinancialRep
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-6">
-                            <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                <Table>
-                                    <TableHeader className="bg-gray-50">
-                                        <TableRow className="hover:bg-gray-100">
-                                            <TableHead className="font-semibold text-black">Transaction ID</TableHead>
-                                            <TableHead className="font-semibold text-black">Patient</TableHead>
-                                            <TableHead className="font-semibold text-black">Doctor</TableHead>
-                                            <TableHead className="font-semibold text-black">Amount</TableHead>
-                                            <TableHead className="font-semibold text-black">Payment Method</TableHead>
-                                            <TableHead className="font-semibold text-black">Date</TableHead>
-                                            <TableHead className="font-semibold text-black">Status</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {transactions.data.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={7} className="py-8 text-center">
-                                                    <div className="flex flex-col items-center">
-                                                        <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                                                        <h3 className="mb-2 text-lg font-semibold text-black">No transactions found</h3>
-                                                        <p className="text-black">Try adjusting your filters or date range</p>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            transactions.data.map((transaction) => (
-                                                <TableRow key={transaction.id} className="hover:bg-gray-50">
-                                                    <TableCell className="font-medium text-black">#{transaction.id}</TableCell>
-                                                    <TableCell className="text-black">{transaction.patient_name}</TableCell>
-                                                    <TableCell className="text-black">{transaction.doctor_name}</TableCell>
-                                                    <TableCell className="font-semibold text-green-600">
-                                                        {formatCurrency(transaction.total_amount)}
-                                                    </TableCell>
-                                                    <TableCell className="text-black">{transaction.payment_method}</TableCell>
-                                                    <TableCell className="text-black">
-                                                        {new Date(transaction.transaction_date).toLocaleDateString()}
-                                                    </TableCell>
-                                                    <TableCell>{getStatusBadge(transaction.status)}</TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
+                            <DataTable columns={columns} data={transactions.data} searchKey="patient_name" searchPlaceholder="Search patients..." />
+                        </CardContent>
+                    </Card>
+
+                    {/* Footer with Metadata */}
+                    <Card className="mt-8">
+                        <CardContent className="pt-6">
+                            <div className="flex items-center justify-between text-sm text-gray-600">
+                                <div>
+                                    <p>
+                                        <strong>Generated:</strong> {metadata?.generated_at || new Date().toLocaleString()}
+                                    </p>
+                                    <p>
+                                        <strong>Generated By:</strong> {metadata?.generated_by || 'System'} ({metadata?.generated_by_role || 'User'})
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p>
+                                        <strong>System Version:</strong> {metadata?.system_version || '1.0.0'}
+                                    </p>
+                                    <p>
+                                        <strong>Clinic:</strong> St. James Clinic Management System
+                                    </p>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>

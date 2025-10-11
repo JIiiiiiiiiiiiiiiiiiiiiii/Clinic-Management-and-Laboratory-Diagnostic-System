@@ -110,12 +110,12 @@ const data = {
             ],
         },
         {
-            title: 'Reports & Analytics',
+            title: 'Reports',
             url: '/admin/reports',
             icon: BarChartIcon,
             items: [
                 {
-                    title: 'All Reports',
+                    title: 'Overview',
                     url: '/admin/reports',
                 },
                 {
@@ -133,10 +133,6 @@ const data = {
                 {
                     title: 'Inventory Reports',
                     url: '/admin/reports/inventory',
-                },
-                {
-                    title: 'Analytics Dashboard',
-                    url: '/admin/reports/analytics',
                 },
             ],
         },

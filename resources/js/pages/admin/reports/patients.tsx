@@ -1,13 +1,20 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DataTable } from '@/components/ui/data-table';
+import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import AppLayout from '@/layouts/app-layout';
 import { Head } from '@inertiajs/react';
-import { Calendar, Download, FileText, TrendingUp, UserPlus, Users } from 'lucide-react';
+import { ColumnDef } from '@tanstack/react-table';
+import { Download, FileText, MoreHorizontal, TrendingUp, UserPlus, Users } from 'lucide-react';
 import { useState } from 'react';
 
 interface Patient {
@@ -40,18 +47,107 @@ interface PatientReportsProps {
         total: number;
     };
     summary: Summary;
+    chartData?: {
+        gender_distribution: Array<{ sex: string; count: number }>;
+        age_groups: Array<{ age_group: string; count: number }>;
+    };
+    filterOptions?: {
+        doctors: Array<{ id: number; name: string }>;
+        departments: string[];
+        statuses: string[];
+        payment_methods: string[];
+        hmo_providers: string[];
+    };
+    metadata?: {
+        generated_at: string;
+        generated_by: string;
+        generated_by_role: string;
+        system_version: string;
+    };
 }
 
 const breadcrumbs = [
     { label: 'Dashboard', href: '/admin/dashboard' },
-    { label: 'Reports & Analytics', href: '/admin/reports' },
+    { label: 'Reports', href: '/admin/reports' },
     { label: 'Patient Reports', href: '/admin/reports/patients' },
 ];
 
-export default function PatientReports({ patients, summary }: PatientReportsProps) {
-    const [dateFrom, setDateFrom] = useState('');
-    const [dateTo, setDateTo] = useState('');
-    const [sex, setSex] = useState('all');
+// Column definitions for the data table
+const columns: ColumnDef<Patient>[] = [
+    {
+        accessorKey: 'patient_no',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Patient No." />,
+        cell: ({ row }) => <div className="font-medium">{row.getValue('patient_no')}</div>,
+    },
+    {
+        accessorKey: 'full_name',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Full Name" />,
+        cell: ({ row }) => <div className="font-medium">{row.getValue('full_name')}</div>,
+    },
+    {
+        accessorKey: 'age',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Age" />,
+        cell: ({ row }) => <div>{row.getValue('age')}</div>,
+    },
+    {
+        accessorKey: 'sex',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Gender" />,
+        cell: ({ row }) => {
+            const sex = row.getValue('sex') as string;
+            return <Badge variant={sex === 'Male' ? 'default' : 'secondary'}>{sex}</Badge>;
+        },
+    },
+    {
+        accessorKey: 'mobile_no',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Mobile No." />,
+        cell: ({ row }) => <div>{row.getValue('mobile_no')}</div>,
+    },
+    {
+        accessorKey: 'appointments_count',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Appointments" />,
+        cell: ({ row }) => <div className="text-center">{row.getValue('appointments_count')}</div>,
+    },
+    {
+        accessorKey: 'lab_orders_count',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Lab Orders" />,
+        cell: ({ row }) => <div className="text-center">{row.getValue('lab_orders_count')}</div>,
+    },
+    {
+        accessorKey: 'created_at',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Registered" />,
+        cell: ({ row }) => {
+            const date = new Date(row.getValue('created_at'));
+            return <div>{date.toLocaleDateString()}</div>;
+        },
+    },
+    {
+        id: 'actions',
+        enableHiding: false,
+        cell: ({ row }) => {
+            const patient = row.original;
+
+            return (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => navigator.clipboard.writeText(patient.patient_no)}>Copy patient number</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem>View patient details</DropdownMenuItem>
+                        <DropdownMenuItem>View medical history</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            );
+        },
+    },
+];
+
+export default function PatientReports({ patients, summary, chartData, filterOptions, metadata }: PatientReportsProps) {
     const [isExporting, setIsExporting] = useState(false);
 
     const handleExport = async (format: 'excel' | 'pdf' | 'csv') => {
@@ -59,9 +155,6 @@ export default function PatientReports({ patients, summary }: PatientReportsProp
             setIsExporting(true);
             const params = new URLSearchParams({
                 format,
-                date_from: dateFrom,
-                date_to: dateTo,
-                sex: sex,
             });
             window.location.href = `/admin/reports/export?type=patients&${params.toString()}`;
 
@@ -72,17 +165,6 @@ export default function PatientReports({ patients, summary }: PatientReportsProp
             console.error('Export failed:', error);
             setIsExporting(false);
         }
-    };
-
-    const calculateAge = (birthdate: string) => {
-        const today = new Date();
-        const birth = new Date(birthdate);
-        let age = today.getFullYear() - birth.getFullYear();
-        const monthDiff = today.getMonth() - birth.getMonth();
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-            age--;
-        }
-        return age;
     };
 
     return (
@@ -165,51 +247,7 @@ export default function PatientReports({ patients, summary }: PatientReportsProp
                         </Card>
                     </div>
 
-                    {/* Filters */}
-                    <Card className="mb-8 rounded-xl border-0 bg-white shadow-lg">
-                        <CardHeader className="border-b border-gray-200 bg-white">
-                            <CardTitle className="flex items-center gap-3 text-lg font-semibold text-black">
-                                <Calendar className="h-5 w-5 text-black" />
-                                Filters
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-6">
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                                <div>
-                                    <Label htmlFor="date_from">From Date</Label>
-                                    <Input
-                                        id="date_from"
-                                        type="date"
-                                        value={dateFrom}
-                                        onChange={(e) => setDateFrom(e.target.value)}
-                                        className="mt-1"
-                                    />
-                                </div>
-                                <div>
-                                    <Label htmlFor="date_to">To Date</Label>
-                                    <Input id="date_to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="mt-1" />
-                                </div>
-                                <div>
-                                    <Label htmlFor="sex">Gender</Label>
-                                    <Select value={sex} onValueChange={setSex}>
-                                        <SelectTrigger className="mt-1">
-                                            <SelectValue placeholder="Select gender" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Genders</SelectItem>
-                                            <SelectItem value="Male">Male</SelectItem>
-                                            <SelectItem value="Female">Female</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="flex items-end">
-                                    <Button className="w-full">Apply Filters</Button>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Patients Table */}
+                    {/* Patients Data Table */}
                     <Card className="rounded-xl border-0 bg-white shadow-lg">
                         <CardHeader className="border-b border-gray-200 bg-white">
                             <CardTitle className="flex items-center gap-3 text-lg font-semibold text-black">
@@ -218,56 +256,7 @@ export default function PatientReports({ patients, summary }: PatientReportsProp
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-6">
-                            <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                <Table>
-                                    <TableHeader className="bg-gray-50">
-                                        <TableRow className="hover:bg-gray-100">
-                                            <TableHead className="font-semibold text-black">Patient No.</TableHead>
-                                            <TableHead className="font-semibold text-black">Name</TableHead>
-                                            <TableHead className="font-semibold text-black">Age</TableHead>
-                                            <TableHead className="font-semibold text-black">Gender</TableHead>
-                                            <TableHead className="font-semibold text-black">Mobile</TableHead>
-                                            <TableHead className="font-semibold text-black">Appointments</TableHead>
-                                            <TableHead className="font-semibold text-black">Lab Orders</TableHead>
-                                            <TableHead className="font-semibold text-black">Registered</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {patients.data.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={8} className="py-8 text-center">
-                                                    <div className="flex flex-col items-center">
-                                                        <Users className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                                                        <h3 className="mb-2 text-lg font-semibold text-black">No patients found</h3>
-                                                        <p className="text-black">Try adjusting your filters or date range</p>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            patients.data.map((patient) => (
-                                                <TableRow key={patient.id} className="hover:bg-gray-50">
-                                                    <TableCell className="font-medium text-black">{patient.patient_no}</TableCell>
-                                                    <TableCell className="text-black">{patient.full_name}</TableCell>
-                                                    <TableCell className="text-black">{patient.age}</TableCell>
-                                                    <TableCell>
-                                                        <Badge
-                                                            className={
-                                                                patient.sex === 'Male' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'
-                                                            }
-                                                        >
-                                                            {patient.sex}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-black">{patient.mobile_no}</TableCell>
-                                                    <TableCell className="text-black">{patient.appointments_count}</TableCell>
-                                                    <TableCell className="text-black">{patient.lab_orders_count}</TableCell>
-                                                    <TableCell className="text-black">{new Date(patient.created_at).toLocaleDateString()}</TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
+                            <DataTable columns={columns} data={patients.data} searchKey="full_name" searchPlaceholder="Search patients..." />
                         </CardContent>
                     </Card>
                 </div>

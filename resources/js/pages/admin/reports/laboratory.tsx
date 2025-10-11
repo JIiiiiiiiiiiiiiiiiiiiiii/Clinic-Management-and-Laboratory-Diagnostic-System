@@ -1,13 +1,20 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DataTable } from '@/components/ui/data-table';
+import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import AppLayout from '@/layouts/app-layout';
 import { Head } from '@inertiajs/react';
-import { Calendar, CheckCircle, Clock, Download, FileText, FlaskConical } from 'lucide-react';
+import { ColumnDef } from '@tanstack/react-table';
+import { CheckCircle, Clock, Download, FileText, FlaskConical, MoreHorizontal } from 'lucide-react';
 import { useState } from 'react';
 
 interface LabOrder {
@@ -41,14 +48,99 @@ interface LaboratoryReportsProps {
 
 const breadcrumbs = [
     { label: 'Dashboard', href: '/admin/dashboard' },
-    { label: 'Reports & Analytics', href: '/admin/reports' },
+    { label: 'Reports', href: '/admin/reports' },
     { label: 'Laboratory Reports', href: '/admin/reports/laboratory' },
 ];
 
+// Column definitions for the data table
+const columns: ColumnDef<LabOrder>[] = [
+    {
+        accessorKey: 'id',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Order ID" />,
+        cell: ({ row }) => <div className="font-medium">#{row.getValue('id')}</div>,
+    },
+    {
+        accessorKey: 'patient_name',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Patient Name" />,
+        cell: ({ row }) => <div className="font-medium">{row.getValue('patient_name')}</div>,
+    },
+    {
+        accessorKey: 'doctor_name',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Doctor" />,
+        cell: ({ row }) => <div>{row.getValue('doctor_name')}</div>,
+    },
+    {
+        accessorKey: 'test_name',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Test Name" />,
+        cell: ({ row }) => <div>{row.getValue('test_name')}</div>,
+    },
+    {
+        accessorKey: 'status',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+        cell: ({ row }) => {
+            const status = row.getValue('status') as string;
+            const getStatusBadge = (status: string) => {
+                switch (status.toLowerCase()) {
+                    case 'completed':
+                        return <Badge className="bg-green-100 text-green-800">Completed</Badge>;
+                    case 'pending':
+                        return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
+                    case 'in_progress':
+                        return <Badge className="bg-blue-100 text-blue-800">In Progress</Badge>;
+                    case 'cancelled':
+                        return <Badge className="bg-red-100 text-red-800">Cancelled</Badge>;
+                    default:
+                        return <Badge variant="secondary">{status}</Badge>;
+                }
+            };
+            return getStatusBadge(status);
+        },
+    },
+    {
+        accessorKey: 'created_at',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Order Date" />,
+        cell: ({ row }) => {
+            const date = new Date(row.getValue('created_at'));
+            return <div>{date.toLocaleDateString()}</div>;
+        },
+    },
+    {
+        accessorKey: 'result_date',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Result Date" />,
+        cell: ({ row }) => {
+            const date = row.getValue('result_date') as string;
+            return <div>{date ? new Date(date).toLocaleDateString() : 'N/A'}</div>;
+        },
+    },
+    {
+        id: 'actions',
+        enableHiding: false,
+        cell: ({ row }) => {
+            const labOrder = row.original;
+
+            return (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => navigator.clipboard.writeText(labOrder.id.toString())}>Copy order ID</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem>View order details</DropdownMenuItem>
+                        <DropdownMenuItem>View test results</DropdownMenuItem>
+                        <DropdownMenuItem>Update status</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            );
+        },
+    },
+];
+
 export default function LaboratoryReports({ labOrders, summary }: LaboratoryReportsProps) {
-    const [dateFrom, setDateFrom] = useState(summary.date_from || '');
-    const [dateTo, setDateTo] = useState(summary.date_to || '');
-    const [status, setStatus] = useState('all');
     const [isExporting, setIsExporting] = useState(false);
 
     const handleExport = async (format: 'excel' | 'pdf' | 'csv') => {
@@ -168,53 +260,7 @@ export default function LaboratoryReports({ labOrders, summary }: LaboratoryRepo
                         </Card>
                     </div>
 
-                    {/* Filters */}
-                    <Card className="mb-8 rounded-xl border-0 bg-white shadow-lg">
-                        <CardHeader className="border-b border-gray-200 bg-white">
-                            <CardTitle className="flex items-center gap-3 text-lg font-semibold text-black">
-                                <Calendar className="h-5 w-5 text-black" />
-                                Filters
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-6">
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                                <div>
-                                    <Label htmlFor="date_from">From Date</Label>
-                                    <Input
-                                        id="date_from"
-                                        type="date"
-                                        value={dateFrom}
-                                        onChange={(e) => setDateFrom(e.target.value)}
-                                        className="mt-1"
-                                    />
-                                </div>
-                                <div>
-                                    <Label htmlFor="date_to">To Date</Label>
-                                    <Input id="date_to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="mt-1" />
-                                </div>
-                                <div>
-                                    <Label htmlFor="status">Status</Label>
-                                    <Select value={status} onValueChange={setStatus}>
-                                        <SelectTrigger className="mt-1">
-                                            <SelectValue placeholder="Select status" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Status</SelectItem>
-                                            <SelectItem value="pending">Pending</SelectItem>
-                                            <SelectItem value="in_progress">In Progress</SelectItem>
-                                            <SelectItem value="completed">Completed</SelectItem>
-                                            <SelectItem value="cancelled">Cancelled</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="flex items-end">
-                                    <Button className="w-full">Apply Filters</Button>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Lab Orders Table */}
+                    {/* Lab Orders Data Table */}
                     <Card className="rounded-xl border-0 bg-white shadow-lg">
                         <CardHeader className="border-b border-gray-200 bg-white">
                             <CardTitle className="flex items-center gap-3 text-lg font-semibold text-black">
@@ -223,48 +269,7 @@ export default function LaboratoryReports({ labOrders, summary }: LaboratoryRepo
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-6">
-                            <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                <Table>
-                                    <TableHeader className="bg-gray-50">
-                                        <TableRow className="hover:bg-gray-100">
-                                            <TableHead className="font-semibold text-black">Order ID</TableHead>
-                                            <TableHead className="font-semibold text-black">Patient</TableHead>
-                                            <TableHead className="font-semibold text-black">Doctor</TableHead>
-                                            <TableHead className="font-semibold text-black">Test Name</TableHead>
-                                            <TableHead className="font-semibold text-black">Status</TableHead>
-                                            <TableHead className="font-semibold text-black">Order Date</TableHead>
-                                            <TableHead className="font-semibold text-black">Result Date</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {labOrders.data.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={7} className="py-8 text-center">
-                                                    <div className="flex flex-col items-center">
-                                                        <FlaskConical className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                                                        <h3 className="mb-2 text-lg font-semibold text-black">No lab orders found</h3>
-                                                        <p className="text-black">Try adjusting your filters or date range</p>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            labOrders.data.map((order) => (
-                                                <TableRow key={order.id} className="hover:bg-gray-50">
-                                                    <TableCell className="font-medium text-black">#{order.id}</TableCell>
-                                                    <TableCell className="text-black">{order.patient_name}</TableCell>
-                                                    <TableCell className="text-black">{order.doctor_name}</TableCell>
-                                                    <TableCell className="text-black">{order.test_name}</TableCell>
-                                                    <TableCell>{getStatusBadge(order.status)}</TableCell>
-                                                    <TableCell className="text-black">{new Date(order.created_at).toLocaleDateString()}</TableCell>
-                                                    <TableCell className="text-black">
-                                                        {order.result_date ? new Date(order.result_date).toLocaleDateString() : 'N/A'}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
+                            <DataTable columns={columns} data={labOrders.data} searchKey="patient_name" searchPlaceholder="Search patients..." />
                         </CardContent>
                     </Card>
                 </div>

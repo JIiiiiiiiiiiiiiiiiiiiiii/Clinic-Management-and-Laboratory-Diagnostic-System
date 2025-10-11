@@ -1,12 +1,20 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DataTable } from '@/components/ui/data-table';
+import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import AppLayout from '@/layouts/app-layout';
 import { Head } from '@inertiajs/react';
-import { AlertTriangle, Calendar, Download, FileText, Package, TrendingUp } from 'lucide-react';
+import { ColumnDef } from '@tanstack/react-table';
+import { AlertTriangle, Download, FileText, MoreHorizontal, Package, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 
 interface Product {
@@ -39,13 +47,104 @@ interface InventoryReportsProps {
 
 const breadcrumbs = [
     { label: 'Dashboard', href: '/admin/dashboard' },
-    { label: 'Reports & Analytics', href: '/admin/reports' },
+    { label: 'Reports', href: '/admin/reports' },
     { label: 'Inventory Reports', href: '/admin/reports/inventory' },
 ];
 
+// Column definitions for the data table
+const columns: ColumnDef<Product>[] = [
+    {
+        accessorKey: 'id',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Product ID" />,
+        cell: ({ row }) => <div className="font-medium">#{row.getValue('id')}</div>,
+    },
+    {
+        accessorKey: 'name',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Product Name" />,
+        cell: ({ row }) => <div className="font-medium">{row.getValue('name')}</div>,
+    },
+    {
+        accessorKey: 'category',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Category" />,
+        cell: ({ row }) => {
+            const category = row.getValue('category') as string;
+            return <Badge variant="outline">{category}</Badge>;
+        },
+    },
+    {
+        accessorKey: 'current_stock',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Current Stock" />,
+        cell: ({ row }) => {
+            const stock = (row.getValue('current_stock') as number) || 0;
+            const isLowStock = stock < 10;
+            return <div className={`font-medium ${isLowStock ? 'text-red-600' : 'text-green-600'}`}>{stock.toLocaleString()}</div>;
+        },
+    },
+    {
+        accessorKey: 'unit_cost',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Unit Cost" />,
+        cell: ({ row }) => {
+            const cost = parseFloat(row.getValue('unit_cost') || '0');
+            const formatted = new Intl.NumberFormat('en-PH', {
+                style: 'currency',
+                currency: 'PHP',
+            }).format(cost);
+            return <div className="text-right font-medium">{formatted}</div>;
+        },
+    },
+    {
+        accessorKey: 'supplier_name',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Supplier" />,
+        cell: ({ row }) => <div>{row.getValue('supplier_name') || 'N/A'}</div>,
+    },
+    {
+        accessorKey: 'expiration_date',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Expiration Date" />,
+        cell: ({ row }) => {
+            const date = row.getValue('expiration_date') as string;
+            if (!date) return <div>N/A</div>;
+
+            const expDate = new Date(date);
+            const today = new Date();
+            const isExpired = expDate < today;
+            const isExpiringSoon = expDate <= new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+            return (
+                <div className={`${isExpired ? 'text-red-600' : isExpiringSoon ? 'text-yellow-600' : 'text-green-600'}`}>
+                    {expDate.toLocaleDateString()}
+                </div>
+            );
+        },
+    },
+    {
+        id: 'actions',
+        enableHiding: false,
+        cell: ({ row }) => {
+            const product = row.original;
+
+            return (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => navigator.clipboard.writeText(product.id.toString())}>Copy product ID</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem>View product details</DropdownMenuItem>
+                        <DropdownMenuItem>Update stock</DropdownMenuItem>
+                        <DropdownMenuItem>Edit product</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            );
+        },
+    },
+];
+
 export default function InventoryReports({ products, summary }: InventoryReportsProps) {
-    const [category, setCategory] = useState('all');
-    const [lowStock, setLowStock] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
 
     const handleExport = async (format: 'excel' | 'pdf' | 'csv') => {
@@ -170,51 +269,7 @@ export default function InventoryReports({ products, summary }: InventoryReports
                         </Card>
                     </div>
 
-                    {/* Filters */}
-                    <Card className="mb-8 rounded-xl border-0 bg-white shadow-lg">
-                        <CardHeader className="border-b border-gray-200 bg-white">
-                            <CardTitle className="flex items-center gap-3 text-lg font-semibold text-black">
-                                <Calendar className="h-5 w-5 text-black" />
-                                Filters
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-6">
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                                <div>
-                                    <Label htmlFor="category">Category</Label>
-                                    <Select value={category} onValueChange={setCategory}>
-                                        <SelectTrigger className="mt-1">
-                                            <SelectValue placeholder="Select category" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Categories</SelectItem>
-                                            <SelectItem value="medical_supplies">Medical Supplies</SelectItem>
-                                            <SelectItem value="office_supplies">Office Supplies</SelectItem>
-                                            <SelectItem value="equipment">Equipment</SelectItem>
-                                            <SelectItem value="medication">Medication</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div>
-                                    <Label htmlFor="low_stock">Show Low Stock Only</Label>
-                                    <Select value={lowStock.toString()} onValueChange={(value) => setLowStock(value === 'true')}>
-                                        <SelectTrigger className="mt-1">
-                                            <SelectValue placeholder="Filter by stock level" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="false">All Items</SelectItem>
-                                            <SelectItem value="true">Low Stock Only</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="flex items-end">
-                                    <Button className="w-full">Apply Filters</Button>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Products Table */}
+                    {/* Products Data Table */}
                     <Card className="rounded-xl border-0 bg-white shadow-lg">
                         <CardHeader className="border-b border-gray-200 bg-white">
                             <CardTitle className="flex items-center gap-3 text-lg font-semibold text-black">
@@ -223,50 +278,7 @@ export default function InventoryReports({ products, summary }: InventoryReports
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-6">
-                            <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                <Table>
-                                    <TableHeader className="bg-gray-50">
-                                        <TableRow className="hover:bg-gray-100">
-                                            <TableHead className="font-semibold text-black">Product Name</TableHead>
-                                            <TableHead className="font-semibold text-black">Category</TableHead>
-                                            <TableHead className="font-semibold text-black">Current Stock</TableHead>
-                                            <TableHead className="font-semibold text-black">Unit Price</TableHead>
-                                            <TableHead className="font-semibold text-black">Total Value</TableHead>
-                                            <TableHead className="font-semibold text-black">Supplier</TableHead>
-                                            <TableHead className="font-semibold text-black">Status</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {products.data.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={7} className="py-8 text-center">
-                                                    <div className="flex flex-col items-center">
-                                                        <Package className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                                                        <h3 className="mb-2 text-lg font-semibold text-black">No products found</h3>
-                                                        <p className="text-black">Try adjusting your filters</p>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            products.data.map((product) => (
-                                                <TableRow key={product.id} className="hover:bg-gray-50">
-                                                    <TableCell className="font-medium text-black">{product.name}</TableCell>
-                                                    <TableCell className="text-black capitalize">{product.category.replace('_', ' ')}</TableCell>
-                                                    <TableCell className={`font-semibold ${getStockColor(product.current_stock || 0)}`}>
-                                                        {(product.current_stock || 0).toLocaleString()}
-                                                    </TableCell>
-                                                    <TableCell className="text-black">{formatCurrency(product.unit_cost || 0)}</TableCell>
-                                                    <TableCell className="font-semibold text-green-600">
-                                                        {formatCurrency((product.current_stock || 0) * (product.unit_cost || 0))}
-                                                    </TableCell>
-                                                    <TableCell className="text-black">{product.supplier_name || 'N/A'}</TableCell>
-                                                    <TableCell>{getStockBadge(product.current_stock || 0)}</TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
+                            <DataTable columns={columns} data={products.data} searchKey="name" searchPlaceholder="Search products..." />
                         </CardContent>
                     </Card>
                 </div>
