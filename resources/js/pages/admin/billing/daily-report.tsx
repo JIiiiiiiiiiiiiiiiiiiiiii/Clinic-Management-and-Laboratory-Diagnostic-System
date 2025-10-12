@@ -55,7 +55,7 @@ type Summary = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Billing', href: '/admin/billing' },
-    { title: 'Reports', href: '/admin/billing/reports' },
+    { title: 'Reports', href: '/admin/billing/billing-reports' },
     { title: 'Daily Report', href: '/admin/billing/daily-report' },
 ];
 
@@ -90,7 +90,7 @@ export default function DailyReport({
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-6">
                             <Button asChild variant="outline" className="h-12 w-12">
-                                <Link href="/admin/billing/reports">
+                                <Link href="/admin/billing/billing-reports">
                                     <ArrowLeft className="h-5 w-5" />
                                 </Link>
                             </Button>
@@ -100,7 +100,7 @@ export default function DailyReport({
                             <Button 
                                 variant="outline"
                                 onClick={() => {
-                                    const exportUrl = `/admin/billing/reports/daily/export?date=${selectedDate}&format=excel`;
+                                    const exportUrl = `/admin/billing/billing-reports/daily/export?date=${selectedDate}&format=excel`;
                                     window.open(exportUrl, '_blank');
                                 }}
                             >
@@ -110,7 +110,7 @@ export default function DailyReport({
                             <Button 
                                 variant="outline"
                                 onClick={() => {
-                                    const exportUrl = `/admin/billing/reports/daily/export?date=${selectedDate}&format=pdf`;
+                                    const exportUrl = `/admin/billing/billing-reports/daily/export?date=${selectedDate}&format=pdf`;
                                     window.open(exportUrl, '_blank');
                                 }}
                             >

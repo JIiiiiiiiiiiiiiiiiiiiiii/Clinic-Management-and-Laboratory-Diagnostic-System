@@ -6,7 +6,7 @@
     <title>Urinalysis - Order #{{ $order->id }}</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-size: 12px;
             line-height: 1.4;
             margin: 0;
@@ -14,22 +14,55 @@
             color: #333;
         }
 
-        .header {
+        .hospital-header {
             text-align: center;
-            border-bottom: 2px solid #333;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
+            padding: 5px 0;
+            position: relative;
         }
-
-        .clinic-name {
-            font-size: 18px;
+        
+        .hospital-logo {
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+        
+        .hospital-info {
+            text-align: center;
+            width: 100%;
+        }
+        
+        .hospital-name {
+            font-size: 24px;
             font-weight: bold;
-            margin-bottom: 5px;
+            color: #2d5a27;
+            margin: 0 0 5px 0;
         }
-
-        .clinic-details {
+        
+        .hospital-address {
+            font-size: 12px;
+            color: #333;
+            margin: 0 0 3px 0;
+        }
+        
+        .hospital-slogan {
+            font-size: 14px;
+            font-style: italic;
+            color: #1e40af;
+            margin: 0 0 5px 0;
+        }
+        
+        .hospital-motto {
+            font-size: 16px;
+            font-weight: bold;
+            color: #2d5a27;
+            margin: 0 0 5px 0;
+        }
+        
+        .hospital-contact {
             font-size: 10px;
             color: #666;
+            margin: 0;
         }
 
         .patient-info {
@@ -120,11 +153,19 @@
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="clinic-name">{{ $clinic_name }}</div>
-        <div class="clinic-details">
-            {{ $clinic_address }}<br>
-            Tel: {{ $clinic_phone }}
+    <div class="hospital-header">
+        <div class="hospital-logo">
+            <img src="{{ public_path('st-james-logo.png') }}" alt="St. James Hospital Logo" style="width: 80px; height: 80px;">
+        </div>
+        <div class="hospital-info">
+            <div class="hospital-name">St. James Hospital Clinic, Inc.</div>
+            <div class="hospital-address">San Isidro City of Cabuyao Laguna</div>
+            <div class="hospital-slogan">Santa Rosa's First in Quality Healthcare Service</div>
+            <div class="hospital-motto">PASYENTE MUNA</div>
+            <div class="hospital-contact">
+                Tel. Nos. 02.85844533; 049.5341254; 049.5020058; Fax No.: local 307<br>
+                email add: info@stjameshospital.com.ph
+            </div>
         </div>
     </div>
 

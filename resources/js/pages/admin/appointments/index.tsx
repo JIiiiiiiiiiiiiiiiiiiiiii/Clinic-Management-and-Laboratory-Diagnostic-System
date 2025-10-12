@@ -20,20 +20,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 // Cache bust: 2025-01-15 - All mock data removed
 const initialAppointments: any[] = [];
 
-const doctors = [
-    { id: 'D001', name: 'Dr. Smith', specialization: 'Cardiology', availability: 'Mon-Fri 9AM-5PM' },
-    { id: 'D002', name: 'Dr. Johnson', specialization: 'Internal Medicine', availability: 'Mon-Fri 8AM-4PM' },
-    { id: 'D003', name: 'Dr. Davis', specialization: 'Emergency Medicine', availability: '24/7' },
-    { id: 'D004', name: 'Dr. Wilson', specialization: 'Surgery', availability: 'Mon-Fri 10AM-6PM' },
-    { id: 'D005', name: 'Dr. Brown', specialization: 'General Practice', availability: 'Mon-Fri 9AM-5PM' },
-];
-
-const medTechs = [
-    { id: 'MT001', name: 'Sarah Johnson', specialization: 'Laboratory Technician', availability: 'Mon-Fri 8AM-5PM' },
-    { id: 'MT002', name: 'Michael Chen', specialization: 'Medical Technologist', availability: 'Mon-Fri 9AM-6PM' },
-    { id: 'MT003', name: 'Emily Rodriguez', specialization: 'Lab Specialist', availability: 'Mon-Fri 7AM-4PM' },
-    { id: 'MT004', name: 'David Kim', specialization: 'Clinical Laboratory Scientist', availability: 'Mon-Fri 8AM-5PM' },
-];
+// Removed hardcoded sample data - data should be passed from controller
 
 const appointmentTypes = [
     { id: 'consultation', name: 'Consultation', requiresDoctor: true, requiresMedTech: false },
@@ -57,9 +44,11 @@ interface AppointmentsIndexProps {
         date?: string;
         specialist?: string;
     };
+    doctors?: any[];
+    medtechs?: any[];
 }
 
-export default function AppointmentsIndex({ appointments, filters, nextPatientId }: AppointmentsIndexProps & { nextPatientId?: string }) {
+export default function AppointmentsIndex({ appointments, filters, nextPatientId, doctors = [], medtechs = [] }: AppointmentsIndexProps & { nextPatientId?: string }) {
     const { permissions } = useRoleAccess();
     const [appointmentsList, setAppointmentsList] = useState(appointments.data);
     
@@ -336,7 +325,7 @@ const getTypeBadge = (type: string) => {
         const selectedType = appointmentTypes.find(t => t.id === newAppointmentForm.appointmentType);
         const specialistName = newAppointmentForm.specialistType === 'doctor' 
             ? doctors.find(d => d.id === newAppointmentForm.specialist)?.name || 'Dr. Unknown'
-            : medTechs.find(m => m.id === newAppointmentForm.specialist)?.name || 'Med Tech Unknown';
+            : medtechs.find(m => m.id === newAppointmentForm.specialist)?.name || 'Med Tech Unknown';
 
         // Create new appointment via API
         const appointmentData = {
@@ -1117,7 +1106,7 @@ const getTypeBadge = (type: string) => {
                                                         {newAppointmentForm.specialistType === 'doctor' && doctors.map(doctor => (
                                                             <option key={doctor.id} value={doctor.id}>{doctor.name} - {doctor.specialization}</option>
                                                         ))}
-                                                        {newAppointmentForm.specialistType === 'medtech' && medTechs.map(medtech => (
+                                                        {newAppointmentForm.specialistType === 'medtech' && medtechs.map(medtech => (
                                                             <option key={medtech.id} value={medtech.id}>{medtech.name} - {medtech.specialization}</option>
                                                         ))}
                                                     </select>
@@ -1223,7 +1212,7 @@ const getTypeBadge = (type: string) => {
                                                         {newAppointmentForm.specialistType === 'doctor' 
                                                             ? doctors.find(d => d.id === newAppointmentForm.specialist)?.name || 'Not specified'
                                                             : newAppointmentForm.specialistType === 'medtech'
-                                                            ? medTechs.find(m => m.id === newAppointmentForm.specialist)?.name || 'Not specified'
+                                                            ? medtechs.find(m => m.id === newAppointmentForm.specialist)?.name || 'Not specified'
                                                             : 'Not specified'
                                                         }
                                                     </span>

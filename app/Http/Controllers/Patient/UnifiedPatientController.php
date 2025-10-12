@@ -23,7 +23,10 @@ class UnifiedPatientController extends Controller
         
         // Get doctors and medtechs
         $doctors = User::where('role', 'doctor')
-            ->where('is_active', true)
+            ->where(function($query) {
+                $query->where('is_active', true)
+                      ->orWhereNull('is_active');
+            })
             ->orderBy('name')
             ->get()
             ->map(function ($user) {
@@ -40,7 +43,10 @@ class UnifiedPatientController extends Controller
             });
 
         $medtechs = User::where('role', 'medtech')
-            ->where('is_active', true)
+            ->where(function($query) {
+                $query->where('is_active', true)
+                      ->orWhereNull('is_active');
+            })
             ->orderBy('name')
             ->get()
             ->map(function ($user) {

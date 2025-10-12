@@ -69,7 +69,7 @@ export default function AdminReportsIndex({ user, summary, chartData, recentActi
   };
 
   const handleExportAll = (period: string) => {
-    window.location.href = `${route('admin.reports.export', 'all')}?period=${period}`;
+    window.location.href = `${route('admin.reports.export')}?type=all&period=${period}`;
   };
 
   const reportCategories = [

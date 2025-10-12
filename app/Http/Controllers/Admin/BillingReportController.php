@@ -12,9 +12,78 @@ use Illuminate\Support\Facades\Log;
 
 class BillingReportController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return inertia('admin/billing/reports/index');
+        try {
+            // Get date range from request or default to current month
+            $dateFrom = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
+            $dateTo = $request->get('date_to', now()->endOfMonth()->format('Y-m-d'));
+            
+            // Get revenue data (billing transactions)
+            $revenueData = BillingTransaction::whereBetween('transaction_date', [$dateFrom, $dateTo])
+                ->with(['patient', 'doctor'])
+                ->orderBy('transaction_date', 'desc')
+                ->get();
+            
+            // Get expense data
+            $expenseData = Expense::whereBetween('expense_date', [$dateFrom, $dateTo])
+                ->with(['createdBy', 'updatedBy'])
+                ->orderBy('expense_date', 'desc')
+                ->get();
+            
+            // Get doctor payment data
+            $doctorPaymentData = DoctorPayment::whereBetween('payment_date', [$dateFrom, $dateTo])
+                ->with(['doctor'])
+                ->orderBy('payment_date', 'desc')
+                ->get();
+            
+            // Calculate summary
+            $summary = [
+                'total_revenue' => $revenueData->sum('total_amount'),
+                'total_expenses' => $expenseData->sum('amount'),
+                'total_doctor_payments' => $doctorPaymentData->sum('amount_paid'),
+                'net_profit' => $revenueData->sum('total_amount') - $expenseData->sum('amount') - $doctorPaymentData->sum('amount_paid'),
+                'revenue_count' => $revenueData->count(),
+                'expense_count' => $expenseData->count(),
+            ];
+            
+            // Get filters
+            $filters = [
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'report_type' => $request->get('report_type', 'daily'),
+            ];
+            
+            return inertia('admin/billing/reports', [
+                'revenueData' => $revenueData,
+                'expenseData' => $expenseData,
+                'doctorPaymentData' => $doctorPaymentData,
+                'summary' => $summary,
+                'filters' => $filters,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Billing reports index error: ' . $e->getMessage());
+            
+            return inertia('admin/billing/reports', [
+                'revenueData' => collect(),
+                'expenseData' => collect(),
+                'doctorPaymentData' => collect(),
+                'summary' => [
+                    'total_revenue' => 0,
+                    'total_expenses' => 0,
+                    'total_doctor_payments' => 0,
+                    'net_profit' => 0,
+                    'revenue_count' => 0,
+                    'expense_count' => 0,
+                ],
+                'filters' => [
+                    'date_from' => now()->startOfMonth()->format('Y-m-d'),
+                    'date_to' => now()->endOfMonth()->format('Y-m-d'),
+                    'report_type' => 'daily',
+                ],
+                'error' => 'Unable to load billing report data. Please try again.'
+            ]);
+        }
     }
 
     public function exportReport(Request $request)
@@ -40,92 +109,51 @@ class BillingReportController extends Controller
     {
         $date = $request->get('date', now()->format('Y-m-d'));
         
-        // Get all transactions for the date
-        $billingTransactions = BillingTransaction::whereDate('transaction_date', $date)
-            ->with(['patient', 'doctor', 'items', 'appointmentLinks.appointment'])
+        // First, sync the daily transactions table to ensure it's up to date
+        $this->syncDailyTransactions($date);
+        
+        // Get all transactions from the daily_transactions table
+        $dailyTransactions = DailyTransaction::whereDate('transaction_date', $date)
+            ->orderBy('created_at', 'asc')
             ->get();
 
-        $doctorPayments = DoctorPayment::whereDate('payment_date', $date)
-            ->with(['doctor'])
-            ->get();
-
+        // Get expenses separately for the expenses table
         $expenses = Expense::whereDate('expense_date', $date)
             ->with(['createdBy', 'updatedBy'])
             ->get();
 
-        // Combine all transactions
-        $allTransactions = collect();
-        
-        // Add billing transactions
-        foreach ($billingTransactions as $transaction) {
-            $allTransactions->push((object) [
+        // Convert daily transactions to the format expected by the frontend
+        $allTransactions = $dailyTransactions->map(function ($transaction) {
+            return (object) [
                 'id' => $transaction->id,
-                'type' => 'billing',
+                'type' => $transaction->transaction_type,
                 'transaction_id' => $transaction->transaction_id,
-                'patient_name' => $this->getPatientName($transaction),
-                'specialist_name' => $this->getSpecialistName($transaction),
-                'amount' => $transaction->total_amount,
+                'patient_name' => $transaction->patient_name,
+                'specialist_name' => $transaction->specialist_name,
+                'amount' => $transaction->amount,
                 'payment_method' => $transaction->payment_method,
                 'status' => $transaction->status,
-                'description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',
+                'description' => $transaction->description,
                 'time' => $transaction->transaction_date,
-                'items_count' => $transaction->items->count(),
-                'appointments_count' => $transaction->appointmentLinks->count(),
-            ]);
-        }
+                'items_count' => $transaction->items_count,
+                'appointments_count' => $transaction->appointments_count,
+            ];
+        });
 
-        // Add doctor payments
-        foreach ($doctorPayments as $payment) {
-            $allTransactions->push((object) [
-                'id' => $payment->id,
-                'type' => 'doctor_payment',
-                'transaction_id' => 'DP-' . $payment->id,
-                'patient_name' => 'Doctor Payment',
-                'specialist_name' => $payment->doctor ? $payment->doctor->name : 'Unknown Doctor',
-                'amount' => -$payment->amount_paid,
-                'payment_method' => $payment->payment_method,
-                'status' => $payment->status,
-                'description' => 'Doctor Payment - ' . $payment->description,
-                'time' => $payment->payment_date,
-                'items_count' => 0,
-                'appointments_count' => 0,
-            ]);
-        }
+        // Calculate summary from daily transactions
+        $billingTransactions = $dailyTransactions->where('transaction_type', 'billing');
+        $doctorPayments = $dailyTransactions->where('transaction_type', 'doctor_payment');
+        $expenseTransactions = $dailyTransactions->where('transaction_type', 'expense');
 
-        // Add expenses
-        foreach ($expenses as $expense) {
-            $allTransactions->push((object) [
-                'id' => $expense->id,
-                'type' => 'expense',
-                'transaction_id' => 'EXP-' . $expense->id,
-                'patient_name' => 'Expense',
-                'specialist_name' => 'System',
-                'amount' => -$expense->amount,
-                'payment_method' => $expense->payment_method,
-                'status' => $expense->status,
-                'description' => $expense->description,
-                'time' => $expense->expense_date,
-                'items_count' => 0,
-                'appointments_count' => 0,
-            ]);
-        }
-
-        // Sort by time
-        $allTransactions = $allTransactions->sortBy('time');
-
-        // Calculate summary
         $summary = [
-            'total_revenue' => $billingTransactions->sum('total_amount'),
-            'total_doctor_payments' => $doctorPayments->sum('amount_paid'),
-            'total_expenses' => $expenses->sum('amount'),
-            'net_profit' => $billingTransactions->sum('total_amount') - $doctorPayments->sum('amount_paid') - $expenses->sum('amount'),
+            'total_revenue' => $billingTransactions->sum('amount'),
+            'total_doctor_payments' => abs($doctorPayments->sum('amount')), // Doctor payments are negative
+            'total_expenses' => abs($expenseTransactions->sum('amount')), // Expenses are negative
+            'net_profit' => $billingTransactions->sum('amount') + $doctorPayments->sum('amount') + $expenseTransactions->sum('amount'),
             'transaction_count' => $billingTransactions->count(),
-            'expense_count' => $expenses->count(),
+            'expense_count' => $expenseTransactions->count(),
             'doctor_payment_count' => $doctorPayments->count(),
         ];
-
-        // Sync to daily transactions table
-        $this->syncDailyTransactions($date);
 
         return inertia('admin/billing/daily-report', [
             'transactions' => $allTransactions->values(),
@@ -1064,9 +1092,130 @@ class BillingReportController extends Controller
 
     private function buildHtmlTable($title, $data)
     {
-        $html = '<html><head><title>' . $title . '</title></head><body>';
-        $html .= '<h1>' . $title . '</h1>';
-        $html .= '<table border="1" cellpadding="5" cellspacing="0">';
+        $html = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>' . $title . '</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .hospital-header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #2d5a27;
+            padding-bottom: 20px;
+        }
+        
+        .hospital-logo {
+            display: inline-block;
+            vertical-align: top;
+            margin-right: 20px;
+        }
+        
+        .hospital-info {
+            display: inline-block;
+            text-align: left;
+            vertical-align: top;
+        }
+        
+        .hospital-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2d5a27;
+            margin: 0 0 5px 0;
+        }
+        
+        .hospital-address {
+            font-size: 12px;
+            color: #333;
+            margin: 0 0 3px 0;
+        }
+        
+        .hospital-slogan {
+            font-size: 14px;
+            font-style: italic;
+            color: #1e40af;
+            margin: 0 0 5px 0;
+        }
+        
+        .hospital-motto {
+            font-size: 16px;
+            font-weight: bold;
+            color: #2d5a27;
+            margin: 0 0 5px 0;
+        }
+        
+        .hospital-contact {
+            font-size: 10px;
+            color: #666;
+            margin: 0;
+        }
+        
+        .report-title {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 18px;
+            font-weight: bold;
+            color: #2d5a27;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        
+        .data-table th,
+        .data-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .data-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            color: #64748b;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="hospital-header">
+        <div class="hospital-logo">
+            <img src="' . public_path('st-james-logo.png') . '" alt="St. James Hospital Logo" style="width: 80px; height: 80px;">
+        </div>
+        <div class="hospital-info">
+            <div class="hospital-name">St. James Hospital Clinic, Inc.</div>
+            <div class="hospital-address">San Isidro City of Cabuyao Laguna</div>
+            <div class="hospital-slogan">Santa Rosa\'s First in Quality Healthcare Service</div>
+            <div class="hospital-motto">PASYENTE MUNA</div>
+            <div class="hospital-contact">
+                Tel. Nos. 02.85844533; 049.5341254; 049.5020058; Fax No.: local 307<br>
+                email add: info@stjameshospital.com.ph
+            </div>
+        </div>
+    </div>
+    
+    <div class="report-title">' . $title . '</div>
+    <div style="text-align: center; margin-bottom: 20px; font-size: 12px; color: #666;">
+        Generated on: ' . now()->format('M d, Y H:i A') . '
+    </div>
+    
+    <table class="data-table">';
         
         if (!empty($data)) {
             // Add headers
@@ -1086,7 +1235,14 @@ class BillingReportController extends Controller
             }
         }
         
-        $html .= '</table></body></html>';
+        $html .= '</table>
+    
+    <div class="footer">
+        <p>This report was generated automatically by the Clinic Management System</p>
+        <p>For questions or support, please contact the system administrator</p>
+    </div>
+</body>
+</html>';
         return $html;
     }
 }

@@ -346,6 +346,8 @@ class HospitalReportController extends Controller
         $dateRange = $this->getDateRange($request);
         
         switch ($type) {
+            case 'all':
+                return $this->exportAll($dateRange);
             case 'patients':
                 return $this->exportPatients($dateRange);
             case 'laboratory':
@@ -1035,6 +1037,120 @@ class HospitalReportController extends Controller
                     $transfer->status,
                     $transfer->reason ?? 'N/A',
                     $transfer->notes ?? 'N/A',
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Export all reports data.
+     */
+    private function exportAll(array $dateRange)
+    {
+        $filename = 'comprehensive_report_' . now()->format('Y_m_d_H_i_s') . '.csv';
+        
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+
+        $callback = function() use ($dateRange) {
+            $file = fopen('php://output', 'w');
+            
+            // Get all data
+            $patients = Patient::whereBetween('created_at', [$dateRange['start'], $dateRange['end']])->get();
+            $appointments = Appointment::whereBetween('appointment_date', [$dateRange['start'], $dateRange['end']])->get();
+            $transactions = BillingTransaction::whereBetween('transaction_date', [$dateRange['start'], $dateRange['end']])->get();
+            $labOrders = LabOrder::whereBetween('created_at', [$dateRange['start'], $dateRange['end']])->get();
+            $transfers = PatientTransfer::whereBetween('transfer_date', [$dateRange['start'], $dateRange['end']])->get();
+            
+            // Write comprehensive report
+            fputcsv($file, ['COMPREHENSIVE HOSPITAL REPORT']);
+            fputcsv($file, ['Generated on: ' . now()->format('Y-m-d H:i:s')]);
+            fputcsv($file, ['Date Range: ' . $dateRange['start']->format('Y-m-d') . ' to ' . $dateRange['end']->format('Y-m-d')]);
+            fputcsv($file, []);
+            
+            // Summary
+            fputcsv($file, ['SUMMARY']);
+            fputcsv($file, ['Total Patients', $patients->count()]);
+            fputcsv($file, ['Total Appointments', $appointments->count()]);
+            fputcsv($file, ['Total Transactions', $transactions->count()]);
+            fputcsv($file, ['Total Lab Orders', $labOrders->count()]);
+            fputcsv($file, ['Total Transfers', $transfers->count()]);
+            fputcsv($file, []);
+            
+            // Patients data
+            fputcsv($file, ['PATIENTS DATA']);
+            fputcsv($file, ['Patient ID', 'Name', 'Age', 'Sex', 'Phone', 'Created Date']);
+            foreach ($patients as $patient) {
+                fputcsv($file, [
+                    $patient->patient_no,
+                    $patient->first_name . ' ' . $patient->last_name,
+                    $patient->age,
+                    $patient->sex,
+                    $patient->phone,
+                    $patient->created_at->format('Y-m-d H:i:s')
+                ]);
+            }
+            fputcsv($file, []);
+            
+            // Appointments data
+            fputcsv($file, ['APPOINTMENTS DATA']);
+            fputcsv($file, ['Appointment ID', 'Patient Name', 'Specialist', 'Date', 'Status']);
+            foreach ($appointments as $appointment) {
+                fputcsv($file, [
+                    $appointment->id,
+                    $appointment->patient_name,
+                    $appointment->specialist_name,
+                    $appointment->appointment_date->format('Y-m-d H:i:s'),
+                    $appointment->status
+                ]);
+            }
+            fputcsv($file, []);
+            
+            // Transactions data
+            fputcsv($file, ['TRANSACTIONS DATA']);
+            fputcsv($file, ['Transaction ID', 'Patient', 'Amount', 'Payment Method', 'Status', 'Date']);
+            foreach ($transactions as $transaction) {
+                fputcsv($file, [
+                    $transaction->transaction_id,
+                    $transaction->patient?->first_name . ' ' . $transaction->patient?->last_name ?? 'N/A',
+                    $transaction->total_amount,
+                    $transaction->payment_method,
+                    $transaction->status,
+                    $transaction->transaction_date->format('Y-m-d H:i:s')
+                ]);
+            }
+            fputcsv($file, []);
+            
+            // Lab orders data
+            fputcsv($file, ['LAB ORDERS DATA']);
+            fputcsv($file, ['Order ID', 'Patient', 'Status', 'Created Date']);
+            foreach ($labOrders as $order) {
+                fputcsv($file, [
+                    $order->id,
+                    $order->patient?->first_name . ' ' . $order->patient?->last_name ?? 'N/A',
+                    $order->status,
+                    $order->created_at->format('Y-m-d H:i:s')
+                ]);
+            }
+            fputcsv($file, []);
+            
+            // Transfers data
+            fputcsv($file, ['TRANSFERS DATA']);
+            fputcsv($file, ['Transfer ID', 'Patient', 'From', 'To', 'Date', 'Status']);
+            foreach ($transfers as $transfer) {
+                fputcsv($file, [
+                    $transfer->id,
+                    $transfer->patient?->first_name . ' ' . $transfer->patient?->last_name ?? 'N/A',
+                    $transfer->fromClinic?->name ?? 'Hospital',
+                    $transfer->toClinic?->name ?? 'Hospital',
+                    $transfer->transfer_date->format('Y-m-d H:i:s'),
+                    $transfer->status
                 ]);
             }
 

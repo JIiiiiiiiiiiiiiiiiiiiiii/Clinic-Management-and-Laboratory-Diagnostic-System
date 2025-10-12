@@ -308,7 +308,7 @@ export default function BillingIndex({
         const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
         
         // Navigate to doctor summary report
-        router.get('/admin/billing/reports/doctor-summary', {
+        router.get('/admin/billing/billing-reports/doctor-summary', {
             date_from: reportDateFrom,
             date_to: reportDateTo,
             doctor_id: doctorFilter,
@@ -320,7 +320,7 @@ export default function BillingIndex({
         const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
         
         // Navigate to HMO report
-        router.get('/admin/billing/reports/hmo', {
+        router.get('/admin/billing/billing-reports/hmo', {
             date_from: reportDateFrom,
             date_to: reportDateTo,
         });
@@ -331,7 +331,7 @@ export default function BillingIndex({
         const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
         
         // Show export options modal or direct export
-        const exportUrl = `/admin/billing/reports/export-all?date_from=${reportDateFrom}&date_to=${reportDateTo}&format=excel`;
+        const exportUrl = `/admin/billing/billing-reports/export-all?date_from=${reportDateFrom}&date_to=${reportDateTo}&format=excel`;
         window.open(exportUrl, '_blank');
     };
 
@@ -340,7 +340,7 @@ export default function BillingIndex({
         const reportDateFrom = dateFrom || new Date().toISOString().split('T')[0];
         const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
         
-        const exportUrl = `/admin/billing/reports/${reportType}/export?date_from=${reportDateFrom}&date_to=${reportDateTo}&format=${format}`;
+        const exportUrl = `/admin/billing/billing-reports/${reportType}/export?date_from=${reportDateFrom}&date_to=${reportDateTo}&format=${format}`;
         window.open(exportUrl, '_blank');
     };
 

@@ -20,20 +20,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const doctors = [
-    { id: 'D001', name: 'Dr. Smith', specialization: 'Cardiology', availability: 'Mon-Fri 9AM-5PM' },
-    { id: 'D002', name: 'Dr. Johnson', specialization: 'Internal Medicine', availability: 'Mon-Fri 8AM-4PM' },
-    { id: 'D003', name: 'Dr. Davis', specialization: 'Emergency Medicine', availability: '24/7' },
-    { id: 'D004', name: 'Dr. Wilson', specialization: 'Surgery', availability: 'Mon-Fri 10AM-6PM' },
-    { id: 'D005', name: 'Dr. Brown', specialization: 'General Practice', availability: 'Mon-Fri 9AM-5PM' },
-];
-
-const medTechs = [
-    { id: 'MT001', name: 'Sarah Johnson', specialization: 'Laboratory Technician', availability: 'Mon-Fri 8AM-5PM' },
-    { id: 'MT002', name: 'Michael Chen', specialization: 'Medical Technologist', availability: 'Mon-Fri 9AM-6PM' },
-    { id: 'MT003', name: 'Emily Rodriguez', specialization: 'Lab Specialist', availability: 'Mon-Fri 7AM-4PM' },
-    { id: 'MT004', name: 'David Kim', specialization: 'Clinical Laboratory Scientist', availability: 'Mon-Fri 8AM-5PM' },
-];
+// Removed hardcoded sample data - data should be passed from controller
 
 const appointmentTypes = [
     { id: 'consultation', name: 'Consultation', requiresDoctor: true, requiresMedTech: false, basePrice: 500 },
@@ -55,9 +42,11 @@ interface PatientAppointmentBookingProps {
         last_name: string;
         patient_no: string;
     };
+    doctors?: any[];
+    medtechs?: any[];
 }
 
-export default function PatientAppointmentBooking({ user, patient }: PatientAppointmentBookingProps) {
+export default function PatientAppointmentBooking({ user, patient, doctors = [], medtechs = [] }: PatientAppointmentBookingProps) {
     const [appointmentForm, setAppointmentForm] = useState({
         appointmentType: '',
         specialist: '',

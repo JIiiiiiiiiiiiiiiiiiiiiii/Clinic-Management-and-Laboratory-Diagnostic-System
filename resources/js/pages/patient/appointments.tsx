@@ -63,53 +63,7 @@ interface PatientAppointmentsProps {
     unreadCount?: number;
 }
 
-const availableDoctors = [
-    { 
-        id: 'D001', 
-        name: 'Dr. Smith', 
-        specialization: 'Cardiology', 
-        availability: 'Mon-Fri 9AM-5PM',
-        nextAvailable: '2025-01-15 10:00 AM',
-        rating: 4.8,
-        experience: '15 years'
-    },
-    { 
-        id: 'D002', 
-        name: 'Dr. Johnson', 
-        specialization: 'Internal Medicine', 
-        availability: 'Mon-Fri 8AM-4PM',
-        nextAvailable: '2025-01-16 9:00 AM',
-        rating: 4.9,
-        experience: '12 years'
-    },
-    { 
-        id: 'D003', 
-        name: 'Dr. Davis', 
-        specialization: 'Emergency Medicine', 
-        availability: '24/7',
-        nextAvailable: '2025-01-15 2:00 PM',
-        rating: 4.7,
-        experience: '10 years'
-    },
-    { 
-        id: 'D004', 
-        name: 'Dr. Wilson', 
-        specialization: 'Surgery', 
-        availability: 'Mon-Fri 10AM-6PM',
-        nextAvailable: '2025-01-17 11:00 AM',
-        rating: 4.9,
-        experience: '18 years'
-    },
-    { 
-        id: 'D005', 
-        name: 'Dr. Brown', 
-        specialization: 'General Practice', 
-        availability: 'Mon-Fri 9AM-5PM',
-        nextAvailable: '2025-01-16 3:00 PM',
-        rating: 4.8,
-        experience: '14 years'
-    },
-];
+// Removed hardcoded sample data - using data from controller
 
 const availableTimeSlots = [
     '9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
@@ -380,8 +334,8 @@ export default function PatientAppointments({
                             {bookingStep === 1 && (
                                 <div>
                                     <h3 className="text-lg font-semibold text-black mb-4">Step 1: Choose Your Doctor</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {availableDoctors.map(doctor => (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {available_doctors.map(doctor => (
                                             <div 
                                                 key={doctor.id} 
                                                 className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${

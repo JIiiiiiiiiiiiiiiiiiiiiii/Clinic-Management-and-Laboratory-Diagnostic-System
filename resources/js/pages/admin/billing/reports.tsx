@@ -34,7 +34,7 @@ type Summary = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Billing', href: '/admin/billing' },
-    { title: 'Reports', href: '/admin/billing/reports' },
+    { title: 'Reports', href: '/admin/billing/billing-reports' },
 ];
 
 export default function BillingReports({ 
@@ -55,7 +55,7 @@ export default function BillingReports({
     const [reportType, setReportType] = useState(filters.report_type || 'daily');
 
     const handleFilter = () => {
-        router.get('/admin/billing/reports', {
+        router.get('/admin/billing/billing-reports', {
             date_from: dateFrom,
             date_to: dateTo,
             report_type: reportType,

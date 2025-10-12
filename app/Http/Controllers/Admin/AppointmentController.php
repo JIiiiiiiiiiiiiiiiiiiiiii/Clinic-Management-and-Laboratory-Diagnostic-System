@@ -73,6 +73,23 @@ class AppointmentController extends Controller
         // Get next available patient ID with smart reset logic
         $nextPatientId = $this->getNextAvailablePatientId();
 
+        // Get doctors and medtechs for the component
+        $doctors = \App\Models\User::where('role', 'doctor')
+            ->where(function($query) {
+                $query->where('is_active', true)
+                      ->orWhereNull('is_active');
+            })
+            ->select('id', 'name', 'specialization', 'employee_id')
+            ->get();
+
+        $medtechs = \App\Models\User::where('role', 'medtech')
+            ->where(function($query) {
+                $query->where('is_active', true)
+                      ->orWhereNull('is_active');
+            })
+            ->select('id', 'name', 'specialization', 'employee_id')
+            ->get();
+
         return Inertia::render('admin/appointments/index', [
             'appointments' => [
                 'data' => $appointments,
@@ -82,7 +99,9 @@ class AppointmentController extends Controller
                 'total' => $appointments->count()
             ],
             'filters' => $request->only(['search', 'status', 'date', 'specialist']),
-            'nextPatientId' => $nextPatientId
+            'nextPatientId' => $nextPatientId,
+            'doctors' => $doctors,
+            'medtechs' => $medtechs
         ]);
     }
 

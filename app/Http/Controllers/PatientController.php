@@ -107,12 +107,8 @@ class PatientController extends Controller
         $doctors = \App\Models\User::query()
             ->where('role', 'doctor')
             ->where(function ($q) {
-                // Some setups may not have is_active; guard with exists check
-                try {
-                    $q->where('is_active', true);
-                } catch (\Throwable $e) {
-                    // ignore
-                }
+                $q->where('is_active', true)
+                  ->orWhereNull('is_active');
             })
             ->orderBy('name')
             ->get(['id', 'name']);

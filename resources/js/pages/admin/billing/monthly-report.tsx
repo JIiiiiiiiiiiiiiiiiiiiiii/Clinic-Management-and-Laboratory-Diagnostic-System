@@ -56,7 +56,7 @@ type Summary = {
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Billing', href: '/admin/billing' },
     { title: 'Transaction Report', href: '/admin/billing/transaction-report' },
-    { title: 'Monthly Report', href: '/admin/billing/reports/monthly' },
+    { title: 'Monthly Report', href: '/admin/billing/billing-reports/monthly' },
 ];
 
 export default function MonthlyReport({ 
@@ -73,7 +73,7 @@ export default function MonthlyReport({
     const [selectedMonth, setSelectedMonth] = useState(month);
 
     const handleMonthChange = () => {
-        router.get('/admin/billing/reports/monthly', {
+        router.get('/admin/billing/billing-reports/monthly', {
             month: selectedMonth,
         }, {
             preserveState: true,
@@ -82,7 +82,7 @@ export default function MonthlyReport({
     };
 
     const handleExport = (format: string) => {
-        const exportUrl = `/admin/billing/reports/monthly/export?month=${selectedMonth}&format=${format}`;
+        const exportUrl = `/admin/billing/billing-reports/monthly/export?month=${selectedMonth}&format=${format}`;
         window.open(exportUrl, '_blank');
     };
 

@@ -93,7 +93,8 @@ export default function AppointmentCreate({
         setData('appointment_type', type);
         
         // Determine specialist type based on appointment type
-        const requiresDoctor = ['consultation', 'checkup', 'x-ray', 'ultrasound'].includes(type);
+        // Only consultation and checkup require doctors, all others require medtechs
+        const requiresDoctor = ['consultation', 'checkup'].includes(type);
         const newSpecialistType = requiresDoctor ? 'doctor' : 'medtech';
         setSpecialistType(newSpecialistType);
         setData('specialist_type', newSpecialistType);
@@ -193,7 +194,7 @@ export default function AppointmentCreate({
                                 <div className="grid md:grid-cols-2 gap-4">
                                 <div>
                                     <Label htmlFor="appointment_type">Appointment Type *</Label>
-                                        <Select value={data.appointment_type} onValueChange={(value) => setData('appointment_type', value)}>
+                                        <Select value={data.appointment_type} onValueChange={handleTypeChange}>
                                             <SelectTrigger>
                                             <SelectValue placeholder="Select appointment type..." />
                                         </SelectTrigger>
@@ -215,11 +216,19 @@ export default function AppointmentCreate({
                                                 <SelectValue placeholder="Select specialist..." />
                                         </SelectTrigger>
                                         <SelectContent>
-                                                {doctors.map((doctor) => (
-                                                    <SelectItem key={doctor.id} value={doctor.id.toString()}>
-                                                        {doctor.name} - {doctor.specialization}
-                                                    </SelectItem>
-                                                ))}
+                                                {specialistType === 'doctor' ? (
+                                                    doctors.map((doctor) => (
+                                                        <SelectItem key={doctor.id} value={doctor.id.toString()}>
+                                                            {doctor.name} - {doctor.specialization}
+                                                        </SelectItem>
+                                                    ))
+                                                ) : (
+                                                    medtechs.map((medtech) => (
+                                                        <SelectItem key={medtech.id} value={medtech.id.toString()}>
+                                                            {medtech.name} - {medtech.specialization}
+                                                        </SelectItem>
+                                                    ))
+                                                )}
                                         </SelectContent>
                                     </Select>
                                     {errors.specialist_id && (
@@ -357,7 +366,10 @@ export default function AppointmentCreate({
                                             <span className="text-gray-600">Specialist:</span>
                                             <span className="font-medium">
                                                 {data.specialist_id ? 
-                                                    doctors.find(d => d.id.toString() === data.specialist_id)?.name || 'Not specified' 
+                                                    (specialistType === 'doctor' 
+                                                        ? doctors.find(d => d.id.toString() === data.specialist_id)?.name 
+                                                        : medtechs.find(m => m.id.toString() === data.specialist_id)?.name
+                                                    ) || 'Not specified' 
                                                     : 'Not specified'
                                                 }
                                             </span>

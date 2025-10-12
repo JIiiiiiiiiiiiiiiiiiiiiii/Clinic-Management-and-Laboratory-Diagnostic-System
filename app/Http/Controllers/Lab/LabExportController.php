@@ -36,13 +36,29 @@ class LabExportController extends Controller
             }
             $tbody .= '</tr>';
         }
-        return '<!doctype html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>' . e($title) . '</title><meta name="ProgId" content="Word.Document"><meta name="Generator" content="Microsoft Word 15"><meta name="Originator" content="Microsoft Word 15"></head><body>' .
-            '<h2 style="font-family:Arial,Helvetica,sans-serif;margin:0 0 16px 0;color:#333">' . e($title) . '</h2>' .
-            '<table style="border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;font-size:11px;width:100%;mso-table-lspace:0pt;mso-table-rspace:0pt">' .
+        
+        $hospitalHeader = '
+        <div style="text-align: center; margin-bottom: 10px; padding: 5px 0; position: relative;">
+            <div style="position: absolute; left: 0; top: 0;">
+                <img src="' . public_path('st-james-logo.png') . '" alt="St. James Hospital Logo" style="width: 80px; height: 80px;">
+            </div>
+            <div style="text-align: center; width: 100%;">
+                <div style="font-size: 24px; font-weight: bold; color: #2d5a27; margin: 0 0 5px 0;">St. James Hospital Clinic, Inc.</div>
+                <div style="font-size: 12px; color: #333; margin: 0 0 3px 0;">San Isidro City of Cabuyao Laguna</div>
+                <div style="font-size: 14px; font-style: italic; color: #1e40af; margin: 0 0 5px 0;">Santa Rosa\'s First in Quality Healthcare Service</div>
+                <div style="font-size: 16px; font-weight: bold; color: #2d5a27; margin: 0 0 5px 0;">PASYENTE MUNA</div>
+                <div style="font-size: 10px; color: #666; margin: 0;">Tel. Nos. 02.85844533; 049.5341254; 049.5020058; Fax No.: local 307<br>email add: info@stjameshospital.com.ph</div>
+            </div>
+        </div>';
+        
+        return '<!doctype html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>' . e($title) . '</title><meta name="ProgId" content="Word.Document"><meta name="Generator" content="Microsoft Word 15"><meta name="Originator" content="Microsoft Word 15"><style>body{font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;}</style></head><body>' .
+            $hospitalHeader .
+            '<h2 style="font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;margin:0 0 16px 0;color:#333;text-align:center">' . e($title) . '</h2>' .
+            '<table style="border-collapse:collapse;font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;font-size:11px;width:100%;mso-table-lspace:0pt;mso-table-rspace:0pt">' .
             '<thead>' . $thead . '</thead>' .
             '<tbody>' . $tbody . '</tbody>' .
             '</table>' .
-            '<p style="font-family:Arial,Helvetica,sans-serif;font-size:10px;color:#666;margin-top:20px">Generated on ' . now()->format('F j, Y \a\t g:i A') . '</p>' .
+            '<p style="font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;font-size:10px;color:#666;margin-top:20px">Generated on ' . now()->format('F j, Y \a\t g:i A') . '</p>' .
             '</body></html>';
     }
     public function exportOrders(Request $request)

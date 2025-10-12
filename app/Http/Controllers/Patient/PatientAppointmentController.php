@@ -51,7 +51,10 @@ class PatientAppointmentController extends Controller
         
         // Always get available doctors for booking (even without patient record)
         $available_doctors = User::where('role', 'doctor')
-            ->where('is_active', true)
+            ->where(function($query) {
+                $query->where('is_active', true)
+                      ->orWhereNull('is_active');
+            })
             ->get()
             ->map(function ($doctor) {
                 return [
@@ -99,12 +102,18 @@ class PatientAppointmentController extends Controller
         
         // Get available doctors and specialists
         $doctors = User::where('role', 'doctor')
-            ->where('is_active', true)
+            ->where(function($query) {
+                $query->where('is_active', true)
+                      ->orWhereNull('is_active');
+            })
             ->select('id', 'name', 'specialization', 'employee_id')
             ->get();
 
         $medtechs = User::where('role', 'medtech')
-            ->where('is_active', true)
+            ->where(function($query) {
+                $query->where('is_active', true)
+                      ->orWhereNull('is_active');
+            })
             ->select('id', 'name', 'specialization', 'employee_id')
             ->get();
 
@@ -344,12 +353,18 @@ class PatientAppointmentController extends Controller
 
         // Get available doctors and specialists
         $doctors = User::where('role', 'doctor')
-            ->where('is_active', true)
+            ->where(function($query) {
+                $query->where('is_active', true)
+                      ->orWhereNull('is_active');
+            })
             ->select('id', 'name', 'specialization', 'employee_id')
             ->get();
 
         $medtechs = User::where('role', 'medtech')
-            ->where('is_active', true)
+            ->where(function($query) {
+                $query->where('is_active', true)
+                      ->orWhereNull('is_active');
+            })
             ->select('id', 'name', 'specialization', 'employee_id')
             ->get();
 

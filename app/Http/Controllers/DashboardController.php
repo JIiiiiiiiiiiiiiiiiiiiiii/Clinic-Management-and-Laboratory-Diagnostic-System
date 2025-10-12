@@ -21,6 +21,11 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        
+        // If no user from request, try to get from standard Laravel auth
+        if (!$user) {
+            $user = Auth::user();
+        }
 
         if ($user && $user->role === 'patient') {
             $patient = PatientModel::where('user_id', $user->id)->first();

@@ -5,24 +5,75 @@
     <title>Inventory Report</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 20px;
             color: #333;
         }
-        .header {
+        
+        .hospital-header {
             text-align: center;
-            margin-bottom: 30px;
-            border-bottom: 2px solid #2563eb;
-            padding-bottom: 20px;
+            margin-bottom: 10px;
+            padding: 5px 0;
+            position: relative;
         }
-        .header h1 {
-            color: #2563eb;
-            margin: 0;
+        
+        .hospital-logo {
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+        
+        .hospital-info {
+            text-align: center;
+            width: 100%;
+        }
+        
+        .hospital-name {
             font-size: 24px;
+            font-weight: bold;
+            color: #2d5a27;
+            margin: 0 0 5px 0;
         }
-        .header p {
-            margin: 5px 0 0 0;
+        
+        .hospital-address {
+            font-size: 12px;
+            color: #333;
+            margin: 0 0 3px 0;
+        }
+        
+        .hospital-slogan {
+            font-size: 14px;
+            font-style: italic;
+            color: #1e40af;
+            margin: 0 0 5px 0;
+        }
+        
+        .hospital-motto {
+            font-size: 16px;
+            font-weight: bold;
+            color: #2d5a27;
+            margin: 0 0 5px 0;
+        }
+        
+        .hospital-contact {
+            font-size: 10px;
+            color: #666;
+            margin: 0;
+        }
+        
+        .report-title {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 18px;
+            font-weight: bold;
+            color: #2d5a27;
+        }
+        
+        .report-meta {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 12px;
             color: #666;
         }
         .section {
@@ -102,11 +153,27 @@
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Inventory Report</h1>
-        <p>Generated on: {{ now()->format('M d, Y H:i A') }}</p>
-        <p>Report Type: {{ $report->report_name }}</p>
-        <p>Period: {{ ucfirst($report->period) }} ({{ $report->start_date }} to {{ $report->end_date }})</p>
+    <div class="hospital-header">
+        <div class="hospital-logo">
+            <img src="{{ public_path('st-james-logo.png') }}" alt="St. James Hospital Logo" style="width: 80px; height: 80px;">
+        </div>
+        <div class="hospital-info">
+            <div class="hospital-name">St. James Hospital Clinic, Inc.</div>
+            <div class="hospital-address">San Isidro City of Cabuyao Laguna</div>
+            <div class="hospital-slogan">Santa Rosa's First in Quality Healthcare Service</div>
+            <div class="hospital-motto">PASYENTE MUNA</div>
+            <div class="hospital-contact">
+                Tel. Nos. 02.85844533; 049.5341254; 049.5020058; Fax No.: local 307<br>
+                email add: info@stjameshospital.com.ph
+            </div>
+        </div>
+    </div>
+    
+    <div class="report-title">Inventory Report</div>
+    <div class="report-meta">
+        Generated on: {{ now()->format('M d, Y H:i A') }} | 
+        Report Type: {{ $report->report_name }} | 
+        Period: {{ ucfirst($report->period) }} ({{ $report->start_date }} to {{ $report->end_date }})
     </div>
 
     <div class="section">

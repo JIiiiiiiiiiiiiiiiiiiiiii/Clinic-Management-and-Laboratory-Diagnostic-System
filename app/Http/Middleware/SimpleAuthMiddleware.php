@@ -15,7 +15,7 @@ class SimpleAuthMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Check if user is authenticated using Laravel's standard authentication
+        // Check if user is authenticated using standard Laravel auth
         if (Auth::check()) {
             $user = Auth::user();
             \Log::info('SimpleAuthMiddleware: User authenticated via Laravel Auth: ' . $user->name);

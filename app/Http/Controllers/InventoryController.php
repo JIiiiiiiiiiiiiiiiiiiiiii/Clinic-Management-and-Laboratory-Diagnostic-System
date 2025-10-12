@@ -236,9 +236,10 @@ class InventoryController extends Controller
 
         // Get comprehensive inventory data based on date filter
         $itemsQuery = InventoryItem::query();
-        if ($dateFilter['start'] && $dateFilter['end']) {
-            $itemsQuery->whereBetween('created_at', [$dateFilter['start'], $dateFilter['end']]);
-        }
+        
+        // For inventory reports, we should get all items but filter movements by date
+        // The items themselves don't need date filtering - we want to see all items
+        // but only show movements/activities within the selected date range
 
         // Get movement data for the selected period
         $movementsQuery = InventoryMovement::with('inventoryItem');
@@ -280,11 +281,11 @@ class InventoryController extends Controller
                 'calculated_lowStockItems' => $lowStockItems
             ]);
         } else {
-            // For consumed/rejected reports, show item data
-            $totalItems = $itemsQuery->count();
-            $totalConsumed = $itemsQuery->sum('consumed');
-            $totalRejected = $itemsQuery->sum('rejected');
-            $lowStockItems = $itemsQuery->clone()->lowStock()->count();
+            // For consumed/rejected reports, show movement data within the date range
+            $totalItems = $itemsQuery->count(); // Total items in inventory
+            $totalConsumed = $movements->where('movement_type', 'OUT')->sum('quantity'); // Items consumed in date range
+            $totalRejected = $movements->where('movement_type', 'OUT')->sum('quantity'); // Items rejected in date range
+            $lowStockItems = $itemsQuery->clone()->lowStock()->count(); // Current low stock items
             
             \Log::info('Consumed/Rejected Report Data:', [
                 'calculated_totalItems' => $totalItems,
@@ -296,14 +297,7 @@ class InventoryController extends Controller
 
         // Get department-wise statistics
         $doctorNurseQuery = InventoryItem::byAssignedTo('Doctor & Nurse');
-        if ($dateFilter['start'] && $dateFilter['end']) {
-            $doctorNurseQuery->whereBetween('created_at', [$dateFilter['start'], $dateFilter['end']]);
-        }
-
         $medTechQuery = InventoryItem::byAssignedTo('Med Tech');
-        if ($dateFilter['start'] && $dateFilter['end']) {
-            $medTechQuery->whereBetween('created_at', [$dateFilter['start'], $dateFilter['end']]);
-        }
 
         // Calculate department statistics based on report type
         if ($reportType === 'incoming-outgoing') {
@@ -329,18 +323,26 @@ class InventoryController extends Controller
                 'lowStock' => $medTechMovements->where('movement_type', 'OUT')->count(),
             ];
         } else {
-            // For consumed/rejected reports, show item data by department
+            // For consumed/rejected reports, show movement data by department for the date range
+            $doctorNurseMovements = $movements->filter(function($movement) {
+                return $movement->inventoryItem && $movement->inventoryItem->assigned_to === 'Doctor & Nurse';
+            });
+            
+            $medTechMovements = $movements->filter(function($movement) {
+                return $movement->inventoryItem && $movement->inventoryItem->assigned_to === 'Med Tech';
+            });
+
             $doctorNurseStats = [
                 'totalItems' => $doctorNurseQuery->count(),
-                'totalConsumed' => $doctorNurseQuery->sum('consumed'),
-                'totalRejected' => $doctorNurseQuery->sum('rejected'),
+                'totalConsumed' => $doctorNurseMovements->where('movement_type', 'OUT')->sum('quantity'),
+                'totalRejected' => $doctorNurseMovements->where('movement_type', 'OUT')->sum('quantity'),
                 'lowStock' => $doctorNurseQuery->clone()->lowStock()->count(),
             ];
 
             $medTechStats = [
                 'totalItems' => $medTechQuery->count(),
-                'totalConsumed' => $medTechQuery->sum('consumed'),
-                'totalRejected' => $medTechQuery->sum('rejected'),
+                'totalConsumed' => $medTechMovements->where('movement_type', 'OUT')->sum('quantity'),
+                'totalRejected' => $medTechMovements->where('movement_type', 'OUT')->sum('quantity'),
                 'lowStock' => $medTechQuery->clone()->lowStock()->count(),
             ];
         }
@@ -358,8 +360,8 @@ class InventoryController extends Controller
         $reportData = [];
         if ($reportType === 'consumed-rejected') {
             $reportData = [
-                'consumedItems' => $itemsQuery->clone()->where('consumed', '>', 0)->get(),
-                'rejectedItems' => $itemsQuery->clone()->where('rejected', '>', 0)->get(),
+                'consumedItems' => $movements->where('movement_type', 'OUT'),
+                'rejectedItems' => $movements->where('movement_type', 'OUT'),
             ];
         } else {
             $reportData = [
@@ -536,6 +538,12 @@ class InventoryController extends Controller
                     'end' => $now->copy()->endOfDay(),
                     'label' => 'Today'
                 ];
+            case 'weekly':
+                return [
+                    'start' => $now->copy()->startOfWeek(),
+                    'end' => $now->copy()->endOfWeek(),
+                    'label' => 'This Week'
+                ];
             case 'monthly':
                 return [
                     'start' => $now->copy()->startOfMonth(),
@@ -709,6 +717,72 @@ class InventoryController extends Controller
                 'availableAssignedTo' => $availableAssignedTo,
             ],
         ]);
+    }
+
+    public function exportRejectedSupplies(Request $request)
+    {
+        $format = $request->get('format', 'pdf');
+        $assignedTo = $request->get('assigned_to', 'all');
+        $category = $request->get('category', 'all');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+
+        // Build query for items with rejections
+        $itemsQuery = InventoryItem::where('rejected', '>', 0);
+        
+        if ($assignedTo !== 'all') {
+            $itemsQuery->where('assigned_to', $assignedTo);
+        }
+        
+        if ($category !== 'all') {
+            $itemsQuery->where('category', $category);
+        }
+        
+        $itemsWithRejections = $itemsQuery->orderBy('rejected', 'desc')->get();
+
+        if ($format === 'pdf') {
+            $html = view('lab.inventory-report-pdf', [
+                'report' => (object)[
+                    'report_name' => 'Rejected Supplies Report',
+                    'created_at' => now(),
+                    'data' => [
+                        'itemsWithRejections' => $itemsWithRejections,
+                        'summary' => [
+                            'totalRejectedItems' => $itemsWithRejections->sum('rejected'),
+                            'totalRejectedProducts' => $itemsWithRejections->count(),
+                        ]
+                    ]
+                ],
+                'data' => [
+                    'itemsWithRejections' => $itemsWithRejections,
+                    'summary' => [
+                        'totalRejectedItems' => $itemsWithRejections->sum('rejected'),
+                        'totalRejectedProducts' => $itemsWithRejections->count(),
+                    ]
+                ],
+            ])->render();
+
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html);
+            $pdf->setPaper('A4', 'portrait');
+
+            return $pdf->download('rejected-supplies-report-' . now()->format('Y-m-d-H-i-s') . '.pdf');
+        } else {
+            // Excel export
+            $export = new \App\Exports\InventoryReportExport((object)[
+                'data' => [
+                    'itemsWithRejections' => $itemsWithRejections,
+                    'summary' => [
+                        'totalRejectedItems' => $itemsWithRejections->sum('rejected'),
+                        'totalRejectedProducts' => $itemsWithRejections->count(),
+                    ]
+                ]
+            ]);
+            
+            return \Maatwebsite\Excel\Facades\Excel::download(
+                $export,
+                'rejected-supplies-report-' . now()->format('Y-m-d-H-i-s') . '.xlsx'
+            );
+        }
     }
 
     public function movement(Request $request, $id)

@@ -90,7 +90,7 @@ const data = {
         },
         {
           title: "Reports",
-          url: "/admin/laboratory/reports",
+          url: "/admin/reports/laboratory",
         },
       ],
     },
@@ -186,7 +186,7 @@ const data = {
         },
         {
           title: "Reports",
-          url: "/admin/billing/reports",
+          url: "/admin/billing/billing-reports",
         },
       ],
     },
@@ -199,7 +199,7 @@ const data = {
     },
     {
       name: "Lab Reports",
-      url: "/admin/laboratory/reports",
+      url: "/admin/reports/laboratory",
       icon: ActivityIcon,
     },
     {
