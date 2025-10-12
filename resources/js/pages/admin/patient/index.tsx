@@ -1,5 +1,3 @@
-import PatientExportButton from '@/components/patient/PatientExportButton';
-import { PatientActionButton, PatientInfoCard, PatientPageLayout } from '@/components/patient/PatientPageLayout';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -9,17 +7,24 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
-import { CustomDatePicker } from '@/components/ui/date-picker';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+// import { CustomDatePicker } from '@/components/ui/date-picker';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PatientPageLayout, PatientActionButton, PatientInfoCard, PatientStatusBadge } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { PatientItem } from '@/types/patients';
-import { Head, router, usePage } from '@inertiajs/react';
-import { AlertCircle, ArrowLeft, ArrowRight, Calendar, CheckCircle, Edit, Eye, Filter, Search, User, Users, XCircle } from 'lucide-react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { 
+    Edit, Eye, Plus, Search, Filter, Calendar, User, Phone, Mail, MapPin, Clock, 
+    Stethoscope, CheckCircle, AlertCircle, XCircle, Activity, TrendingUp,
+    FileText, Heart, Calendar as CalendarIcon, UserCheck, BarChart3, ArrowLeft, ArrowRight, UserPlus, Users
+} from 'lucide-react';
 import * as React from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -61,12 +66,11 @@ export default function Patient(props: {
     const [open, setOpen] = React.useState(Boolean(created));
 
     // Mock data for statistics
-    const safeVisits = Array.isArray(visits) ? visits : visits?.data || [];
     const stats = {
         totalPatients: patients_pagination?.total || 0,
-        activeVisits: safeVisits.filter((v: any) => v.status === 'active').length,
-        completedVisits: safeVisits.filter((v: any) => v.status === 'completed').length,
-        newThisMonth: Math.floor(Math.random() * 20) + 5,
+        activeVisits: visits.filter((v: any) => v.status === 'active').length,
+        completedVisits: visits.filter((v: any) => v.status === 'completed').length,
+        newThisMonth: Math.floor(Math.random() * 20) + 5
     };
 
     return (
@@ -77,54 +81,49 @@ export default function Patient(props: {
                 description="Comprehensive patient records and visit history management"
                 stats={stats}
                 actions={
-                    <div className="flex items-center gap-3">
-                        <PatientExportButton />
-                        <PatientActionButton
-                            variant="default"
-                            icon={<User className="h-4 w-4" />}
-                            label="Register New Patient"
-                            href="/admin/patient/create"
-                            className="bg-gray-600 text-white shadow-lg transition-all duration-300 hover:bg-gray-700 hover:shadow-xl"
-                        />
-                    </div>
+                    <PatientActionButton
+                        variant="default"
+                        icon={<User className="h-4 w-4" />}
+                        label="Register New Patient"
+                        href="/admin/patient/create"
+                        className="bg-gray-600 hover:bg-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                    />
                 }
             >
-                {/* Main Content with Tabs */}
-                <div className="space-y-6">
-                    <Tabs defaultValue="patients" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2 rounded-lg bg-gray-100 p-1">
-                            <TabsTrigger
-                                value="patients"
-                                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm"
-                            >
-                                <Users className="h-4 w-4" />
-                                Patient Records
-                            </TabsTrigger>
-                            <TabsTrigger
-                                value="visits"
-                                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm"
-                            >
-                                <Calendar className="h-4 w-4" />
-                                Visit History
-                            </TabsTrigger>
-                        </TabsList>
 
-                        <TabsContent value="patients" className="mt-4 space-y-6">
+                    {/* Main Content with Tabs */}
+                    <div className="space-y-6">
+                        <Tabs defaultValue="patients" className="w-full">
+                            <TabsList className="grid w-full grid-cols-2 bg-gray-100 p-1 rounded-lg">
+                                <TabsTrigger value="patients" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm">
+                                    <Users className="h-4 w-4" />
+                                    Patient Records
+                                </TabsTrigger>
+                                <TabsTrigger value="visits" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm">
+                                    <Calendar className="h-4 w-4" />
+                                    Visit History
+                                </TabsTrigger>
+                            </TabsList>
+
+                        <TabsContent value="patients" className="space-y-6 mt-4">
                             {/* Patient Records Card */}
-                            <PatientInfoCard title="Patient Records" icon={<Users className="h-5 w-5 text-black" />}>
+                            <PatientInfoCard
+                                title="Patient Records"
+                                icon={<Users className="h-5 w-5 text-black" />}
+                            >
                                 {/* Search and Filter */}
                                 <div className="flex items-center gap-4">
-                                    <div className="relative max-w-md flex-1">
-                                        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+                                    <div className="relative flex-1 max-w-md">
+                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                                         <Input
                                             placeholder="Search patients by name..."
                                             value={pSearch}
                                             onChange={(e) => setPSearch(e.target.value)}
-                                            className="h-10 rounded-lg border-gray-300 pl-10 shadow-sm focus:border-gray-500 focus:ring-gray-500"
+                                            className="pl-10 h-10 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-lg shadow-sm"
                                         />
                                     </div>
                                     <Select defaultValue={patients_filters?.p_sort_by || 'last_name'}>
-                                        <SelectTrigger className="h-10 w-48">
+                                        <SelectTrigger className="w-48 h-10">
                                             <SelectValue placeholder="Sort by" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -145,75 +144,75 @@ export default function Patient(props: {
                                                 )}&p_sort_dir=${patients_filters?.p_sort_dir || 'asc'}`,
                                             )
                                         }
-                                        className="bg-gray-600 text-white hover:bg-gray-700"
+                                        className="bg-gray-600 hover:bg-gray-700 text-white"
                                     />
                                 </div>
-
-                                {/* Modern Patient Table */}
-                                <div className="mt-8 overflow-x-auto rounded-lg border border-gray-200 bg-white">
-                                    <Table>
-                                        <TableHeader className="bg-gray-50">
-                                            <TableRow>
-                                                <TableHead className="font-semibold text-gray-700">Patient No.</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Name</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Gender</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Age</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Contact</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Actions</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {patients.map((p: any) => (
-                                                <TableRow key={p.id} className="transition-colors hover:bg-gray-50/50">
-                                                    <TableCell className="font-semibold text-black">{p.patient_no || '—'}</TableCell>
-                                                    <TableCell>
-                                                        <div>
-                                                            <div className="font-medium text-gray-900">
-                                                                {p.last_name}, {p.first_name}
-                                                            </div>
-                                                            <div className="text-sm text-gray-500">{p.email || 'No email'}</div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge
-                                                            variant={p.sex === 'male' ? 'default' : 'secondary'}
-                                                            className="bg-gray-100 text-black"
-                                                        >
-                                                            {p.sex}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-gray-600">{p.age} years</TableCell>
-                                                    <TableCell className="text-gray-600">{p.mobile_no}</TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="outline" className="border-gray-200 bg-gray-50 text-black">
-                                                            Active
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex gap-2">
-                                                            <PatientActionButton
-                                                                variant="outline"
-                                                                size="sm"
-                                                                icon={<Eye className="h-4 w-4" />}
-                                                                label="View"
-                                                                href={`/admin/patient/${p.id}`}
-                                                            />
-                                                            <PatientActionButton
-                                                                variant="outline"
-                                                                size="sm"
-                                                                icon={<Edit className="h-4 w-4" />}
-                                                                label="Edit"
-                                                                href={`/admin/patient/${p.id}/edit`}
-                                                            />
-                                                        </div>
-                                                    </TableCell>
+                                    
+                                    {/* Modern Patient Table */}
+                                    <div className="mt-8 overflow-x-auto rounded-lg border border-gray-200 bg-white">
+                                        <Table>
+                                            <TableHeader className="bg-gray-50">
+                                                <TableRow>
+                                                    <TableHead className="font-semibold text-gray-700">Patient No.</TableHead>
+                                                    <TableHead className="font-semibold text-gray-700">Name</TableHead>
+                                                    <TableHead className="font-semibold text-gray-700">Gender</TableHead>
+                                                    <TableHead className="font-semibold text-gray-700">Age</TableHead>
+                                                    <TableHead className="font-semibold text-gray-700">Contact</TableHead>
+                                                    <TableHead className="font-semibold text-gray-700">Status</TableHead>
+                                                    <TableHead className="font-semibold text-gray-700">Actions</TableHead>
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-
+                                            </TableHeader>
+                                            <TableBody>
+                                                {patients.map((p: any) => (
+                                                    <TableRow key={p.id} className="hover:bg-gray-50/50 transition-colors">
+                                                        <TableCell className="font-semibold text-black">
+                                                            {p.patient_no || '—'}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div>
+                                                                <div className="font-medium text-gray-900">{p.last_name}, {p.first_name}</div>
+                                                                <div className="text-sm text-gray-500">{p.email || 'No email'}</div>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge 
+                                                                variant={p.sex === 'male' ? 'default' : 'secondary'}
+                                                                className='bg-gray-100 text-black'
+                                                            >
+                                                                {p.sex}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-gray-600">{p.age} years</TableCell>
+                                                        <TableCell className="text-gray-600">{p.mobile_no}</TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline" className="bg-gray-50 text-black border-gray-200">
+                                                                Active
+                                                            </Badge>
+                                                        </TableCell>
+                                                                <TableCell>
+                                                                    <div className="flex gap-2">
+                                                                        <PatientActionButton
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            icon={<Eye className="h-4 w-4" />}
+                                                                            label="View"
+                                                                            href={`/admin/patient/${p.id}`}
+                                                                        />
+                                                                        <PatientActionButton
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            icon={<Edit className="h-4 w-4" />}
+                                                                            label="Edit"
+                                                                            href={`/admin/patient/${p.id}/edit`}
+                                                                        />
+                                                                    </div>
+                                                                </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                    
                                 {/* Pagination */}
                                 {patients_pagination?.last_page > 1 && (
                                     <div className="flex items-center justify-center gap-3 pt-4">
@@ -227,12 +226,12 @@ export default function Patient(props: {
                                                 router.visit(
                                                     `/admin/patient?p_page=${patients_pagination.current_page - 1}&p_search=${encodeURIComponent(
                                                         pSearch,
-                                                    )}&p_sort_by=${patients_filters?.p_sort_by || 'last_name'}&p_sort_dir=${patients_filters?.p_sort_dir || 'asc'}`,
+                                                    )}&p_sort_by=${patients_filters?.p_sort_by || 'patient_no'}&p_sort_dir=${patients_filters?.p_sort_dir || 'asc'}`,
                                                 )
                                             }
                                             className="px-4 py-2"
                                         />
-                                        <div className="rounded-lg bg-gray-50 px-4 py-2">
+                                        <div className="bg-gray-50 px-4 py-2 rounded-lg">
                                             <span className="text-sm font-medium text-black">
                                                 Page {patients_pagination.current_page} of {patients_pagination.last_page}
                                             </span>
@@ -247,7 +246,7 @@ export default function Patient(props: {
                                                 router.visit(
                                                     `/admin/patient?p_page=${patients_pagination.current_page + 1}&p_search=${encodeURIComponent(
                                                         pSearch,
-                                                    )}&p_sort_by=${patients_filters?.p_sort_by || 'last_name'}&p_sort_dir=${patients_filters?.p_sort_dir || 'asc'}`,
+                                                    )}&p_sort_by=${patients_filters?.p_sort_by || 'patient_no'}&p_sort_dir=${patients_filters?.p_sort_dir || 'asc'}`,
                                                 )
                                             }
                                             className="px-4 py-2"
@@ -257,45 +256,38 @@ export default function Patient(props: {
                             </PatientInfoCard>
                         </TabsContent>
 
-                        <TabsContent value="visits" className="mt-4 space-y-6">
+                        <TabsContent value="visits" className="space-y-6 mt-4">
                             {/* Visit History Card */}
-                            <PatientInfoCard title="Visit History" icon={<Calendar className="h-5 w-5 text-black" />}>
+                            <PatientInfoCard
+                                title="Visit History"
+                                icon={<Calendar className="h-5 w-5 text-black" />}
+                            >
                                 {/* Visit Filters */}
-                                <div className="flex flex-wrap items-end gap-3">
-                                    <div className="min-w-[180px] flex-1">
+                                <div className="flex flex-wrap gap-3 items-end">
+                                    <div className="flex-1 min-w-[180px]">
                                         <label className="mb-1 block text-sm font-medium text-gray-700">Start Date</label>
-                                        <CustomDatePicker
-                                            value={(visits_filters as any)?.v_start || ''}
-                                            onChange={(date) => {
-                                                const input = document.querySelector('input[name="v_start"]') as HTMLInputElement;
-                                                if (input) input.value = date ? date.toISOString().split('T')[0] : '';
-                                            }}
-                                            placeholder="Select start date"
-                                            variant="responsive"
+                                        <Input
+                                            type="date"
+                                            name="v_start"
+                                            defaultValue={(visits_filters as any)?.v_start || ''}
                                             className="h-10 w-full"
                                         />
-                                        <input type="hidden" name="v_start" value={(visits_filters as any)?.v_start || ''} />
                                     </div>
-                                    <div className="min-w-[180px] flex-1">
+                                    <div className="flex-1 min-w-[180px]">
                                         <label className="mb-1 block text-sm font-medium text-gray-700">End Date</label>
-                                        <CustomDatePicker
-                                            value={(visits_filters as any)?.v_end || ''}
-                                            onChange={(date) => {
-                                                const input = document.querySelector('input[name="v_end"]') as HTMLInputElement;
-                                                if (input) input.value = date ? date.toISOString().split('T')[0] : '';
-                                            }}
-                                            placeholder="Select end date"
-                                            variant="responsive"
+                                        <Input
+                                            type="date"
+                                            name="v_end"
+                                            defaultValue={(visits_filters as any)?.v_end || ''}
                                             className="h-10 w-full"
                                         />
-                                        <input type="hidden" name="v_end" value={(visits_filters as any)?.v_end || ''} />
                                     </div>
                                     <div>
                                         <label className="mb-2 block text-sm font-medium text-gray-700">Doctor</label>
-                                        <Input
-                                            name="v_doctor"
-                                            placeholder="Doctor name"
-                                            defaultValue={(visits_filters as any)?.v_doctor || ''}
+                                        <Input 
+                                            name="v_doctor" 
+                                            placeholder="Doctor name" 
+                                            defaultValue={(visits_filters as any)?.v_doctor || ''} 
                                             className="h-10"
                                         />
                                     </div>
@@ -304,75 +296,71 @@ export default function Patient(props: {
                                             variant="default"
                                             icon={<Filter className="h-4 w-4" />}
                                             label="Filter"
-                                            className="w-full bg-gray-600 text-white hover:bg-gray-700"
+                                            className="w-full bg-gray-600 hover:bg-gray-700 text-white"
                                         />
                                     </div>
                                 </div>
-
-                                {/* Visit History Table */}
-                                <div className="mt-8 overflow-x-auto rounded-lg border border-gray-200 bg-white">
-                                    <Table>
-                                        <TableHeader className="bg-gray-50">
-                                            <TableRow>
-                                                <TableHead className="font-semibold text-gray-700">Patient</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Date & Time</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Doctor</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Actions</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {visits.map((v: any) => (
-                                                <TableRow key={v.id} className="transition-colors hover:bg-gray-50/50">
-                                                    <TableCell>
-                                                        <div>
-                                                            <div className="font-medium text-gray-900">
-                                                                {v.patient?.last_name}, {v.patient?.first_name}
-                                                            </div>
-                                                            <div className="text-sm text-gray-500">{v.patient?.patient_no || '—'}</div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div>
-                                                            <div className="text-gray-900">{new Date(v.arrival_date).toLocaleDateString()}</div>
-                                                            <div className="text-sm text-gray-500">
-                                                                {String(v.arrival_time).match(/\d{2}:\d{2}/)?.[0] || v.arrival_time}
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-gray-700">{v.attending_physician}</TableCell>
-                                                    <TableCell>
-                                                        <Badge
-                                                            variant={
-                                                                v.status === 'completed'
-                                                                    ? 'default'
-                                                                    : v.status === 'active'
-                                                                      ? 'secondary'
-                                                                      : 'destructive'
-                                                            }
-                                                            className="bg-gray-100 text-black"
-                                                        >
-                                                            {v.status === 'completed' && <CheckCircle className="mr-1 h-3 w-3" />}
-                                                            {v.status === 'active' && <AlertCircle className="mr-1 h-3 w-3" />}
-                                                            {v.status === 'discharged' && <XCircle className="mr-1 h-3 w-3" />}
-                                                            {v.status}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <PatientActionButton
-                                                            variant="outline"
-                                                            size="sm"
-                                                            icon={<Eye className="h-4 w-4" />}
-                                                            label="View"
-                                                            href={`/admin/patient/${v.patient?.id}?tab=visits`}
-                                                        />
-                                                    </TableCell>
+                                    
+                                    {/* Visit History Table */}
+                                    <div className="mt-8 overflow-x-auto rounded-lg border border-gray-200 bg-white">
+                                        <Table>
+                                            <TableHeader className="bg-gray-50">
+                                                <TableRow>
+                                                    <TableHead className="font-semibold text-gray-700">Patient</TableHead>
+                                                    <TableHead className="font-semibold text-gray-700">Date & Time</TableHead>
+                                                    <TableHead className="font-semibold text-gray-700">Doctor</TableHead>
+                                                    <TableHead className="font-semibold text-gray-700">Status</TableHead>
+                                                    <TableHead className="font-semibold text-gray-700">Actions</TableHead>
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-
+                                            </TableHeader>
+                                            <TableBody>
+                                                {visits.map((v: any) => (
+                                                    <TableRow key={v.id} className="hover:bg-gray-50/50 transition-colors">
+                                                        <TableCell>
+                                                            <div>
+                                                                <div className="font-medium text-gray-900">{v.patient?.last_name}, {v.patient?.first_name}</div>
+                                                                <div className="text-sm text-gray-500">{v.patient?.patient_no || '—'}</div>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div>
+                                                                <div className="text-gray-900">{new Date(v.arrival_date).toLocaleDateString()}</div>
+                                                                <div className="text-sm text-gray-500">{String(v.arrival_time).match(/\d{2}:\d{2}/)?.[0] || v.arrival_time}</div>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-gray-700">{v.attending_physician}</TableCell>
+                                                        <TableCell>
+                                                            <Badge
+                                                                variant={
+                                                                    v.status === 'completed' 
+                                                                        ? 'default' 
+                                                                        : v.status === 'active'
+                                                                        ? 'secondary'
+                                                                        : 'destructive'
+                                                                }
+                                                                className='bg-gray-100 text-black'
+                                                            >
+                                                                {v.status === 'completed' && <CheckCircle className="w-3 h-3 mr-1" />}
+                                                                {v.status === 'active' && <AlertCircle className="w-3 h-3 mr-1" />}
+                                                                {v.status === 'discharged' && <XCircle className="w-3 h-3 mr-1" />}
+                                                                {v.status}
+                                                            </Badge>
+                                                        </TableCell>
+                                                                <TableCell>
+                                                                    <PatientActionButton
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        icon={<Eye className="h-4 w-4" />}
+                                                                        label="View"
+                                                                        href={`/admin/patient/${v.patient?.id}?tab=visits`}
+                                                                    />
+                                                                </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                    
                                 {/* Visit Pagination */}
                                 {visits_pagination?.last_page > 1 && (
                                     <div className="flex items-center justify-center gap-3 pt-4">
@@ -393,7 +381,7 @@ export default function Patient(props: {
                                             }
                                             className="px-4 py-2"
                                         />
-                                        <div className="rounded-lg bg-gray-50 px-4 py-2">
+                                        <div className="bg-gray-50 px-4 py-2 rounded-lg">
                                             <span className="text-sm font-medium text-black">
                                                 Page {visits_pagination.current_page} of {visits_pagination.last_page}
                                             </span>
@@ -419,8 +407,8 @@ export default function Patient(props: {
                                 )}
                             </PatientInfoCard>
                         </TabsContent>
-                    </Tabs>
-                </div>
+                        </Tabs>
+                    </div>
             </PatientPageLayout>
             <AlertDialog open={open} onOpenChange={setOpen}>
                 <AlertDialogContent>

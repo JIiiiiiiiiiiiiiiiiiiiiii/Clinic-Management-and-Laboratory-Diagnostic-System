@@ -35,7 +35,15 @@ class AuthServiceProvider extends ServiceProvider
         
         // Register custom user provider
         Auth::provider('custom', function ($app, $config) {
-            return new CustomUserProvider();
+            return new \App\Providers\CustomUserProvider();
+        });
+        
+        // Register custom session guard
+        Auth::extend('session', function ($app, $name, $config) {
+            return new \App\Http\Guards\SessionAuthGuard(
+                $app['auth']->createUserProvider($config['provider'] ?? 'custom'),
+                $app['request']
+            );
         });
     }
 }

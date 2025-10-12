@@ -6,7 +6,7 @@ import Heading from '@/components/heading';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ArrowLeft, BarChart3, Calendar, Download, FileText, Package, TrendingDown, Users, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import React, { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -38,44 +38,12 @@ export default function ReportsIndex() {
         }
     };
 
-    const reportCards = [
-        {
-            title: 'Used Supplies Report',
-            description: 'Track consumed and used supplies with location and purpose details',
-            icon: TrendingDown,
-            href: '/admin/inventory/reports/used-supplies',
-        },
-        {
-            title: 'Rejected Supplies Report',
-            description: 'Monitor rejected, damaged, or expired supplies',
-            icon: FileText,
-            href: '/admin/inventory/reports/rejected-supplies',
-        },
-        {
-            title: 'In/Out Supplies Report',
-            description: 'Complete transaction history for all supply movements',
-            icon: BarChart3,
-            href: '/admin/inventory/reports/in-out-supplies',
-        },
-        {
-            title: 'Stock Levels Report',
-            description: 'Current inventory status with low stock and expiry alerts',
-            icon: Package,
-            href: '/admin/inventory/reports/stock-levels',
-        },
-        {
-            title: 'Daily Consumption Report',
-            description: 'Daily usage patterns and consumption trends',
-            icon: Calendar,
-            href: '/admin/inventory/reports/daily-consumption',
-        },
-        {
-            title: 'Usage by Location Report',
-            description: 'Supply consumption breakdown by department/location',
-            icon: Users,
-            href: '/admin/inventory/reports/usage-by-location',
-        },
-    ];
+    // Redirect to the new inventory reports page
+    React.useEffect(() => {
+        router.visit('/admin/inventory/reports');
+    }, []);
+
+    const reportCards = [];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>

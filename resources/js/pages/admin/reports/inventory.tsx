@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
-import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
+import { DataTableColumnHeader } from '@/components/ui/data-table';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -14,17 +14,19 @@ import {
 import AppLayout from '@/layouts/app-layout';
 import { Head } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
-import { AlertTriangle, Download, FileText, MoreHorizontal, Package, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Download, FileText, MoreHorizontal, Package, TrendingDown, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 
-interface Product {
+interface InventoryItem {
     id: number;
     name: string;
     category: string;
     current_stock: number;
+    minimum_stock_level: number;
     unit_price: number;
-    supplier_name: string;
-    created_at: string;
+    total_value: number;
+    supplier: string;
+    last_restocked: string;
 }
 
 interface Summary {
@@ -36,13 +38,19 @@ interface Summary {
 
 interface InventoryReportsProps {
     products: {
-        data: Product[];
+        data: InventoryItem[];
         current_page: number;
         last_page: number;
         per_page: number;
         total: number;
     };
     summary: Summary;
+    metadata?: {
+        generated_at: string;
+        generated_by: string;
+        generated_by_role: string;
+        system_version: string;
+    };
 }
 
 const breadcrumbs = [
@@ -52,12 +60,7 @@ const breadcrumbs = [
 ];
 
 // Column definitions for the data table
-const columns: ColumnDef<Product>[] = [
-    {
-        accessorKey: 'id',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Product ID" />,
-        cell: ({ row }) => <div className="font-medium">#{row.getValue('id')}</div>,
-    },
+const columns: ColumnDef<InventoryItem>[] = [
     {
         accessorKey: 'name',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Product Name" />,
@@ -66,61 +69,75 @@ const columns: ColumnDef<Product>[] = [
     {
         accessorKey: 'category',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Category" />,
-        cell: ({ row }) => {
-            const category = row.getValue('category') as string;
-            return <Badge variant="outline">{category}</Badge>;
-        },
+        cell: ({ row }) => <div>{row.getValue('category')}</div>,
     },
     {
         accessorKey: 'current_stock',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Current Stock" />,
         cell: ({ row }) => {
-            const stock = (row.getValue('current_stock') as number) || 0;
-            const isLowStock = stock < 10;
-            return <div className={`font-medium ${isLowStock ? 'text-red-600' : 'text-green-600'}`}>{stock.toLocaleString()}</div>;
+            const stock = Number(row.getValue('current_stock'));
+            const minStock = Number(row.original.minimum_stock_level);
+            const isLowStock = stock <= minStock;
+            const isOutOfStock = stock <= 0;
+            
+            return (
+                <div className="flex items-center gap-2">
+                    <span className={isOutOfStock ? 'text-red-600 font-semibold' : isLowStock ? 'text-yellow-600 font-semibold' : 'text-green-600'}>
+                        {stock.toLocaleString()}
+                    </span>
+                    {isOutOfStock && <AlertTriangle className="h-4 w-4 text-red-500" />}
+                    {isLowStock && !isOutOfStock && <TrendingDown className="h-4 w-4 text-yellow-500" />}
+                </div>
+            );
         },
     },
     {
-        accessorKey: 'unit_cost',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Unit Cost" />,
+        accessorKey: 'minimum_stock_level',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Min. Stock" />,
+        cell: ({ row }) => <div>{row.getValue('minimum_stock_level')}</div>,
+    },
+    {
+        accessorKey: 'unit_price',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Unit Price" />,
         cell: ({ row }) => {
-            const cost = parseFloat(row.getValue('unit_cost') || '0');
+            const price = parseFloat(row.getValue('unit_price') || '0');
             const formatted = new Intl.NumberFormat('en-PH', {
                 style: 'currency',
                 currency: 'PHP',
-            }).format(cost);
+            }).format(price);
             return <div className="text-right font-medium">{formatted}</div>;
         },
     },
     {
-        accessorKey: 'supplier_name',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Supplier" />,
-        cell: ({ row }) => <div>{row.getValue('supplier_name') || 'N/A'}</div>,
+        accessorKey: 'total_value',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Total Value" />,
+        cell: ({ row }) => {
+            const value = parseFloat(row.getValue('total_value') || '0');
+            const formatted = new Intl.NumberFormat('en-PH', {
+                style: 'currency',
+                currency: 'PHP',
+            }).format(value);
+            return <div className="text-right font-medium">{formatted}</div>;
+        },
     },
     {
-        accessorKey: 'expiration_date',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Expiration Date" />,
+        accessorKey: 'supplier',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Supplier" />,
+        cell: ({ row }) => <div>{row.getValue('supplier')}</div>,
+    },
+    {
+        accessorKey: 'last_restocked',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Last Restocked" />,
         cell: ({ row }) => {
-            const date = row.getValue('expiration_date') as string;
-            if (!date) return <div>N/A</div>;
-
-            const expDate = new Date(date);
-            const today = new Date();
-            const isExpired = expDate < today;
-            const isExpiringSoon = expDate <= new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-            return (
-                <div className={`${isExpired ? 'text-red-600' : isExpiringSoon ? 'text-yellow-600' : 'text-green-600'}`}>
-                    {expDate.toLocaleDateString()}
-                </div>
-            );
+            const date = new Date(row.getValue('last_restocked'));
+            return <div>{date.toLocaleDateString()}</div>;
         },
     },
     {
         id: 'actions',
         enableHiding: false,
         cell: ({ row }) => {
-            const product = row.original;
+            const item = row.original;
 
             return (
                 <DropdownMenu>
@@ -132,11 +149,13 @@ const columns: ColumnDef<Product>[] = [
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => navigator.clipboard.writeText(product.id.toString())}>Copy product ID</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigator.clipboard.writeText(item.id.toString())}>
+                            Copy item ID
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem>View product details</DropdownMenuItem>
+                        <DropdownMenuItem>View details</DropdownMenuItem>
                         <DropdownMenuItem>Update stock</DropdownMenuItem>
-                        <DropdownMenuItem>Edit product</DropdownMenuItem>
+                        <DropdownMenuItem>Reorder</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             );
@@ -144,7 +163,7 @@ const columns: ColumnDef<Product>[] = [
     },
 ];
 
-export default function InventoryReports({ products, summary }: InventoryReportsProps) {
+export default function InventoryReports({ products, summary, metadata }: InventoryReportsProps) {
     const [isExporting, setIsExporting] = useState(false);
 
     const handleExport = async (format: 'excel' | 'pdf' | 'csv') => {
@@ -152,8 +171,6 @@ export default function InventoryReports({ products, summary }: InventoryReports
             setIsExporting(true);
             const params = new URLSearchParams({
                 format,
-                category: category,
-                low_stock: lowStock.toString(),
             });
             window.location.href = `/admin/reports/export?type=inventory&${params.toString()}`;
 
@@ -173,20 +190,10 @@ export default function InventoryReports({ products, summary }: InventoryReports
         }).format(amount);
     };
 
-    const getStockBadge = (stock: number) => {
-        if (stock === 0) {
-            return <Badge className="bg-red-100 text-red-800">Out of Stock</Badge>;
-        } else if (stock <= 10) {
-            return <Badge className="bg-yellow-100 text-yellow-800">Low Stock</Badge>;
-        } else {
-            return <Badge className="bg-green-100 text-green-800">In Stock</Badge>;
-        }
-    };
-
-    const getStockColor = (stock: number) => {
-        if (stock === 0) return 'text-red-600';
-        if (stock <= 10) return 'text-yellow-600';
-        return 'text-green-600';
+    const getStockStatus = (current: number, minimum: number) => {
+        if (current <= 0) return { status: 'Out of Stock', color: 'bg-red-100 text-red-800' };
+        if (current <= minimum) return { status: 'Low Stock', color: 'bg-yellow-100 text-yellow-800' };
+        return { status: 'In Stock', color: 'bg-green-100 text-green-800' };
     };
 
     return (
@@ -199,7 +206,7 @@ export default function InventoryReports({ products, summary }: InventoryReports
                         <div className="flex items-center justify-between">
                             <div>
                                 <h1 className="mb-4 text-4xl font-semibold text-black">Inventory Reports</h1>
-                                <p className="mt-1 text-sm text-black">Supply management and stock analytics</p>
+                                <p className="mt-1 text-sm text-black">Stock levels, supply usage, and inventory management</p>
                             </div>
                             <div className="flex gap-2">
                                 <Button onClick={() => handleExport('excel')} disabled={isExporting} variant="outline">
@@ -238,20 +245,20 @@ export default function InventoryReports({ products, summary }: InventoryReports
                             </CardHeader>
                             <CardContent className="p-6">
                                 <div className="text-3xl font-bold text-yellow-600">{summary.low_stock_items.toLocaleString()}</div>
-                                <p className="text-sm text-gray-600">Items ≤ 10 units</p>
+                                <p className="text-sm text-gray-600">Need restocking</p>
                             </CardContent>
                         </Card>
 
                         <Card className="rounded-xl border-0 bg-white shadow-lg">
                             <CardHeader className="border-b border-gray-200 bg-white">
                                 <CardTitle className="flex items-center gap-3 text-lg font-semibold text-black">
-                                    <Package className="h-5 w-5 text-red-600" />
+                                    <TrendingDown className="h-5 w-5 text-red-600" />
                                     Out of Stock
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-6">
                                 <div className="text-3xl font-bold text-red-600">{summary.out_of_stock.toLocaleString()}</div>
-                                <p className="text-sm text-gray-600">Zero inventory</p>
+                                <p className="text-sm text-gray-600">Urgent restock needed</p>
                             </CardContent>
                         </Card>
 
@@ -269,16 +276,88 @@ export default function InventoryReports({ products, summary }: InventoryReports
                         </Card>
                     </div>
 
-                    {/* Products Data Table */}
+                    {/* Inventory Data Table */}
                     <Card className="rounded-xl border-0 bg-white shadow-lg">
                         <CardHeader className="border-b border-gray-200 bg-white">
                             <CardTitle className="flex items-center gap-3 text-lg font-semibold text-black">
-                                <FileText className="h-5 w-5 text-black" />
+                                <Package className="h-5 w-5 text-black" />
                                 Inventory Items
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-6">
                             <DataTable columns={columns} data={products.data} searchKey="name" searchPlaceholder="Search products..." />
+                        </CardContent>
+                    </Card>
+
+                    {/* Stock Status Summary */}
+                    <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <TrendingUp className="h-5 w-5 text-green-600" />
+                                    In Stock Items
+                                </CardTitle>
+                                <p className="text-sm text-gray-600">Items with adequate stock levels</p>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-green-600">
+                                    {products.data.filter(item => item.current_stock > item.minimum_stock_level).length}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                                    Low Stock Alert
+                                </CardTitle>
+                                <p className="text-sm text-gray-600">Items below minimum stock level</p>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-yellow-600">
+                                    {products.data.filter(item => item.current_stock <= item.minimum_stock_level && item.current_stock > 0).length}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <TrendingDown className="h-5 w-5 text-red-600" />
+                                    Out of Stock
+                                </CardTitle>
+                                <p className="text-sm text-gray-600">Items with zero stock</p>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-red-600">
+                                    {products.data.filter(item => item.current_stock <= 0).length}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Footer with Metadata */}
+                    <Card className="mt-8">
+                        <CardContent className="pt-6">
+                            <div className="flex items-center justify-between text-sm text-gray-600">
+                                <div>
+                                    <p>
+                                        <strong>Generated:</strong> {metadata?.generated_at || new Date().toLocaleString()}
+                                    </p>
+                                    <p>
+                                        <strong>Generated By:</strong> {metadata?.generated_by || 'System'} ({metadata?.generated_by_role || 'User'})
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p>
+                                        <strong>System Version:</strong> {metadata?.system_version || '1.0.0'}
+                                    </p>
+                                    <p>
+                                        <strong>Clinic:</strong> St. James Clinic Management System
+                                    </p>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>

@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\PatientVisitController;
-use App\Http\Controllers\Patient\PatientExportController;
 use App\Http\Controllers\Lab\LabTestController;
 use App\Http\Controllers\Lab\LabOrderController;
 use App\Http\Controllers\Lab\LabResultController;
@@ -36,16 +35,14 @@ Route::prefix('admin')
     ->name('admin.')
     ->middleware(['simple.auth'])
     ->group(function () {
+        // Redirect /admin to /admin/dashboard
+        Route::get('/', function () {
+            return redirect()->route('admin.dashboard');
+        });
+        
         // Dashboard - All authenticated staff can access
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-
-        // Patient Export routes - MUST come before resource routes to avoid conflicts
-        Route::get('/patient/export', function() {
-            return response()->json(['message' => 'Export route is working', 'url' => request()->url()]);
-        })->name('patient.export.test');
-
-        Route::get('/patient/export-real', [PatientExportController::class, 'export'])->name('patient.export');
-        Route::get('/patient/{patient}/export', [PatientExportController::class, 'exportPatient'])->name('patient.export.individual');
+        
 
         // Patient CRUD routes (URLs -> /admin/patient) - All staff can access
         Route::resource('patient', PatientController::class)->names([
@@ -57,233 +54,6 @@ Route::prefix('admin')
             'update' => 'patient.update',
             'destroy' => 'patient.destroy',
         ]);
-
-        // Test export route for debugging
-        Route::get('/test-export', function () {
-            try {
-                \Log::info('Test export route accessed');
-
-                // Check database connection
-                $dbCheck = \DB::connection()->getPdo();
-                \Log::info('Database connection successful');
-
-                $patients = \App\Models\Patient::take(5)->get();
-                \Log::info('Patients found for test export', ['count' => $patients->count()]);
-
-                if ($patients->isEmpty()) {
-                    return response()->json(['message' => 'No patients found in database', 'count' => 0], 200);
-                }
-
-                \Log::info('Starting test export with patients', [
-                    'patient_count' => $patients->count(),
-                    'first_patient' => $patients->first() ? [
-                        'id' => $patients->first()->id,
-                        'patient_no' => $patients->first()->patient_no,
-                        'full_name' => $patients->first()->full_name
-                    ] : null
-                ]);
-
-                // Test the export class
-                $export = new \App\Exports\PatientDataExport($patients, 'summary');
-                \Log::info('Export class created successfully');
-
-                return \Maatwebsite\Excel\Facades\Excel::download($export, 'test_export.xlsx');
-            } catch (\Exception $e) {
-                \Log::error('Test export failed', [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-                return response()->json(['error' => $e->getMessage()], 500);
-            }
-        })->name('test.export');
-
-        // Simple route test
-        Route::get('/test-routes', function () {
-            return response()->json([
-                'message' => 'Routes are working',
-                'export_routes' => [
-                    'patient_export' => route('admin.patient.export'),
-                    'test_export' => route('admin.test.export')
-                ],
-                'current_url' => request()->url(),
-                'route_name' => request()->route()->getName()
-            ]);
-        })->name('test.routes');
-
-        // Simple test route
-        Route::get('/simple-test', function () {
-            return response()->json(['message' => 'Simple test route works']);
-        })->name('simple.test');
-
-        // Database and export test route
-        Route::get('/export-test', function () {
-            try {
-                $patientCount = \App\Models\Patient::count();
-                $patients = \App\Models\Patient::take(3)->get();
-
-                $result = [
-                    'message' => 'Export test route works',
-                    'patient_count' => $patientCount,
-                    'sample_patients' => $patients->map(function($patient) {
-                        return [
-                            'id' => $patient->id,
-                            'patient_no' => $patient->patient_no,
-                            'full_name' => $patient->full_name
-                        ];
-                    }),
-                    'export_class_test' => null,
-                    'pdf_template_test' => null
-                ];
-
-                // Test if export class can be instantiated
-                try {
-                    $export = new \App\Exports\PatientDataExport($patients, 'summary');
-                    $result['export_class_test'] = 'Export class instantiated successfully';
-                } catch (\Exception $e) {
-                    $result['export_class_test'] = 'Export class failed: ' . $e->getMessage();
-                }
-
-                // Test PDF template
-                try {
-                    if ($patients->isNotEmpty()) {
-                        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.patient-summary', [
-                            'patient' => $patients->first()
-                        ]);
-                        $result['pdf_template_test'] = 'PDF template works successfully';
-                    } else {
-                        $result['pdf_template_test'] = 'No patients to test PDF template';
-                    }
-                } catch (\Exception $e) {
-                    $result['pdf_template_test'] = 'PDF template failed: ' . $e->getMessage();
-                }
-
-                return response()->json($result);
-            } catch (\Exception $e) {
-                return response()->json([
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ], 500);
-            }
-        })->name('export.test');
-
-        // Simple file download test
-        Route::get('/download-test', function () {
-            try {
-                // Create a simple text file for download test
-                $content = "Test file content\nGenerated at: " . now()->format('Y-m-d H:i:s');
-                $filename = 'test_download_' . now()->format('Ymd_His') . '.txt';
-
-                return response($content)
-                    ->header('Content-Type', 'text/plain')
-                    ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
-            } catch (\Exception $e) {
-                return response()->json([
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ], 500);
-            }
-        })->name('download.test');
-
-        // Simple PDF test
-        Route::get('/simple-pdf-test', function () {
-            try {
-                \Log::info('Testing simple PDF generation');
-
-                $html = '<html><body><h1>Simple PDF Test</h1><p>This is a test PDF generated at ' . now()->format('Y-m-d H:i:s') . '</p></body></html>';
-
-                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)
-                    ->setPaper('a4', 'portrait')
-                    ->setOptions([
-                        'isHtml5ParserEnabled' => true,
-                        'isRemoteEnabled' => false,
-                        'defaultFont' => 'Arial'
-                    ]);
-
-                $filename = 'simple_test_' . now()->format('Ymd_His') . '.pdf';
-                return $pdf->download($filename);
-            } catch (\Exception $e) {
-                \Log::error('Simple PDF test failed', [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-                return response()->json([
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ], 500);
-            }
-        })->name('simple.pdf.test');
-
-        // Simple patient PDF test
-        Route::get('/patient-pdf-test', function () {
-            try {
-                $patient = \App\Models\Patient::first();
-                if (!$patient) {
-                    return response()->json(['error' => 'No patients found in database'], 400);
-                }
-
-                \Log::info('Testing simple patient PDF generation', [
-                    'patient_id' => $patient->id,
-                    'patient_name' => $patient->full_name
-                ]);
-
-                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.patient-summary-simple', [
-                    'patient' => $patient
-                ])->setPaper('a4', 'portrait')
-                  ->setOptions([
-                      'isHtml5ParserEnabled' => true,
-                      'isRemoteEnabled' => false,
-                      'defaultFont' => 'Arial'
-                  ]);
-
-                $filename = 'patient_simple_test_' . now()->format('Ymd_His') . '.pdf';
-                return $pdf->download($filename);
-            } catch (\Exception $e) {
-                \Log::error('Simple patient PDF test failed', [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-                return response()->json([
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ], 500);
-            }
-        })->name('patient.pdf.test');
-
-        // PDF generation test with patient data
-        Route::get('/pdf-test', function () {
-            try {
-                $patient = \App\Models\Patient::first();
-                if (!$patient) {
-                    return response()->json(['error' => 'No patients found in database'], 400);
-                }
-
-                \Log::info('Testing PDF generation', [
-                    'patient_id' => $patient->id,
-                    'patient_name' => $patient->full_name
-                ]);
-
-                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.patient-summary', [
-                    'patient' => $patient
-                ])->setPaper('a4', 'portrait')
-                  ->setOptions([
-                      'isHtml5ParserEnabled' => true,
-                      'isRemoteEnabled' => false,
-                      'defaultFont' => 'Arial'
-                  ]);
-
-                $filename = 'test_pdf_' . now()->format('Ymd_His') . '.pdf';
-                return $pdf->download($filename);
-            } catch (\Exception $e) {
-                \Log::error('PDF test failed', [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-                return response()->json([
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ], 500);
-            }
-        })->name('pdf.test');
 
         // Patient Visit routes - All staff can access
         Route::prefix('patient/{patient}/visits')->name('patient.visits.')->group(function () {
@@ -299,7 +69,7 @@ Route::prefix('admin')
         // Specialist Management - Admin only
         Route::prefix('specialists')->name('specialists.')->middleware(['role:admin'])->group(function () {
             Route::get('/', [SpecialistController::class, 'index'])->name('index');
-
+            
             // Doctor Management
             Route::prefix('doctors')->name('doctors.')->group(function () {
                 Route::get('/', [DoctorController::class, 'index'])->name('index');
@@ -362,8 +132,8 @@ Route::prefix('admin')
             Route::put('/results/{result}', [LabResultController::class, 'update'])->name('results.update');
             Route::put('/orders/{order}/verify', [LabResultController::class, 'verify'])->name('results.verify');
 
-            // Reports pages within Laboratory
-            Route::get('/reports', [LabOrderController::class, 'reportsIndex'])->name('reports.index');
+            // Lab Reports (moved to main reports section)
+            Route::get('/lab-reports', [LabOrderController::class, 'reportsIndex'])->name('lab-reports.index');
             // Single-order printable reports remain
             Route::get('/orders/{order}/report', [LabReportController::class, 'generateReport'])->name('reports.generate');
             Route::get('/orders/{order}/report/cbc', [LabReportController::class, 'generateCBCReport'])->name('reports.cbc');
@@ -375,6 +145,14 @@ Route::prefix('admin')
             Route::get('/orders/{order}/export.xlsx', [LabExportController::class, 'exportOrderResults'])->name('exports.orderResults');
         });
 
+        // Laboratory Reports Routes - All staff can access
+        Route::prefix('laboratory-reports')->name('laboratory-reports.')->group(function () {
+            Route::get('/', [App\Http\Controllers\LaboratoryReportController::class, 'index'])->name('index');
+            Route::get('/export/excel', [App\Http\Controllers\LaboratoryReportController::class, 'exportExcel'])->name('export.excel');
+            Route::get('/export/pdf', [App\Http\Controllers\LaboratoryReportController::class, 'exportPdf'])->name('export.pdf');
+            
+        });
+
         // Billing Routes - Cashier and admin only
         Route::prefix('billing')->name('billing.')->group(function () {
             // Main billing routes
@@ -382,19 +160,19 @@ Route::prefix('admin')
             Route::get('/create', [App\Http\Controllers\Admin\BillingController::class, 'create'])->name('create');
             Route::post('/', [App\Http\Controllers\Admin\BillingController::class, 'store'])->name('store');
             Route::get('/export', [App\Http\Controllers\Admin\BillingController::class, 'export'])->name('export');
-
+            
             // Appointment-based billing routes (MUST come before parameterized routes)
             Route::get('/create-from-appointments', [App\Http\Controllers\Admin\BillingController::class, 'createFromAppointments'])->name('create-from-appointments');
             Route::post('/create-from-appointments', [App\Http\Controllers\Admin\BillingController::class, 'storeFromAppointments'])->name('store-from-appointments');
-
+            
             // Transaction Report (MUST come before parameterized routes)
             Route::get('/transaction-report', function () {
                 return Inertia::render('admin/billing/transaction-report');
             })->name('transaction-report');
-
+            
             // Doctor Summary (MUST come before parameterized routes)
             Route::get('/doctor-summary', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'doctorSummary'])->name('doctor-summary');
-
+            
             // Doctor Payments - Redirect to billing index with doctor payments tab
             Route::prefix('doctor-payments')->name('doctor-payments.')->group(function () {
                 Route::get('/', function () {
@@ -411,49 +189,7 @@ Route::prefix('admin')
                 Route::post('/{doctorPayment}/mark-as-paid', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'markAsPaid'])->name('mark-as-paid');
             });
 
-            // Test routes for doctor payments (MUST come after main routes)
-            Route::get('/test-doctor-payments', function () {
-                try {
-                    $doctorPayments = \App\Models\DoctorPayment::with(['doctor', 'billingTransactions'])->get();
-                    $billingTransactions = \App\Models\BillingTransaction::where('total_amount', '<', 0)->with(['doctor'])->get();
-
-                    return response()->json([
-                        'success' => true,
-                        'doctor_payments_count' => $doctorPayments->count(),
-                        'billing_transactions_count' => $billingTransactions->count(),
-                        'doctor_payments' => $doctorPayments,
-                        'billing_transactions' => $billingTransactions,
-                    ]);
-                } catch (\Exception $e) {
-                    return response()->json([
-                        'success' => false,
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
-                    ]);
-                }
-            })->name('test-doctor-payments');
-
-            // Direct test route for doctor payments create
-            Route::get('/doctor-payments/create-direct', function () {
-                try {
-                    $doctors = \App\Models\User::where('role', 'doctor')->select('id', 'name')->get();
-                    return \Inertia\Inertia::render('admin/billing/doctor-payments/create', [
-                        'doctors' => $doctors,
-                    ]);
-                } catch (\Exception $e) {
-                    return response()->json(['error' => $e->getMessage()]);
-                }
-            })->name('doctor-payments.create-direct');
-
-            // Test routes for doctor payments
-            Route::get('/doctor-payments/test', function () {
-                return \Inertia\Inertia::render('admin/billing/doctor-payments/test');
-            })->name('doctor-payments.test');
-
-            Route::get('/doctor-payments/simple-test', function () {
-                return \Inertia\Inertia::render('admin/billing/doctor-payments/simple-test');
-            })->name('doctor-payments.simple-test');
-
+            
             // Parameterized routes (MUST come after all specific routes)
             Route::get('/{transaction}', [App\Http\Controllers\Admin\BillingController::class, 'show'])->name('show');
             Route::get('/{transaction}/edit', [App\Http\Controllers\Admin\BillingController::class, 'edit'])->name('edit');
@@ -464,184 +200,6 @@ Route::prefix('admin')
             Route::put('/{transaction}/mark-paid', [App\Http\Controllers\Admin\BillingController::class, 'markAsPaid'])->name('mark-paid');
 
 
-            // Test route for doctor payments create
-            Route::get('/test-doctor-payments-create', function () {
-                try {
-                    $doctors = \App\Models\User::where('role', 'doctor')->select('id', 'name')->get();
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Doctor payments create route is working',
-                        'doctors' => $doctors,
-                        'doctors_count' => $doctors->count(),
-                        'route' => 'admin.billing.doctor-payments.create',
-                        'url' => '/admin/billing/doctor-payments/create'
-                    ]);
-                } catch (\Exception $e) {
-                    return response()->json([
-                        'success' => false,
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
-                    ]);
-                }
-            })->name('test-doctor-payments-create');
-
-            // Debug route to check billing data
-            Route::get('/debug-billing-data', function () {
-                try {
-                    $transactions = \App\Models\BillingTransaction::take(5)->get();
-                    $doctorPayments = \App\Models\DoctorPayment::take(5)->get();
-
-                    return response()->json([
-                        'success' => true,
-                        'transactions_count' => \App\Models\BillingTransaction::count(),
-                        'doctor_payments_count' => \App\Models\DoctorPayment::count(),
-                        'sample_transactions' => $transactions->map(function($t) {
-                            return [
-                                'id' => $t->id,
-                                'transaction_id' => $t->transaction_id,
-                                'total_amount' => $t->total_amount,
-                                'status' => $t->status,
-                                'patient_id' => $t->patient_id,
-                                'doctor_id' => $t->doctor_id
-                            ];
-                        }),
-                        'sample_doctor_payments' => $doctorPayments->map(function($p) {
-                            return [
-                                'id' => $p->id,
-                                'doctor_id' => $p->doctor_id,
-                                'net_payment' => $p->net_payment,
-                                'status' => $p->status
-                            ];
-                        })
-                    ]);
-                } catch (\Exception $e) {
-                    return response()->json([
-                        'success' => false,
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
-                    ]);
-                }
-            })->name('debug-billing-data');
-
-            // Test authentication route
-            Route::get('/test-auth-setup', function () {
-                try {
-                    $user = \App\Models\User::first();
-                    if ($user) {
-                        session(['auth.user' => $user, 'auth.login' => true]);
-                        return response()->json([
-                            'success' => true,
-                            'message' => 'Authentication session created',
-                            'user' => $user->name,
-                            'user_id' => $user->id,
-                            'session_auth_user' => session('auth.user') ? 'Yes' : 'No',
-                            'session_auth_login' => session('auth.login') ? 'Yes' : 'No'
-                        ]);
-                    } else {
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'No users found in database'
-                        ]);
-                    }
-                } catch (\Exception $e) {
-                    return response()->json([
-                        'success' => false,
-                        'error' => $e->getMessage()
-                    ]);
-                }
-            })->name('test-auth-setup');
-
-            // Simple test route for doctor payments index
-            Route::get('/test-doctor-payments-index', function () {
-                try {
-                    \Log::info('Test route called for doctor payments index');
-                    $doctors = \App\Models\User::where('role', 'doctor')->select('id', 'name')->get();
-                    $payments = \App\Models\DoctorPayment::with(['doctor', 'createdBy', 'updatedBy'])->get();
-
-                    return response()->json([
-                        'success' => true,
-                        'doctors_count' => $doctors->count(),
-                        'payments_count' => $payments->count(),
-                        'doctors' => $doctors,
-                        'payments' => $payments,
-                    ]);
-                } catch (\Exception $e) {
-                    \Log::error('Test route error: ' . $e->getMessage());
-                    return response()->json([
-                        'success' => false,
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
-                    ]);
-                }
-            })->name('test-doctor-payments-index');
-
-            // Test route to create a doctor payment
-            Route::post('/test-create-doctor-payment', function (\Illuminate\Http\Request $request) {
-                try {
-                    \Log::info('Test create doctor payment called');
-                    \Log::info('Request data: ' . json_encode($request->all()));
-
-                    $doctorPayment = \App\Models\DoctorPayment::create([
-                        'doctor_id' => 1, // Use first doctor
-                        'basic_salary' => 50000,
-                        'deductions' => 5000,
-                        'holiday_pay' => 2000,
-                        'incentives' => 1000,
-                        'net_payment' => 48000,
-                        'payment_date' => now()->toDateString(),
-                        'status' => 'pending',
-                        'notes' => 'Test payment',
-                        'created_by' => auth()->id() ?? 1,
-                    ]);
-
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Doctor payment created successfully',
-                        'payment_id' => $doctorPayment->id,
-                        'payment' => $doctorPayment
-                    ]);
-                } catch (\Exception $e) {
-                    \Log::error('Test create doctor payment failed: ' . $e->getMessage());
-                    return response()->json([
-                        'success' => false,
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
-                    ]);
-                }
-            })->name('test-create-doctor-payment');
-
-            // Test route without authentication
-            Route::get('/test-doctor-payments-no-auth', function () {
-                return response()->json([
-                    'message' => 'This route works without authentication',
-                    'timestamp' => now(),
-                ]);
-            })->name('test-doctor-payments-no-auth');
-
-            // Test route to check authentication
-            Route::get('/test-auth-status', function () {
-                return response()->json([
-                    'authenticated' => auth()->check(),
-                    'user_id' => auth()->id(),
-                    'user' => auth()->user(),
-                    'session_auth_user' => session('auth.user'),
-                    'session_auth_login' => session('auth.login'),
-                    'timestamp' => now(),
-                ]);
-            })->name('test-auth-status');
-
-            // Simple test route for create
-            Route::get('/test-create', function () {
-                return response()->json(['message' => 'Create route is working']);
-            })->name('test-create');
-
-            // Test POST route for doctor payments
-            Route::post('/test-store', function (\Illuminate\Http\Request $request) {
-                return response()->json([
-                    'message' => 'Store route is working',
-                    'data' => $request->all()
-                ]);
-            })->name('test-store');
 
             // Expenses
             Route::prefix('expenses')->name('expenses.')->group(function () {
@@ -655,137 +213,22 @@ Route::prefix('admin')
                 Route::put('/{expense}/status', [App\Http\Controllers\Admin\ExpenseController::class, 'updateStatus'])->name('status.update');
             });
 
+            // Legacy Billing Reports (moved to specific billing routes)
+            Route::prefix('billing-reports')->name('billing-reports.')->group(function () {
+                Route::get('/', [App\Http\Controllers\Admin\BillingReportController::class, 'index'])->name('index');
+                Route::get('/daily', [App\Http\Controllers\Admin\BillingReportController::class, 'dailyReport'])->name('daily');
+                Route::get('/monthly', [App\Http\Controllers\Admin\BillingReportController::class, 'monthlyReport'])->name('monthly');
+                Route::get('/yearly', [App\Http\Controllers\Admin\BillingReportController::class, 'yearlyReport'])->name('yearly');
+                Route::get('/hmo', [App\Http\Controllers\Admin\BillingReportController::class, 'hmoReport'])->name('hmo');
+                Route::get('/doctor-summary', [App\Http\Controllers\Admin\BillingReportController::class, 'doctorSummary'])->name('doctor-summary');
+                Route::get('/export', [App\Http\Controllers\Admin\BillingReportController::class, 'exportReport'])->name('export');
+                Route::get('/export-all', [App\Http\Controllers\Admin\BillingReportController::class, 'exportAll'])->name('export-all');
+                Route::get('/daily/export', [App\Http\Controllers\Admin\BillingReportController::class, 'exportDailyReport'])->name('daily.export');
+                Route::get('/monthly/export', [App\Http\Controllers\Admin\BillingReportController::class, 'exportMonthlyReport'])->name('monthly.export');
+                Route::get('/yearly/export', [App\Http\Controllers\Admin\BillingReportController::class, 'exportYearlyReport'])->name('yearly.export');
+            });
 
-
-            // Test doctor payments route (temporary)
-            Route::get('/test-doctor-payments', function () {
-                try {
-                    $doctors = \App\Models\User::where('role', 'doctor')->count();
-                    $payments = \App\Models\DoctorPayment::count();
-                    $transactions = \App\Models\BillingTransaction::count();
-                    $links = \App\Models\DoctorPaymentBillingLink::count();
-
-                    return response()->json([
-                        'doctors_count' => $doctors,
-                        'payments_count' => $payments,
-                        'transactions_count' => $transactions,
-                        'links_count' => $links,
-                        'status' => 'success',
-                        'message' => 'Doctor payment system is working correctly!'
-                    ]);
-                } catch (\Exception $e) {
-                    return response()->json([
-                        'error' => $e->getMessage(),
-                        'status' => 'error'
-                    ]);
-                }
-            })->name('test-doctor-payments');
-
-            // Test route for billing transaction creation
-            Route::get('/test-billing-transaction', function () {
-                try {
-                    \Log::info('Testing billing transaction creation...');
-
-                    // Test creating a simple transaction
-                    $transaction = \App\Models\BillingTransaction::create([
-                        'transaction_id' => 'TXN-TEST-' . time(),
-                        'patient_id' => null,
-                        'doctor_id' => null,
-                        'payment_type' => 'cash',
-                        'total_amount' => 100.00,
-                        'discount_amount' => 0,
-                        'payment_method' => 'cash',
-                        'status' => 'pending',
-                        'description' => 'Test transaction',
-                        'transaction_date' => now(),
-                        'transaction_date_only' => now()->toDateString(),
-                        'transaction_time_only' => now()->toTimeString(),
-                        'created_by' => auth()->id() ?? 1,
-                    ]);
-
-                    \Log::info('Test transaction created with ID: ' . $transaction->id);
-
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Test transaction created successfully!',
-                        'transaction_id' => $transaction->id,
-                        'transaction' => $transaction
-                    ]);
-                } catch (\Exception $e) {
-                    \Log::error('Test transaction creation failed: ' . $e->getMessage());
-                    \Log::error('Exception trace: ' . $e->getTraceAsString());
-
-                    return response()->json([
-                        'success' => false,
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
-                    ]);
-                }
-            })->name('test-billing-transaction');
-
-            // Test export route (temporary)
-            Route::get('/test-export', function () {
-                $testData = [
-                    [
-                        'Type' => 'Billing Transaction',
-                        'Transaction ID' => 'TXN-001',
-                        'Patient Name' => 'John Doe',
-                        'Specialist' => 'Dr. Smith',
-                        'Amount' => 500.00,
-                        'Payment Method' => 'Cash',
-                        'Status' => 'Paid',
-                        'Description' => 'Test transaction',
-                        'Time' => '2024-01-01 10:00:00',
-                        'Items Count' => 1,
-                        'Appointments Count' => 0,
-                    ]
-                ];
-
-                $format = request('format', 'excel');
-
-                if ($format === 'pdf') {
-                    $html = '<html><head><title>Test Export</title></head><body>';
-                    $html .= '<h1>Test Export</h1>';
-                    $html .= '<table border="1" cellpadding="5" cellspacing="0" style="width:100%; border-collapse: collapse;">';
-                    $html .= '<tr style="background-color: #f5f5f5;">';
-                    foreach (array_keys($testData[0]) as $header) {
-                        $html .= '<th>' . $header . '</th>';
-                    }
-                    $html .= '</tr>';
-                    foreach ($testData as $row) {
-                        $html .= '<tr>';
-                        foreach ($row as $cell) {
-                            $html .= '<td>' . $cell . '</td>';
-                        }
-                        $html .= '</tr>';
-                    }
-                    $html .= '</table></body></html>';
-
-                    return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)->download('test-export.pdf');
-                }
-
-                return \Maatwebsite\Excel\Facades\Excel::download(
-                    new \App\Exports\ArrayExport($testData, 'Test Export'),
-                    'test-export.xlsx'
-                );
-            })->name('test-export');
-        });
-
-        // Consolidated Reports System
-        Route::prefix('reports')->name('reports.')->group(function () {
-            // Main reports dashboard
-            Route::get('/', [App\Http\Controllers\Admin\ReportsController::class, 'index'])->name('index');
-
-            // Report categories
-            Route::get('/financial', [App\Http\Controllers\Admin\ReportsController::class, 'financial'])->name('financial');
-            Route::get('/patients', [App\Http\Controllers\Admin\ReportsController::class, 'patients'])->name('patients');
-            Route::get('/laboratory', [App\Http\Controllers\Admin\ReportsController::class, 'laboratory'])->name('laboratory');
-            Route::get('/inventory', [App\Http\Controllers\Admin\ReportsController::class, 'inventory'])->name('inventory');
-            Route::get('/analytics', [App\Http\Controllers\Admin\ReportsController::class, 'analytics'])->name('analytics');
-
-            // Export functionality
-            Route::get('/export', [App\Http\Controllers\Admin\ReportsController::class, 'export'])->name('export');
-
+            
         });
 
         // Appointments Routes - Doctor and admin only
@@ -801,14 +244,7 @@ Route::prefix('admin')
             Route::put('/{appointment}/status', [AppointmentController::class, 'updateStatus'])->name('status.update');
             Route::get('/api/by-date', [AppointmentController::class, 'getByDate'])->name('api.by-date');
             Route::get('/api/stats', [AppointmentController::class, 'getStats'])->name('api.stats');
-            Route::get('/test', function() {
-                $appointments = \App\Models\Appointment::all();
-                return response()->json([
-                    'count' => $appointments->count(),
-                    'appointments' => $appointments
-                ]);
-            })->name('test');
-
+            
             // Doctor availability management - Admin only
             Route::get('/availability', function () {
                 return Inertia::render('admin/appointments/availability');
@@ -822,80 +258,7 @@ Route::prefix('admin')
             Route::post('/{pendingAppointment}/approve', [\App\Http\Controllers\Admin\PendingAppointmentController::class, 'approve'])->name('approve');
             Route::post('/{pendingAppointment}/reject', [\App\Http\Controllers\Admin\PendingAppointmentController::class, 'reject'])->name('reject');
             Route::delete('/{pendingAppointment}', [\App\Http\Controllers\Admin\PendingAppointmentController::class, 'destroy'])->name('destroy');
-
-            // Test route for debugging
-            Route::get('/debug/status', function () {
-                $pendingAppointments = \App\Models\PendingAppointment::all();
-                $notifications = \App\Models\Notification::where('type', 'appointment')->latest()->limit(5)->get();
-
-                return response()->json([
-                    'pending_appointments' => $pendingAppointments->map(function($apt) {
-                        return [
-                            'id' => $apt->id,
-                            'status_approval' => $apt->status_approval,
-                            'patient_name' => $apt->patient_name,
-                            'created_at' => $apt->created_at
-                        ];
-                    }),
-                    'recent_notifications' => $notifications->map(function($notif) {
-                        return [
-                            'id' => $notif->id,
-                            'title' => $notif->title,
-                            'message' => $notif->message,
-                            'user_id' => $notif->user_id,
-                            'created_at' => $notif->created_at
-                        ];
-                    })
-                ]);
-            })->name('debug.status');
-
-            // Cleanup route to remove pending appointments
-            Route::get('/cleanup/remove-pending', function () {
-                $pendingAppointments = \App\Models\PendingAppointment::where('status_approval', 'pending')->get();
-                $removedCount = 0;
-                $removedAppointments = [];
-
-                foreach ($pendingAppointments as $appointment) {
-                    $removedAppointments[] = [
-                        'id' => $appointment->id,
-                        'patient_name' => $appointment->patient_name,
-                        'appointment_type' => $appointment->appointment_type,
-                        'status_approval' => $appointment->status_approval
-                    ];
-                    $appointment->delete();
-                    $removedCount++;
-                }
-
-                return response()->json([
-                    'message' => "Successfully removed {$removedCount} pending appointments",
-                    'removed_appointments' => $removedAppointments,
-                    'remaining_count' => \App\Models\PendingAppointment::count()
-                ]);
-            })->name('cleanup.remove-pending');
-
-            // Cleanup route to remove ALL pending appointments (including approved ones)
-            Route::get('/cleanup/remove-all', function () {
-                $pendingAppointments = \App\Models\PendingAppointment::all();
-                $removedCount = 0;
-                $removedAppointments = [];
-
-                foreach ($pendingAppointments as $appointment) {
-                    $removedAppointments[] = [
-                        'id' => $appointment->id,
-                        'patient_name' => $appointment->patient_name,
-                        'appointment_type' => $appointment->appointment_type,
-                        'status_approval' => $appointment->status_approval
-                    ];
-                    $appointment->delete();
-                    $removedCount++;
-                }
-
-                return response()->json([
-                    'message' => "Successfully removed {$removedCount} pending appointments (all statuses)",
-                    'removed_appointments' => $removedAppointments,
-                    'remaining_count' => \App\Models\PendingAppointment::count()
-                ]);
-            })->name('cleanup.remove-all');
+            
         });
 
         // Clinic Procedures Routes - Admin and lab staff only
@@ -923,35 +286,71 @@ Route::prefix('admin')
             Route::get('/export/{type}', [AnalyticsController::class, 'exportReport'])->name('export');
         });
 
+        // Comprehensive Reports Routes - All staff can access
+        Route::prefix('reports')->name('reports.')->group(function () {
+            // Main reports dashboard
+            Route::get('/', [App\Http\Controllers\Admin\ReportsController::class, 'index'])->name('index');
+            
+            // Report categories
+            Route::get('/financial', [App\Http\Controllers\Admin\ReportsController::class, 'financial'])->name('financial');
+            Route::get('/patients', [App\Http\Controllers\Admin\ReportsController::class, 'patients'])->name('patients');
+            Route::get('/laboratory', [App\Http\Controllers\LaboratoryReportController::class, 'index'])->name('laboratory');
+            Route::get('/inventory', [App\Http\Controllers\Admin\ReportsController::class, 'inventory'])->name('inventory');
+            Route::get('/analytics', [App\Http\Controllers\Admin\ReportsController::class, 'analytics'])->name('analytics');
+            
+            // Export functionality
+            Route::get('/export', [App\Http\Controllers\Admin\ReportsController::class, 'export'])->name('export');
+            
+            // Laboratory Reports Export
+            Route::get('/laboratory/export/excel', [App\Http\Controllers\LaboratoryReportController::class, 'exportExcel'])->name('laboratory.export.excel');
+            Route::get('/laboratory/export/pdf', [App\Http\Controllers\LaboratoryReportController::class, 'exportPdf'])->name('laboratory.export.pdf');
+            
+            // Legacy hospital reports (keeping for backward compatibility)
+            Route::get('/appointments', [App\Http\Controllers\Hospital\HospitalReportController::class, 'appointments'])->name('appointments');
+            Route::get('/specialist-management', [App\Http\Controllers\Hospital\HospitalReportController::class, 'specialistManagement'])->name('specialist.management');
+            Route::get('/billing', [App\Http\Controllers\Hospital\HospitalReportController::class, 'transactions'])->name('billing');
+            Route::get('/transfers', [App\Http\Controllers\Hospital\HospitalReportController::class, 'transfers'])->name('transfers');
+            Route::get('/clinic-operations', [App\Http\Controllers\Hospital\HospitalReportController::class, 'clinicOperations'])->name('clinic.operations');
+            Route::get('/export/{type}', [App\Http\Controllers\Hospital\HospitalReportController::class, 'export'])->name('export.legacy');
+        });
+
+
         // Inventory routes - All authenticated staff can access
         Route::prefix('inventory')->name('inventory.')->group(function () {
-            Route::get('/', [InventoryController::class, 'index'])->name('index');
-
-            // Products
-            Route::resource('products', ProductController::class);
-
-            // Transactions
-            Route::resource('transactions', TransactionController::class);
-            Route::post('transactions/{transaction}/approve', [TransactionController::class, 'approve'])->name('transactions.approve');
-            Route::post('transactions/{transaction}/reject', [TransactionController::class, 'reject'])->name('transactions.reject');
-
-            // Reports
-            Route::prefix('reports')->name('reports.')->group(function () {
-                Route::get('/', [ReportController::class, 'index'])->name('index');
-                Route::get('used-supplies', [ReportController::class, 'usedSupplies'])->name('used-supplies');
-                Route::get('rejected-supplies', [ReportController::class, 'rejectedSupplies'])->name('rejected-supplies');
-                Route::get('in-out-supplies', [ReportController::class, 'inOutSupplies'])->name('in-out-supplies');
-                Route::get('stock-levels', [ReportController::class, 'stockLevels'])->name('stock-levels');
-                Route::get('stock-levels/export', [ReportController::class, 'exportStockLevels'])->name('stock-levels.export');
-                Route::get('daily-consumption', [ReportController::class, 'dailyConsumption'])->name('daily-consumption');
-                Route::get('usage-by-location', [ReportController::class, 'usageByLocation'])->name('usage-by-location');
-                Route::get('used-supplies/export', [ReportController::class, 'exportUsedSupplies'])->name('used-supplies.export');
-                Route::get('rejected-supplies/export', [ReportController::class, 'exportRejectedSupplies'])->name('rejected-supplies.export');
-                Route::get('in-out-supplies/export', [ReportController::class, 'exportInOutSupplies'])->name('in-out-supplies.export');
-                Route::get('daily-consumption/export', [ReportController::class, 'exportDailyConsumption'])->name('daily-consumption.export');
-                Route::get('usage-by-location/export', [ReportController::class, 'exportUsageByLocation'])->name('usage-by-location.export');
-                Route::get('export-all', [ReportController::class, 'exportAllReports'])->name('export-all');
-            });
+            Route::get('/', [App\Http\Controllers\InventoryController::class, 'index'])->name('index');
+            Route::get('/create', [App\Http\Controllers\InventoryController::class, 'create'])->name('create');
+            Route::post('/', [App\Http\Controllers\InventoryController::class, 'store'])->name('store');
+            
+            // Category-specific pages (must come before {id} routes)
+            Route::get('/doctor-nurse', [App\Http\Controllers\InventoryController::class, 'doctorNurse'])->name('doctor-nurse');
+            Route::get('/medtech', [App\Http\Controllers\InventoryController::class, 'medTech'])->name('medtech');
+            
+            // Inventory Reports (moved to main reports section)
+            Route::get('/reports', [App\Http\Controllers\InventoryController::class, 'reports'])->name('reports');
+            Route::get('/reports/export', [App\Http\Controllers\InventoryController::class, 'exportReport'])->name('reports.export');
+            
+            // Additional inventory report pages
+            Route::get('/reports/used-supplies', [ReportController::class, 'usedSupplies'])->name('reports.used-supplies');
+            Route::get('/reports/rejected-supplies', [App\Http\Controllers\InventoryController::class, 'rejectedSupplies'])->name('reports.rejected-supplies');
+            Route::get('/reports/in-out-supplies', [ReportController::class, 'inOutSupplies'])->name('reports.in-out-supplies');
+            Route::get('/reports/stock-levels', [ReportController::class, 'stockLevels'])->name('reports.stock-levels');
+            Route::get('/reports/daily-consumption', [ReportController::class, 'dailyConsumption'])->name('reports.daily-consumption');
+            Route::get('/reports/usage-by-location', [ReportController::class, 'usageByLocation'])->name('reports.usage-by-location');
+            
+            // Export routes for specific reports
+            Route::get('/reports/used-supplies/export', [ReportController::class, 'exportUsedSupplies'])->name('reports.used-supplies.export');
+            Route::get('/reports/rejected-supplies/export', [App\Http\Controllers\InventoryController::class, 'exportRejectedSupplies'])->name('reports.rejected-supplies.export');
+            Route::get('/reports/in-out-supplies/export', [ReportController::class, 'exportInOutSupplies'])->name('reports.in-out-supplies.export');
+            Route::get('/reports/stock-levels/export', [ReportController::class, 'exportStockLevels'])->name('reports.stock-levels.export');
+            Route::get('/reports/daily-consumption/export', [ReportController::class, 'exportDailyConsumption'])->name('reports.daily-consumption.export');
+            Route::get('/reports/usage-by-location/export', [ReportController::class, 'exportUsageByLocation'])->name('reports.usage-by-location.export');
+            
+            // ID-based routes (must come after specific routes)
+            Route::get('/{id}', [App\Http\Controllers\InventoryController::class, 'show'])->name('show');
+            Route::get('/{id}/edit', [App\Http\Controllers\InventoryController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [App\Http\Controllers\InventoryController::class, 'update'])->name('update');
+            Route::delete('/{id}', [App\Http\Controllers\InventoryController::class, 'destroy'])->name('destroy');
+            Route::post('/{id}/movement', [App\Http\Controllers\InventoryController::class, 'movement'])->name('movement');
         });
 
         // Notifications Routes - All staff can access
@@ -961,7 +360,7 @@ Route::prefix('admin')
             Route::post('/{notification}/mark-read', [NotificationController::class, 'markAsRead'])->name('mark-read');
             Route::post('/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('mark-all-read');
             Route::get('/unread-count', [NotificationController::class, 'getUnreadCount'])->name('unread-count');
-
+            
             // Appointment approval/rejection
             Route::post('/{appointment}/approve', [NotificationController::class, 'approveAppointment'])->name('approve-appointment');
             Route::post('/{appointment}/reject', [NotificationController::class, 'rejectAppointment'])->name('reject-appointment');

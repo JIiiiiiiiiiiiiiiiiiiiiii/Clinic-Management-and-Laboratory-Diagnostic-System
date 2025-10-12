@@ -31,7 +31,7 @@ type Summary = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Billing', href: '/admin/billing' },
-    { title: 'Reports', href: '/admin/billing/reports' },
+    { title: 'Reports', href: '/admin/billing/billing-reports' },
     { title: 'HMO Report', href: '/admin/billing/hmo-report' },
 ];
 
@@ -66,7 +66,7 @@ export default function HmoReport({
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-6">
                             <Button asChild variant="outline" className="h-12 w-12">
-                                <Link href="/admin/billing/reports">
+                                <Link href="/admin/billing/billing-reports">
                                     <ArrowLeft className="h-5 w-5" />
                                 </Link>
                             </Button>

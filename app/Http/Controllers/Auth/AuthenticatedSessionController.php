@@ -112,6 +112,11 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        // Clear custom session authentication
+        $request->session()->forget('auth.user');
+        $request->session()->forget('auth.login');
+        
+        // Also clear standard Laravel auth
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();

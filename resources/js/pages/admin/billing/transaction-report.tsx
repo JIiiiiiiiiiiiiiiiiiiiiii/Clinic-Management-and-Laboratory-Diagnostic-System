@@ -38,19 +38,19 @@ export default function TransactionReport() {
     const [activeTab, setActiveTab] = useState('daily');
 
     const handleDailyReport = () => {
-        router.get('/admin/billing/reports/daily', {
+        router.get('/admin/billing/billing-reports/daily', {
             date: selectedDate,
         });
     };
 
     const handleMonthlyReport = () => {
-        router.get('/admin/billing/reports/monthly', {
+        router.get('/admin/billing/billing-reports/monthly', {
             month: selectedMonth,
         });
     };
 
     const handleYearlyReport = () => {
-        router.get('/admin/billing/reports/yearly', {
+        router.get('/admin/billing/billing-reports/yearly', {
             year: selectedYear,
         });
     };
@@ -67,7 +67,7 @@ export default function TransactionReport() {
         }
 
         // Build the export URL with parameters
-        const baseUrl = `/admin/billing/reports/${reportType}/export`;
+        const baseUrl = `/admin/billing/billing-reports/${reportType}/export`;
         const queryString = new URLSearchParams(params).toString();
         const exportUrl = `${baseUrl}?${queryString}`;
         

@@ -19,6 +19,7 @@ import {
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import {
+  Column,
   ColumnDef,
   ColumnFiltersState,
   Row,
@@ -48,6 +49,7 @@ import {
   PlusIcon,
   TrendingUpIcon,
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 import { toast } from "sonner"
 import { z } from "zod"
@@ -337,10 +339,42 @@ function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
   )
 }
 
-export function DataTable({
-  data: initialData,
+export function DataTableColumnHeader({
+  column,
+  title,
 }: {
-  data: z.infer<typeof schema>[]
+  column: Column<any>
+  title: string
+}) {
+  if (!column.getCanSort()) {
+    return <div className="flex h-9 items-center px-4 py-2">{title}</div>
+  }
+
+  return (
+    <div className="flex items-center space-x-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 data-[state=open]:bg-accent"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+      >
+        <span>{title}</span>
+        <ChevronDownIcon className="ml-2 h-4 w-4" />
+      </Button>
+    </div>
+  )
+}
+
+export function DataTable<TData>({
+  data: initialData,
+  columns,
+  searchKey,
+  searchPlaceholder,
+}: {
+  data: TData[]
+  columns: ColumnDef<TData>[]
+  searchKey?: string
+  searchPlaceholder?: string
 }) {
   const [data, setData] = React.useState(() => initialData)
   const [rowSelection, setRowSelection] = React.useState({})

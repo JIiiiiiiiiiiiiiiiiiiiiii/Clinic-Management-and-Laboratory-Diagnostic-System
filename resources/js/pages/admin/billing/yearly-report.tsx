@@ -57,7 +57,7 @@ type Summary = {
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Billing', href: '/admin/billing' },
     { title: 'Transaction Report', href: '/admin/billing/transaction-report' },
-    { title: 'Yearly Report', href: '/admin/billing/reports/yearly' },
+    { title: 'Yearly Report', href: '/admin/billing/billing-reports/yearly' },
 ];
 
 export default function YearlyReport({ 
@@ -74,7 +74,7 @@ export default function YearlyReport({
     const [selectedYear, setSelectedYear] = useState(year);
 
     const handleYearChange = () => {
-        router.get('/admin/billing/reports/yearly', {
+        router.get('/admin/billing/billing-reports/yearly', {
             year: selectedYear,
         }, {
             preserveState: true,
@@ -83,7 +83,7 @@ export default function YearlyReport({
     };
 
     const handleExport = (format: string) => {
-        const exportUrl = `/admin/billing/reports/yearly/export?year=${selectedYear}&format=${format}`;
+        const exportUrl = `/admin/billing/billing-reports/yearly/export?year=${selectedYear}&format=${format}`;
         window.open(exportUrl, '_blank');
     };
 

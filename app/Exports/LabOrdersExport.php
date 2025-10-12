@@ -7,8 +7,13 @@ use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Illuminate\Support\Collection;
 
-class LabOrdersExport implements FromArray, WithHeadings
+class LabOrdersExport extends BaseExport implements FromArray, WithHeadings
 {
+    public function __construct()
+    {
+        parent::__construct('Lab Orders');
+    }
+
     public function array(): array
     {
         $orders = LabOrder::with(['patient', 'labTests'])->latest()->get();

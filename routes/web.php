@@ -3,9 +3,24 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia as InertiaResponse;
+use App\Models\User;
 
 Route::get('/', function () {
-    return Inertia::render('welcome');
+    if (Auth::check()) {
+        // User is logged in, redirect to appropriate dashboard
+        $user = Auth::user();
+        $mappedRole = $user->getMappedRole();
+        
+        if ($mappedRole === 'patient') {
+            return redirect()->route('patient.dashboard');
+        } else {
+            return redirect()->route('admin.dashboard');
+        }
+    } else {
+        // User is not logged in, redirect to login
+        return redirect()->route('login');
+    }
 })->name('home');
 
 // Load split route files
@@ -16,6 +31,8 @@ require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
 require __DIR__.'/simple-auth.php';
 
+
+
 // Backward-compatible dashboard route used by tests and some auth flows
 Route::get('/dashboard', function () {
     if (!Auth::check()) {
@@ -25,7 +42,7 @@ Route::get('/dashboard', function () {
     // Get user role and redirect accordingly
     $user = Auth::user();
     $mappedRole = $user->getMappedRole();
-
+    
     if ($mappedRole === 'patient') {
         return redirect()->route('patient.dashboard');
     } else {
@@ -42,10 +59,11 @@ Route::get('/patients', function () {
     // Get user role and redirect accordingly
     $user = Auth::user();
     $mappedRole = $user->getMappedRole();
-
+    
     if ($mappedRole === 'hospital_admin') {
         return redirect()->route('hospital.patients.index');
     } else {
         return redirect()->route('admin.patient.index');
     }
 })->name('patients');
+

@@ -5,13 +5,13 @@ namespace App\Exports;
 use App\Models\LabOrder;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithTitle;
 use Illuminate\Support\Collection;
 
-class LabOrderResultsExport implements FromArray, WithHeadings, WithTitle
+class LabOrderResultsExport extends BaseExport implements FromArray, WithHeadings
 {
     public function __construct(private LabOrder $order)
     {
+        parent::__construct('Lab Order Results');
     }
 
     public function array(): array
@@ -64,10 +64,6 @@ class LabOrderResultsExport implements FromArray, WithHeadings, WithTitle
         ];
     }
 
-    public function title(): string
-    {
-        return 'Order Results';
-    }
 
     public function collection(): Collection
     {

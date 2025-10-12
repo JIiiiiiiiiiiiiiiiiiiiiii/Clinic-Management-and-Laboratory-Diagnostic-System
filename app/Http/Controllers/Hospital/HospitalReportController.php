@@ -9,6 +9,13 @@ use App\Models\BillingTransaction;
 use App\Models\Supply\Supply as Inventory;
 use App\Models\Supply\SupplyTransaction as InventoryTransaction;
 use App\Models\PatientTransfer;
+use App\Models\Report;
+use App\Models\LabOrder;
+use App\Models\LabResult;
+use App\Models\LabTest;
+use App\Models\PatientReferral;
+use App\Models\DoctorPayment;
+use App\Models\Expense;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,21 +29,30 @@ class HospitalReportController extends Controller
      */
     public function index(Request $request): Response
     {
-        // Simple reports dashboard with minimal data
-        return Inertia::render('Hospital/Reports/IndexSimple', [
+        $dateRange = $this->getDateRange($request);
+        $summary = $this->getSummaryStatistics($dateRange);
+        $chartData = $this->getChartData($dateRange);
+        $recentActivities = $this->getRecentActivities($dateRange);
+
+        // Determine if this is an admin route
+        $isAdminRoute = $request->route()->getName() && str_starts_with($request->route()->getName(), 'admin.');
+        $componentPath = $isAdminRoute ? 'admin/reports/IndexSimple' : 'Hospital/Reports/IndexSimple';
+
+        // Get the active tab from the request
+        $activeTab = $request->get('period', 'daily');
+
+        return Inertia::render($componentPath, [
             'user' => $request->user(),
-            'summary' => [
-                'total_patients' => 0,
-                'total_appointments' => 0,
-                'total_transactions' => 0,
-                'total_revenue' => 0
-            ],
-            'chartData' => [],
-            'recentActivities' => [],
+            'summary' => $summary,
+            'chartData' => $chartData,
+            'recentActivities' => $recentActivities,
             'dateRange' => [
-                'start' => now()->startOfMonth()->toDateString(),
-                'end' => now()->endOfMonth()->toDateString()
-            ]
+                'start' => $dateRange['start']->toDateString(),
+                'end' => $dateRange['end']->toDateString(),
+                'period' => $dateRange['period'],
+                'label' => $dateRange['label']
+            ],
+            'activeTab' => $activeTab
         ]);
     }
 
@@ -45,25 +61,62 @@ class HospitalReportController extends Controller
      */
     public function patients(Request $request): Response
     {
-        // Simple patient reports with minimal data
+        $dateRange = $this->getDateRange($request);
+        $filters = $request->only(['sex', 'age_group', 'civil_status', 'search']);
+        
+        $query = Patient::whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
+        
+        // Apply filters
+        if (!empty($filters['sex'])) {
+            $query->where('sex', $filters['sex']);
+        }
+        
+        if (!empty($filters['age_group'])) {
+            switch ($filters['age_group']) {
+                case 'under_18':
+                    $query->where('age', '<', 18);
+                    break;
+                case '18_30':
+                    $query->whereBetween('age', [18, 30]);
+                    break;
+                case '31_50':
+                    $query->whereBetween('age', [31, 50]);
+                    break;
+                case '51_70':
+                    $query->whereBetween('age', [51, 70]);
+                    break;
+                case 'over_70':
+                    $query->where('age', '>', 70);
+                    break;
+            }
+        }
+        
+        if (!empty($filters['civil_status'])) {
+            $query->where('civil_status', $filters['civil_status']);
+        }
+        
+        if (!empty($filters['search'])) {
+            $query->where(function($q) use ($filters) {
+                $q->where('full_name', 'like', '%' . $filters['search'] . '%')
+                  ->orWhere('patient_no', 'like', '%' . $filters['search'] . '%')
+                  ->orWhere('mobile_no', 'like', '%' . $filters['search'] . '%');
+            });
+        }
+        
+        $patients = $query->orderBy('created_at', 'desc')->paginate(20);
+        $stats = $this->getPatientStatistics($dateRange);
+        
         return Inertia::render('Hospital/Reports/PatientsSimple', [
             'user' => $request->user(),
-            'patients' => [
-                'data' => [],
-                'links' => [],
-                'meta' => []
-            ],
-            'stats' => [
-                'total_patients' => 0,
-                'male_patients' => 0,
-                'female_patients' => 0,
-                'new_this_month' => 0
-            ],
+            'patients' => $patients,
+            'stats' => $stats,
             'dateRange' => [
-                'start' => now()->startOfMonth()->toDateString(),
-                'end' => now()->endOfMonth()->toDateString()
+                'start' => $dateRange['start']->toDateString(),
+                'end' => $dateRange['end']->toDateString(),
+                'period' => $dateRange['period'],
+                'label' => $dateRange['label']
             ],
-            'filters' => []
+            'filters' => $filters
         ]);
     }
 
@@ -72,8 +125,12 @@ class HospitalReportController extends Controller
      */
     public function appointments(Request $request): Response
     {
+        // Determine if this is an admin route
+        $isAdminRoute = $request->route()->getName() && str_starts_with($request->route()->getName(), 'admin.');
+        $componentPath = $isAdminRoute ? 'admin/reports/AppointmentsSimple' : 'Hospital/Reports/AppointmentsSimple';
+        
         // Simple appointment reports with minimal data
-        return Inertia::render('Hospital/Reports/AppointmentsSimple', [
+        return Inertia::render($componentPath, [
             'user' => $request->user(),
             'appointments' => [
                 'data' => [],
@@ -99,8 +156,12 @@ class HospitalReportController extends Controller
      */
     public function transactions(Request $request): Response
     {
+        // Determine if this is an admin route
+        $isAdminRoute = $request->route()->getName() && str_starts_with($request->route()->getName(), 'admin.');
+        $componentPath = $isAdminRoute ? 'admin/reports/BillingSimple' : 'Hospital/Reports/TransactionsSimple';
+        
         // Simple transaction reports with minimal data
-        return Inertia::render('Hospital/Reports/TransactionsSimple', [
+        return Inertia::render($componentPath, [
             'user' => $request->user(),
             'transactions' => [
                 'data' => [],
@@ -110,8 +171,8 @@ class HospitalReportController extends Controller
             'stats' => [
                 'total_transactions' => 0,
                 'total_revenue' => 0,
-                'completed_transactions' => 0,
-                'pending_transactions' => 0
+                'pending_payments' => 0,
+                'completed_payments' => 0
             ],
             'dateRange' => [
                 'start' => now()->startOfMonth()->toDateString(),
@@ -126,26 +187,8 @@ class HospitalReportController extends Controller
      */
     public function inventory(Request $request): Response
     {
-        // Simple inventory reports with minimal data
-        return Inertia::render('Hospital/Reports/InventorySimple', [
-            'user' => $request->user(),
-            'transactions' => [
-                'data' => [],
-                'links' => [],
-                'meta' => []
-            ],
-            'stats' => [
-                'total_transactions' => 0,
-                'total_products' => 0,
-                'low_stock_items' => 0,
-                'out_of_stock_items' => 0
-            ],
-            'dateRange' => [
-                'start' => now()->startOfMonth()->toDateString(),
-                'end' => now()->endOfMonth()->toDateString()
-            ],
-            'filters' => []
-        ]);
+        // Redirect to the new inventory reports page
+        return redirect()->route('admin.inventory.reports');
     }
 
     /**
@@ -176,22 +219,121 @@ class HospitalReportController extends Controller
     }
 
     /**
+     * Display laboratory reports.
+     */
+    public function laboratory(Request $request): Response
+    {
+        $dateRange = $this->getDateRange($request);
+        $filters = $request->only(['test_type', 'status', 'search']);
+        
+        $query = LabOrder::whereBetween('lab_orders.created_at', [$dateRange['start'], $dateRange['end']]);
+        
+        // Apply filters
+        if (!empty($filters['test_type'])) {
+            $query->whereHas('labTests', function($q) use ($filters) {
+                $q->where('name', 'like', '%' . $filters['test_type'] . '%');
+            });
+        }
+        
+        if (!empty($filters['status'])) {
+            $query->where('lab_orders.status', $filters['status']);
+        }
+        
+        if (!empty($filters['search'])) {
+            $query->where(function($q) use ($filters) {
+                $q->where('lab_orders.id', 'like', '%' . $filters['search'] . '%')
+                  ->orWhereHas('patient', function($patientQuery) use ($filters) {
+                      $patientQuery->where('full_name', 'like', '%' . $filters['search'] . '%');
+                  });
+            });
+        }
+        
+        $labOrders = $query->with(['patient', 'labTests', 'results'])->orderBy('created_at', 'desc')->paginate(20);
+        $stats = $this->getLaboratoryStatistics($dateRange);
+        
+        // Determine if this is an admin route
+        $isAdminRoute = $request->route()->getName() && str_starts_with($request->route()->getName(), 'admin.');
+        $componentPath = $isAdminRoute ? 'admin/reports/LaboratorySimple' : 'Hospital/Reports/LaboratorySimple';
+        
+        return Inertia::render($componentPath, [
+            'user' => $request->user(),
+            'labOrders' => $labOrders,
+            'stats' => $stats,
+            'dateRange' => [
+                'start' => $dateRange['start']->toDateString(),
+                'end' => $dateRange['end']->toDateString(),
+                'period' => $dateRange['period'],
+                'label' => $dateRange['label']
+            ],
+            'filters' => $filters
+        ]);
+    }
+
+    /**
+     * Display specialist management reports.
+     */
+    public function specialistManagement(Request $request): Response
+    {
+        $dateRange = $this->getDateRange($request);
+        $filters = $request->only(['specialist_type', 'status', 'search']);
+        
+        $query = PatientReferral::whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
+        
+        // Apply filters
+        if (!empty($filters['specialist_type'])) {
+            $query->where('specialist_type', $filters['specialist_type']);
+        }
+        
+        if (!empty($filters['status'])) {
+            $query->where('lab_orders.status', $filters['status']);
+        }
+        
+        if (!empty($filters['search'])) {
+            $query->where(function($q) use ($filters) {
+                $q->where('referral_reason', 'like', '%' . $filters['search'] . '%')
+                  ->orWhereHas('patient', function($patientQuery) use ($filters) {
+                      $patientQuery->where('full_name', 'like', '%' . $filters['search'] . '%');
+                  });
+            });
+        }
+        
+        $referrals = $query->with(['patient', 'referredBy', 'approvedBy'])->orderBy('created_at', 'desc')->paginate(20);
+        $stats = $this->getSpecialistManagementStatistics($dateRange);
+        
+        // Determine if this is an admin route
+        $isAdminRoute = $request->route()->getName() && str_starts_with($request->route()->getName(), 'admin.');
+        $componentPath = $isAdminRoute ? 'admin/reports/SpecialistManagementSimple' : 'Hospital/Reports/SpecialistManagementSimple';
+        
+        return Inertia::render($componentPath, [
+            'user' => $request->user(),
+            'referrals' => $referrals,
+            'stats' => $stats,
+            'dateRange' => [
+                'start' => $dateRange['start']->toDateString(),
+                'end' => $dateRange['end']->toDateString(),
+                'period' => $dateRange['period'],
+                'label' => $dateRange['label']
+            ],
+            'filters' => $filters
+        ]);
+    }
+
+    /**
      * Display clinic operations reports.
      */
     public function clinicOperations(Request $request): Response
     {
-        // Simple clinic operations reports with minimal data
+        $dateRange = $this->getDateRange($request);
+        $stats = $this->getClinicOperationsStatistics($dateRange);
+        
         return Inertia::render('Hospital/Reports/ClinicOperationsSimple', [
             'user' => $request->user(),
-            'stats' => [
-                'total_operations' => 0,
-                'successful_operations' => 0,
-                'failed_operations' => 0,
-                'average_operation_time' => 0
-            ],
+            'stats' => $stats,
             'dateRange' => [
-                'start' => now()->startOfMonth()->toDateString(),
-                'end' => now()->endOfMonth()->toDateString()
+                'start' => $dateRange['start']->toDateString(),
+                'end' => $dateRange['end']->toDateString(),
+                'period' => $dateRange['period'],
+                'label' => $dateRange['label']
             ]
         ]);
     }
@@ -204,14 +346,21 @@ class HospitalReportController extends Controller
         $dateRange = $this->getDateRange($request);
         
         switch ($type) {
+            case 'all':
+                return $this->exportAll($dateRange);
             case 'patients':
                 return $this->exportPatients($dateRange);
-            case 'appointments':
-                return $this->exportAppointments($dateRange);
-            case 'transactions':
-                return $this->exportTransactions($dateRange);
+            case 'laboratory':
+                return $this->exportLaboratory($dateRange);
             case 'inventory':
                 return $this->exportInventory($dateRange);
+            case 'appointments':
+                return $this->exportAppointments($dateRange);
+            case 'specialist_management':
+                return $this->exportSpecialistManagement($dateRange);
+            case 'billing':
+            case 'transactions':
+                return $this->exportTransactions($dateRange);
             case 'transfers':
                 return $this->exportTransfers($dateRange);
             default:
@@ -691,6 +840,54 @@ class HospitalReportController extends Controller
     }
 
     /**
+     * Get laboratory statistics.
+     */
+    private function getLaboratoryStatistics(array $dateRange): array
+    {
+        $labOrders = LabOrder::whereBetween('lab_orders.created_at', [$dateRange['start'], $dateRange['end']]);
+        
+        return [
+            'total_orders' => $labOrders->count(),
+            'completed_orders' => $labOrders->where('lab_orders.status', 'completed')->count(),
+            'pending_orders' => $labOrders->where('lab_orders.status', 'pending')->count(),
+            'cancelled_orders' => $labOrders->where('lab_orders.status', 'cancelled')->count(),
+            'by_test_type' => $labOrders->join('lab_results', 'lab_orders.id', '=', 'lab_results.lab_order_id')
+                ->join('lab_tests', 'lab_results.lab_test_id', '=', 'lab_tests.id')
+                ->select('lab_tests.name', DB::raw('count(*) as count'))
+                ->groupBy('lab_tests.name')
+                ->get()
+                ->pluck('count', 'name'),
+            'average_processing_time' => 0, // TODO: Implement when completed_at field is available
+        ];
+    }
+
+    /**
+     * Get specialist management statistics.
+     */
+    private function getSpecialistManagementStatistics(array $dateRange): array
+    {
+        $referrals = PatientReferral::whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
+        
+        return [
+            'total_referrals' => $referrals->count(),
+            'approved_referrals' => $referrals->where('status', 'approved')->count(),
+            'pending_referrals' => $referrals->where('status', 'pending')->count(),
+            'rejected_referrals' => $referrals->where('status', 'rejected')->count(),
+            'by_specialist_type' => $referrals->select('specialist_type', DB::raw('count(*) as count'))
+                ->groupBy('specialist_type')
+                ->get()
+                ->pluck('count', 'specialist_type'),
+            'by_priority' => $referrals->select('priority', DB::raw('count(*) as count'))
+                ->groupBy('priority')
+                ->get()
+                ->pluck('count', 'priority'),
+            'average_approval_time' => $referrals->whereNotNull('approved_at')
+                ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, created_at, approved_at)) as avg_hours')
+                ->value('avg_hours') ?? 0,
+        ];
+    }
+
+    /**
      * Get clinic operations statistics.
      */
     private function getClinicOperationsStatistics(array $dateRange): array
@@ -706,6 +903,103 @@ class HospitalReportController extends Controller
             'average_appointment_duration' => 30, // This would be calculated from actual data
             'patient_satisfaction_score' => 4.5, // This would be calculated from feedback
         ];
+    }
+
+    /**
+     * Export laboratory data.
+     */
+    private function exportLaboratory(array $dateRange)
+    {
+        $labOrders = LabOrder::with(['patient', 'labTests', 'results'])
+            ->whereBetween('lab_orders.created_at', [$dateRange['start'], $dateRange['end']])
+            ->orderBy('lab_orders.created_at', 'desc')
+            ->get();
+
+        $filename = 'laboratory_report_' . now()->format('Y_m_d_H_i_s') . '.csv';
+        
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+
+        $callback = function() use ($labOrders) {
+            $file = fopen('php://output', 'w');
+            
+            // CSV headers
+            fputcsv($file, [
+                'Order Number', 'Patient Name', 'Patient No', 'Test Name', 
+                'Test Type', 'Status', 'Created Date', 'Completed Date', 'Results'
+            ]);
+
+            foreach ($labOrders as $order) {
+                $results = $order->labResults ? 
+                    $order->labResults->pluck('result_value')->join(', ') : 'N/A';
+                    
+                fputcsv($file, [
+                    $order->order_number,
+                    $order->patient?->full_name ?? 'N/A',
+                    $order->patient?->patient_no ?? 'N/A',
+                    $order->labTests->first()?->name ?? 'N/A',
+                    $order->labTests->first()?->code ?? 'N/A',
+                    $order->status,
+                    $order->created_at->format('Y-m-d H:i:s'),
+                    'N/A', // TODO: Implement when completed_at field is available
+                    $results,
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Export specialist management data.
+     */
+    private function exportSpecialistManagement(array $dateRange)
+    {
+        $referrals = PatientReferral::with(['patient', 'referredBy', 'approvedBy'])
+            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $filename = 'specialist_management_report_' . now()->format('Y_m_d_H_i_s') . '.csv';
+        
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+
+        $callback = function() use ($referrals) {
+            $file = fopen('php://output', 'w');
+            
+            // CSV headers
+            fputcsv($file, [
+                'Patient Name', 'Patient No', 'Specialist Type', 'Priority', 
+                'Status', 'Referral Reason', 'Referred By', 'Approved By', 
+                'Created Date', 'Approved Date'
+            ]);
+
+            foreach ($referrals as $referral) {
+                fputcsv($file, [
+                    $referral->patient?->full_name ?? 'N/A',
+                    $referral->patient?->patient_no ?? 'N/A',
+                    $referral->specialist_type,
+                    $referral->priority,
+                    $referral->status,
+                    $referral->referral_reason,
+                    $referral->referredBy?->name ?? 'N/A',
+                    $referral->approvedBy?->name ?? 'N/A',
+                    $referral->created_at->format('Y-m-d H:i:s'),
+                    $referral->approved_at?->format('Y-m-d H:i:s') ?? 'N/A',
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 
     /**
@@ -743,6 +1037,120 @@ class HospitalReportController extends Controller
                     $transfer->status,
                     $transfer->reason ?? 'N/A',
                     $transfer->notes ?? 'N/A',
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Export all reports data.
+     */
+    private function exportAll(array $dateRange)
+    {
+        $filename = 'comprehensive_report_' . now()->format('Y_m_d_H_i_s') . '.csv';
+        
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+
+        $callback = function() use ($dateRange) {
+            $file = fopen('php://output', 'w');
+            
+            // Get all data
+            $patients = Patient::whereBetween('created_at', [$dateRange['start'], $dateRange['end']])->get();
+            $appointments = Appointment::whereBetween('appointment_date', [$dateRange['start'], $dateRange['end']])->get();
+            $transactions = BillingTransaction::whereBetween('transaction_date', [$dateRange['start'], $dateRange['end']])->get();
+            $labOrders = LabOrder::whereBetween('created_at', [$dateRange['start'], $dateRange['end']])->get();
+            $transfers = PatientTransfer::whereBetween('transfer_date', [$dateRange['start'], $dateRange['end']])->get();
+            
+            // Write comprehensive report
+            fputcsv($file, ['COMPREHENSIVE HOSPITAL REPORT']);
+            fputcsv($file, ['Generated on: ' . now()->format('Y-m-d H:i:s')]);
+            fputcsv($file, ['Date Range: ' . $dateRange['start']->format('Y-m-d') . ' to ' . $dateRange['end']->format('Y-m-d')]);
+            fputcsv($file, []);
+            
+            // Summary
+            fputcsv($file, ['SUMMARY']);
+            fputcsv($file, ['Total Patients', $patients->count()]);
+            fputcsv($file, ['Total Appointments', $appointments->count()]);
+            fputcsv($file, ['Total Transactions', $transactions->count()]);
+            fputcsv($file, ['Total Lab Orders', $labOrders->count()]);
+            fputcsv($file, ['Total Transfers', $transfers->count()]);
+            fputcsv($file, []);
+            
+            // Patients data
+            fputcsv($file, ['PATIENTS DATA']);
+            fputcsv($file, ['Patient ID', 'Name', 'Age', 'Sex', 'Phone', 'Created Date']);
+            foreach ($patients as $patient) {
+                fputcsv($file, [
+                    $patient->patient_no,
+                    $patient->first_name . ' ' . $patient->last_name,
+                    $patient->age,
+                    $patient->sex,
+                    $patient->phone,
+                    $patient->created_at->format('Y-m-d H:i:s')
+                ]);
+            }
+            fputcsv($file, []);
+            
+            // Appointments data
+            fputcsv($file, ['APPOINTMENTS DATA']);
+            fputcsv($file, ['Appointment ID', 'Patient Name', 'Specialist', 'Date', 'Status']);
+            foreach ($appointments as $appointment) {
+                fputcsv($file, [
+                    $appointment->id,
+                    $appointment->patient_name,
+                    $appointment->specialist_name,
+                    $appointment->appointment_date->format('Y-m-d H:i:s'),
+                    $appointment->status
+                ]);
+            }
+            fputcsv($file, []);
+            
+            // Transactions data
+            fputcsv($file, ['TRANSACTIONS DATA']);
+            fputcsv($file, ['Transaction ID', 'Patient', 'Amount', 'Payment Method', 'Status', 'Date']);
+            foreach ($transactions as $transaction) {
+                fputcsv($file, [
+                    $transaction->transaction_id,
+                    $transaction->patient?->first_name . ' ' . $transaction->patient?->last_name ?? 'N/A',
+                    $transaction->total_amount,
+                    $transaction->payment_method,
+                    $transaction->status,
+                    $transaction->transaction_date->format('Y-m-d H:i:s')
+                ]);
+            }
+            fputcsv($file, []);
+            
+            // Lab orders data
+            fputcsv($file, ['LAB ORDERS DATA']);
+            fputcsv($file, ['Order ID', 'Patient', 'Status', 'Created Date']);
+            foreach ($labOrders as $order) {
+                fputcsv($file, [
+                    $order->id,
+                    $order->patient?->first_name . ' ' . $order->patient?->last_name ?? 'N/A',
+                    $order->status,
+                    $order->created_at->format('Y-m-d H:i:s')
+                ]);
+            }
+            fputcsv($file, []);
+            
+            // Transfers data
+            fputcsv($file, ['TRANSFERS DATA']);
+            fputcsv($file, ['Transfer ID', 'Patient', 'From', 'To', 'Date', 'Status']);
+            foreach ($transfers as $transfer) {
+                fputcsv($file, [
+                    $transfer->id,
+                    $transfer->patient?->first_name . ' ' . $transfer->patient?->last_name ?? 'N/A',
+                    $transfer->fromClinic?->name ?? 'Hospital',
+                    $transfer->toClinic?->name ?? 'Hospital',
+                    $transfer->transfer_date->format('Y-m-d H:i:s'),
+                    $transfer->status
                 ]);
             }
 

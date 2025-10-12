@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
-import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
+import { DataTableColumnHeader } from '@/components/ui/data-table';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -193,19 +193,6 @@ export default function FinancialReports({ transactions, summary, chartData, fil
         }).format(amount);
     };
 
-    const getStatusBadge = (status: string) => {
-        switch (status.toLowerCase()) {
-            case 'completed':
-                return <Badge className="bg-green-100 text-green-800">Completed</Badge>;
-            case 'pending':
-                return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
-            case 'cancelled':
-                return <Badge className="bg-red-100 text-red-800">Cancelled</Badge>;
-            default:
-                return <Badge className="bg-gray-100 text-gray-800">{status}</Badge>;
-        }
-    };
-
     return (
         <AppLayout breadcrumbs={breadcrumbs as any}>
             <Head title="Financial Reports" />
@@ -230,117 +217,6 @@ export default function FinancialReports({ transactions, summary, chartData, fil
                             </div>
                         </div>
                     </div>
-
-                    {/* Date Range Picker */}
-                    <Card className="mb-8 rounded-xl border-0 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-lg">
-                        <CardHeader className="border-b border-blue-100 bg-transparent">
-                            <CardTitle className="flex items-center gap-3 text-lg font-semibold text-blue-900">
-                                <CalendarIcon className="h-5 w-5" />
-                                Date Range Filter
-                            </CardTitle>
-                            <p className="text-sm text-blue-700">Select a date range to filter financial data</p>
-                        </CardHeader>
-                        <CardContent className="p-6">
-                            <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-                                <div className="flex flex-col gap-4 md:flex-row md:items-end">
-                                    <div className="flex flex-col gap-2">
-                                        <Label htmlFor="date_from" className="text-sm font-medium text-blue-900">
-                                            From Date
-                                        </Label>
-                                        <Input
-                                            id="date_from"
-                                            type="date"
-                                            value={dateRange?.from ? formatDate(dateRange.from, 'yyyy-MM-dd') : ''}
-                                            onChange={(e) => {
-                                                const fromDate = e.target.value ? new Date(e.target.value) : undefined;
-                                                setDateRange((prev) => ({
-                                                    ...prev,
-                                                    from: fromDate,
-                                                    to: prev?.to,
-                                                }));
-                                            }}
-                                            className="w-full md:w-[200px]"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-2">
-                                        <Label htmlFor="date_to" className="text-sm font-medium text-blue-900">
-                                            To Date
-                                        </Label>
-                                        <Input
-                                            id="date_to"
-                                            type="date"
-                                            value={dateRange?.to ? formatDate(dateRange.to, 'yyyy-MM-dd') : ''}
-                                            onChange={(e) => {
-                                                const toDate = e.target.value ? new Date(e.target.value) : undefined;
-                                                setDateRange((prev) => ({
-                                                    ...prev,
-                                                    from: prev?.from,
-                                                    to: toDate,
-                                                }));
-                                            }}
-                                            className="w-full md:w-[200px]"
-                                        />
-                                    </div>
-
-                                    <div className="flex flex-wrap gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                                const today = new Date();
-                                                const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-                                                setDateRange({ from: firstDay, to: today });
-                                            }}
-                                            className="text-xs"
-                                        >
-                                            This Month
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                                const today = new Date();
-                                                const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-                                                const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
-                                                setDateRange({ from: firstDay, to: lastDay });
-                                            }}
-                                            className="text-xs"
-                                        >
-                                            Last Month
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                                const today = new Date();
-                                                const firstDay = new Date(today.getFullYear(), 0, 1);
-                                                setDateRange({ from: firstDay, to: today });
-                                            }}
-                                            className="text-xs"
-                                        >
-                                            This Year
-                                        </Button>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                    <Button
-                                        variant="default"
-                                        className="bg-blue-600 hover:bg-blue-700"
-                                        onClick={() => {
-                                            // Apply date range filter logic here
-                                            console.log('Applying date range:', dateRange);
-                                        }}
-                                    >
-                                        Apply Filter
-                                    </Button>
-                                    <Button variant="outline" onClick={() => setDateRange(undefined)}>
-                                        Clear
-                                    </Button>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
 
                     {/* Summary Cards */}
                     <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">

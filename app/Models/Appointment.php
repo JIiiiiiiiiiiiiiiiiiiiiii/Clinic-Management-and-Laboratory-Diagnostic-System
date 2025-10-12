@@ -99,6 +99,12 @@ class Appointment extends Model
         return $query->where('billing_status', 'paid');
     }
 
+    // Relationships
+    public function patient()
+    {
+        return $this->belongsTo(Patient::class);
+    }
+
     public function scopeCancelledBilling($query)
     {
         return $query->where('billing_status', 'cancelled');

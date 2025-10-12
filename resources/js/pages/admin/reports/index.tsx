@@ -180,14 +180,14 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
     ];
 
     return (
-        <AppLayout>
+        <AppLayout breadcrumbs={breadcrumbs as any}>
             <Head title="Reports Overview" />
             <div className="min-h-screen bg-gray-50 p-6">
                 <div className="mx-auto max-w-7xl">
                     {/* Header */}
-                    <div className="mb-8">
-                        <div className="flex items-center justify-between">
-                            <div>
+                <div className="mb-8">
+                    <div className="flex items-center justify-between">
+                                    <div>
                                 <h1 className="text-3xl font-bold text-gray-900">Reports Overview</h1>
                                 <p className="mt-2 text-gray-600">Comprehensive reporting system for clinic management and decision support</p>
                             </div>
@@ -282,7 +282,7 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
                                         </p>
                                     </CardContent>
                                 </Card>
-                            </div>
+                </div>
 
                             {/* Data Visualization Charts */}
                             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -292,9 +292,9 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
                                         <CardTitle className="flex items-center gap-2">
                                             <TrendingUp className="h-5 w-5 text-green-600" />
                                             Monthly Revenue Trend
-                                        </CardTitle>
+                            </CardTitle>
                                         <CardDescription>Revenue, patients, and appointments over the last 12 months</CardDescription>
-                                    </CardHeader>
+                        </CardHeader>
                                     <CardContent>
                                         <div className="h-[350px]">
                                             <ChartContainer
@@ -370,7 +370,7 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
                                                     />
                                                 </AreaChart>
                                             </ChartContainer>
-                                        </div>
+                                </div>
                                     </CardContent>
                                 </Card>
 
@@ -433,165 +433,31 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
                                         <div className="h-[300px]">
                                             <ChartContainer
                                                 config={{
-                                                    count: {
-                                                        label: 'Appointments',
-                                                        color: '#8b5cf6',
-                                                    },
+                                                    Completed: { label: 'Completed', color: '#10b981' },
+                                                    Confirmed: { label: 'Confirmed', color: '#3b82f6' },
+                                                    Pending: { label: 'Pending', color: '#f59e0b' },
+                                                    Cancelled: { label: 'Cancelled', color: '#ef4444' },
+                                                    'No Show': { label: 'No Show', color: '#6b7280' },
                                                 }}
                                                 className="h-full w-full"
                                             >
                                                 <BarChart data={chartData?.appointmentStatus || []}>
                                                     <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
-                                                    <XAxis dataKey="status" className="text-sm" tick={{ fill: '#6b7280' }} />
+                                                    <XAxis dataKey="status" className="text-sm" tick={{ fill: '#6b7280', fontSize: 12 }} />
                                                     <YAxis className="text-sm" tick={{ fill: '#6b7280' }} />
                                                     <ChartTooltip content={<ChartTooltipContent formatter={(value) => [value, 'Appointments']} />} />
-                                                    <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                                                    <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                                                 </BarChart>
                                             </ChartContainer>
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                {/* Lab Test Types */}
+                                {/* Daily Appointments */}
                                 <Card>
                                     <CardHeader>
                                         <CardTitle className="flex items-center gap-2">
-                                            <FlaskConical className="h-5 w-5 text-orange-600" />
-                                            Lab Test Types
-                                        </CardTitle>
-                                        <CardDescription>Most requested laboratory tests</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="h-[300px]">
-                                            <ChartContainer
-                                                config={{
-                                                    count: {
-                                                        label: 'Test Count',
-                                                        color: '#f59e0b',
-                                                    },
-                                                }}
-                                                className="h-full w-full"
-                                            >
-                                                <BarChart data={chartData?.labTestTypes || []} layout="horizontal">
-                                                    <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
-                                                    <XAxis type="number" className="text-sm" tick={{ fill: '#6b7280' }} />
-                                                    <YAxis
-                                                        dataKey="test"
-                                                        type="category"
-                                                        width={100}
-                                                        className="text-sm"
-                                                        tick={{ fill: '#6b7280' }}
-                                                    />
-                                                    <ChartTooltip content={<ChartTooltipContent formatter={(value) => [value, 'Tests']} />} />
-                                                    <Bar dataKey="count" fill="#f59e0b" radius={[0, 4, 4, 0]} />
-                                                </BarChart>
-                                            </ChartContainer>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
-
-                            {/* Enhanced Charts Section */}
-                            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                                {/* Age Groups Distribution - Enhanced */}
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center gap-2">
-                                            <Users className="h-5 w-5 text-indigo-600" />
-                                            Age Groups Distribution
-                                        </CardTitle>
-                                        <CardDescription>Detailed patient distribution by age groups</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="h-[350px]">
-                                            <ChartContainer
-                                                config={{
-                                                    count: {
-                                                        label: 'Patients',
-                                                        color: '#10b981',
-                                                    },
-                                                }}
-                                                className="h-full w-full"
-                                            >
-                                                <BarChart data={chartData?.ageGroups || []}>
-                                                    <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
-                                                    <XAxis
-                                                        dataKey="age_group"
-                                                        className="text-sm"
-                                                        tick={{ fill: '#6b7280', fontSize: 12 }}
-                                                        angle={-45}
-                                                        textAnchor="end"
-                                                        height={60}
-                                                    />
-                                                    <YAxis className="text-sm" tick={{ fill: '#6b7280' }} />
-                                                    <ChartTooltip
-                                                        content={<ChartTooltipContent formatter={(value) => [value, 'Patients']} />}
-                                                        labelFormatter={(label) => `Age Group: ${label}`}
-                                                    />
-                                                    <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
-                                                </BarChart>
-                                            </ChartContainer>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                {/* Payment Methods - Enhanced with Pie Chart */}
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center gap-2">
-                                            <DollarSign className="h-5 w-5 text-green-600" />
-                                            Payment Methods
-                                        </CardTitle>
-                                        <CardDescription>Distribution of payment methods used</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="h-[350px]">
-                                            <ChartContainer
-                                                config={{
-                                                    count: {
-                                                        label: 'Transactions',
-                                                        color: '#ef4444',
-                                                    },
-                                                }}
-                                                className="h-full w-full"
-                                            >
-                                                <PieChart data={chartData?.paymentMethods || []}>
-                                                    <Pie
-                                                        data={chartData?.paymentMethods || []}
-                                                        dataKey="count"
-                                                        nameKey="method"
-                                                        cx="50%"
-                                                        cy="50%"
-                                                        outerRadius={100}
-                                                        fill="#8884d8"
-                                                        label={({ method, count }) => `${method}: ${count}`}
-                                                    >
-                                                        {(chartData?.paymentMethods || []).map((entry, index) => (
-                                                            <Cell
-                                                                key={`cell-${index}`}
-                                                                fill={['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'][index % 5]}
-                                                            />
-                                                        ))}
-                                                    </Pie>
-                                                    <ChartTooltip
-                                                        content={<ChartTooltipContent formatter={(value) => [value, 'Transactions']} />}
-                                                        labelFormatter={(label) => `Method: ${label}`}
-                                                    />
-                                                    <Legend />
-                                                </PieChart>
-                                            </ChartContainer>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
-
-                            {/* New Additional Charts */}
-                            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                                {/* Daily Appointments Trend */}
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center gap-2">
-                                            <Calendar className="h-5 w-5 text-blue-600" />
+                                            <Activity className="h-5 w-5 text-orange-600" />
                                             Daily Appointments (Last 7 Days)
                                         </CardTitle>
                                         <CardDescription>Appointment trends over the past week</CardDescription>
@@ -602,23 +468,23 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
                                                 config={{
                                                     appointments: {
                                                         label: 'Appointments',
-                                                        color: '#3b82f6',
+                                                        color: '#f97316',
                                                     },
                                                 }}
                                                 className="h-full w-full"
                                             >
                                                 <LineChart data={chartData?.dailyAppointments || []}>
                                                     <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
-                                                    <XAxis dataKey="day" className="text-sm" tick={{ fill: '#6b7280' }} />
+                                                    <XAxis dataKey="day" className="text-sm" tick={{ fill: '#6b7280', fontSize: 12 }} />
                                                     <YAxis className="text-sm" tick={{ fill: '#6b7280' }} />
                                                     <ChartTooltip content={<ChartTooltipContent formatter={(value) => [value, 'Appointments']} />} />
                                                     <Line
                                                         type="monotone"
                                                         dataKey="appointments"
-                                                        stroke="#3b82f6"
+                                                        stroke="#f97316"
                                                         strokeWidth={3}
-                                                        dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
-                                                        activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
+                                                        dot={{ fill: '#f97316', strokeWidth: 2, r: 4 }}
+                                                        activeDot={{ r: 6, stroke: '#f97316', strokeWidth: 2 }}
                                                     />
                                                 </LineChart>
                                             </ChartContainer>
@@ -626,176 +492,81 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
                                     </CardContent>
                                 </Card>
 
-                                {/* Lab Results Distribution */}
+                                {/* Age Group Distribution */}
                                 <Card>
                                     <CardHeader>
                                         <CardTitle className="flex items-center gap-2">
-                                            <FlaskConical className="h-5 w-5 text-purple-600" />
-                                            Lab Results Status
+                                            <UserCheck className="h-5 w-5 text-indigo-600" />
+                                            Age Group Distribution
                                         </CardTitle>
-                                        <CardDescription>Distribution of lab test results</CardDescription>
+                                        <CardDescription>Patient age demographics</CardDescription>
                                     </CardHeader>
                                     <CardContent>
                                         <div className="h-[300px]">
                                             <ChartContainer
                                                 config={{
                                                     count: {
-                                                        label: 'Results',
-                                                        color: '#8b5cf6',
+                                                        label: 'Patients',
+                                                        color: '#6366f1',
                                                     },
                                                 }}
                                                 className="h-full w-full"
                                             >
-                                                <PieChart data={chartData?.labResultsDistribution || []}>
-                                                    <Pie
-                                                        data={chartData?.labResultsDistribution || []}
-                                                        dataKey="count"
-                                                        nameKey="status"
-                                                        cx="50%"
-                                                        cy="50%"
-                                                        outerRadius={80}
-                                                        fill="#8884d8"
-                                                        label={({ status, count }) => `${status}: ${count}`}
-                                                    >
-                                                        {(chartData?.labResultsDistribution || []).map((entry, index) => (
-                                                            <Cell
-                                                                key={`cell-${index}`}
-                                                                fill={['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'][index % 5]}
-                                                            />
-                                                        ))}
-                                                    </Pie>
-                                                    <ChartTooltip
-                                                        content={<ChartTooltipContent formatter={(value) => [value, 'Results']} />}
-                                                        labelFormatter={(label) => `Status: ${label}`}
-                                                    />
-                                                    <Legend />
-                                                </PieChart>
-                                            </ChartContainer>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
-
-                            {/* Doctor Performance Chart */}
-                            <div className="grid grid-cols-1 gap-6">
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center gap-2">
-                                            <UserCheck className="h-5 w-5 text-orange-600" />
-                                            Doctor Performance
-                                        </CardTitle>
-                                        <CardDescription>Top performing doctors by appointment count</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="h-[300px]">
-                                            <ChartContainer
-                                                config={{
-                                                    appointments: {
-                                                        label: 'Appointments',
-                                                        color: '#f59e0b',
-                                                    },
-                                                }}
-                                                className="h-full w-full"
-                                            >
-                                                <BarChart data={chartData?.doctorPerformance || []} layout="horizontal">
+                                                <BarChart data={chartData?.ageGroups || []}>
                                                     <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
-                                                    <XAxis type="number" className="text-sm" tick={{ fill: '#6b7280' }} />
-                                                    <YAxis
-                                                        dataKey="doctor"
-                                                        type="category"
-                                                        width={120}
-                                                        className="text-sm"
-                                                        tick={{ fill: '#6b7280', fontSize: 12 }}
-                                                    />
-                                                    <ChartTooltip content={<ChartTooltipContent formatter={(value) => [value, 'Appointments']} />} />
-                                                    <Bar dataKey="appointments" fill="#f59e0b" radius={[0, 4, 4, 0]} />
+                                                    <XAxis dataKey="age_group" className="text-sm" tick={{ fill: '#6b7280', fontSize: 12 }} />
+                                                    <YAxis className="text-sm" tick={{ fill: '#6b7280' }} />
+                                                    <ChartTooltip content={<ChartTooltipContent formatter={(value) => [value, 'Patients']} />} />
+                                                    <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} />
                                                 </BarChart>
                                             </ChartContainer>
                                         </div>
                                     </CardContent>
                                 </Card>
-                            </div>
 
-                            {/* System Performance Metrics */}
-                            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                                {/* Payment Methods */}
                                 <Card>
                                     <CardHeader>
                                         <CardTitle className="flex items-center gap-2">
-                                            <Package className="h-5 w-5 text-purple-600" />
-                                            Inventory Status
+                                            <DollarSign className="h-5 w-5 text-green-600" />
+                                            Payment Methods
                                         </CardTitle>
-                                        <CardDescription>Current stock levels and alerts</CardDescription>
+                                        <CardDescription>Distribution of payment methods used</CardDescription>
                                     </CardHeader>
                                     <CardContent>
-                                        <div className="space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">In Stock</span>
-                                                <span className="text-2xl font-bold text-green-600">156</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">Low Stock</span>
-                                                <span className="text-2xl font-bold text-yellow-600">12</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">Out of Stock</span>
-                                                <span className="text-2xl font-bold text-red-600">3</span>
-                                            </div>
+                                        <div className="h-[300px]">
+                                            <ChartContainer
+                                                config={{
+                                                    Cash: { label: 'Cash', color: '#10b981' },
+                                                    Card: { label: 'Card', color: '#3b82f6' },
+                                                    Insurance: { label: 'Insurance', color: '#8b5cf6' },
+                                                    HMO: { label: 'HMO', color: '#f59e0b' },
+                                                }}
+                                                className="h-full w-full"
+                                            >
+                                                <PieChart>
+                                                    <Pie
+                                                        data={chartData?.paymentMethods || []}
+                                                        cx="50%"
+                                                        cy="50%"
+                                                        labelLine={false}
+                                                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                                        outerRadius={80}
+                                                        fill="#8884d8"
+                                                        dataKey="count"
+                                                    >
+                                                        {(chartData?.paymentMethods || []).map((entry, index) => {
+                                                            const colors = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b'];
+                                                            return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                                                        })}
+                                                    </Pie>
+                                                    <ChartTooltip content={<ChartTooltipContent formatter={(value) => [value, 'Transactions']} />} />
+                                                </PieChart>
+                                            </ChartContainer>
                                         </div>
                                     </CardContent>
                                 </Card>
-
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center gap-2">
-                                            <Activity className="h-5 w-5 text-teal-600" />
-                                            System Health
-                                        </CardTitle>
-                                        <CardDescription>System performance indicators</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">Server Uptime</span>
-                                                <span className="text-2xl font-bold text-green-600">99.9%</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">Database Size</span>
-                                                <span className="text-2xl font-bold text-blue-600">2.4GB</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">Active Users</span>
-                                                <span className="text-2xl font-bold text-purple-600">24</span>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center gap-2">
-                                            <BarChart3 className="h-5 w-5 text-indigo-600" />
-                                            Quick Stats
-                                        </CardTitle>
-                                        <CardDescription>Today's activity summary</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">New Patients</span>
-                                                <span className="text-2xl font-bold text-green-600">8</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">Appointments</span>
-                                                <span className="text-2xl font-bold text-blue-600">15</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">Lab Orders</span>
-                                                <span className="text-2xl font-bold text-orange-600">12</span>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
+                        </div>
 
                             {/* Recent Reports */}
                             <Card>
@@ -834,14 +605,14 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
                                                     <TableCell>
                                                         <Button variant="outline" size="sm">
                                                             <Download className="h-4 w-4" />
-                                                        </Button>
+                                                                </Button>
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
-                                        </TableBody>
-                                    </Table>
-                                </CardContent>
-                            </Card>
+                                    </TableBody>
+                                </Table>
+                        </CardContent>
+                    </Card>
                         </TabsContent>
 
                         <TabsContent value="reports" className="space-y-6">
@@ -853,9 +624,9 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
                                             <CardTitle className="flex items-center gap-2">
                                                 <section.icon className="h-5 w-5" />
                                                 {section.title}
-                                            </CardTitle>
+                            </CardTitle>
                                             <CardDescription>{section.description}</CardDescription>
-                                        </CardHeader>
+                        </CardHeader>
                                         <CardContent className="relative">
                                             <div className="mb-4 grid grid-cols-2 gap-4">
                                                 {Object.entries(section.stats).map(([key, value]) => (
@@ -874,11 +645,11 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
                                                 <Button variant="outline" size="sm" onClick={() => handleExport('pdf', section.id)}>
                                                     <Download className="h-4 w-4" />
                                                 </Button>
-                                            </div>
+                                </div>
                                         </CardContent>
                                     </Card>
                                 ))}
-                            </div>
+                                </div>
                         </TabsContent>
                     </Tabs>
 

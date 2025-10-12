@@ -41,8 +41,8 @@ class PatientAppointmentController extends Controller
                         'date' => $appointment->appointment_date->format('M d, Y'),
                         'time' => $appointment->appointment_time->format('g:i A'),
                         'status' => $appointment->status,
-                        'status_color' => $appointment->status_color,
-                        'price' => $appointment->formatted_price,
+                        'status_color' => $this->getStatusColor($appointment->status),
+                        'price' => $this->formatPrice($appointment->price),
                         'billing_status' => $appointment->billing_status,
                     ];
                 });
@@ -51,7 +51,10 @@ class PatientAppointmentController extends Controller
 
         // Always get available doctors for booking (even without patient record)
         $available_doctors = User::where('role', 'doctor')
-            ->where('is_active', true)
+            ->where(function($query) {
+                $query->where('is_active', true)
+                      ->orWhereNull('is_active');
+            })
             ->get()
             ->map(function ($doctor) {
                 return [
@@ -86,14 +89,10 @@ class PatientAppointmentController extends Controller
             ->where('read', false)
             ->count();
 
-        return Inertia::render('patient/appointments', [
+        return Inertia::render('patient/appointments-simple', [
             'user' => $user,
             'patient' => $patient,
             'appointments' => $appointments,
-            'available_doctors' => $available_doctors,
-            'filters' => $request->only(['status', 'date']),
-            'notifications' => $notifications,
-            'unreadCount' => $unreadCount,
         ]);
     }
 
@@ -103,12 +102,18 @@ class PatientAppointmentController extends Controller
 
         // Get available doctors and specialists
         $doctors = User::where('role', 'doctor')
-            ->where('is_active', true)
+            ->where(function($query) {
+                $query->where('is_active', true)
+                      ->orWhereNull('is_active');
+            })
             ->select('id', 'name', 'specialization', 'employee_id')
             ->get();
 
         $medtechs = User::where('role', 'medtech')
-            ->where('is_active', true)
+            ->where(function($query) {
+                $query->where('is_active', true)
+                      ->orWhereNull('is_active');
+            })
             ->select('id', 'name', 'specialization', 'employee_id')
             ->get();
 
@@ -348,12 +353,18 @@ class PatientAppointmentController extends Controller
 
         // Get available doctors and specialists
         $doctors = User::where('role', 'doctor')
-            ->where('is_active', true)
+            ->where(function($query) {
+                $query->where('is_active', true)
+                      ->orWhereNull('is_active');
+            })
             ->select('id', 'name', 'specialization', 'employee_id')
             ->get();
 
         $medtechs = User::where('role', 'medtech')
-            ->where('is_active', true)
+            ->where(function($query) {
+                $query->where('is_active', true)
+                      ->orWhereNull('is_active');
+            })
             ->select('id', 'name', 'specialization', 'employee_id')
             ->get();
 
@@ -638,5 +649,27 @@ class PatientAppointmentController extends Controller
             'appointment_id' => $appointment->id,
             'patient_name' => $appointment->patient_name
         ]);
+    }
+
+    /**
+     * Get status color for appointment status
+     */
+    private function getStatusColor($status)
+    {
+        return match($status) {
+            'Confirmed' => 'bg-green-100 text-green-800',
+            'Completed' => 'bg-blue-100 text-blue-800',
+            'Cancelled' => 'bg-red-100 text-red-800',
+            'Pending' => 'bg-yellow-100 text-yellow-800',
+            default => 'bg-gray-100 text-gray-800',
+        };
+    }
+
+    /**
+     * Format price for display
+     */
+    private function formatPrice($price)
+    {
+        return '₱' . number_format($price, 2);
     }
 }

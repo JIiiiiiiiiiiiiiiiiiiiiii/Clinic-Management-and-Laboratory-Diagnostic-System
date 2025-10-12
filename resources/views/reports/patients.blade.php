@@ -1,325 +1,172 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $title }} - St. James Clinic</title>
+    <meta charset="utf-8">
+    <title>Patients Report</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            font-size: 12px;
-            line-height: 1.4;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 20px;
             color: #333;
         }
-
-        .header {
+        
+        .hospital-header {
             text-align: center;
-            border-bottom: 3px solid #2563eb;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-        }
-
-        .clinic-name {
-            font-size: 24px;
-            font-weight: bold;
-            color: #2563eb;
-            margin-bottom: 5px;
-        }
-
-        .clinic-address {
-            font-size: 14px;
-            color: #666;
             margin-bottom: 10px;
+            padding: 5px 0;
+            position: relative;
         }
-
-        .report-title {
-            font-size: 20px;
-            font-weight: bold;
-            color: #1f2937;
-            margin-top: 15px;
+        
+        .hospital-logo {
+            position: absolute;
+            left: 0;
+            top: 0;
         }
-
-        .report-info {
-            display: flex;
-            justify-content: space-between;
-            margin: 20px 0;
-            padding: 15px;
-            background-color: #f8fafc;
-            border: 1px solid #e2e8f0;
-        }
-
-        .info-item {
-            flex: 1;
+        
+        .hospital-info {
             text-align: center;
+            width: 100%;
         }
-
-        .info-label {
-            font-weight: bold;
-            color: #374151;
-            margin-bottom: 5px;
-        }
-
-        .info-value {
-            color: #6b7280;
-        }
-
-        .summary-section {
-            margin: 30px 0;
-            padding: 20px;
-            background-color: #f0f9ff;
-            border: 1px solid #0ea5e9;
-            border-radius: 8px;
-        }
-
-        .summary-title {
-            font-size: 18px;
-            font-weight: bold;
-            color: #0c4a6e;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-        }
-
-        .summary-item {
-            text-align: center;
-            padding: 15px;
-            background-color: white;
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .summary-value {
+        
+        .hospital-name {
             font-size: 24px;
             font-weight: bold;
-            color: #059669;
-            margin-bottom: 5px;
+            color: #2d5a27;
+            margin: 0 0 5px 0;
         }
-
-        .summary-label {
+        
+        .hospital-address {
             font-size: 12px;
-            color: #6b7280;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            color: #333;
+            margin: 0 0 3px 0;
         }
-
-        .table-section {
-            margin: 30px 0;
+        
+        .hospital-slogan {
+            font-size: 14px;
+            font-style: italic;
+            color: #1e40af;
+            margin: 0 0 5px 0;
         }
-
-        .table-title {
+        
+        .hospital-motto {
             font-size: 16px;
             font-weight: bold;
-            color: #1f2937;
-            margin-bottom: 15px;
+            color: #2d5a27;
+            margin: 0 0 5px 0;
         }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 30px;
+        
+        .hospital-contact {
+            font-size: 10px;
+            color: #666;
+            margin: 0;
         }
-
-        th, td {
-            border: 1px solid #d1d5db;
-            padding: 8px 12px;
-            text-align: left;
-        }
-
-        th {
-            background-color: #f3f4f6;
+        
+        .report-title {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 18px;
             font-weight: bold;
+            color: #2d5a27;
+        }
+        
+        .report-meta {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .section {
+            margin-bottom: 25px;
+        }
+        
+        .section h2 {
             color: #374151;
-        }
-
-        tr:nth-child(even) {
-            background-color: #f9fafb;
-        }
-
-        .footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 200px;
-            background-color: #f8fafc;
-            border-top: 2px solid #2563eb;
-            padding: 20px;
-            margin-top: 50px;
-        }
-
-        .footer-content {
-            display: flex;
-            justify-content: space-between;
-            height: 100%;
-        }
-
-        .footer-section {
-            flex: 1;
-            padding: 0 20px;
-        }
-
-        .footer-title {
-            font-weight: bold;
-            color: #1f2937;
-            margin-bottom: 10px;
-            border-bottom: 1px solid #d1d5db;
+            font-size: 18px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #e5e7eb;
             padding-bottom: 5px;
         }
-
-        .signature-line {
-            border-bottom: 1px solid #374151;
-            margin: 20px 0 5px 0;
-            height: 30px;
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
         }
-
-        .signature-label {
-            font-size: 10px;
-            color: #6b7280;
+        
+        .data-table th,
+        .data-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .data-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
             text-align: center;
-        }
-
-        .date-field {
-            border-bottom: 1px solid #374151;
-            margin: 10px 0 5px 0;
-            height: 20px;
-        }
-
-        .no-data {
-            text-align: center;
-            color: #6b7280;
-            font-style: italic;
-            padding: 40px;
+            color: #64748b;
+            font-size: 12px;
         }
     </style>
 </head>
 <body>
-    <!-- Header -->
-    <div class="header">
-        <div class="clinic-name">ST. JAMES CLINIC</div>
-        <div class="clinic-address">
-            123 Medical Street, Health City, HC 12345<br>
-            Tel: (555) 123-4567 | Email: info@stjamesclinic.com
+    <div class="hospital-header">
+        <div class="hospital-logo">
+            <img src="{{ public_path('st-james-logo.png') }}" alt="St. James Hospital Logo" style="width: 80px; height: 80px;">
         </div>
-        <div class="report-title">{{ $title }}</div>
-    </div>
-
-    <!-- Report Information -->
-    <div class="report-info">
-        <div class="info-item">
-            <div class="info-label">Report Period</div>
-            <div class="info-value">{{ $dateRange }}</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Generated Date</div>
-            <div class="info-value">{{ $metadata['generated_at'] }}</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Generated By</div>
-            <div class="info-value">{{ $metadata['generated_by'] }} ({{ $metadata['generated_by_role'] }})</div>
-        </div>
-    </div>
-
-    <!-- Summary Section -->
-    <div class="summary-section">
-        <div class="summary-title">Patient Demographics Summary</div>
-        <div class="summary-grid">
-            <div class="summary-item">
-                <div class="summary-value">{{ number_format($data['summary']['total_patients']) }}</div>
-                <div class="summary-label">Total Patients</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-value">{{ number_format($data['summary']['male_patients']) }}</div>
-                <div class="summary-label">Male Patients</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-value">{{ number_format($data['summary']['female_patients']) }}</div>
-                <div class="summary-label">Female Patients</div>
+        <div class="hospital-info">
+            <div class="hospital-name">St. James Hospital Clinic, Inc.</div>
+            <div class="hospital-address">San Isidro City of Cabuyao Laguna</div>
+            <div class="hospital-slogan">Santa Rosa's First in Quality Healthcare Service</div>
+            <div class="hospital-motto">PASYENTE MUNA</div>
+            <div class="hospital-contact">
+                Tel. Nos. 02.85844533; 049.5341254; 049.5020058; Fax No.: local 307<br>
+                email add: info@stjameshospital.com.ph
             </div>
         </div>
     </div>
+    
+    <div class="report-title">Patients Report</div>
+    <div class="report-meta">
+        Generated on: {{ now()->format('M d, Y H:i A') }} | 
+        Date Range: {{ $dateRange ?? 'N/A' }}
+    </div>
 
-    <!-- Patients Table -->
-    <div class="table-section">
-        <div class="table-title">Patient Details</div>
-        @if($data['patients']->count() > 0)
-            <table>
+    <div class="section">
+        <h2>Patient Statistics</h2>
+        @if(isset($data) && is_array($data))
+            <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Patient No.</th>
-                        <th>Full Name</th>
-                        <th>Age</th>
-                        <th>Gender</th>
-                        <th>Mobile No.</th>
-                        <th>Address</th>
-                        <th>Appointments</th>
-                        <th>Lab Orders</th>
-                        <th>Registered</th>
+                        <th>Metric</th>
+                        <th>Value</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($data['patients'] as $patient)
+                    @foreach($data as $key => $value)
                         <tr>
-                            <td>{{ $patient->patient_no }}</td>
-                            <td>{{ $patient->full_name }}</td>
-                            <td>{{ $patient->age }}</td>
-                            <td>{{ $patient->sex }}</td>
-                            <td>{{ $patient->mobile_no }}</td>
-                            <td>{{ Str::limit($patient->present_address, 30) }}</td>
-                            <td>{{ $patient->appointments_count }}</td>
-                            <td>{{ $patient->lab_orders_count }}</td>
-                            <td>{{ \Carbon\Carbon::parse($patient->created_at)->format('M d, Y') }}</td>
+                            <td>{{ ucfirst(str_replace('_', ' ', $key)) }}</td>
+                            <td>{{ is_numeric($value) ? number_format($value) : $value }}</td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
         @else
-            <div class="no-data">No patients found for the selected period.</div>
+            <p>No patient data available.</p>
         @endif
     </div>
 
-    <!-- Footer for Manual Completion -->
     <div class="footer">
-        <div class="footer-content">
-            <!-- Prepared By Section -->
-            <div class="footer-section">
-                <div class="footer-title">PREPARED BY</div>
-                <div class="signature-line"></div>
-                <div class="signature-label">Signature</div>
-                <div class="signature-line"></div>
-                <div class="signature-label">Printed Name</div>
-                <div class="date-field"></div>
-                <div class="signature-label">Date</div>
-            </div>
-
-            <!-- Reviewed By Section -->
-            <div class="footer-section">
-                <div class="footer-title">REVIEWED BY</div>
-                <div class="signature-line"></div>
-                <div class="signature-label">Signature</div>
-                <div class="signature-line"></div>
-                <div class="signature-label">Printed Name</div>
-                <div class="date-field"></div>
-                <div class="signature-label">Date</div>
-            </div>
-
-            <!-- Approved By Section -->
-            <div class="footer-section">
-                <div class="footer-title">APPROVED BY</div>
-                <div class="signature-line"></div>
-                <div class="signature-label">Signature</div>
-                <div class="signature-line"></div>
-                <div class="signature-label">Printed Name</div>
-                <div class="date-field"></div>
-                <div class="signature-label">Date</div>
-            </div>
-        </div>
+        <p>This report was generated automatically by the Clinic Management System</p>
+        <p>For questions or support, please contact the system administrator</p>
     </div>
 </body>
 </html>
