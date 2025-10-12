@@ -4,7 +4,6 @@ use App\Http\Controllers\Patient\PatientDashboardController;
 use App\Http\Controllers\Patient\PatientAppointmentController;
 use App\Http\Controllers\Patient\PatientRecordController;
 use App\Http\Controllers\Patient\PatientTestResultController;
-use App\Http\Controllers\Patient\UnifiedPatientController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,18 +14,15 @@ Route::middleware(['auth'])
     ->prefix('patient')
     ->name('patient.')
     ->group(function () {
-        // Unified patient registration and appointment booking
-        Route::get('/register-and-book', [UnifiedPatientController::class, 'create'])->name('register.and.book');
-        Route::post('/register-and-book', [UnifiedPatientController::class, 'store'])->name('register.and.book.store');
-        
+
         // Dashboard
         Route::get('/dashboard', [PatientDashboardController::class, 'index'])->name('dashboard');
-        
+
         // Simple dashboard fallback
         Route::get('/dashboard-simple', function () {
             $user = auth()->user();
             $patient = \App\Models\Patient::where('user_id', $user->id)->first();
-            
+
             return Inertia::render('patient/dashboard', [
                 'user' => $user,
                 'patient' => $patient,
@@ -45,7 +41,7 @@ Route::middleware(['auth'])
                 'unreadCount' => 0,
             ]);
         })->name('dashboard.simple');
-        
+
 
         // Appointments
         Route::prefix('appointments')->name('appointments.')->group(function () {
@@ -57,7 +53,7 @@ Route::middleware(['auth'])
             Route::get('/{appointment}/edit', [PatientAppointmentController::class, 'edit'])->name('edit');
             Route::put('/{appointment}', [PatientAppointmentController::class, 'update'])->name('update');
             Route::delete('/{appointment}', [PatientAppointmentController::class, 'destroy'])->name('destroy');
-            
+
             // Get available doctors/specialists
             Route::get('/available-doctors', [PatientAppointmentController::class, 'getAvailableDoctors'])->name('available.doctors');
             Route::get('/available-times', [PatientAppointmentController::class, 'getAvailableTimes'])->name('available.times');
@@ -67,7 +63,7 @@ Route::middleware(['auth'])
         Route::get('/appointments', [PatientAppointmentController::class, 'index'])->name('appointments');
         Route::get('/appointments/create', [PatientAppointmentController::class, 'create'])->name('appointments.create');
         Route::get('/appointments/book', [PatientAppointmentController::class, 'book'])->name('appointments.book');
-        
+
 
         // Medical Records
         Route::get('/records', [PatientRecordController::class, 'index'])->name('records');
@@ -80,24 +76,24 @@ Route::middleware(['auth'])
         Route::get('/profile', function () {
             $user = auth()->user();
             $patient = \App\Models\Patient::where('user_id', $user->id)->first();
-            
+
             return Inertia::render('patient/profile', [
                 'user' => $user,
                 'patient' => $patient,
             ]);
         })->name('profile');
-        
+
         Route::put('/profile', function (Request $request) {
             $user = auth()->user();
-            
+
             $request->validate([
                 'name' => 'required|string|max:255',
                 'email' => 'required|email|max:255|unique:users,email,' . $user->id,
                 'phone' => 'nullable|string|max:20',
             ]);
-            
+
             $user->update($request->only(['name', 'email', 'phone']));
-            
+
             return redirect()->route('patient.profile')->with('success', 'Profile updated successfully!');
         })->name('profile.update');
 
