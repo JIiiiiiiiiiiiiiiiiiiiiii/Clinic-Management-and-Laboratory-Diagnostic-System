@@ -67,13 +67,10 @@ class OnlineAppointmentController extends Controller
             });
 
         $appointmentTypes = [
-            'consultation' => 'General Consultation',
-            'checkup' => 'Regular Check-up',
-            'fecalysis' => 'Fecalysis Test',
-            'cbc' => 'Complete Blood Count',
-            'urinalysis' => 'Urinalysis Test',
-            'x-ray' => 'X-Ray Examination',
-            'ultrasound' => 'Ultrasound Examination',
+            'general_consultation' => 'General Consultation',
+            'cbc' => 'CBC',
+            'fecalysis_test' => 'Fecalysis Test',
+            'urinarysis_test' => 'Urinarysis Test',
         ];
 
         return Inertia::render('patient/online-appointment', [
@@ -119,7 +116,7 @@ class OnlineAppointmentController extends Controller
 
         // Validate appointment data
         $appointmentValidator = Validator::make($request->all(), [
-            'appointment_type' => 'required|string|in:consultation,checkup,fecalysis,cbc,urinalysis,x-ray,ultrasound',
+            'appointment_type' => 'required|string|in:general_consultation,cbc,fecalysis_test,urinarysis_test',
             'specialist_type' => 'required|string|in:doctor,medtech',
             'specialist_id' => 'required|string',
             'appointment_date' => 'required|date|after_or_equal:today',
