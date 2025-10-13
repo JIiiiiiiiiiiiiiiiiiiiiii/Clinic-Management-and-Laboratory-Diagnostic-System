@@ -2,7 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, User, ArrowLeft, Plus, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, User, ArrowLeft, Plus, CheckCircle, XCircle, AlertCircle, Eye, Edit, Trash2 } from 'lucide-react';
 
 interface Appointment {
     id: number;
@@ -87,7 +87,7 @@ export default function PatientAppointments({ appointments = [] }: PatientAppoin
                                     Manage your scheduled appointments with St. James Clinic.
                                 </p>
                             </div>
-                            <Link href={route('patient.appointments.create')}>
+                            <Link href="/patient/register-and-book">
                                 <Button className="bg-blue-600 hover:bg-blue-700 text-white">
                                     <Plus className="mr-2 h-4 w-4" />
                                     Book New Appointment
@@ -161,13 +161,33 @@ export default function PatientAppointments({ appointments = [] }: PatientAppoin
                                                 Booked on {new Date(appointment.created_at).toLocaleDateString()}
                                             </div>
                                             <div className="flex space-x-2">
-                                                {appointment.status === 'pending' && (
-                                                    <Button variant="outline" size="sm">
-                                                        Edit
+                                                <Link href={route('patient.appointments.show', appointment.id)}>
+                                                    <Button variant="outline" size="sm" className="flex items-center">
+                                                        <Eye className="h-4 w-4 mr-1" />
+                                                        View
                                                     </Button>
+                                                </Link>
+                                                {appointment.status === 'pending' && (
+                                                    <Link href={route('patient.appointments.edit', appointment.id)}>
+                                                        <Button variant="outline" size="sm" className="flex items-center">
+                                                            <Edit className="h-4 w-4 mr-1" />
+                                                            Edit
+                                                        </Button>
+                                                    </Link>
                                                 )}
                                                 {appointment.status === 'pending' && (
-                                                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm" 
+                                                        className="text-red-600 hover:text-red-700 flex items-center"
+                                                        onClick={() => {
+                                                            if (confirm('Are you sure you want to cancel this appointment?')) {
+                                                                // Handle cancel logic here
+                                                                console.log('Cancel appointment:', appointment.id);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Trash2 className="h-4 w-4 mr-1" />
                                                         Cancel
                                                     </Button>
                                                 )}
@@ -187,7 +207,7 @@ export default function PatientAppointments({ appointments = [] }: PatientAppoin
                                 <p className="text-gray-600 mb-8 max-w-md mx-auto">
                                     You haven't booked any appointments yet. Book your first appointment to get started with St. James Clinic.
                                 </p>
-                                <Link href={route('patient.appointments.create')}>
+                                <Link href={route('patient.register.and.book')}>
                                     <Button className="bg-blue-600 hover:bg-blue-700 text-white">
                                         <Plus className="mr-2 h-4 w-4" />
                                         Book Your First Appointment
@@ -207,7 +227,7 @@ export default function PatientAppointments({ appointments = [] }: PatientAppoin
                             <p className="text-gray-600 mb-4">
                                 Schedule a new appointment with our medical professionals.
                             </p>
-                            <Link href={route('patient.appointments.create')}>
+                            <Link href={route('patient.register.and.book')}>
                                 <Button className="w-full">Book Now</Button>
                             </Link>
                         </Card>

@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Bell, Check, X, RefreshCw } from 'lucide-react';
 import axios from 'axios';
+import { route } from 'ziggy-js';
 
 interface Notification {
   id: number;
@@ -48,6 +49,14 @@ export default function RealtimeNotificationBell({
         const routeName = userRole === 'admin' ? 'admin.realtime.notifications' : 'patient.realtime.notifications';
         const response = await axios.get(route(routeName));
         const { notifications: newNotifications, unread_count, timestamp } = response.data;
+        
+        // Debug logging
+        console.log('Received notifications:', {
+          count: newNotifications?.length || 0,
+          notifications: newNotifications,
+          unread_count,
+          timestamp
+        });
         
         setNotifications(newNotifications);
         setUnreadCountState(unread_count);
@@ -102,6 +111,41 @@ export default function RealtimeNotificationBell({
     }
   };
 
+  const handleNotificationClick = async (notification: Notification) => {
+    console.log('Notification clicked:', notification);
+    
+    // Mark notification as read when clicked
+    if (!notification.read) {
+      await markAsRead(notification.id);
+    }
+    
+    // For admin users, always redirect to pending appointments for appointment_request notifications
+    if (userRole === 'admin' && notification.type === 'appointment_request') {
+      // Try to get the specific pending appointment ID
+      const pendingId = notification.data?.pending_appointment_id;
+      console.log('Notification data:', notification.data);
+      console.log('Pending ID:', pendingId);
+      
+      if (pendingId && pendingId !== 'undefined' && pendingId !== undefined) {
+        console.log('Redirecting to specific pending appointment:', pendingId);
+        window.location.href = `/admin/pending-appointments/${pendingId}`;
+      } else {
+        console.log('No specific ID, redirecting to pending appointments index');
+        window.location.href = '/admin/pending-appointments';
+      }
+    } else {
+      // For other notification types or patient users, use the general link generation
+      const link = getNotificationLink(notification);
+      console.log('Generated link:', link);
+      
+      if (link && link !== '#') {
+        window.location.href = link;
+      } else {
+        console.warn('No valid link generated for notification:', notification);
+      }
+    }
+  };
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'appointment':
@@ -118,12 +162,28 @@ export default function RealtimeNotificationBell({
   };
 
   const getNotificationLink = (notification: Notification) => {
+    console.log('Generating link for notification:', {
+      type: notification.type,
+      data: notification.data,
+      dataType: typeof notification.data,
+      dataKeys: notification.data ? Object.keys(notification.data) : 'no data',
+      userRole
+    });
+    
     if (userRole === 'admin') {
       switch (notification.type) {
         case 'appointment':
           return `/admin/appointments/${notification.data?.appointment_id}`;
         case 'appointment_request':
-          return `/admin/pending-appointments/${notification.data?.pending_appointment_id}`;
+          // Ensure we have the pending_appointment_id
+          const pendingId = notification.data?.pending_appointment_id;
+          if (pendingId && pendingId !== 'undefined' && pendingId !== undefined) {
+            console.log('Found pending_appointment_id:', pendingId);
+            return `/admin/pending-appointments/${pendingId}`;
+          }
+          // Fallback to pending appointments index if no specific ID
+          console.log('No pending_appointment_id found, using fallback');
+          return `/admin/pending-appointments`;
         case 'transfer':
           return `/admin/patients`;
         case 'billing':
@@ -213,32 +273,33 @@ export default function RealtimeNotificationBell({
         
         {notifications && notifications.length > 0 ? (
           notifications.slice(0, 5).map((notification) => (
-            <DropdownMenuItem key={notification.id} asChild>
-              <Link
-                href={getNotificationLink(notification)}
-                className="flex items-start space-x-3 p-4 hover:bg-gray-50 cursor-pointer"
-                onClick={() => !notification.read && markAsRead(notification.id)}
-              >
-                <div className="text-lg flex-shrink-0">
-                  {getNotificationIcon(notification.type)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className={`text-sm font-semibold ${!notification.read ? 'text-gray-900' : 'text-gray-600'}`}>
-                      {notification.title}
-                    </p>
-                    {!notification.read && (
-                      <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-600 mb-2 leading-relaxed">
-                    {notification.message}
+            <DropdownMenuItem 
+              key={notification.id} 
+              className="flex items-start space-x-3 p-4 hover:bg-blue-50 cursor-pointer transition-colors"
+              onClick={() => handleNotificationClick(notification)}
+            >
+              <div className="text-lg flex-shrink-0">
+                {getNotificationIcon(notification.type)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                  <p className={`text-sm font-semibold ${!notification.read ? 'text-gray-900' : 'text-gray-600'}`}>
+                    {notification.title}
                   </p>
-                  <p className="text-xs text-gray-400">
-                    {formatTimeAgo(notification.created_at)}
-                  </p>
+                  {!notification.read && (
+                    <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
+                  )}
                 </div>
-              </Link>
+                <p className="text-sm text-gray-600 mb-2 leading-relaxed">
+                  {notification.message}
+                </p>
+                <p className="text-xs text-blue-600 font-medium">
+                  Click to view details →
+                </p>
+                <p className="text-xs text-gray-400">
+                  {formatTimeAgo(notification.created_at)}
+                </p>
+              </div>
             </DropdownMenuItem>
           ))
         ) : (

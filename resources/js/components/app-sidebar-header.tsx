@@ -3,7 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { UserMenuContent } from '@/components/user-menu-content';
-import AdminNotificationBell from '@/components/AdminNotificationBell';
+import RealtimeNotificationBell from '@/components/RealtimeNotificationBell';
 import { useInitials } from '@/hooks/use-initials';
 import { type BreadcrumbItem as BreadcrumbItemType } from '@/types';
 import { usePage } from '@inertiajs/react';
@@ -31,7 +31,7 @@ export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: Breadcrum
             <div className="flex items-center space-x-2">
                 {/* Show notification bell for admin users */}
                 {auth.user.role === 'admin' && (
-                    <AdminNotificationBell />
+                    <RealtimeNotificationBell userRole="admin" />
                 )}
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>

@@ -153,10 +153,18 @@ export default function PatientContact() {
                                 <Button 
                                     variant="outline" 
                                     className="w-full justify-start"
-                                    onClick={() => window.location.href = '/patient/appointments/create'}
+                                    onClick={() => window.location.href = '/patient/online-appointment'}
                                 >
                                     <Phone className="h-4 w-4 mr-2" />
-                                    Book an Appointment
+                                    Online Appointment
+                                </Button>
+                                <Button 
+                                    variant="outline" 
+                                    className="w-full justify-start"
+                                    onClick={() => window.location.href = '/patient/register-and-book'}
+                                >
+                                    <Phone className="h-4 w-4 mr-2" />
+                                    Register & Book
                                 </Button>
                                 <Button 
                                     variant="outline" 

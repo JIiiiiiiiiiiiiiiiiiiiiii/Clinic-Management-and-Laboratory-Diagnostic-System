@@ -22,6 +22,7 @@ use App\Http\Controllers\Admin\AppointmentController;
 use App\Http\Controllers\Admin\ClinicProcedureController;
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\NotificationController;
+use App\Http\Controllers\VisitController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\DashboardController;
@@ -261,6 +262,27 @@ Route::prefix('admin')
             
         });
 
+        // Visit Management Routes - Doctor and admin only
+        Route::prefix('visits')->name('visits.')->middleware(['role:doctor,admin'])->group(function () {
+            Route::get('/', [VisitController::class, 'index'])->name('index');
+            Route::get('/create', [VisitController::class, 'create'])->name('create');
+            Route::post('/', [VisitController::class, 'store'])->name('store');
+            Route::get('/today', [VisitController::class, 'today'])->name('today');
+            Route::get('/{visit}', [VisitController::class, 'show'])->name('show');
+            Route::get('/{visit}/edit', [VisitController::class, 'edit'])->name('edit');
+            Route::put('/{visit}', [VisitController::class, 'update'])->name('update');
+            Route::delete('/{visit}', [VisitController::class, 'destroy'])->name('destroy');
+            Route::post('/{visit}/complete', [VisitController::class, 'complete'])->name('complete');
+            Route::post('/{visit}/cancel', [VisitController::class, 'cancel'])->name('cancel');
+            Route::get('/{visit}/summary', [VisitController::class, 'summary'])->name('summary');
+            Route::get('/appointments/{appointment}/create-visit', [VisitController::class, 'createFromAppointment'])->name('create-from-appointment');
+        });
+
+        // Patient Visit History Routes - All staff can access
+        Route::prefix('patients/{patient}/visits')->name('patients.visits.')->group(function () {
+            Route::get('/', [VisitController::class, 'patientVisits'])->name('index');
+        });
+
         // Clinic Procedures Routes - Admin and lab staff only
         Route::prefix('clinic-procedures')->name('clinic-procedures.')->middleware(['role:admin,laboratory_technologist,medtech'])->group(function () {
             Route::get('/', [ClinicProcedureController::class, 'index'])->name('index');
@@ -374,6 +396,13 @@ Route::prefix('admin')
             Route::post('/notifications/mark-all-read', [\App\Http\Controllers\Admin\RealtimeAppointmentController::class, 'markAllNotificationsAsRead'])->name('notifications.mark-all-read');
             Route::post('/appointments/{appointment}/broadcast', [\App\Http\Controllers\Admin\RealtimeAppointmentController::class, 'broadcastNewAppointment'])->name('appointments.broadcast');
             Route::post('/appointments/{appointment}/status-broadcast', [\App\Http\Controllers\Admin\RealtimeAppointmentController::class, 'broadcastAppointmentStatusChange'])->name('appointments.status-broadcast');
+        });
+
+        // Test notification routes (for debugging)
+        Route::prefix('test-notifications')->name('test-notifications.')->group(function () {
+            Route::post('/create', [\App\Http\Controllers\Admin\TestNotificationController::class, 'createTestNotification'])->name('create');
+            Route::get('/{notificationId}/data', [\App\Http\Controllers\Admin\TestNotificationController::class, 'getNotificationData'])->name('data');
+            Route::get('/debug', [\App\Http\Controllers\Admin\TestNotificationController::class, 'debugNotifications'])->name('debug');
         });
 
         // Admin-only routes

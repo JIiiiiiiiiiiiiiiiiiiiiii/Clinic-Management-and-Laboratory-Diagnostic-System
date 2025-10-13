@@ -241,4 +241,9 @@ class Appointment extends Model
     {
         return $this->billing_status === 'paid';
     }
+
+    public function visit()
+    {
+        return $this->hasOne(Visit::class);
+    }
 }

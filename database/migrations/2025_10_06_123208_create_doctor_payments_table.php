@@ -14,22 +14,23 @@ return new class extends Migration
         Schema::create('doctor_payments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('doctor_id')->constrained('users')->onDelete('cascade');
-            $table->date('payment_period_from');
-            $table->date('payment_period_to');
-            $table->decimal('amount_paid', 10, 2);
-            $table->enum('payment_method', ['cash', 'card', 'bank_transfer', 'check'])->default('cash');
-            $table->string('payment_reference')->nullable();
-            $table->text('remarks')->nullable();
-            $table->enum('status', ['draft', 'pending', 'paid', 'cancelled'])->default('pending');
-            $table->datetime('payment_date');
+            $table->decimal('basic_salary', 10, 2);
+            $table->decimal('deductions', 10, 2)->default(0);
+            $table->decimal('holiday_pay', 10, 2)->default(0);
+            $table->decimal('incentives', 10, 2)->default(0);
+            $table->decimal('net_payment', 10, 2);
+            $table->date('payment_date');
+            $table->enum('status', ['pending', 'paid', 'cancelled'])->default('pending');
+            $table->date('paid_date')->nullable();
+            $table->text('notes')->nullable();
             $table->foreignId('created_by')->constrained('users')->onDelete('cascade');
             $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('set null');
             $table->softDeletes();
             $table->timestamps();
-            
+
             $table->index(['doctor_id', 'status']);
             $table->index(['payment_date', 'status']);
-            $table->index(['payment_period_from', 'payment_period_to']);
+            $table->index('status');
         });
     }
 

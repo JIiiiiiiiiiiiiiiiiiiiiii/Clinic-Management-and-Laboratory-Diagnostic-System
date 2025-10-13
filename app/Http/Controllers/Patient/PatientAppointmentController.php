@@ -19,20 +19,43 @@ class PatientAppointmentController extends Controller
 {
     public function index(Request $request): Response
     {
+        \Log::info('PatientAppointmentController@index called');
         $user = auth()->user();
+        \Log::info('User authenticated', ['user_id' => $user ? $user->id : 'not authenticated']);
         $patient = Patient::where('user_id', $user->id)->first();
-        
+
+        \Log::info('PatientAppointmentController@index called', [
+            'user_id' => $user->id,
+            'patient_found' => $patient !== null,
+            'patient_no' => $patient ? $patient->patient_no : 'N/A'
+        ]);
+
+        // Debug: Check what appointments exist
+        if ($patient) {
+            $debugAppointments = Appointment::where('patient_id', $patient->patient_no)->get();
+            $debugPendingAppointments = PendingAppointment::where('patient_id', $patient->patient_no)->get();
+            
+            \Log::info('Debug appointments found', [
+                'patient_no' => $patient->patient_no,
+                'confirmed_appointments' => $debugAppointments->count(),
+                'pending_appointments' => $debugPendingAppointments->count(),
+                'confirmed_ids' => $debugAppointments->pluck('id')->toArray(),
+                'pending_ids' => $debugPendingAppointments->pluck('id')->toArray(),
+                'confirmed_data' => $debugAppointments->toArray(),
+                'pending_data' => $debugPendingAppointments->toArray()
+            ]);
+        }
+
         $appointments = collect([]);
         $available_doctors = collect([]);
-        
+        $allAppointments = collect([]);
+
         // Load appointments if patient record exists, otherwise show empty state
         if ($patient) {
             // Get patient's appointments using patient_no as the identifier
-            // Only show confirmed, completed, or cancelled appointments (no pending ones)
-            $appointments = Appointment::where('patient_id', $patient->patient_no)
-                ->whereIn('status', ['Confirmed', 'Completed', 'Cancelled'])
-                ->orderBy('appointment_date', 'desc')
-                ->get()
+        $appointments = Appointment::where('patient_id', $patient->patient_no)
+            ->orderBy('created_at', 'desc')
+            ->get()
                 ->map(function ($appointment) {
                     return [
                         'id' => $appointment->id,
@@ -42,13 +65,43 @@ class PatientAppointmentController extends Controller
                         'time' => $appointment->appointment_time->format('g:i A'),
                         'status' => $appointment->status,
                         'status_color' => $this->getStatusColor($appointment->status),
-                        'price' => $this->formatPrice($appointment->price),
+                        'price' => $appointment->price ? '$' . number_format($appointment->price, 2) : 'TBD',
                         'billing_status' => $appointment->billing_status,
+                        'created_at' => $appointment->created_at->format('Y-m-d H:i:s'),
                     ];
                 });
-            
+
+            // Get patient's pending appointments
+        $pendingAppointments = PendingAppointment::where('patient_id', $patient->patient_no)
+            ->orderBy('created_at', 'desc')
+            ->get()
+                ->map(function ($pendingAppointment) {
+                    return [
+                        'id' => $pendingAppointment->id,
+                        'type' => $pendingAppointment->appointment_type,
+                        'specialist' => $pendingAppointment->specialist_name,
+                        'date' => $pendingAppointment->appointment_date->format('M d, Y'),
+                        'time' => $pendingAppointment->appointment_time->format('g:i A'),
+                        'status' => $pendingAppointment->status,
+                        'status_color' => $this->getStatusColor($pendingAppointment->status),
+                        'price' => $pendingAppointment->price ? '$' . number_format($pendingAppointment->price, 2) : 'TBD',
+                        'billing_status' => $pendingAppointment->billing_status,
+                        'is_pending' => true,
+                        'created_at' => $pendingAppointment->created_at->format('Y-m-d H:i:s'),
+                    ];
+                });
+
+            // Combine appointments and pending appointments
+            $allAppointments = $appointments->concat($pendingAppointments)->sortByDesc('appointment_date');
+
+            \Log::info('Appointments loaded', [
+                'confirmed_count' => $appointments->count(),
+                'pending_count' => $pendingAppointments->count(),
+                'total_count' => $allAppointments->count(),
+                'patient_no' => $patient->patient_no
+            ]);
         }
-        
+
         // Always get available doctors for booking (even without patient record)
         $available_doctors = User::where('role', 'doctor')
             ->where(function($query) {
@@ -84,134 +137,38 @@ class PatientAppointmentController extends Controller
                     'data' => $notification->data,
                 ];
             });
-        
+
         $unreadCount = Notification::where('user_id', $user->id)
             ->where('read', false)
             ->count();
 
-        return Inertia::render('patient/appointments-simple', [
+        \Log::info('Sending appointments to frontend', [
+            'total_appointments' => $allAppointments->count(),
+            'appointments_data' => $allAppointments->toArray()
+        ]);
+
+        return Inertia::render('patient/appointments', [
             'user' => $user,
             'patient' => $patient,
-            'appointments' => $appointments,
-        ]);
-    }
-
-    public function create(): Response
-    {
-        $user = auth()->user();
-        
-        // Get available doctors and specialists
-        $doctors = User::where('role', 'doctor')
-            ->where(function($query) {
-                $query->where('is_active', true)
-                      ->orWhereNull('is_active');
-            })
-            ->select('id', 'name', 'specialization', 'employee_id')
-            ->get();
-
-        $medtechs = User::where('role', 'medtech')
-            ->where(function($query) {
-                $query->where('is_active', true)
-                      ->orWhereNull('is_active');
-            })
-            ->select('id', 'name', 'specialization', 'employee_id')
-            ->get();
-
-        $appointmentTypes = [
-            'consultation' => 'Consultation',
-            'checkup' => 'Checkup',
-            'fecalysis' => 'Fecalysis',
-            'cbc' => 'Complete Blood Count (CBC)',
-            'urinalysis' => 'Urinalysis',
-            'x-ray' => 'X-Ray',
-            'ultrasound' => 'Ultrasound',
-        ];
-
-        // Get notifications for the user
-        $notifications = Notification::where('user_id', $user->id)
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get()
-            ->map(function ($notification) {
-                return [
-                    'id' => $notification->id,
-                    'type' => $notification->type,
-                    'title' => $notification->title,
-                    'message' => $notification->message,
-                    'read' => $notification->read,
-                    'created_at' => $notification->created_at->toISOString(),
-                    'data' => $notification->data,
-                ];
-            });
-        
-        $unreadCount = Notification::where('user_id', $user->id)
-            ->where('read', false)
-            ->count();
-
-        return Inertia::render('patient/appointment-create', [
-            'user' => $user,
-            'patient' => Patient::where('user_id', $user->id)->first(),
-            'doctors' => $doctors,
-            'medtechs' => $medtechs,
-            'appointmentTypes' => $appointmentTypes,
+            'appointments' => $allAppointments,
+            'available_doctors' => $available_doctors,
             'notifications' => $notifications,
             'unreadCount' => $unreadCount,
         ]);
     }
 
-    public function book(): Response
+    public function create()
     {
-        $user = auth()->user();
-        
-        // Get available doctors and specialists with enhanced info
-        $doctors = User::where('role', 'doctor')
-            ->where('is_active', true)
-            ->select('id', 'name', 'specialization', 'employee_id')
-            ->get()
-            ->map(function ($doctor) {
-                return [
-                    'id' => $doctor->id,
-                    'name' => $doctor->name,
-                    'specialization' => $doctor->specialization ?? 'General Medicine',
-                    'employee_id' => $doctor->employee_id,
-                    'availability' => 'Mon-Fri 9AM-5PM',
-                    'rating' => 4.8,
-                    'experience' => '10+ years',
-                    'nextAvailable' => now()->addDays(1)->format('M d, Y g:i A'),
-                ];
-            });
+        // Always redirect to the unified registration and booking flow
+        return redirect()->route('patient.register.and.book')
+            ->with('info', 'Please complete your registration and book your appointment.');
+    }
 
-        $medtechs = User::where('role', 'medtech')
-            ->where('is_active', true)
-            ->select('id', 'name', 'specialization', 'employee_id')
-            ->get()
-            ->map(function ($medtech) {
-                return [
-                    'id' => $medtech->id,
-                    'name' => $medtech->name,
-                    'specialization' => $medtech->specialization ?? 'Medical Technology',
-                    'employee_id' => $medtech->employee_id,
-                    'availability' => 'Mon-Fri 8AM-4PM',
-                    'rating' => 4.7,
-                    'experience' => '8+ years',
-                    'nextAvailable' => now()->addDays(1)->format('M d, Y g:i A'),
-                ];
-            });
-
-        $appointmentTypes = [
-            'consultation' => 'Consultation',
-            'checkup' => 'Checkup',
-            'fecalysis' => 'Fecalysis',
-            'cbc' => 'Complete Blood Count (CBC)',
-            'urinalysis' => 'Urinalysis',
-            'x-ray' => 'X-Ray',
-            'ultrasound' => 'Ultrasound',
-        ];
-
-        return Inertia::render('patient/DebugAppointmentBooking', [
-            'user' => $user,
-            'patient' => Patient::where('user_id', $user->id)->first(),
-        ]);
+    public function book()
+    {
+        // Always redirect to the unified registration and booking flow
+        return redirect()->route('patient.register.and.book')
+            ->with('info', 'Please complete your registration and book your appointment.');
     }
 
     public function store(Request $request)
@@ -220,16 +177,21 @@ class PatientAppointmentController extends Controller
             'user_id' => auth()->id(),
             'request_data' => $request->all()
         ]);
-        
+
         $user = auth()->user();
-        $patient = Patient::where('user_id', $user->id)->first();
+        \Log::info('User authenticated', ['user_id' => $user->id]);
         
+        $patient = Patient::where('user_id', $user->id)->first();
+        \Log::info('Patient found', ['patient_id' => $patient ? $patient->id : 'null']);
+
         // If no patient record, redirect to unified registration
         if (!$patient) {
+            \Log::error('No patient record found', ['user_id' => $user->id]);
             return redirect()->route('patient.register.and.book')
                 ->with('error', 'Please register as a patient first.');
         }
 
+        \Log::info('Starting validation');
         $validator = Validator::make($request->all(), [
             'appointment_type' => 'required|string|in:consultation,checkup,fecalysis,cbc,urinalysis,x-ray,ultrasound',
             'specialist_type' => 'required|string|in:doctor,medtech',
@@ -241,8 +203,10 @@ class PatientAppointmentController extends Controller
         ]);
 
         if ($validator->fails()) {
+            \Log::error('Validation failed', ['errors' => $validator->errors()]);
             return back()->withErrors($validator)->withInput();
         }
+        \Log::info('Validation passed');
 
         // Get specialist information
         $specialist = User::find($request->specialist_id);
@@ -290,8 +254,8 @@ class PatientAppointmentController extends Controller
         $pendingAppointmentData['price'] = $pendingAppointment->calculatePrice();
 
         try {
+            \Log::info('Creating pending appointment', ['data' => $pendingAppointmentData]);
             $pendingAppointment = PendingAppointment::create($pendingAppointmentData);
-
             \Log::info('Pending appointment created successfully', [
                 'pending_appointment_id' => $pendingAppointment->id,
                 'patient_name' => $pendingAppointment->patient_name,
@@ -301,14 +265,16 @@ class PatientAppointmentController extends Controller
             ]);
 
             // Send notification to admin for approval
+            \Log::info('Starting notification process');
             $this->notifyAdminPendingAppointment($pendingAppointment);
+            \Log::info('Notification process completed');
 
             \Log::info('Notification process completed for pending appointment', [
                 'pending_appointment_id' => $pendingAppointment->id,
                 'admin_count' => User::where('role', 'admin')->count()
             ]);
 
-            return redirect()->route('patient.appointments.index')
+            return redirect()->route('patient.appointments')
                 ->with('success', 'Appointment request submitted successfully! You will be notified once it\'s approved by the admin.');
         } catch (\Exception $e) {
             \Log::error('Failed to create pending appointment', [
@@ -316,7 +282,7 @@ class PatientAppointmentController extends Controller
                 'patient_id' => $patient->id,
                 'appointment_data' => $pendingAppointmentData
             ]);
-            
+
             return back()->withErrors(['error' => 'Failed to submit appointment request. Please try again.']);
         }
     }
@@ -325,13 +291,13 @@ class PatientAppointmentController extends Controller
     {
         $user = auth()->user();
         $patient = Patient::where('user_id', $user->id)->first();
-        
+
         // Verify ownership
         if (!$patient || $appointment->patient_id !== $patient->patient_no) {
             abort(403, 'Access denied.');
         }
 
-        return Inertia::render('Patient/Appointments/Show', [
+        return Inertia::render('patient/Appointments/Show', [
             'appointment' => $appointment,
         ]);
     }
@@ -340,7 +306,7 @@ class PatientAppointmentController extends Controller
     {
         $user = auth()->user();
         $patient = Patient::where('user_id', $user->id)->first();
-        
+
         // Verify ownership and allow editing only if pending
         if (!$patient || $appointment->patient_id !== $patient->patient_no) {
             abort(403, 'Access denied.');
@@ -378,7 +344,7 @@ class PatientAppointmentController extends Controller
             'ultrasound' => 'Ultrasound',
         ];
 
-        return Inertia::render('Patient/Appointments/Edit', [
+        return Inertia::render('patient/Appointments/Edit', [
             'appointment' => $appointment,
             'patient' => $patient,
             'doctors' => $doctors,
@@ -391,7 +357,7 @@ class PatientAppointmentController extends Controller
     {
         $user = auth()->user();
         $patient = Patient::where('user_id', $user->id)->first();
-        
+
         // Verify ownership and allow editing only if pending
         if (!$patient || $appointment->patient_id !== $patient->patient_no) {
             abort(403, 'Access denied.');
@@ -460,7 +426,7 @@ class PatientAppointmentController extends Controller
     {
         $user = auth()->user();
         $patient = Patient::where('user_id', $user->id)->first();
-        
+
         // Verify ownership and allow cancellation only if pending
         if (!$patient || $appointment->patient_id !== $patient->patient_no) {
             abort(403, 'Access denied.');
@@ -480,7 +446,7 @@ class PatientAppointmentController extends Controller
     public function getAvailableDoctors(Request $request)
     {
         $specialistType = $request->get('specialist_type', 'doctor');
-        
+
         $specialists = User::where('role', $specialistType)
             ->where('is_active', true)
             ->select('id', 'name', 'specialization', 'employee_id')
@@ -493,7 +459,7 @@ class PatientAppointmentController extends Controller
     {
         $specialistId = $request->get('specialist_id');
         $date = $request->get('date');
-        
+
         if (!$specialistId || !$date) {
             return response()->json([]);
         }
@@ -539,16 +505,16 @@ class PatientAppointmentController extends Controller
                 $hour = (int)$matches[1];
                 $minute = $matches[2];
                 $ampm = strtoupper($matches[3]);
-                
+
                 if ($ampm === 'PM' && $hour !== 12) {
                     $hour += 12;
                 } elseif ($ampm === 'AM' && $hour === 12) {
                     $hour = 0;
                 }
-                
+
                 return sprintf('%02d:%s:00', $hour, $minute);
             }
-            
+
             // Default fallback
             return '09:00:00';
         }
@@ -559,40 +525,61 @@ class PatientAppointmentController extends Controller
      */
     private function notifyAdminPendingAppointment(PendingAppointment $pendingAppointment)
     {
-        // Get all admin users
-        $adminUsers = User::where('role', 'admin')->get();
+        try {
+            // Get all admin users
+            $adminUsers = User::where('role', 'admin')->get();
 
-        foreach ($adminUsers as $admin) {
-            // Create notification
-            $notification = Notification::create([
-                'type' => 'appointment_request',
-                'title' => 'New Appointment Request - Pending Approval',
-                'message' => "Patient {$pendingAppointment->patient_name} has requested an appointment for {$pendingAppointment->appointment_type} on {$pendingAppointment->appointment_date} at {$pendingAppointment->appointment_time}. Please review and approve.",
-                'data' => [
-                    'pending_appointment_id' => $pendingAppointment->id,
-                    'patient_name' => $pendingAppointment->patient_name,
-                    'appointment_type' => $pendingAppointment->appointment_type,
-                    'appointment_date' => $pendingAppointment->appointment_date,
-                    'appointment_time' => $pendingAppointment->appointment_time,
-                    'specialist_name' => $pendingAppointment->specialist_name,
-                    'status' => $pendingAppointment->status_approval,
-                    'price' => $pendingAppointment->price,
-                ],
-                'user_id' => $admin->id,
-                'related_id' => $pendingAppointment->id,
-                'related_type' => 'PendingAppointment',
+            \Log::info('Sending notifications to admin users', [
+                'admin_count' => $adminUsers->count(),
+                'pending_appointment_id' => $pendingAppointment->id
             ]);
 
-            // Broadcast real-time notification to admin
-            try {
-                broadcast(new \App\Events\NewAppointmentNotification($notification, $admin->id));
-            } catch (\Exception $e) {
-                \Log::error('Failed to broadcast notification to admin', [
-                    'admin_id' => $admin->id,
-                    'notification_id' => $notification->id,
-                    'error' => $e->getMessage()
+            foreach ($adminUsers as $admin) {
+                // Create notification
+                $notification = Notification::create([
+                    'type' => 'appointment_request',
+                    'title' => 'New Appointment Request - Pending Approval',
+                    'message' => "Patient {$pendingAppointment->patient_name} has requested an appointment for {$pendingAppointment->appointment_type} on {$pendingAppointment->appointment_date} at {$pendingAppointment->appointment_time}. Please review and approve.",
+                    'data' => [
+                        'pending_appointment_id' => $pendingAppointment->id,
+                        'patient_name' => $pendingAppointment->patient_name,
+                        'appointment_type' => $pendingAppointment->appointment_type,
+                        'appointment_date' => $pendingAppointment->appointment_date,
+                        'appointment_time' => $pendingAppointment->appointment_time,
+                        'specialist_name' => $pendingAppointment->specialist_name,
+                        'status' => $pendingAppointment->status_approval,
+                        'price' => $pendingAppointment->price,
+                    ],
+                    'user_id' => $admin->id,
+                    'read' => false,
                 ]);
+
+                \Log::info('Notification created successfully', [
+                    'notification_id' => $notification->id,
+                    'admin_id' => $admin->id,
+                    'admin_name' => $admin->name
+                ]);
+
+                    // Broadcast real-time notification to admin
+                    try {
+                        broadcast(new \App\Events\NewAppointmentNotification($notification, $admin->id));
+                        \Log::info('Broadcast sent successfully', [
+                            'admin_id' => $admin->id,
+                            'notification_id' => $notification->id
+                        ]);
+                    } catch (\Exception $e) {
+                        \Log::error('Failed to broadcast notification to admin', [
+                            'admin_id' => $admin->id,
+                            'notification_id' => $notification->id,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
             }
+        } catch (\Exception $e) {
+            \Log::error('Failed to create admin notifications', [
+                'error' => $e->getMessage(),
+                'pending_appointment_id' => $pendingAppointment->id
+            ]);
         }
 
         \Log::info('Pending appointment notification sent to admin users', [

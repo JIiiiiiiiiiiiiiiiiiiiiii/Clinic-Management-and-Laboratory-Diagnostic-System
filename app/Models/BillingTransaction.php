@@ -179,4 +179,9 @@ class BillingTransaction extends Model
     {
         return in_array($this->status, ['pending', 'draft']);
     }
+
+    public function visit()
+    {
+        return $this->hasOne(Visit::class);
+    }
 }

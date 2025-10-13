@@ -141,6 +141,25 @@ const data = {
       ],
     },
     {
+      title: "Visits",
+      url: "/admin/visits",
+      icon: StethoscopeIcon,
+      items: [
+        {
+          title: "All Visits",
+          url: "/admin/visits",
+        },
+        {
+          title: "Today's Visits",
+          url: "/admin/visits/today",
+        },
+        {
+          title: "New Visit",
+          url: "/admin/visits/create",
+        },
+      ],
+    },
+    {
       title: "Reports",
       url: "/admin/reports",
       icon: BarChartIcon,

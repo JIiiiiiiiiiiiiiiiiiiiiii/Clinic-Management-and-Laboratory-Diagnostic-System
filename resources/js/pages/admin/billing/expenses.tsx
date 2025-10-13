@@ -1,3 +1,4 @@
+import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,24 +9,21 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import Heading from '@/components/heading';
-import { 
-    ArrowLeft, 
-    Plus, 
-    Search, 
-    FileText,
-    DollarSign,
-    TrendingUp,
-    Calendar,
-    Filter,
-    Edit,
-    Eye,
-    Trash2,
-    MoreHorizontal,
+import {
+    ArrowLeft,
     CheckCircle,
     Clock,
+    DollarSign,
+    Edit,
+    Eye,
+    FileText,
+    Filter,
+    MoreHorizontal,
+    Plus,
+    Search,
+    Trash2,
+    TrendingUp,
     XCircle,
-    AlertCircle
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -87,15 +85,7 @@ const paymentMethodConfig = {
     check: { label: 'Check', color: 'bg-yellow-100 text-yellow-800' },
 };
 
-export default function ExpensesIndex({ 
-    expenses, 
-    summary, 
-    filters 
-}: { 
-    expenses: any;
-    summary: Summary;
-    filters: any;
-}) {
+export default function ExpensesIndex({ expenses, summary, filters }: { expenses: any; summary: Summary; filters: any }) {
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [categoryFilter, setCategoryFilter] = useState(filters.category || 'all');
     const [statusFilter, setStatusFilter] = useState(filters.status || 'all');
@@ -103,31 +93,33 @@ export default function ExpensesIndex({
     const [dateFrom, setDateFrom] = useState(filters.date_from || '');
     const [dateTo, setDateTo] = useState(filters.date_to || '');
 
-    const filteredExpenses = expenses.data.filter((expense: Expense) => {
+    const filteredExpenses = (expenses?.data || []).filter((expense: Expense) => {
         const search = searchTerm.toLowerCase();
-        
-        const matchesSearch = expense.expense_name.toLowerCase().includes(search) || 
-                            expense.vendor_name?.toLowerCase().includes(search) || 
-                            expense.receipt_number?.toLowerCase().includes(search) || '';
-        
+
+        const matchesSearch =
+            expense.expense_name.toLowerCase().includes(search) ||
+            expense.vendor_name?.toLowerCase().includes(search) ||
+            expense.receipt_number?.toLowerCase().includes(search) ||
+            '';
+
         const matchesCategory = categoryFilter === 'all' || expense.expense_category === categoryFilter;
         const matchesStatus = statusFilter === 'all' || expense.status === statusFilter;
         const matchesPaymentMethod = paymentMethodFilter === 'all' || expense.payment_method === paymentMethodFilter;
-        
+
         return matchesSearch && matchesCategory && matchesStatus && matchesPaymentMethod;
     });
 
     const getStatusBadge = (status: keyof typeof statusConfig) => {
         const config = statusConfig[status];
         const Icon = config.icon;
-        
+
         const variantMap = {
             draft: 'secondary',
             pending: 'warning',
             approved: 'success',
-            cancelled: 'destructive'
+            cancelled: 'destructive',
         };
-        
+
         return (
             <Badge variant={variantMap[status] as any}>
                 <Icon className="mr-1 h-3 w-3" />
@@ -136,36 +128,32 @@ export default function ExpensesIndex({
         );
     };
 
-    const getCategoryBadge = (category: keyof typeof categoryConfig) => {
-        const config = categoryConfig[category];
-        return (
-            <Badge className={config.color}>
-                {config.label}
-            </Badge>
-        );
+    const getCategoryBadge = (category: string) => {
+        const config = categoryConfig[category as keyof typeof categoryConfig] || categoryConfig.other;
+        return <Badge className={config.color}>{config.label}</Badge>;
     };
 
-    const getPaymentMethodBadge = (method: keyof typeof paymentMethodConfig) => {
-        const config = paymentMethodConfig[method];
-        return (
-            <Badge className={config.color}>
-                {config.label}
-            </Badge>
-        );
+    const getPaymentMethodBadge = (method: string) => {
+        const config = paymentMethodConfig[method as keyof typeof paymentMethodConfig] || paymentMethodConfig.cash;
+        return <Badge className={config.color}>{config.label}</Badge>;
     };
 
     const handleFilter = () => {
-        router.get('/admin/billing/expenses', {
-            search: searchTerm,
-            category: categoryFilter,
-            status: statusFilter,
-            payment_method: paymentMethodFilter,
-            date_from: dateFrom,
-            date_to: dateTo,
-        }, {
-            preserveState: true,
-            replace: true,
-        });
+        router.get(
+            '/admin/billing/expenses',
+            {
+                search: searchTerm,
+                category: categoryFilter,
+                status: statusFilter,
+                payment_method: paymentMethodFilter,
+                date_from: dateFrom,
+                date_to: dateTo,
+            },
+            {
+                preserveState: true,
+                replace: true,
+            },
+        );
     };
 
     const handleStatusUpdate = (expenseId: number, newStatus: string) => {
@@ -202,25 +190,29 @@ export default function ExpensesIndex({
                             <Heading title="Expenses" description="Track and manage clinic expenses" icon={FileText} />
                         </div>
                         <div className="flex items-center gap-4">
-                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4 w-52 h-20 flex items-center overflow-hidden">
+                            <div className="flex h-20 w-52 items-center overflow-hidden rounded-xl border bg-white px-6 py-4 shadow-lg">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                    <div className="rounded-lg bg-gray-100 p-2">
                                         <DollarSign className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
-                                        <div className="text-3xl font-bold text-gray-900 whitespace-nowrap leading-tight">₱{summary.total_expenses.toLocaleString()}</div>
-                                        <div className="text-gray-600 text-sm font-medium whitespace-nowrap">Total Expenses</div>
+                                        <div className="text-3xl leading-tight font-bold whitespace-nowrap text-gray-900">
+                                            ₱{summary.total_expenses.toLocaleString()}
+                                        </div>
+                                        <div className="text-sm font-medium whitespace-nowrap text-gray-600">Total Expenses</div>
                                     </div>
                                 </div>
                             </div>
-                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4 w-52 h-20 flex items-center overflow-hidden">
+                            <div className="flex h-20 w-52 items-center overflow-hidden rounded-xl border bg-white px-6 py-4 shadow-lg">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                    <div className="rounded-lg bg-gray-100 p-2">
                                         <TrendingUp className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
-                                        <div className="text-3xl font-bold text-gray-900 whitespace-nowrap leading-tight">{summary.approved_count}</div>
-                                        <div className="text-gray-600 text-sm font-medium whitespace-nowrap">Approved</div>
+                                        <div className="text-3xl leading-tight font-bold whitespace-nowrap text-gray-900">
+                                            {summary.approved_count}
+                                        </div>
+                                        <div className="text-sm font-medium whitespace-nowrap text-gray-600">Approved</div>
                                     </div>
                                 </div>
                             </div>
@@ -232,12 +224,12 @@ export default function ExpensesIndex({
                 <Card className="shadow-lg">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-gray-100 rounded-lg">
+                            <div className="rounded-lg bg-gray-100 p-2">
                                 <FileText className="h-6 w-6 text-black" />
                             </div>
                             <div>
                                 <CardTitle className="text-lg font-semibold text-gray-900">Expense Records</CardTitle>
-                                <p className="text-sm text-gray-500 mt-1">Track and manage clinic expenses and costs</p>
+                                <p className="mt-1 text-sm text-gray-500">Track and manage clinic expenses and costs</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
@@ -259,20 +251,20 @@ export default function ExpensesIndex({
                     <CardContent className="p-6">
                         {/* Filters */}
                         <div className="mb-6">
-                            <div className="flex items-center gap-4 flex-wrap">
-                                <div className="relative flex-1 max-w-md">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <div className="flex flex-wrap items-center gap-4">
+                                <div className="relative max-w-md flex-1">
+                                    <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
                                     <Input
                                         placeholder="Search expenses..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-10 h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                        className="h-12 rounded-xl border-gray-300 pl-10 shadow-sm focus:border-gray-500 focus:ring-gray-500"
                                     />
                                 </div>
                                 <select
                                     value={categoryFilter}
                                     onChange={(e) => setCategoryFilter(e.target.value)}
-                                    className="h-12 px-4 border border-gray-200 rounded-xl focus:border-gray-500 focus:ring-gray-500"
+                                    className="h-12 rounded-xl border border-gray-200 px-4 focus:border-gray-500 focus:ring-gray-500"
                                 >
                                     <option value="all">All Categories</option>
                                     <option value="office_supplies">Office Supplies</option>
@@ -287,7 +279,7 @@ export default function ExpensesIndex({
                                 <select
                                     value={statusFilter}
                                     onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="h-12 px-4 border border-gray-200 rounded-xl focus:border-gray-500 focus:ring-gray-500"
+                                    className="h-12 rounded-xl border border-gray-200 px-4 focus:border-gray-500 focus:ring-gray-500"
                                 >
                                     <option value="all">All Status</option>
                                     <option value="draft">Draft</option>
@@ -298,7 +290,7 @@ export default function ExpensesIndex({
                                 <select
                                     value={paymentMethodFilter}
                                     onChange={(e) => setPaymentMethodFilter(e.target.value)}
-                                    className="h-12 px-4 border border-gray-200 rounded-xl focus:border-gray-500 focus:ring-gray-500"
+                                    className="h-12 rounded-xl border border-gray-200 px-4 focus:border-gray-500 focus:ring-gray-500"
                                 >
                                     <option value="all">All Payment Methods</option>
                                     <option value="cash">Cash</option>
@@ -335,10 +327,12 @@ export default function ExpensesIndex({
                                 <TableBody>
                                     {filteredExpenses.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="text-center py-8">
+                                            <TableCell colSpan={7} className="py-8 text-center">
                                                 <div className="flex flex-col items-center">
                                                     <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                                                    <h3 className="mb-2 text-lg font-semibold text-gray-600">{searchTerm ? 'No expenses found' : 'No expenses yet'}</h3>
+                                                    <h3 className="mb-2 text-lg font-semibold text-gray-600">
+                                                        {searchTerm ? 'No expenses found' : 'No expenses yet'}
+                                                    </h3>
                                                     <p className="text-gray-500">
                                                         {searchTerm ? 'Try adjusting your search terms' : 'Create your first expense to get started'}
                                                     </p>
@@ -350,7 +344,7 @@ export default function ExpensesIndex({
                                             <TableRow key={expense.id} className="hover:bg-gray-50">
                                                 <TableCell className="font-medium">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="p-1 bg-gray-100 rounded-full">
+                                                        <div className="rounded-full bg-gray-100 p-1">
                                                             <FileText className="h-4 w-4 text-black" />
                                                         </div>
                                                         <div>
@@ -361,18 +355,10 @@ export default function ExpensesIndex({
                                                         </div>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell>
-                                                    {getCategoryBadge(expense.expense_category)}
-                                                </TableCell>
-                                                <TableCell className="font-semibold">
-                                                    ₱{expense.amount.toLocaleString()}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {getPaymentMethodBadge(expense.payment_method)}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {getStatusBadge(expense.status)}
-                                                </TableCell>
+                                                <TableCell>{getCategoryBadge(expense.expense_category)}</TableCell>
+                                                <TableCell className="font-semibold">₱{expense.amount.toLocaleString()}</TableCell>
+                                                <TableCell>{getPaymentMethodBadge(expense.payment_method)}</TableCell>
+                                                <TableCell>{getStatusBadge(expense.status)}</TableCell>
                                                 <TableCell className="text-sm text-gray-600">
                                                     {new Date(expense.expense_date).toLocaleDateString()}
                                                 </TableCell>
@@ -385,10 +371,7 @@ export default function ExpensesIndex({
                                                             </Link>
                                                         </Button>
                                                         {expense.status === 'pending' && (
-                                                            <Button
-                                                                size="sm"
-                                                                onClick={() => handleStatusUpdate(expense.id, 'approved')}
-                                                            >
+                                                            <Button size="sm" onClick={() => handleStatusUpdate(expense.id, 'approved')}>
                                                                 <CheckCircle className="mr-1 h-3 w-3" />
                                                                 Approve
                                                             </Button>
@@ -406,10 +389,7 @@ export default function ExpensesIndex({
                                                                         Edit
                                                                     </Link>
                                                                 </DropdownMenuItem>
-                                                                <DropdownMenuItem 
-                                                                    onClick={() => handleDelete(expense.id)}
-                                                                    className="text-red-600"
-                                                                >
+                                                                <DropdownMenuItem onClick={() => handleDelete(expense.id)} className="text-red-600">
                                                                     <Trash2 className="mr-2 h-4 w-4" />
                                                                     Delete
                                                                 </DropdownMenuItem>
@@ -429,6 +409,3 @@ export default function ExpensesIndex({
         </AppLayout>
     );
 }
-
-
-

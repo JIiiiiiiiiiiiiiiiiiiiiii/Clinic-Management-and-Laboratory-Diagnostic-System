@@ -90,7 +90,7 @@ class BillingReportController extends Controller
     {
         $format = $request->get('format', 'excel');
         $type = $request->get('type', 'all');
-        
+
         // Redirect to appropriate export method based on type
         switch ($type) {
             case 'daily':
@@ -107,15 +107,26 @@ class BillingReportController extends Controller
 
     public function dailyReport(Request $request)
     {
-        $date = $request->get('date', now()->format('Y-m-d'));
-        
-        // First, sync the daily transactions table to ensure it's up to date
-        $this->syncDailyTransactions($date);
-        
-        // Get all transactions from the daily_transactions table
-        $dailyTransactions = DailyTransaction::whereDate('transaction_date', $date)
-            ->orderBy('created_at', 'asc')
-            ->get();
+        try {
+            $date = $request->get('date', now()->format('Y-m-d'));
+
+            Log::info('Generating daily report', [
+                'date' => $date,
+                'user_id' => auth()->id()
+            ]);
+
+            // Validate date format
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+                throw new \InvalidArgumentException('Invalid date format. Expected YYYY-MM-DD');
+            }
+
+            // First, sync the daily transactions table to ensure it's up to date
+            $this->syncDailyTransactions($date);
+            
+            // Get all transactions from the daily_transactions table
+            $dailyTransactions = DailyTransaction::whereDate('transaction_date', $date)
+                ->orderBy('created_at', 'asc')
+                ->get();
 
         // Get expenses separately for the expenses table
         $expenses = Expense::whereDate('expense_date', $date)
@@ -155,18 +166,34 @@ class BillingReportController extends Controller
             'doctor_payment_count' => $doctorPayments->count(),
         ];
 
+        Log::info('Daily report generated successfully', [
+            'date' => $date,
+            'transaction_count' => $allTransactions->count(),
+            'summary' => $summary
+        ]);
+
         return inertia('admin/billing/daily-report', [
             'transactions' => $allTransactions->values(),
             'expenses' => $expenses,
             'summary' => $summary,
             'date' => $date,
         ]);
+        } catch (\Exception $e) {
+            Log::error('Daily report generation failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'date' => $date ?? 'unknown',
+                'user_id' => auth()->id()
+            ]);
+
+            return back()->with('error', 'Failed to generate daily report: ' . $e->getMessage());
+        }
     }
 
     public function monthlyReport(Request $request)
     {
         $month = $request->get('month', now()->format('Y-m'));
-        
+
         // Get all transactions for the month
         $billingTransactions = BillingTransaction::whereYear('transaction_date', substr($month, 0, 4))
             ->whereMonth('transaction_date', substr($month, 5, 2))
@@ -185,7 +212,7 @@ class BillingReportController extends Controller
 
         // Combine all transactions
         $allTransactions = collect();
-        
+
         // Add billing transactions
         foreach ($billingTransactions as $transaction) {
             $allTransactions->push((object) [
@@ -265,7 +292,7 @@ class BillingReportController extends Controller
     public function yearlyReport(Request $request)
     {
         $year = $request->get('year', now()->format('Y'));
-        
+
         // Get all transactions for the year
         $billingTransactions = BillingTransaction::whereYear('transaction_date', $year)
             ->with(['patient', 'doctor', 'items', 'appointmentLinks.appointment'])
@@ -281,7 +308,7 @@ class BillingReportController extends Controller
 
         // Combine all transactions
         $allTransactions = collect();
-        
+
         // Add billing transactions
         foreach ($billingTransactions as $transaction) {
             $allTransactions->push((object) [
@@ -529,7 +556,7 @@ class BillingReportController extends Controller
 
         // Prepare comprehensive export data
         $exportData = [];
-        
+
         // Add billing transactions
         foreach ($billingTransactions as $transaction) {
             $exportData[] = [
@@ -607,7 +634,7 @@ class BillingReportController extends Controller
             }
 
             return \Maatwebsite\Excel\Facades\Excel::download(
-                new \App\Exports\ArrayExport($exportData, 'Comprehensive Report - ' . $dateFrom . ' to ' . $dateTo), 
+                new \App\Exports\ArrayExport($exportData, 'Comprehensive Report - ' . $dateFrom . ' to ' . $dateTo),
                 $filename,
                 \Maatwebsite\Excel\Excel::XLSX
             );
@@ -619,7 +646,7 @@ class BillingReportController extends Controller
                 'date_to' => $dateTo,
                 'format' => $format
             ]);
-            
+
             return back()->with('error', 'Export failed: ' . $e->getMessage());
         }
     }
@@ -630,7 +657,7 @@ class BillingReportController extends Controller
         if ($transaction->patient) {
             return trim($transaction->patient->first_name . ' ' . $transaction->patient->last_name);
         }
-        
+
         // Try to get patient name from appointment data
         if ($transaction->appointmentLinks->isNotEmpty()) {
             $appointment = $transaction->appointmentLinks->first()->appointment;
@@ -638,7 +665,7 @@ class BillingReportController extends Controller
                 return $appointment->patient_name;
             }
         }
-        
+
         return 'Unknown Patient';
     }
 
@@ -648,7 +675,7 @@ class BillingReportController extends Controller
         if ($transaction->doctor) {
             return $transaction->doctor->name;
         }
-        
+
         // Try to get specialist name from appointment data
         if ($transaction->appointmentLinks->isNotEmpty()) {
             $appointment = $transaction->appointmentLinks->first()->appointment;
@@ -656,7 +683,7 @@ class BillingReportController extends Controller
                 return $appointment->specialist_name;
             }
         }
-        
+
         return 'Unknown Specialist';
     }
 
@@ -763,7 +790,7 @@ class BillingReportController extends Controller
 
         // Prepare data for export
         $exportData = [];
-        
+
         // Add billing transactions
         foreach ($billingTransactions as $transaction) {
             $exportData[] = [
@@ -849,7 +876,7 @@ class BillingReportController extends Controller
             }
 
             return \Maatwebsite\Excel\Facades\Excel::download(
-                new \App\Exports\ArrayExport($exportData, 'Daily Report - ' . $date), 
+                new \App\Exports\ArrayExport($exportData, 'Daily Report - ' . $date),
                 $filename,
                 \Maatwebsite\Excel\Excel::XLSX
             );
@@ -860,7 +887,7 @@ class BillingReportController extends Controller
                 'date' => $date,
                 'format' => $format
             ]);
-            
+
             return back()->with('error', 'Export failed: ' . $e->getMessage());
         }
     }
@@ -888,7 +915,7 @@ class BillingReportController extends Controller
 
         // Prepare data for export
         $exportData = [];
-        
+
         // Add billing transactions
         foreach ($billingTransactions as $transaction) {
             $exportData[] = [
@@ -973,7 +1000,7 @@ class BillingReportController extends Controller
         }
 
         return \Maatwebsite\Excel\Facades\Excel::download(
-            new \App\Exports\ArrayExport($exportData, 'Monthly Report - ' . $month), 
+            new \App\Exports\ArrayExport($exportData, 'Monthly Report - ' . $month),
             $filename,
             \Maatwebsite\Excel\Excel::XLSX
         );
@@ -999,7 +1026,7 @@ class BillingReportController extends Controller
 
         // Prepare data for export
         $exportData = [];
-        
+
         // Add billing transactions
         foreach ($billingTransactions as $transaction) {
             $exportData[] = [
@@ -1084,7 +1111,7 @@ class BillingReportController extends Controller
         }
 
         return \Maatwebsite\Excel\Facades\Excel::download(
-            new \App\Exports\ArrayExport($exportData, 'Yearly Report - ' . $year), 
+            new \App\Exports\ArrayExport($exportData, 'Yearly Report - ' . $year),
             $filename,
             \Maatwebsite\Excel\Excel::XLSX
         );
@@ -1216,7 +1243,6 @@ class BillingReportController extends Controller
     </div>
     
     <table class="data-table">';
-        
         if (!empty($data)) {
             // Add headers
             $html .= '<tr>';
@@ -1224,7 +1250,7 @@ class BillingReportController extends Controller
                 $html .= '<th>' . $header . '</th>';
             }
             $html .= '</tr>';
-            
+
             // Add data rows
             foreach ($data as $row) {
                 $html .= '<tr>';

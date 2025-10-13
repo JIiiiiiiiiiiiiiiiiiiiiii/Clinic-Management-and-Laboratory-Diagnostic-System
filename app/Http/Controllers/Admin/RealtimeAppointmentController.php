@@ -169,7 +169,27 @@ class RealtimeAppointmentController extends Controller
         $notifications = Notification::where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->limit(20)
-            ->get();
+            ->get()
+            ->map(function ($notification) {
+                // Debug logging
+                \Log::info('Processing notification', [
+                    'id' => $notification->id,
+                    'type' => $notification->type,
+                    'raw_data' => $notification->getRawOriginal('data'),
+                    'parsed_data' => $notification->data,
+                    'data_type' => gettype($notification->data)
+                ]);
+                
+                return [
+                    'id' => $notification->id,
+                    'type' => $notification->type,
+                    'title' => $notification->title,
+                    'message' => $notification->message,
+                    'read' => $notification->read,
+                    'created_at' => $notification->created_at->toISOString(),
+                    'data' => $notification->data, // This should be properly parsed by the model cast
+                ];
+            });
 
         $unreadCount = Notification::where('user_id', $user->id)
             ->where('read', false)

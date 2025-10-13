@@ -1,3 +1,4 @@
+import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,8 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import Heading from '@/components/heading';
-import { AlertCircle, ArrowLeft, CheckCircle, Clock, Download, Eye, FileText, Plus, Search, XCircle, FlaskConical } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, Download, Eye, FileText, Plus, Search, XCircle } from 'lucide-react';
 import { useState } from 'react';
 
 type Order = {
@@ -49,7 +49,8 @@ const statusConfig = {
 export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
     const [searchTerm, setSearchTerm] = useState('');
 
-    const filteredOrders = orders.filter((order) => {
+    const safeOrders = Array.isArray(orders) ? orders : [];
+    const filteredOrders = safeOrders.filter((order) => {
         const patientName = `${order.patient?.first_name ?? ''} ${order.patient?.last_name ?? ''}`.trim().toLowerCase();
         const testNames = (order.lab_tests || [])
             .map((test) => test.name)
@@ -63,15 +64,15 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
     const getStatusBadge = (status: keyof typeof statusConfig) => {
         const config = statusConfig[status];
         const Icon = config.icon;
-        
+
         // Map status to appropriate badge variant
         const variantMap = {
             ordered: 'info',
-            processing: 'warning', 
+            processing: 'warning',
             completed: 'success',
-            cancelled: 'destructive'
+            cancelled: 'destructive',
         };
-        
+
         return (
             <Badge variant={variantMap[status] as any}>
                 <Icon className="mr-1 h-3 w-3" />
@@ -107,14 +108,14 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                             <Heading title="Lab Orders" description="Manage laboratory orders and results" icon={FileText} />
                         </div>
                         <div className="flex items-center gap-4">
-                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4 w-52 h-20 flex items-center overflow-hidden">
+                            <div className="flex h-20 w-52 items-center overflow-hidden rounded-xl border bg-white px-6 py-4 shadow-lg">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                    <div className="rounded-lg bg-gray-100 p-2">
                                         <FileText className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
-                                        <div className="text-3xl font-bold text-gray-900 whitespace-nowrap leading-tight">{orders.length}</div>
-                                        <div className="text-gray-600 text-sm font-medium whitespace-nowrap">Total Orders</div>
+                                        <div className="text-3xl leading-tight font-bold whitespace-nowrap text-gray-900">{orders.length}</div>
+                                        <div className="text-sm font-medium whitespace-nowrap text-gray-600">Total Orders</div>
                                     </div>
                                 </div>
                             </div>
@@ -123,15 +124,15 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                 </div>
 
                 {/* Orders Section */}
-                <Card className="shadow-lg mb-8">
+                <Card className="mb-8 shadow-lg">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-gray-100 rounded-lg">
+                            <div className="rounded-lg bg-gray-100 p-2">
                                 <FileText className="h-6 w-6 text-black" />
                             </div>
                             <div>
                                 <CardTitle className="text-lg font-semibold text-gray-900">Lab Orders</CardTitle>
-                                <p className="text-sm text-gray-500 mt-1">Search and manage laboratory orders</p>
+                                <p className="mt-1 text-sm text-gray-500">Search and manage laboratory orders</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
@@ -172,13 +173,13 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                     <CardContent className="p-6">
                         <div className="mb-6">
                             <div className="flex items-center gap-4">
-                                <div className="relative flex-1 max-w-md">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                <div className="relative max-w-md flex-1">
+                                    <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
                                     <Input
                                         placeholder="Search by patient name, test name, or order ID..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-10 h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                        className="h-12 rounded-xl border-gray-300 pl-10 shadow-sm focus:border-gray-500 focus:ring-gray-500"
                                     />
                                 </div>
                             </div>
@@ -203,12 +204,16 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                 <TableBody>
                                     {filteredOrders.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="text-center py-8">
+                                            <TableCell colSpan={6} className="py-8 text-center">
                                                 <div className="flex flex-col items-center">
                                                     <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                                                    <h3 className="mb-2 text-lg font-semibold text-gray-600">{searchTerm ? 'No orders found' : 'No lab orders yet'}</h3>
+                                                    <h3 className="mb-2 text-lg font-semibold text-gray-600">
+                                                        {searchTerm ? 'No orders found' : 'No lab orders yet'}
+                                                    </h3>
                                                     <p className="text-gray-500">
-                                                        {searchTerm ? 'Try adjusting your search terms' : 'Lab orders will appear here when created for patients'}
+                                                        {searchTerm
+                                                            ? 'Try adjusting your search terms'
+                                                            : 'Lab orders will appear here when created for patients'}
                                                     </p>
                                                 </div>
                                             </TableCell>
@@ -218,7 +223,7 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                             <TableRow key={order.id} className="hover:bg-gray-50">
                                                 <TableCell className="font-medium">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="p-1 bg-gray-100 rounded-full">
+                                                        <div className="rounded-full bg-gray-100 p-1">
                                                             <FileText className="h-4 w-4 text-black" />
                                                         </div>
                                                         #{order.id}
@@ -227,16 +232,10 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                                 <TableCell>
                                                     <div>
                                                         <div className="font-medium">
-                                                            {order.patient ? (
-                                                                `${order.patient.last_name}, ${order.patient.first_name}`
-                                                            ) : (
-                                                                '—'
-                                                            )}
+                                                            {order.patient ? `${order.patient.last_name}, ${order.patient.first_name}` : '—'}
                                                         </div>
                                                         <div className="text-sm text-gray-500">
-                                                            {order.patient
-                                                                ? `${order.patient.age} years, ${order.patient.sex}`
-                                                                : 'Unknown patient'}
+                                                            {order.patient ? `${order.patient.age} years, ${order.patient.sex}` : 'Unknown patient'}
                                                         </div>
                                                     </div>
                                                 </TableCell>
@@ -249,9 +248,7 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                                         ))}
                                                     </div>
                                                 </TableCell>
-                                                <TableCell>
-                                                    {getStatusBadge(order.status)}
-                                                </TableCell>
+                                                <TableCell>{getStatusBadge(order.status)}</TableCell>
                                                 <TableCell className="text-sm text-gray-600">{new Date(order.created_at).toLocaleString()}</TableCell>
                                                 <TableCell>
                                                     <div className="flex gap-2">
@@ -261,27 +258,17 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                                                 View Order
                                                             </Link>
                                                         </Button>
-                                                        <Button 
-                                                            onClick={() => handleEnterResults(order.id)}
-                                                            disabled={order.status === 'cancelled'}
-                                                        >
+                                                        <Button onClick={() => handleEnterResults(order.id)} disabled={order.status === 'cancelled'}>
                                                             <FileText className="mr-1 h-4 w-4" />
                                                             Results
                                                         </Button>
                                                         {order.status === 'ordered' && (
-                                                            <Button
-                                                                variant="outline"
-                                                                onClick={() => handleUpdateStatus(order.id, 'processing')}
-                                                            >
+                                                            <Button variant="outline" onClick={() => handleUpdateStatus(order.id, 'processing')}>
                                                                 Start
                                                             </Button>
                                                         )}
                                                         {order.status === 'processing' && (
-                                                            <Button 
-                                                                onClick={() => handleUpdateStatus(order.id, 'completed')}
-                                                            >
-                                                                Complete
-                                                            </Button>
+                                                            <Button onClick={() => handleUpdateStatus(order.id, 'completed')}>Complete</Button>
                                                         )}
                                                     </div>
                                                 </TableCell>

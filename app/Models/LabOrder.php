@@ -22,7 +22,7 @@ class LabOrder extends Model
         return $this->belongsTo(Patient::class);
     }
 
-    public function visit()
+    public function patientVisit()
     {
         return $this->belongsTo(PatientVisit::class, 'patient_visit_id');
     }

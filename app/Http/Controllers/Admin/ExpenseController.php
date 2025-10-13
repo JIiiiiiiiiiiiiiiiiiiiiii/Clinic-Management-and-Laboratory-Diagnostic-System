@@ -11,19 +11,51 @@ class ExpenseController extends Controller
 {
     public function index(Request $request)
     {
-        // For now, return empty data structure to avoid errors
-        $expenses = (object) [
-            'data' => [],
-            'links' => [],
-            'meta' => []
-        ];
+        // Get expenses with pagination and search
+        $query = Expense::query();
+
+        // Apply search filter
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('expense_name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhere('vendor_name', 'like', "%{$search}%")
+                  ->orWhere('receipt_number', 'like', "%{$search}%");
+            });
+        }
+
+        // Apply category filter
+        if ($request->filled('category') && $request->category !== 'all') {
+            $query->where('expense_category', $request->category);
+        }
+
+        // Apply status filter
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+
+        // Apply payment method filter
+        if ($request->filled('payment_method') && $request->payment_method !== 'all') {
+            $query->where('payment_method', $request->payment_method);
+        }
+
+        // Apply date filters
+        if ($request->filled('date_from')) {
+            $query->whereDate('expense_date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('expense_date', '<=', $request->date_to);
+        }
+
+        $expenses = $query->orderBy('expense_date', 'desc')->paginate(15);
 
         // Get summary statistics
         $summary = [
-            'total_expenses' => 0,
-            'pending_amount' => 0,
-            'total_count' => 0,
-            'approved_count' => 0,
+            'total_expenses' => Expense::sum('amount'),
+            'pending_amount' => Expense::where('status', 'pending')->sum('amount'),
+            'total_count' => Expense::count(),
+            'approved_count' => Expense::where('status', 'approved')->count(),
         ];
 
         return Inertia::render('admin/billing/expenses', [

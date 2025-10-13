@@ -78,6 +78,15 @@ export default function PatientAppointments({
     notifications = [],
     unreadCount = 0
 }: PatientAppointmentsProps) {
+    console.log('PatientAppointments received data:', {
+        user,
+        patient,
+        appointments,
+        appointmentsCount: appointments.length,
+        available_doctors: available_doctors.length,
+        notifications: notifications.length,
+        unreadCount
+    });
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [selectedDoctor, setSelectedDoctor] = useState('');
@@ -86,6 +95,8 @@ export default function PatientAppointments({
     const [appointmentType, setAppointmentType] = useState('');
     const [showBookingForm, setShowBookingForm] = useState(false);
     const [bookingStep, setBookingStep] = useState(1);
+    const [sortBy, setSortBy] = useState('created_at'); // 'date', 'time', 'status', 'type', 'created_at'
+    const [sortOrder, setSortOrder] = useState('desc'); // 'asc', 'desc'
     
     // Real-time state management
     const [appointmentsList, setAppointmentsList] = useState(appointments);
@@ -170,6 +181,40 @@ export default function PatientAppointments({
                             appointment.type.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus = statusFilter === 'all' || appointment.status.toLowerCase() === statusFilter.toLowerCase();
         return matchesSearch && matchesStatus;
+    }).sort((a, b) => {
+        let comparison = 0;
+        
+        switch (sortBy) {
+            case 'date':
+                comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+                break;
+            case 'time':
+                comparison = a.time.localeCompare(b.time);
+                break;
+            case 'status':
+                comparison = a.status.localeCompare(b.status);
+                break;
+            case 'type':
+                comparison = a.type.localeCompare(b.type);
+                break;
+            case 'created_at':
+                comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                break;
+            default:
+                comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        }
+        
+        return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    console.log('Filtered appointments:', {
+        totalAppointments: appointmentsList.length,
+        filteredCount: filteredAppointments.length,
+        searchTerm,
+        statusFilter,
+        sortBy,
+        sortOrder,
+        firstFewAppointments: filteredAppointments.slice(0, 3)
     });
 
     const getStatusBadge = (status: string) => {
@@ -293,7 +338,7 @@ export default function PatientAppointments({
                                 unreadCount={unreadCountState}
                             />
                             <Button 
-                                onClick={() => router.visit('/patient/appointments/create')}
+                                onClick={() => router.visit('/patient/register-and-book')}
                                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg flex items-center gap-2"
                             >
                                 <CalendarDays className="h-5 w-5" />
@@ -518,6 +563,25 @@ export default function PatientAppointments({
                                     <option value="pending">Pending</option>
                                     <option value="cancelled">Cancelled</option>
                                     <option value="completed">Completed</option>
+                                </select>
+                                <select
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value)}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                >
+                        <option value="created_at">Sort by Created Date</option>
+                        <option value="date">Sort by Appointment Date</option>
+                        <option value="time">Sort by Time</option>
+                        <option value="status">Sort by Status</option>
+                        <option value="type">Sort by Type</option>
+                                </select>
+                                <select
+                                    value={sortOrder}
+                                    onChange={(e) => setSortOrder(e.target.value)}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                >
+                                    <option value="desc">Descending</option>
+                                    <option value="asc">Ascending</option>
                                 </select>
                             </div>
                         </div>

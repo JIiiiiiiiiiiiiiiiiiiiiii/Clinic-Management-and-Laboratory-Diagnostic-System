@@ -15,64 +15,135 @@ class PatientController extends Controller
     public function index(Request $request)
     {
         try {
-            // Log the request for debugging
-            \Log::info('PatientController@index called', [
-                'user' => auth()->user() ? auth()->user()->name : 'Not authenticated',
-                'request_data' => $request->all()
-            ]);
+            // Get patients with pagination and search
+            $query = Patient::query();
 
-            // For testing, return simple HTML first
-            if ($request->has('test')) {
-                return '<html><body><h1>Patient Controller Test</h1><p>This route is working!</p><p>User: ' . (auth()->user() ? auth()->user()->name : 'Not authenticated') . '</p></body></html>';
+            // Apply search filter
+            if ($request->filled('p_search')) {
+                $search = $request->p_search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('first_name', 'like', "%{$search}%")
+                      ->orWhere('last_name', 'like', "%{$search}%")
+                      ->orWhere('patient_no', 'like', "%{$search}%")
+                      ->orWhere('mobile_no', 'like', "%{$search}%");
+                });
             }
 
-            // Get basic patient data - order by patient number for sequential display
-            $patients = Patient::orderByRaw('CAST(patient_no AS UNSIGNED)')->paginate(15);
-            $visits = \App\Models\PatientVisit::with(['patient'])->orderBy('arrival_date', 'desc')->paginate(15);
+            // Apply additional filters
+            if ($request->filled('sex')) {
+                $query->where('sex', $request->sex);
+            }
 
-            \Log::info('PatientController@index data prepared', [
-                'patients_count' => $patients->count(),
-                'visits_count' => $visits->count()
-            ]);
+            if ($request->filled('age_from')) {
+                $query->where('age', '>=', $request->age_from);
+            }
 
-            // Return data structure that matches the frontend expectations
+            if ($request->filled('age_to')) {
+                $query->where('age', '<=', $request->age_to);
+            }
+
+            if ($request->filled('date_from')) {
+                $query->whereDate('created_at', '>=', $request->date_from);
+            }
+
+            if ($request->filled('date_to')) {
+                $query->whereDate('created_at', '<=', $request->date_to);
+            }
+
+            if ($request->filled('has_visits')) {
+                if ($request->has_visits === 'yes') {
+                    $query->whereHas('visits');
+                } elseif ($request->has_visits === 'no') {
+                    $query->whereDoesntHave('visits');
+                }
+            }
+
+            // Apply sorting
+            $sortBy = $request->get('p_sort_by', 'created_at');
+            $sortDir = $request->get('p_sort_dir', 'desc');
+            $query->orderBy($sortBy, $sortDir);
+
+            $patients = $query->paginate(15);
+
+            // Get visits data
+            $visitsQuery = \App\Models\PatientVisit::query();
+
+            // Apply visit filters
+            if ($request->filled('v_start')) {
+                $visitsQuery->whereDate('arrival_date', '>=', $request->v_start);
+            }
+            if ($request->filled('v_end')) {
+                $visitsQuery->whereDate('arrival_date', '<=', $request->v_end);
+            }
+            if ($request->filled('v_doctor')) {
+                $visitsQuery->where('attending_physician', $request->v_doctor);
+            }
+
+            $visits = $visitsQuery->orderBy('arrival_date', 'desc')->paginate(15);
+
+            // Get patient statistics
+            $patientService = app(\App\Services\PatientService::class);
+            $statistics = $patientService->getPatientStatistics();
+
             return Inertia::render('admin/patient/index', [
-                'patients' => $patients->items(), // Get the actual items from pagination
+                'patients' => $patients->items(),
                 'patients_pagination' => [
                     'current_page' => $patients->currentPage(),
                     'last_page' => $patients->lastPage(),
                     'per_page' => $patients->perPage(),
-                    'total' => $patients->total(),
+                    'total' => $patients->total()
                 ],
-                'visits' => $visits->items(), // Get the actual items from pagination
+                'patients_filters' => [
+                    'p_search' => $request->get('p_search', ''),
+                    'p_sort_by' => $request->get('p_sort_by', 'created_at'),
+                    'p_sort_dir' => $request->get('p_sort_dir', 'desc'),
+                    'sex' => $request->get('sex', ''),
+                    'age_from' => $request->get('age_from', ''),
+                    'age_to' => $request->get('age_to', ''),
+                    'date_from' => $request->get('date_from', ''),
+                    'date_to' => $request->get('date_to', ''),
+                    'has_visits' => $request->get('has_visits', '')
+                ],
+                'visits' => $visits->items(),
                 'visits_pagination' => [
                     'current_page' => $visits->currentPage(),
                     'last_page' => $visits->lastPage(),
                     'per_page' => $visits->perPage(),
-                    'total' => $visits->total(),
-                ],
-                'patients_filters' => [
-                    'p_search' => $request->get('p_search', ''),
-                    'p_sort_by' => $request->get('p_sort_by', 'patient_no'),
-                    'p_sort_dir' => $request->get('p_sort_dir', 'asc'),
+                    'total' => $visits->total()
                 ],
                 'visits_filters' => [
-                    'v_start' => $request->get('v_start', ''),
-                    'v_end' => $request->get('v_end', ''),
-                    'v_doctor' => $request->get('v_doctor', ''),
-                    'v_sort_dir' => $request->get('v_sort_dir', 'desc'),
+                    'v_start' => $request->get('v_start'),
+                    'v_end' => $request->get('v_end'),
+                    'v_doctor' => $request->get('v_doctor'),
+                    'v_sort_dir' => $request->get('v_sort_dir', 'desc')
                 ],
+                'statistics' => $statistics
             ]);
         } catch (\Exception $e) {
-            \Log::error('PatientController@index error', [
+            \Log::error('Failed to load patient index', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'request' => $request->all()
             ]);
-            
-            // Return a simple error page for debugging
-            return response()->json([
-                'error' => 'PatientController error: ' . $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+
+            return Inertia::render('admin/patient/index', [
+                'patients' => [],
+                'patients_pagination' => [
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'per_page' => 15,
+                    'total' => 0
+                ],
+                'patients_filters' => [],
+                'visits' => [],
+                'visits_pagination' => [
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'per_page' => 15,
+                    'total' => 0
+                ],
+                'visits_filters' => [],
+                'statistics' => [],
+                'error' => 'Failed to load patient data. Please try again.'
             ]);
         }
     }
@@ -80,43 +151,28 @@ class PatientController extends Controller
     public function create()
     {
         // Get next patient number for display only (not used in form submission)
-        // Use the same logic as PatientService for consistency
-        $existingNumbers = Patient::withTrashed()
-            ->pluck('patient_no')
-            ->map(function ($no) {
-                return (int) $no;
-            })
-            ->sort()
-            ->values()
-            ->toArray();
-        
-        if (empty($existingNumbers)) {
-            $nextPatientNo = '1';
-        } else {
-            $expectedNumber = 1;
-            foreach ($existingNumbers as $existingNumber) {
-                if ($existingNumber === $expectedNumber) {
-                    $expectedNumber++;
-                } else {
-                    break;
-                }
-            }
-            $nextPatientNo = (string) $expectedNumber;
+        $max = Patient::query()->max('patient_no');
+        $numericMax = is_numeric($max) ? (int) $max : (int) ltrim((string) $max, '0');
+        $candidate = $numericMax + 1;
+        while (Patient::where('patient_no', (string) $candidate)->exists()) {
+            $candidate++;
         }
+        $nextPatientNo = (string) $candidate;
 
         $doctors = \App\Models\User::query()
             ->where('role', 'doctor')
             ->where(function ($q) {
-                $q->where('is_active', true)
-                  ->orWhereNull('is_active');
+                // Some setups may not have is_active; guard with exists check
+                try {
+                    $q->where('is_active', true);
+                } catch (\Throwable $e) {
+                    // ignore
+                }
             })
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        return Inertia::render('admin/patient/register', [
-            'doctors' => $doctors,
-            'next_patient_no' => $nextPatientNo,
-        ]);
+        return Inertia::render('admin/patient/create');
     }
 
 

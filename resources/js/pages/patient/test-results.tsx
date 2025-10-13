@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
-import { Calendar, FileText, Heart, User, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, FileText, Heart } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Patient Dashboard', href: '/patient/dashboard' },
@@ -58,8 +58,8 @@ interface PatientTestResultsProps {
 
 const getStatusBadge = (status: string) => {
     const statusConfig = {
-        'Completed': 'bg-green-100 text-green-800',
-        'Pending': 'bg-yellow-100 text-yellow-800',
+        Completed: 'bg-green-100 text-green-800',
+        Pending: 'bg-yellow-100 text-yellow-800',
         'In Progress': 'bg-blue-100 text-blue-800',
     };
 
@@ -141,42 +141,43 @@ export default function PatientTestResults({ user, patient, testResults }: Patie
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {testResults.pending.map((order) => (
-                                        <TableRow key={order.id}>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <FileText className="h-4 w-4 text-blue-500" />
-                                                    #{order.id}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="space-y-1">
-                                                    {order.tests.map((test, index) => (
-                                                        <div key={index} className="text-sm text-gray-600">
-                                                            {test}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <Calendar className="h-4 w-4 text-gray-500" />
-                                                    {order.created_at}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge className={getStatusBadge(order.status)}>
-                                                    {order.status}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Button variant="outline" size="sm" disabled>
-                                                    <Clock className="h-4 w-4 mr-2" />
-                                                    Processing
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
+                                    {Array.isArray(testResults?.pending)
+                                        ? testResults.pending.map((order) => (
+                                              <TableRow key={order.id}>
+                                                  <TableCell>
+                                                      <div className="flex items-center gap-2">
+                                                          <FileText className="h-4 w-4 text-blue-500" />#{order.id}
+                                                      </div>
+                                                  </TableCell>
+                                                  <TableCell>
+                                                      <div className="space-y-1">
+                                                          {Array.isArray(order?.tests)
+                                                              ? order.tests.map((test, index) => (
+                                                                    <div key={index} className="text-sm text-gray-600">
+                                                                        {test}
+                                                                    </div>
+                                                                ))
+                                                              : null}
+                                                      </div>
+                                                  </TableCell>
+                                                  <TableCell>
+                                                      <div className="flex items-center gap-2">
+                                                          <Calendar className="h-4 w-4 text-gray-500" />
+                                                          {order.created_at}
+                                                      </div>
+                                                  </TableCell>
+                                                  <TableCell>
+                                                      <Badge className={getStatusBadge(order.status)}>{order.status}</Badge>
+                                                  </TableCell>
+                                                  <TableCell>
+                                                      <Button variant="outline" size="sm" disabled>
+                                                          <Clock className="mr-2 h-4 w-4" />
+                                                          Processing
+                                                      </Button>
+                                                  </TableCell>
+                                              </TableRow>
+                                          ))
+                                        : null}
                                 </TableBody>
                             </Table>
                         </CardContent>
@@ -195,75 +196,71 @@ export default function PatientTestResults({ user, patient, testResults }: Patie
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-6">
-                                {testResults.completed.map((order) => (
-                                    <Card key={order.id} className="border-l-4 border-l-green-500">
-                                        <CardHeader className="pb-3">
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <CardTitle className="text-lg">Lab Order #{order.id}</CardTitle>
-                                                    <CardDescription>
-                                                        Ordered: {order.created_at} | Verified: {order.verified_at}
-                                                    </CardDescription>
-                                                </div>
-                                                <Badge className={getStatusBadge(order.status)}>
-                                                    {order.status}
-                                                </Badge>
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="space-y-4">
-                                                <div>
-                                                    <h4 className="font-semibold text-gray-700 mb-2">Tests Performed:</h4>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {order.tests.map((test, index) => (
-                                                            <Badge key={index} variant="outline">
-                                                                {test}
-                                                            </Badge>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                                
-                                                <div>
-                                                    <h4 className="font-semibold text-gray-700 mb-2">Results:</h4>
-                                                    <Table>
-                                                        <TableHeader>
-                                                            <TableRow>
-                                                                <TableHead>Test Name</TableHead>
-                                                                <TableHead>Result</TableHead>
-                                                                <TableHead>Normal Range</TableHead>
-                                                                <TableHead>Unit</TableHead>
-                                                                <TableHead>Status</TableHead>
-                                                            </TableRow>
-                                                        </TableHeader>
-                                                        <TableBody>
-                                                            {order.results.map((result) => (
-                                                                <TableRow key={result.id}>
-                                                                    <TableCell className="font-medium">
-                                                                        {result.test_name}
-                                                                    </TableCell>
-                                                                    <TableCell className="font-semibold">
-                                                                        {result.result_value}
-                                                                    </TableCell>
-                                                                    <TableCell className="text-gray-600">
-                                                                        {result.normal_range}
-                                                                    </TableCell>
-                                                                    <TableCell className="text-gray-600">
-                                                                        {result.unit}
-                                                                    </TableCell>
-                                                                    <TableCell>
-                                                                        <Badge className={getResultStatusBadge(result)}>
-                                                                            {result.status}
+                                {Array.isArray(testResults?.completed)
+                                    ? testResults.completed.map((order) => (
+                                          <Card key={order.id} className="border-l-4 border-l-green-500">
+                                              <CardHeader className="pb-3">
+                                                  <div className="flex items-center justify-between">
+                                                      <div>
+                                                          <CardTitle className="text-lg">Lab Order #{order.id}</CardTitle>
+                                                          <CardDescription>
+                                                              Ordered: {order.created_at} | Verified: {order.verified_at}
+                                                          </CardDescription>
+                                                      </div>
+                                                      <Badge className={getStatusBadge(order.status)}>{order.status}</Badge>
+                                                  </div>
+                                              </CardHeader>
+                                              <CardContent>
+                                                  <div className="space-y-4">
+                                                      <div>
+                                                          <h4 className="mb-2 font-semibold text-gray-700">Tests Performed:</h4>
+                                                          <div className="flex flex-wrap gap-2">
+                                                              {Array.isArray(order?.tests)
+                                                                  ? order.tests.map((test, index) => (
+                                                                        <Badge key={index} variant="outline">
+                                                                            {test}
                                                                         </Badge>
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            ))}
-                                                        </TableBody>
-                                                    </Table>
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
+                                                                    ))
+                                                                  : null}
+                                                          </div>
+                                                      </div>
+
+                                                      <div>
+                                                          <h4 className="mb-2 font-semibold text-gray-700">Results:</h4>
+                                                          <Table>
+                                                              <TableHeader>
+                                                                  <TableRow>
+                                                                      <TableHead>Test Name</TableHead>
+                                                                      <TableHead>Result</TableHead>
+                                                                      <TableHead>Normal Range</TableHead>
+                                                                      <TableHead>Unit</TableHead>
+                                                                      <TableHead>Status</TableHead>
+                                                                  </TableRow>
+                                                              </TableHeader>
+                                                              <TableBody>
+                                                                  {Array.isArray(order?.results)
+                                                                      ? order.results.map((result) => (
+                                                                            <TableRow key={result.id}>
+                                                                                <TableCell className="font-medium">{result.test_name}</TableCell>
+                                                                                <TableCell className="font-semibold">{result.result_value}</TableCell>
+                                                                                <TableCell className="text-gray-600">{result.normal_range}</TableCell>
+                                                                                <TableCell className="text-gray-600">{result.unit}</TableCell>
+                                                                                <TableCell>
+                                                                                    <Badge className={getResultStatusBadge(result)}>
+                                                                                        {result.status}
+                                                                                    </Badge>
+                                                                                </TableCell>
+                                                                            </TableRow>
+                                                                        ))
+                                                                      : null}
+                                                              </TableBody>
+                                                          </Table>
+                                                      </div>
+                                                  </div>
+                                              </CardContent>
+                                          </Card>
+                                      ))
+                                    : null}
                             </div>
                         </CardContent>
                     </Card>
@@ -271,17 +268,15 @@ export default function PatientTestResults({ user, patient, testResults }: Patie
 
                 {/* No Results Message */}
                 {testResults.pending.length === 0 && testResults.completed.length === 0 && (
-                    <Card className="text-center p-8">
+                    <Card className="p-8 text-center">
                         <div className="flex flex-col items-center space-y-4">
                             <FileText className="h-16 w-16 text-gray-400" />
                             <div>
                                 <h3 className="text-lg font-semibold text-gray-900">No Test Results Found</h3>
-                                <p className="text-gray-600">
-                                    You don't have any laboratory test results yet. Contact your doctor to order tests.
-                                </p>
+                                <p className="text-gray-600">You don't have any laboratory test results yet. Contact your doctor to order tests.</p>
                             </div>
                             <Button className="mt-4">
-                                <Heart className="h-4 w-4 mr-2" />
+                                <Heart className="mr-2 h-4 w-4" />
                                 Contact Doctor
                             </Button>
                         </div>
