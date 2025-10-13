@@ -177,21 +177,29 @@ export default function OnlineAppointment({
     // Price calculation based on appointment type
     const calculatePrice = (type: string) => {
         const prices: Record<string, number> = {
-            'consultation': 500,
-            'checkup': 300,
-            'fecalysis': 150,
-            'cbc': 200,
-            'urinalysis': 150,
-            'x-ray': 800,
-            'ultrasound': 1200,
+            'general_consultation': 300,
+            'cbc': 800,
+            'fecalysis_test': 800,
+            'urinarysis_test': 800,
         };
         return prices[type] || 0;
     };
 
-    // Update price when appointment type changes
+    // Update price and specialist type when appointment type changes
     useEffect(() => {
         if (data.appointment_type) {
             setAppointmentPrice(calculatePrice(data.appointment_type));
+            
+            // Automatically set specialist type based on appointment type
+            if (data.appointment_type === 'general_consultation') {
+                setData('specialist_type', 'doctor');
+            } else if (['cbc', 'fecalysis_test', 'urinarysis_test'].includes(data.appointment_type)) {
+                setData('specialist_type', 'medtech');
+            }
+            
+            // Clear specialist selection when type changes
+            setData('specialist_id', '');
+            setSelectedSpecialist(null);
         }
     }, [data.appointment_type]);
 
@@ -302,6 +310,7 @@ export default function OnlineAppointment({
         // Validate appointment fields
         const requiredChecks = [
             { key: 'appointment_type', label: 'Appointment Type', isValid: (v: any) => Boolean(v) },
+            { key: 'specialist_type', label: 'Specialist Type', isValid: (v: any) => Boolean(v) },
             { key: 'specialist_id', label: 'Specialist', isValid: (v: any) => Boolean(v) },
             { key: 'appointment_date', label: 'Appointment Date', isValid: (v: any) => Boolean(v) },
             { key: 'appointment_time', label: 'Appointment Time', isValid: (v: any) => Boolean(v) },
@@ -353,36 +362,12 @@ export default function OnlineAppointment({
             
             console.log('Submitting appointment for existing patient:', appointmentData);
             
-            post(route('patient.appointments.store'), appointmentData, {
-                onSuccess: () => {
-                    console.log('Appointment created successfully');
-                    setShowSuccessModal(true);
-                },
-                onError: (errs) => {
-                    console.error('Appointment creation error:', errs);
-                },
-                onFinish: () => {
-                    console.log('Request finished (success or error)');
-                },
-                timeout: 30000, // 30 second timeout
-            });
+            post(route('patient.appointments.store'));
         } else {
             // For new patients, submit all data
             console.log('Submitting registration and appointment for new patient:', data);
             
-            post(route('patient.online.appointment.store'), data, {
-                onSuccess: () => {
-                    console.log('Registration and appointment created successfully');
-                    setShowSuccessModal(true);
-                },
-                onError: (errs) => {
-                    console.error('Registration and booking error:', errs);
-                },
-                onFinish: () => {
-                    console.log('Request finished (success or error)');
-                },
-                timeout: 30000, // 30 second timeout
-            });
+            post(route('patient.online.appointment.store'));
         }
     };
 
@@ -481,12 +466,12 @@ export default function OnlineAppointment({
                                 </div>
                             </div>
                             <Badge variant="outline" className="bg-gray-50 text-black border-gray-200">
-                                {(() => {
-                                    if (currentStep === totalSteps && (!data.appointment_type || !data.specialist_id || !data.appointment_date || !data.appointment_time)) {
-                                        return '83% Complete';
-                                    }
-                                    return `${Math.round((currentStep / totalSteps) * 100)}% Complete`;
-                                })()}
+                                    {(() => {
+                                        if (currentStep === totalSteps && (!data.appointment_type || !data.specialist_type || !data.specialist_id || !data.appointment_date || !data.appointment_time)) {
+                                            return '83% Complete';
+                                        }
+                                        return `${Math.round((currentStep / totalSteps) * 100)}% Complete`;
+                                    })()}
                             </Badge>
                         </CardHeader>
                         <CardContent>
@@ -1099,15 +1084,14 @@ export default function OnlineAppointment({
                                                     <User className="h-4 w-4" />
                                                     Specialist Type *
                                                 </Label>
-                                                <Select onValueChange={(value: 'doctor' | 'medtech') => setData('specialist_type', value)} defaultValue={data.specialist_type}>
-                                                    <SelectTrigger id="specialist_type" className="w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm">
-                                                        <SelectValue placeholder="Select specialist type" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="doctor">Doctor</SelectItem>
-                                                        <SelectItem value="medtech">Medical Technologist</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
+                                                <div className="w-full h-12 border border-gray-300 rounded-xl shadow-sm bg-gray-50 flex items-center px-3">
+                                                    <span className="text-gray-700 font-medium">
+                                                        {data.specialist_type === 'doctor' ? 'Doctor' : data.specialist_type === 'medtech' ? 'Medical Technologist' : 'Select appointment type first'}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-gray-500">
+                                                    Specialist type is automatically determined based on your appointment selection
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
@@ -1120,9 +1104,9 @@ export default function OnlineAppointment({
                                                 <User className="h-4 w-4" />
                                                 {data.specialist_type === 'doctor' ? 'Doctor' : 'Medical Technologist'} *
                                             </Label>
-                                            <Select onValueChange={handleSpecialistChange}>
-                                                <SelectTrigger id="specialist_id" className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.specialist_id ? 'border-gray-500' : ''}`}>
-                                                    <SelectValue placeholder={`Select ${data.specialist_type === 'doctor' ? 'doctor' : 'medical technologist'}`} />
+                                            <Select onValueChange={handleSpecialistChange} disabled={!data.specialist_type}>
+                                                <SelectTrigger id="specialist_id" className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.specialist_id ? 'border-gray-500' : ''} ${!data.specialist_type ? 'bg-gray-50' : ''}`}>
+                                                    <SelectValue placeholder={data.specialist_type ? `Select ${data.specialist_type === 'doctor' ? 'doctor' : 'medical technologist'}` : 'Select appointment type first'} />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     {(data.specialist_type === 'doctor' ? doctors : medtechs).map((specialist) => (
@@ -1287,7 +1271,7 @@ export default function OnlineAppointment({
                                     }
                                     
                                     // If on final step but appointment fields are not filled, show a helpful message
-                                    if (currentStep === totalSteps && (!data.appointment_type || !data.specialist_id || !data.appointment_date || !data.appointment_time)) {
+                                    if (currentStep === totalSteps && (!data.appointment_type || !data.specialist_type || !data.specialist_id || !data.appointment_date || !data.appointment_time)) {
                                         return (
                                             <div className="flex items-center gap-3">
                                                 <div className="text-sm text-gray-600 bg-yellow-50 px-4 py-2 rounded-lg border border-yellow-200">

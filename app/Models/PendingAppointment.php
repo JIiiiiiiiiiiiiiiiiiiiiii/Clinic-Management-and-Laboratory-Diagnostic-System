@@ -52,13 +52,10 @@ class PendingAppointment extends Model
     public function calculatePrice(): float
     {
         $basePrice = match($this->appointment_type) {
-            'consultation' => 500.00,
-            'checkup' => 300.00,
-            'fecalysis' => 150.00,
-            'cbc' => 200.00,
-            'urinalysis' => 150.00,
-            'x-ray' => 400.00,
-            'ultrasound' => 800.00,
+            'general_consultation' => 300.00,
+            'cbc' => 800.00,
+            'fecalysis_test' => 800.00,
+            'urinarysis_test' => 800.00,
             default => 300.00,
         };
 

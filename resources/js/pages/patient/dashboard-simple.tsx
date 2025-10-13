@@ -143,12 +143,6 @@ export default function SimpleDashboard({
                                     Online Appointment
                                 </Button>
                             </Link>
-                            <Link href={route('patient.register.and.book')}>
-                                <Button variant="outline" size="lg" className="px-8 py-3 text-lg border-green-600 text-green-600 hover:bg-green-50">
-                                    <Calendar className="mr-2 h-5 w-5" />
-                                    Register & Book
-                                </Button>
-                            </Link>
                             <Link href={route('patient.appointments')}>
                                 <Button variant="outline" size="lg" className="px-8 py-3 text-lg border-green-600 text-green-600 hover:bg-green-50">
                                     <Clock className="mr-2 h-5 w-5" />
@@ -158,103 +152,8 @@ export default function SimpleDashboard({
                         </div>
                     </div>
 
-                    {/* Stats Cards */}
-                    {patient && (
-                        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                            <Card className="text-center p-6 bg-white shadow-lg border-0 rounded-xl">
-                                <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <Calendar className="h-8 w-8 text-green-600" />
-                                </div>
-                                <h3 className="text-2xl font-bold text-green-600 mb-2">{stats.total_appointments}</h3>
-                                <p className="text-gray-600">Total Appointments</p>
-                            </Card>
 
-                            <Card className="text-center p-6 bg-white shadow-lg border-0 rounded-xl">
-                                <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <Clock className="h-8 w-8 text-blue-600" />
-                                </div>
-                                <h3 className="text-2xl font-bold text-blue-600 mb-2">{stats.upcoming_appointments}</h3>
-                                <p className="text-gray-600">Upcoming Appointments</p>
-                            </Card>
 
-                            <Card className="text-center p-6 bg-white shadow-lg border-0 rounded-xl">
-                                <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <Heart className="h-8 w-8 text-purple-600" />
-                                </div>
-                                <h3 className="text-2xl font-bold text-purple-600 mb-2">{stats.pending_lab_results}</h3>
-                                <p className="text-gray-600">Pending Lab Results</p>
-                            </Card>
-
-                            <Card className="text-center p-6 bg-white shadow-lg border-0 rounded-xl">
-                                <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <Stethoscope className="h-8 w-8 text-orange-600" />
-                                </div>
-                                <h3 className="text-2xl font-bold text-orange-600 mb-2">{stats.total_visits}</h3>
-                                <p className="text-gray-600">Total Visits</p>
-                            </Card>
-                        </div>
-                    )}
-
-                    {/* Upcoming Appointments */}
-                    {upcoming_appointments && upcoming_appointments.length > 0 && (
-                        <Card className="mb-8 p-6 bg-white shadow-lg border-0 rounded-xl">
-                            <h3 className="text-2xl font-bold mb-6 flex items-center">
-                                <Calendar className="mr-3 h-6 w-6 text-green-600" />
-                                Upcoming Appointments
-                            </h3>
-                            <div className="space-y-4">
-                                {upcoming_appointments.map((appointment) => (
-                                    <div key={appointment.id} className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-                                        <div className="flex-1">
-                                            <h4 className="font-semibold text-lg">{appointment.type}</h4>
-                                            <p className="text-gray-600">with {appointment.specialist}</p>
-                                            <p className="text-sm text-gray-500">{appointment.date} at {appointment.time}</p>
-                                        </div>
-                                        <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-                                            {appointment.is_today ? "Today" : appointment.status}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </Card>
-                    )}
-
-                    {/* Recent Appointments */}
-                    {recent_appointments && recent_appointments.length > 0 && (
-                        <Card className="mb-8 p-6 bg-white shadow-lg border-0 rounded-xl">
-                            <h3 className="text-2xl font-bold mb-6 flex items-center">
-                                <Clock className="mr-3 h-6 w-6 text-blue-600" />
-                                Recent Appointments
-                            </h3>
-                            <div className="space-y-4">
-                                {recent_appointments.map((appointment) => (
-                                    <div key={appointment.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                                        <div className="flex-1">
-                                            <h4 className="font-semibold text-lg">{appointment.type}</h4>
-                                            <p className="text-gray-600">with {appointment.specialist}</p>
-                                            <p className="text-sm text-gray-500">{appointment.date} at {appointment.time}</p>
-                                            <p className="text-sm text-gray-500">Price: {appointment.price}</p>
-                                        </div>
-                                        <div className="flex flex-col items-end space-y-2">
-                                            <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                                appointment.status === 'Confirmed' ? 'bg-green-100 text-green-800' :
-                                                appointment.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                appointment.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
-                                                'bg-blue-100 text-blue-800'
-                                            }`}>
-                                                {appointment.status}
-                                            </div>
-                                            {appointment.billing_status && (
-                                                <div className="text-xs text-gray-500">
-                                                    Billing: {appointment.billing_status}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </Card>
-                    )}
 
                     {/* No Data Message */}
                     {!patient && (
@@ -273,30 +172,6 @@ export default function SimpleDashboard({
                         </Card>
                     )}
 
-                    {/* Call to Action */}
-                    <div className="text-center mt-12">
-                        <h2 className="text-3xl font-bold mb-4">Ready to Book Your Appointment?</h2>
-                        <p className="text-xl text-gray-600 mb-8">
-                            Join thousands of satisfied patients who trust St. James Hospital for their healthcare needs.
-                        </p>
-                        <div className="flex justify-center gap-4">
-                            <Link href={route('patient.register.and.book')}>
-                                <Button size="lg" className="bg-green-600 hover:bg-green-700 text-white px-12 py-4 text-xl">
-                                    <Calendar className="mr-3 h-6 w-6" />
-                                    Book Your Appointment Today
-                                </Button>
-                            </Link>
-                            <Button
-                                onClick={handleLogout}
-                                variant="outline"
-                                size="lg"
-                                className="px-8 py-4 text-xl border-red-600 text-red-600 hover:bg-red-50"
-                            >
-                                <LogOut className="mr-3 h-6 w-6" />
-                                Logout
-                            </Button>
-                        </div>
-                    </div>
                 </div>
             </div>
         </>
