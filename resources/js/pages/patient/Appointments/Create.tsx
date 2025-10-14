@@ -5,320 +5,388 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar, Clock, User, Phone, Mail, MapPin, ArrowLeft } from 'lucide-react';
+import { Calendar, Clock, User, Phone, Mail, MapPin, ArrowLeft, CheckCircle, Bell, Info } from 'lucide-react';
+
 import { Link } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface CreateAppointmentProps {
+    patient?: {
+        id: number;
+        patient_no: string;
+        first_name: string;
+        last_name: string;
+        mobile_no?: string;
+    };
     availableDoctors?: any[];
     availableTimes?: string[];
 }
 
-export default function CreateAppointment({ availableDoctors = [], availableTimes = [] }: CreateAppointmentProps) {
+export default function CreateAppointment({ 
+    patient, 
+    availableDoctors = [], 
+    availableTimes = [] 
+}: CreateAppointmentProps) {
     const { data, setData, post, processing, errors } = useForm({
-        patient_name: '',
-        patient_email: '',
-        patient_phone: '',
+        patient_name: patient ? `${patient.first_name} ${patient.last_name}` : '',
+        patient_id: patient ? patient.patient_no : 'P001',
+        contact_number: patient ? (patient.mobile_no || '') : '',
         appointment_type: '',
         specialist_id: '',
         appointment_date: '',
         appointment_time: '',
-        reason: '',
         notes: ''
     });
 
     const [selectedDate, setSelectedDate] = useState('');
     const [selectedTime, setSelectedTime] = useState('');
+    const [selectedSpecialist, setSelectedSpecialist] = useState('');
+    const [appointmentPrice, setAppointmentPrice] = useState(0);
+
+    // Price calculation based on appointment type
+    const calculatePrice = (type: string) => {
+        const prices: Record<string, number> = {
+            'consultation': 500,
+            'checkup': 300,
+            'fecalysis': 150,
+            'cbc': 200,
+            'urinalysis': 150,
+            'x-ray': 800,
+            'ultrasound': 1200,
+        };
+        return prices[type] || 0;
+    };
+
+    // Update price when appointment type changes
+    useEffect(() => {
+        if (data.appointment_type) {
+            setAppointmentPrice(calculatePrice(data.appointment_type));
+        }
+    }, [data.appointment_type]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         post(route('patient.appointments.store'));
     };
 
+    // Sample data
+    const appointmentTypes = {
+        'consultation': 'General Consultation',
+        'checkup': 'Regular Checkup',
+        'fecalysis': 'Fecalysis',
+        'cbc': 'Complete Blood Count (CBC)',
+        'urinalysis': 'Urinalysis',
+        'x-ray': 'X-Ray',
+        'ultrasound': 'Ultrasound',
+    };
+
+    const specialists = [
+        { id: 1, name: 'Dr. Smith', specialization: 'Cardiology' },
+        { id: 2, name: 'Dr. Johnson', specialization: 'Internal Medicine' },
+        { id: 3, name: 'Dr. Davis', specialization: 'Emergency Medicine' },
+        { id: 4, name: 'Dr. Wilson', specialization: 'Surgery' },
+        { id: 5, name: 'Dr. Brown', specialization: 'General Practice' },
+    ];
+
     return (
         <>
-            <Head title="Book Appointment" />
-            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-                <div className="container mx-auto px-4 py-8">
+            <Head title="Create New Appointment" />
+            <div className="min-h-screen bg-gray-50">
+                <div className="max-w-4xl mx-auto px-4 py-8">
                     {/* Header */}
                     <div className="mb-8">
                         <Link href={route('patient.dashboard')} className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-4">
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             Back to Dashboard
                         </Link>
-                        <h1 className="text-4xl font-bold text-gray-900 mb-4">Book Your Appointment</h1>
-                        <p className="text-xl text-gray-600">
-                            Schedule your appointment with our experienced medical professionals.
-                        </p>
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Create New Appointment</h1>
                     </div>
 
-                    <div className="grid lg:grid-cols-3 gap-8">
-                        {/* Appointment Form */}
-                        <div className="lg:col-span-2">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center">
-                                        <Calendar className="mr-3 h-6 w-6 text-blue-600" />
-                                        Appointment Details
-                                    </CardTitle>
-                                    <CardDescription>
-                                        Fill in your information to book an appointment
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <form onSubmit={handleSubmit} className="space-y-6">
-                                        {/* Patient Information */}
-                                        <div className="space-y-4">
-                                            <h3 className="text-lg font-semibold flex items-center">
-                                                <User className="mr-2 h-5 w-5" />
-                                                Your Information
-                                            </h3>
-                                            
-                                            <div className="grid md:grid-cols-2 gap-4">
-                                                <div>
-                                                    <Label htmlFor="patient_name">Full Name *</Label>
-                                                    <Input
-                                                        id="patient_name"
-                                                        type="text"
-                                                        value={data.patient_name}
-                                                        onChange={(e) => setData('patient_name', e.target.value)}
-                                                        className="mt-1"
-                                                        placeholder="Enter your full name"
-                                                    />
-                                                    {errors.patient_name && (
-                                                        <p className="text-red-500 text-sm mt-1">{errors.patient_name}</p>
-                                                    )}
-                                                </div>
-                                                
-                                                <div>
-                                                    <Label htmlFor="patient_phone">Phone Number *</Label>
-                                                    <Input
-                                                        id="patient_phone"
-                                                        type="tel"
-                                                        value={data.patient_phone}
-                                                        onChange={(e) => setData('patient_phone', e.target.value)}
-                                                        className="mt-1"
-                                                        placeholder="Enter your phone number"
-                                                    />
-                                                    {errors.patient_phone && (
-                                                        <p className="text-red-500 text-sm mt-1">{errors.patient_phone}</p>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <Label htmlFor="patient_email">Email Address</Label>
-                                                <Input
-                                                    id="patient_email"
-                                                    type="email"
-                                                    value={data.patient_email}
-                                                    onChange={(e) => setData('patient_email', e.target.value)}
-                                                    className="mt-1"
-                                                    placeholder="Enter your email address"
-                                                />
-                                                {errors.patient_email && (
-                                                    <p className="text-red-500 text-sm mt-1">{errors.patient_email}</p>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Appointment Details */}
-                                        <div className="space-y-4">
-                                            <h3 className="text-lg font-semibold flex items-center">
-                                                <Clock className="mr-2 h-5 w-5" />
-                                                Appointment Details
-                                            </h3>
-                                            
-                                            <div className="grid md:grid-cols-2 gap-4">
-                                                <div>
-                                                    <Label htmlFor="appointment_type">Appointment Type *</Label>
-                                                    <Select value={data.appointment_type} onValueChange={(value) => setData('appointment_type', value)}>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Select appointment type" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="consultation">General Consultation</SelectItem>
-                                                            <SelectItem value="follow_up">Follow-up Visit</SelectItem>
-                                                            <SelectItem value="checkup">Regular Checkup</SelectItem>
-                                                            <SelectItem value="emergency">Emergency Visit</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                    {errors.appointment_type && (
-                                                        <p className="text-red-500 text-sm mt-1">{errors.appointment_type}</p>
-                                                    )}
-                                                </div>
-
-                                                <div>
-                                                    <Label htmlFor="specialist_id">Doctor/Specialist</Label>
-                                                    <Select value={data.specialist_id} onValueChange={(value) => setData('specialist_id', value)}>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Select a doctor" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="1">Dr. John Smith - General Medicine</SelectItem>
-                                                            <SelectItem value="2">Dr. Sarah Johnson - Cardiology</SelectItem>
-                                                            <SelectItem value="3">Dr. Michael Brown - Pediatrics</SelectItem>
-                                                            <SelectItem value="4">Dr. Emily Davis - Dermatology</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                    {errors.specialist_id && (
-                                                        <p className="text-red-500 text-sm mt-1">{errors.specialist_id}</p>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            <div className="grid md:grid-cols-2 gap-4">
-                                                <div>
-                                                    <Label htmlFor="appointment_date">Preferred Date *</Label>
-                                                    <Input
-                                                        id="appointment_date"
-                                                        type="date"
-                                                        value={data.appointment_date}
-                                                        onChange={(e) => setData('appointment_date', e.target.value)}
-                                                        className="mt-1"
-                                                        min={new Date().toISOString().split('T')[0]}
-                                                    />
-                                                    {errors.appointment_date && (
-                                                        <p className="text-red-500 text-sm mt-1">{errors.appointment_date}</p>
-                                                    )}
-                                                </div>
-
-                                                <div>
-                                                    <Label htmlFor="appointment_time">Preferred Time *</Label>
-                                                    <Select value={data.appointment_time} onValueChange={(value) => setData('appointment_time', value)}>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Select time" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="09:00">9:00 AM</SelectItem>
-                                                            <SelectItem value="10:00">10:00 AM</SelectItem>
-                                                            <SelectItem value="11:00">11:00 AM</SelectItem>
-                                                            <SelectItem value="14:00">2:00 PM</SelectItem>
-                                                            <SelectItem value="15:00">3:00 PM</SelectItem>
-                                                            <SelectItem value="16:00">4:00 PM</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                    {errors.appointment_time && (
-                                                        <p className="text-red-500 text-sm mt-1">{errors.appointment_time}</p>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <Label htmlFor="reason">Reason for Visit *</Label>
-                                                <Textarea
-                                                    id="reason"
-                                                    value={data.reason}
-                                                    onChange={(e) => setData('reason', e.target.value)}
-                                                    className="mt-1"
-                                                    placeholder="Please describe the reason for your visit"
-                                                    rows={3}
-                                                />
-                                                {errors.reason && (
-                                                    <p className="text-red-500 text-sm mt-1">{errors.reason}</p>
-                                                )}
-                                            </div>
-
-                                            <div>
-                                                <Label htmlFor="notes">Additional Notes</Label>
-                                                <Textarea
-                                                    id="notes"
-                                                    value={data.notes}
-                                                    onChange={(e) => setData('notes', e.target.value)}
-                                                    className="mt-1"
-                                                    placeholder="Any additional information you'd like to share"
-                                                    rows={2}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="flex justify-end space-x-4">
-                                            <Link href={route('patient.dashboard')}>
-                                                <Button type="button" variant="outline">
-                                                    Cancel
-                                                </Button>
-                                            </Link>
-                                            <Button type="submit" disabled={processing} className="bg-blue-600 hover:bg-blue-700">
-                                                {processing ? 'Booking...' : 'Book Appointment'}
+                    <form onSubmit={handleSubmit} className="space-y-8">
+                        {/* Patient Information */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center">
+                                    <User className="mr-3 h-5 w-5 text-blue-600" />
+                                    Patient Information
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    <div>
+                                        <Label htmlFor="patient_name">Patient Name *</Label>
+                                        <Input
+                                            id="patient_name"
+                                            type="text"
+                                            value={data.patient_name}
+                                            onChange={(e) => setData('patient_name', e.target.value)}
+                                            placeholder="Enter patient full name"
+                                            className="mt-1"
+                                        />
+                                        {errors.patient_name && (
+                                            <p className="text-red-500 text-sm mt-1">{errors.patient_name}</p>
+                                        )}
+                                    </div>
+                                    
+                                    <div>
+                                        <Label htmlFor="patient_id">Patient ID</Label>
+                                        <div className="flex items-center space-x-2 mt-1">
+                                            <Input
+                                                id="patient_id"
+                                                type="text"
+                                                value={data.patient_id}
+                                                onChange={(e) => setData('patient_id', e.target.value)}
+                                                placeholder="P001"
+                                                className="flex-1"
+                                            />
+                                            <Button type="button" variant="outline" size="sm">
+                                                Use Next
                                             </Button>
                                         </div>
-                                    </form>
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        {/* Sidebar Information */}
-                        <div className="space-y-6">
-                            {/* Clinic Information */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center">
-                                        <MapPin className="mr-3 h-5 w-5 text-blue-600" />
-                                        Clinic Information
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div>
-                                        <h4 className="font-semibold">St. James Clinic</h4>
-                                        <p className="text-sm text-gray-600">
-                                            Medical Center Building<br />
-                                            Healthcare District, City
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Format: P001, P002, P003, etc. Next available: P001
+                                        </p>
+                                        <p className="text-xs text-blue-600 mt-1">
+                                            💡 Smart: If P001 is deleted, system will suggest P001 again
                                         </p>
                                     </div>
-                                    <div>
-                                        <h4 className="font-semibold">Phone</h4>
-                                        <p className="text-sm text-gray-600">(02) 123-4567</p>
-                                    </div>
-                                    <div>
-                                        <h4 className="font-semibold">Email</h4>
-                                        <p className="text-sm text-gray-600">info@stjamesclinic.com</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                                </div>
 
-                            {/* Operating Hours */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center">
-                                        <Clock className="mr-3 h-5 w-5 text-green-600" />
-                                        Operating Hours
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
+                                <div>
+                                    <Label htmlFor="contact_number">Contact Number *</Label>
+                                    <Input
+                                        id="contact_number"
+                                        type="tel"
+                                        value={data.contact_number}
+                                        onChange={(e) => setData('contact_number', e.target.value)}
+                                        placeholder="Enter contact number"
+                                        className="mt-1"
+                                    />
+                                    {errors.contact_number && (
+                                        <p className="text-red-500 text-sm mt-1">{errors.contact_number}</p>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Appointment Details */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center">
+                                    <Calendar className="mr-3 h-5 w-5 text-green-600" />
+                                    Appointment Details
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    <div>
+                                        <Label htmlFor="appointment_type">Appointment Type *</Label>
+                                        <Select value={data.appointment_type} onValueChange={(value) => setData('appointment_type', value)}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select appointment type..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {Object.entries(appointmentTypes).map(([key, value]) => (
+                                                    <SelectItem key={key} value={key}>{value}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {errors.appointment_type && (
+                                            <p className="text-red-500 text-sm mt-1">{errors.appointment_type}</p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <Label htmlFor="specialist_id">Specialist *</Label>
+                                        <Select value={data.specialist_id} onValueChange={(value) => setData('specialist_id', value)}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select specialist..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {specialists.map((specialist) => (
+                                                    <SelectItem key={specialist.id} value={specialist.id.toString()}>
+                                                        {specialist.name} - {specialist.specialization}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {errors.specialist_id && (
+                                            <p className="text-red-500 text-sm mt-1">{errors.specialist_id}</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    <div>
+                                        <Label>Price</Label>
+                                        <div className="flex items-center space-x-2 mt-1">
+                                            <span className="text-sm text-gray-600">Auto-calculated</span>
+                                            <span className="text-lg font-semibold text-green-600">₱{appointmentPrice}</span>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Price is automatically calculated based on appointment type
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <Label htmlFor="appointment_date">Date *</Label>
+                                        <Input
+                                            id="appointment_date"
+                                            type="date"
+                                            value={data.appointment_date}
+                                            onChange={(e) => setData('appointment_date', e.target.value)}
+                                            className="mt-1"
+                                            min={new Date().toISOString().split('T')[0]}
+                                        />
+                                        {errors.appointment_date && (
+                                            <p className="text-red-500 text-sm mt-1">{errors.appointment_date}</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="grid md:grid-cols-3 gap-4">
+                                    <div>
+                                        <Label htmlFor="appointment_time">Time *</Label>
+                                        <Select value={data.appointment_time} onValueChange={(value) => setData('appointment_time', value)}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="--:-- --" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="09:00">9:00 AM</SelectItem>
+                                                <SelectItem value="09:30">9:30 AM</SelectItem>
+                                                <SelectItem value="10:00">10:00 AM</SelectItem>
+                                                <SelectItem value="10:30">10:30 AM</SelectItem>
+                                                <SelectItem value="11:00">11:00 AM</SelectItem>
+                                                <SelectItem value="11:30">11:30 AM</SelectItem>
+                                                <SelectItem value="14:00">2:00 PM</SelectItem>
+                                                <SelectItem value="14:30">2:30 PM</SelectItem>
+                                                <SelectItem value="15:00">3:00 PM</SelectItem>
+                                                <SelectItem value="15:30">3:30 PM</SelectItem>
+                                                <SelectItem value="16:00">4:00 PM</SelectItem>
+                                                <SelectItem value="16:30">4:30 PM</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        {errors.appointment_time && (
+                                            <p className="text-red-500 text-sm mt-1">{errors.appointment_time}</p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <Label>Duration</Label>
+                                        <div className="mt-1 p-2 bg-gray-100 rounded-md">
+                                            <span className="text-sm">30 minutes</span>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <Label>Status</Label>
+                                        <div className="mt-1 p-2 bg-yellow-100 rounded-md">
+                                            <span className="text-sm text-yellow-800">Pending</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Additional Information */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center">
+                                    <Info className="mr-3 h-5 w-5 text-purple-600" />
+                                    Additional Information
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div>
+                                    <Label htmlFor="notes">Notes</Label>
+                                    <Textarea
+                                        id="notes"
+                                        value={data.notes}
+                                        onChange={(e) => setData('notes', e.target.value)}
+                                        placeholder="Enter any additional notes or special requirements..."
+                                        className="mt-1"
+                                        rows={3}
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Automatic Notifications */}
+                        <Card className="bg-blue-50 border-blue-200">
+                            <CardContent className="pt-6">
+                                <div className="flex items-center">
+                                    <Bell className="mr-3 h-5 w-5 text-blue-600" />
+                                    <div>
+                                        <h3 className="font-semibold text-blue-900">Automatic Notifications</h3>
+                                        <p className="text-sm text-blue-700">
+                                            The patient will automatically receive a confirmation email and SMS notification once the appointment is created.
+                                        </p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Appointment Summary */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center">
+                                    <CheckCircle className="mr-3 h-5 w-5 text-green-600" />
+                                    Appointment Summary
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid md:grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <div className="flex justify-between">
-                                            <span className="text-sm">Monday - Friday</span>
-                                            <span className="text-sm font-semibold">8:00 AM - 6:00 PM</span>
+                                            <span className="text-gray-600">Patient:</span>
+                                            <span className="font-medium">{data.patient_name || 'Not specified'}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-sm">Saturday</span>
-                                            <span className="text-sm font-semibold">9:00 AM - 4:00 PM</span>
+                                            <span className="text-gray-600">Specialist:</span>
+                                            <span className="font-medium">
+                                                {data.specialist_id ? 
+                                                    specialists.find(s => s.id.toString() === data.specialist_id)?.name || 'Not specified' 
+                                                    : 'Not specified'
+                                                }
+                                            </span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-sm">Sunday</span>
-                                            <span className="text-sm font-semibold">Closed</span>
+                                            <span className="text-gray-600">Date:</span>
+                                            <span className="font-medium">{data.appointment_date || 'Not specified'}</span>
                                         </div>
                                     </div>
-                                </CardContent>
-                            </Card>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Time:</span>
+                                            <span className="font-medium">{data.appointment_time || 'Not specified'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Type:</span>
+                                            <span className="font-medium">
+                                                {data.appointment_type ? appointmentTypes[data.appointment_type as keyof typeof appointmentTypes] : 'Not specified'}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Status:</span>
+                                            <span className="font-medium text-yellow-600">Pending</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
 
-                            {/* What to Expect */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>What to Expect</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <ul className="space-y-2 text-sm text-gray-600">
-                                        <li>• Arrive 15 minutes early</li>
-                                        <li>• Bring valid ID</li>
-                                        <li>• Bring insurance card if applicable</li>
-                                        <li>• Wear comfortable clothing</li>
-                                        <li>• Bring list of current medications</li>
-                                    </ul>
-                                </CardContent>
-                            </Card>
+                        {/* Action Buttons */}
+                        <div className="flex justify-end space-x-4">
+                            <Link href={route('patient.dashboard')}>
+                                <Button type="button" variant="outline">
+                                    Cancel
+                                </Button>
+                            </Link>
+                            <Button type="submit" disabled={processing} className="bg-green-600 hover:bg-green-700">
+                                {processing ? 'Creating...' : 'Create Appointment'}
+                            </Button>
                         </div>
-                    </div>
+                    </form>
                 </div>
             </div>
         </>

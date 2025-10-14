@@ -35,3 +35,6 @@ class AssignAppointmentToUser extends Command
         $this->info("Done! Moved appointments from {$from} to {$to}");
     }
 }
+
+
+

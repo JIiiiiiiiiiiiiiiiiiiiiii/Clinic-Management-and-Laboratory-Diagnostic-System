@@ -43,3 +43,6 @@ class FixAppointmentPatientIds extends Command
         $this->info('Done!');
     }
 }
+
+
+
