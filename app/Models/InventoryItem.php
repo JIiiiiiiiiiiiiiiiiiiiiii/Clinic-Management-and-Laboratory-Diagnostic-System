@@ -13,6 +13,9 @@ class InventoryItem extends Model
         'item_name',
         'item_code',
         'category',
+        'description',
+        'supplier',
+        'location',
         'unit',
         'assigned_to',
         'stock',
@@ -20,6 +23,9 @@ class InventoryItem extends Model
         'consumed',
         'rejected',
         'status',
+        'unit_cost',
+        'expiry_date',
+        'barcode',
     ];
 
     protected $casts = [
@@ -27,6 +33,8 @@ class InventoryItem extends Model
         'low_stock_alert' => 'integer',
         'consumed' => 'integer',
         'rejected' => 'integer',
+        'unit_cost' => 'decimal:2',
+        'expiry_date' => 'date',
     ];
 
     public function movements()

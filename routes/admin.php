@@ -12,10 +12,11 @@ use App\Http\Controllers\Admin\DoctorController;
 use App\Http\Controllers\Admin\NurseController;
 use App\Http\Controllers\Admin\MedTechController;
 use App\Http\Controllers\Admin\RoleController;
-use App\Http\Controllers\Inventory\InventoryController;
 use App\Http\Controllers\Inventory\ProductController;
 use App\Http\Controllers\Inventory\TransactionController;
 use App\Http\Controllers\Inventory\ReportController;
+use App\Http\Controllers\Inventory\SupplierController;
+use App\Http\Controllers\Inventory\EnhancedInventoryController;
 use App\Http\Controllers\Admin\UserRoleController;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\AppointmentController;
@@ -339,40 +340,94 @@ Route::prefix('admin')
 
         // Inventory routes - All authenticated staff can access
         Route::prefix('inventory')->name('inventory.')->group(function () {
+            // Main inventory dashboard
             Route::get('/', [App\Http\Controllers\InventoryController::class, 'index'])->name('index');
             Route::get('/create', [App\Http\Controllers\InventoryController::class, 'create'])->name('create');
             Route::post('/', [App\Http\Controllers\InventoryController::class, 'store'])->name('store');
             
             // Category-specific pages (must come before {id} routes)
+            Route::get('/supply-items', [App\Http\Controllers\InventoryController::class, 'supplyItems'])->name('supply-items');
             Route::get('/doctor-nurse', [App\Http\Controllers\InventoryController::class, 'doctorNurse'])->name('doctor-nurse');
             Route::get('/medtech', [App\Http\Controllers\InventoryController::class, 'medTech'])->name('medtech');
             
-            // Inventory Reports (moved to main reports section)
-            Route::get('/reports', [App\Http\Controllers\InventoryController::class, 'reports'])->name('reports');
-            Route::get('/reports/export', [App\Http\Controllers\InventoryController::class, 'exportReport'])->name('reports.export');
+            // Products management routes
+            Route::prefix('products')->name('products.')->group(function () {
+                Route::get('/', [ProductController::class, 'index'])->name('index');
+                Route::get('/create', [ProductController::class, 'create'])->name('create');
+                Route::post('/', [ProductController::class, 'store'])->name('store');
+                Route::get('/{product}', [ProductController::class, 'show'])->name('show');
+                Route::get('/{product}/edit', [ProductController::class, 'edit'])->name('edit');
+                Route::put('/{product}', [ProductController::class, 'update'])->name('update');
+                Route::delete('/{product}', [ProductController::class, 'destroy'])->name('destroy');
+            });
             
-            // Additional inventory report pages
-            Route::get('/reports/used-supplies', [ReportController::class, 'usedSupplies'])->name('reports.used-supplies');
-            Route::get('/reports/rejected-supplies', [App\Http\Controllers\InventoryController::class, 'rejectedSupplies'])->name('reports.rejected-supplies');
-            Route::get('/reports/in-out-supplies', [ReportController::class, 'inOutSupplies'])->name('reports.in-out-supplies');
-            Route::get('/reports/stock-levels', [ReportController::class, 'stockLevels'])->name('reports.stock-levels');
-            Route::get('/reports/daily-consumption', [ReportController::class, 'dailyConsumption'])->name('reports.daily-consumption');
-            Route::get('/reports/usage-by-location', [ReportController::class, 'usageByLocation'])->name('reports.usage-by-location');
+            // Transactions management routes
+            Route::prefix('transactions')->name('transactions.')->group(function () {
+                Route::get('/', [TransactionController::class, 'index'])->name('index');
+                Route::get('/create', [TransactionController::class, 'create'])->name('create');
+                Route::post('/', [TransactionController::class, 'store'])->name('store');
+                Route::get('/{transaction}', [TransactionController::class, 'show'])->name('show');
+                Route::post('/{transaction}/approve', [TransactionController::class, 'approve'])->name('approve');
+                Route::post('/{transaction}/reject', [TransactionController::class, 'reject'])->name('reject');
+                Route::delete('/{transaction}', [TransactionController::class, 'destroy'])->name('destroy');
+            });
             
-            // Export routes for specific reports
-            Route::get('/reports/used-supplies/export', [ReportController::class, 'exportUsedSupplies'])->name('reports.used-supplies.export');
-            Route::get('/reports/rejected-supplies/export', [App\Http\Controllers\InventoryController::class, 'exportRejectedSupplies'])->name('reports.rejected-supplies.export');
-            Route::get('/reports/in-out-supplies/export', [ReportController::class, 'exportInOutSupplies'])->name('reports.in-out-supplies.export');
-            Route::get('/reports/stock-levels/export', [ReportController::class, 'exportStockLevels'])->name('reports.stock-levels.export');
-            Route::get('/reports/daily-consumption/export', [ReportController::class, 'exportDailyConsumption'])->name('reports.daily-consumption.export');
-            Route::get('/reports/usage-by-location/export', [ReportController::class, 'exportUsageByLocation'])->name('reports.usage-by-location.export');
+            // Suppliers management routes
+            Route::prefix('suppliers')->name('suppliers.')->group(function () {
+                Route::get('/', [SupplierController::class, 'index'])->name('index');
+                Route::get('/create', [SupplierController::class, 'create'])->name('create');
+                Route::post('/', [SupplierController::class, 'store'])->name('store');
+                Route::get('/{supplier}', [SupplierController::class, 'show'])->name('show');
+                Route::get('/{supplier}/edit', [SupplierController::class, 'edit'])->name('edit');
+                Route::put('/{supplier}', [SupplierController::class, 'update'])->name('update');
+                Route::delete('/{supplier}', [SupplierController::class, 'destroy'])->name('destroy');
+            });
             
-            // ID-based routes (must come after specific routes)
+            // Enhanced inventory dashboard and reports
+            Route::prefix('enhanced')->name('enhanced.')->group(function () {
+                Route::get('/', [EnhancedInventoryController::class, 'index'])->name('index');
+                Route::get('/detailed-report', [EnhancedInventoryController::class, 'getDetailedReport'])->name('detailed-report');
+                Route::get('/usage-report', [EnhancedInventoryController::class, 'getUsageReport'])->name('usage-report');
+                Route::get('/supplier-report', [EnhancedInventoryController::class, 'getSupplierReport'])->name('supplier-report');
+                Route::get('/in-out-flow-report', [EnhancedInventoryController::class, 'getInOutFlowReport'])->name('in-out-flow-report');
+                Route::get('/export/{type}', [EnhancedInventoryController::class, 'exportReport'])->name('export');
+            });
+            
+            // Legacy inventory reports (keeping for backward compatibility)
+            Route::prefix('reports')->name('reports.')->group(function () {
+                Route::get('/', [App\Http\Controllers\InventoryController::class, 'reports'])->name('index');
+                Route::get('/export', [App\Http\Controllers\InventoryController::class, 'exportReport'])->name('export');
+            });
+            
+            // Movement routes (must come before {id} routes)
+            Route::get('/{id}/movement', [App\Http\Controllers\InventoryController::class, 'addMovement'])->name('add-movement');
+            Route::post('/{id}/movement', [App\Http\Controllers\InventoryController::class, 'storeMovement'])->name('store-movement');
+            
+            // Consume and Reject routes
+            Route::post('/{id}/consume', [App\Http\Controllers\InventoryController::class, 'consume'])->name('consume');
+            Route::post('/{id}/reject', [App\Http\Controllers\InventoryController::class, 'reject'])->name('reject');
+            
+            // Reports routes
+            Route::get('/reports', [App\Http\Controllers\InventoryReportController::class, 'index'])->name('reports.index');
+            Route::get('/reports/used-rejected', [App\Http\Controllers\InventoryReportController::class, 'usedRejectedReport'])->name('reports.used-rejected');
+            Route::get('/reports/used-rejected/export', [App\Http\Controllers\InventoryReportController::class, 'exportUsedRejected'])->name('reports.used-rejected.export');
+            Route::get('/reports/in-out-supplies', [App\Http\Controllers\InventoryReportController::class, 'inOutSuppliesReport'])->name('reports.in-out-supplies');
+            Route::get('/reports/in-out-supplies/export', [App\Http\Controllers\InventoryReportController::class, 'exportInOutSupplies'])->name('reports.in-out-supplies.export');
+            Route::get('/reports/stock-levels', [App\Http\Controllers\InventoryReportController::class, 'stockLevelsReport'])->name('reports.stock-levels');
+            Route::get('/reports/stock-levels/export', [App\Http\Controllers\InventoryReportController::class, 'exportStockLevels'])->name('reports.stock-levels.export');
+            Route::get('/reports/daily-consumption', [App\Http\Controllers\InventoryReportController::class, 'dailyConsumptionReport'])->name('reports.daily-consumption');
+            Route::get('/reports/daily-consumption/export', [App\Http\Controllers\InventoryReportController::class, 'exportDailyConsumption'])->name('reports.daily-consumption.export');
+            Route::get('/reports/usage-by-location', [App\Http\Controllers\InventoryReportController::class, 'usageByLocationReport'])->name('reports.usage-by-location');
+            Route::get('/reports/usage-by-location/export', [App\Http\Controllers\InventoryReportController::class, 'exportUsageByLocation'])->name('reports.usage-by-location.export');
+            Route::get('/reports/{id}/export', [App\Http\Controllers\InventoryReportController::class, 'exportReport'])->name('reports.export');
+            Route::get('/reports/export-all', [App\Http\Controllers\InventoryReportController::class, 'exportAllReports'])->name('reports.export-all');
+            Route::delete('/reports/{id}', [App\Http\Controllers\InventoryReportController::class, 'destroy'])->name('reports.destroy');
+            
+            // ID-based routes for legacy inventory system (must come after specific routes)
             Route::get('/{id}', [App\Http\Controllers\InventoryController::class, 'show'])->name('show');
             Route::get('/{id}/edit', [App\Http\Controllers\InventoryController::class, 'edit'])->name('edit');
             Route::put('/{id}', [App\Http\Controllers\InventoryController::class, 'update'])->name('update');
             Route::delete('/{id}', [App\Http\Controllers\InventoryController::class, 'destroy'])->name('destroy');
-            Route::post('/{id}/movement', [App\Http\Controllers\InventoryController::class, 'movement'])->name('movement');
         });
 
         // Notifications Routes - All staff can access
