@@ -100,16 +100,18 @@ return new class extends Migration
         // Ensure all foreign key constraints are properly set
         DB::statement("SET FOREIGN_KEY_CHECKS = 0");
         
-        // Fix any orphaned records
-        DB::statement("
-            DELETE FROM appointment_billing_links 
-            WHERE appointment_id NOT IN (SELECT id FROM appointments WHERE deleted_at IS NULL)
-        ");
-        
-        DB::statement("
-            DELETE FROM appointment_billing_links 
-            WHERE billing_transaction_id NOT IN (SELECT id FROM billing_transactions WHERE deleted_at IS NULL)
-        ");
+        // Fix any orphaned records (only if tables exist)
+        if (Schema::hasTable('appointment_billing_links')) {
+            DB::statement("
+                DELETE FROM appointment_billing_links 
+                WHERE appointment_id NOT IN (SELECT id FROM appointments WHERE deleted_at IS NULL)
+            ");
+            
+            DB::statement("
+                DELETE FROM appointment_billing_links 
+                WHERE billing_transaction_id NOT IN (SELECT id FROM billing_transactions WHERE deleted_at IS NULL)
+            ");
+        }
         
         DB::statement("SET FOREIGN_KEY_CHECKS = 1");
     }

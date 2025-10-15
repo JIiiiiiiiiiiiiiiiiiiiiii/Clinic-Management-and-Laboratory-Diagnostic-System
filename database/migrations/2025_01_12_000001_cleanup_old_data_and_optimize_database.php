@@ -92,12 +92,14 @@ return new class extends Migration
             echo "Could not clean notifications: " . $e->getMessage() . "\n";
         }
 
-        // Clean up old daily transactions
+        // Clean up old daily transactions (only if table exists)
         try {
-            DB::statement("
-                DELETE FROM daily_transactions 
-                WHERE transaction_date < DATE_SUB(NOW(), INTERVAL 1 YEAR)
-            ");
+            if (Schema::hasTable('daily_transactions')) {
+                DB::statement("
+                    DELETE FROM daily_transactions 
+                    WHERE transaction_date < DATE_SUB(NOW(), INTERVAL 1 YEAR)
+                ");
+            }
         } catch (\Exception $e) {
             echo "Could not clean daily transactions: " . $e->getMessage() . "\n";
         }
@@ -177,11 +179,9 @@ return new class extends Migration
             
             // Inventory items table
             ['table' => 'inventory_items', 'columns' => ['category'], 'name' => 'inventory_items_category_index'],
-            ['table' => 'inventory_items', 'columns' => ['current_stock'], 'name' => 'inventory_items_stock_index'],
             
             // Inventory movements table
             ['table' => 'inventory_movements', 'columns' => ['created_at'], 'name' => 'inventory_movements_created_index'],
-            ['table' => 'inventory_movements', 'columns' => ['inventory_item_id', 'created_at'], 'name' => 'inventory_movements_item_date_index'],
             
             // Users table
             ['table' => 'users', 'columns' => ['role'], 'name' => 'users_role_index'],
@@ -219,12 +219,18 @@ return new class extends Migration
      */
     private function fixPatientUserRelationship()
     {
-        // Update patients with invalid user_id
-        DB::statement("
-            UPDATE patients 
-            SET user_id = NULL 
-            WHERE user_id NOT IN (SELECT id FROM users WHERE deleted_at IS NULL)
-        ");
+        // Check if user_id column exists before trying to update
+        if (Schema::hasColumn('patients', 'user_id')) {
+            // Update patients with invalid user_id
+            $userQuery = Schema::hasColumn('users', 'deleted_at') 
+                ? "SELECT id FROM users WHERE deleted_at IS NULL"
+                : "SELECT id FROM users";
+            DB::statement("
+                UPDATE patients 
+                SET user_id = NULL 
+                WHERE user_id NOT IN ({$userQuery})
+            ");
+        }
     }
 
     /**
@@ -233,17 +239,23 @@ return new class extends Migration
     private function fixBillingTransactionRelationships()
     {
         // Update billing transactions with invalid patient_id
+        $patientQuery = Schema::hasColumn('patients', 'deleted_at') 
+            ? "SELECT id FROM patients WHERE deleted_at IS NULL"
+            : "SELECT id FROM patients";
         DB::statement("
             UPDATE billing_transactions 
             SET patient_id = NULL 
-            WHERE patient_id NOT IN (SELECT id FROM patients WHERE deleted_at IS NULL)
+            WHERE patient_id NOT IN ({$patientQuery})
         ");
 
         // Update billing transactions with invalid doctor_id
+        $userQuery = Schema::hasColumn('users', 'deleted_at') 
+            ? "SELECT id FROM users WHERE deleted_at IS NULL"
+            : "SELECT id FROM users";
         DB::statement("
             UPDATE billing_transactions 
             SET doctor_id = NULL 
-            WHERE doctor_id NOT IN (SELECT id FROM users WHERE deleted_at IS NULL)
+            WHERE doctor_id NOT IN ({$userQuery})
         ");
     }
 
@@ -253,10 +265,13 @@ return new class extends Migration
     private function fixAppointmentRelationships()
     {
         // Update appointments with invalid patient_id
+        $patientQuery = Schema::hasColumn('patients', 'deleted_at') 
+            ? "SELECT id FROM patients WHERE deleted_at IS NULL"
+            : "SELECT id FROM patients";
         DB::statement("
             UPDATE appointments 
             SET patient_id = NULL 
-            WHERE patient_id NOT IN (SELECT id FROM patients WHERE deleted_at IS NULL)
+            WHERE patient_id NOT IN ({$patientQuery})
         ");
     }
 
@@ -266,17 +281,23 @@ return new class extends Migration
     private function fixLabOrderRelationships()
     {
         // Update lab orders with invalid patient_id
+        $patientQuery = Schema::hasColumn('patients', 'deleted_at') 
+            ? "SELECT id FROM patients WHERE deleted_at IS NULL"
+            : "SELECT id FROM patients";
         DB::statement("
             UPDATE lab_orders 
             SET patient_id = NULL 
-            WHERE patient_id NOT IN (SELECT id FROM patients WHERE deleted_at IS NULL)
+            WHERE patient_id NOT IN ({$patientQuery})
         ");
 
         // Update lab orders with invalid ordered_by
+        $userQuery = Schema::hasColumn('users', 'deleted_at') 
+            ? "SELECT id FROM users WHERE deleted_at IS NULL"
+            : "SELECT id FROM users";
         DB::statement("
             UPDATE lab_orders 
             SET ordered_by = NULL 
-            WHERE ordered_by NOT IN (SELECT id FROM users WHERE deleted_at IS NULL)
+            WHERE ordered_by NOT IN ({$userQuery})
         ");
     }
 
@@ -285,57 +306,107 @@ return new class extends Migration
      */
     private function cleanupOrphanedRecords()
     {
-        // Clean up orphaned appointment billing links
-        DB::statement("
-            DELETE FROM appointment_billing_links 
-            WHERE appointment_id NOT IN (SELECT id FROM appointments WHERE deleted_at IS NULL)
-        ");
+        // Only clean up records from tables that exist
+        $this->cleanupOrphanedRecordsIfTableExists();
+    }
 
-        DB::statement("
-            DELETE FROM appointment_billing_links 
-            WHERE billing_transaction_id NOT IN (SELECT id FROM billing_transactions WHERE deleted_at IS NULL)
-        ");
+    /**
+     * Clean up orphaned records only if tables exist
+     */
+    private function cleanupOrphanedRecordsIfTableExists()
+    {
+        // Clean up orphaned appointment billing links
+        if (Schema::hasTable('appointment_billing_links')) {
+            $appointmentQuery = Schema::hasColumn('appointments', 'deleted_at') 
+                ? "SELECT id FROM appointments WHERE deleted_at IS NULL"
+                : "SELECT id FROM appointments";
+            DB::statement("
+                DELETE FROM appointment_billing_links 
+                WHERE appointment_id NOT IN ({$appointmentQuery})
+            ");
+
+            $billingQuery = Schema::hasColumn('billing_transactions', 'deleted_at') 
+                ? "SELECT id FROM billing_transactions WHERE deleted_at IS NULL"
+                : "SELECT id FROM billing_transactions";
+            DB::statement("
+                DELETE FROM appointment_billing_links 
+                WHERE billing_transaction_id NOT IN ({$billingQuery})
+            ");
+        }
 
         // Clean up orphaned doctor payment billing links
-        DB::statement("
-            DELETE FROM doctor_payment_billing_links 
-            WHERE doctor_payment_id NOT IN (SELECT id FROM doctor_payments WHERE deleted_at IS NULL)
-        ");
+        if (Schema::hasTable('doctor_payment_billing_links')) {
+            $doctorPaymentQuery = Schema::hasColumn('doctor_payments', 'deleted_at') 
+                ? "SELECT id FROM doctor_payments WHERE deleted_at IS NULL"
+                : "SELECT id FROM doctor_payments";
+            DB::statement("
+                DELETE FROM doctor_payment_billing_links 
+                WHERE doctor_payment_id NOT IN ({$doctorPaymentQuery})
+            ");
 
-        DB::statement("
-            DELETE FROM doctor_payment_billing_links 
-            WHERE billing_transaction_id NOT IN (SELECT id FROM billing_transactions WHERE deleted_at IS NULL)
-        ");
+            $billingQuery = Schema::hasColumn('billing_transactions', 'deleted_at') 
+                ? "SELECT id FROM billing_transactions WHERE deleted_at IS NULL"
+                : "SELECT id FROM billing_transactions";
+            DB::statement("
+                DELETE FROM doctor_payment_billing_links 
+                WHERE billing_transaction_id NOT IN ({$billingQuery})
+            ");
+        }
 
         // Clean up orphaned lab results
-        DB::statement("
-            DELETE FROM lab_results 
-            WHERE lab_order_id NOT IN (SELECT id FROM lab_orders WHERE deleted_at IS NULL)
-        ");
+        if (Schema::hasTable('lab_results')) {
+            $labOrderQuery = Schema::hasColumn('lab_orders', 'deleted_at') 
+                ? "SELECT id FROM lab_orders WHERE deleted_at IS NULL"
+                : "SELECT id FROM lab_orders";
+            DB::statement("
+                DELETE FROM lab_results 
+                WHERE lab_order_id NOT IN ({$labOrderQuery})
+            ");
+        }
 
         // Clean up orphaned lab result values
-        DB::statement("
-            DELETE FROM lab_result_values 
-            WHERE lab_result_id NOT IN (SELECT id FROM lab_results WHERE deleted_at IS NULL)
-        ");
+        if (Schema::hasTable('lab_result_values')) {
+            $labResultQuery = Schema::hasColumn('lab_results', 'deleted_at') 
+                ? "SELECT id FROM lab_results WHERE deleted_at IS NULL"
+                : "SELECT id FROM lab_results";
+            DB::statement("
+                DELETE FROM lab_result_values 
+                WHERE lab_result_id NOT IN ({$labResultQuery})
+            ");
+        }
 
         // Clean up orphaned inventory movements
-        DB::statement("
-            DELETE FROM inventory_movements 
-            WHERE inventory_item_id NOT IN (SELECT id FROM inventory_items WHERE deleted_at IS NULL)
-        ");
+        if (Schema::hasTable('inventory_movements')) {
+            $inventoryQuery = Schema::hasColumn('inventory_items', 'deleted_at') 
+                ? "SELECT id FROM inventory_items WHERE deleted_at IS NULL"
+                : "SELECT id FROM inventory_items";
+            DB::statement("
+                DELETE FROM inventory_movements 
+                WHERE inventory_id NOT IN ({$inventoryQuery})
+            ");
+        }
 
         // Clean up orphaned patient visits
-        DB::statement("
-            DELETE FROM patient_visits 
-            WHERE patient_id NOT IN (SELECT id FROM patients WHERE deleted_at IS NULL)
-        ");
+        if (Schema::hasTable('patient_visits')) {
+            $patientQuery = Schema::hasColumn('patients', 'deleted_at') 
+                ? "SELECT id FROM patients WHERE deleted_at IS NULL"
+                : "SELECT id FROM patients";
+            DB::statement("
+                DELETE FROM patient_visits 
+                WHERE patient_id NOT IN ({$patientQuery})
+            ");
+        }
 
         // Clean up orphaned patient transfers
-        DB::statement("
-            DELETE FROM patient_transfers 
-            WHERE patient_id NOT IN (SELECT id FROM patients WHERE deleted_at IS NULL)
-        ");
+        if (Schema::hasTable('patient_transfers')) {
+            $patientQuery = Schema::hasColumn('patients', 'deleted_at') 
+                ? "SELECT id FROM patients WHERE deleted_at IS NULL"
+                : "SELECT id FROM patients";
+            DB::statement("
+                DELETE FROM patient_transfers 
+                WHERE patient_id NOT IN ({$patientQuery})
+            ");
+        }
     }
 
     /**

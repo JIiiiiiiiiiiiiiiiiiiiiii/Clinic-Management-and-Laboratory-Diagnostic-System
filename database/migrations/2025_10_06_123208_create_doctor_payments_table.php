@@ -11,7 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('doctor_payments', function (Blueprint $table) {
+        if (!Schema::hasTable('doctor_payments')) {
+            Schema::create('doctor_payments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('doctor_id')->constrained('users')->onDelete('cascade');
             $table->decimal('basic_salary', 10, 2);
@@ -31,7 +32,8 @@ return new class extends Migration
             $table->index(['doctor_id', 'status']);
             $table->index(['payment_date', 'status']);
             $table->index('status');
-        });
+            });
+        }
     }
 
     /**

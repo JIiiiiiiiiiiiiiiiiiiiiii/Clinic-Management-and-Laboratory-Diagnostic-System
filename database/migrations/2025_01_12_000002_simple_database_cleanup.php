@@ -12,7 +12,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        $this->command->info('Starting simple database cleanup...');
+        echo 'Starting simple database cleanup...' . PHP_EOL;
 
         // 1. Clean up old test data
         $this->cleanupTestData();
@@ -23,7 +23,7 @@ return new class extends Migration
         // 3. Add essential indexes
         $this->addEssentialIndexes();
 
-        $this->command->info('Database cleanup completed!');
+        echo 'Database cleanup completed!' . PHP_EOL;
     }
 
     /**
@@ -31,7 +31,7 @@ return new class extends Migration
      */
     private function cleanupTestData()
     {
-        $this->command->info('Cleaning up test data...');
+        echo 'Cleaning up test data...' . PHP_EOL;
 
         try {
             // Clean up test patients
@@ -41,10 +41,10 @@ return new class extends Migration
                 ->orWhere('patient_no', 'like', '%TEST%')
                 ->delete();
             
-            $this->command->info("Deleted {$deletedPatients} test patients");
+            echo "Deleted {$deletedPatients} test patients" . PHP_EOL;
 
         } catch (\Exception $e) {
-            $this->command->error('Could not clean test patients: ' . $e->getMessage());
+            echo 'Could not clean test patients: ' . $e->getMessage() . PHP_EOL;
         }
 
         try {
@@ -54,10 +54,10 @@ return new class extends Migration
                 ->orWhere('specialist_name', 'like', '%test%')
                 ->delete();
             
-            $this->command->info("Deleted {$deletedAppointments} test appointments");
+            echo "Deleted {$deletedAppointments} test appointments" . PHP_EOL;
 
         } catch (\Exception $e) {
-            $this->command->error('Could not clean test appointments: ' . $e->getMessage());
+            echo 'Could not clean test appointments: ' . $e->getMessage() . PHP_EOL;
         }
 
         try {
@@ -67,10 +67,10 @@ return new class extends Migration
                 ->orWhere('description', 'like', '%test%')
                 ->delete();
             
-            $this->command->info("Deleted {$deletedTransactions} test billing transactions");
+            echo "Deleted {$deletedTransactions} test billing transactions" . PHP_EOL;
 
         } catch (\Exception $e) {
-            $this->command->error('Could not clean test billing transactions: ' . $e->getMessage());
+            echo 'Could not clean test billing transactions: ' . $e->getMessage() . PHP_EOL;
         }
 
         try {
@@ -79,10 +79,10 @@ return new class extends Migration
                 ->where('notes', 'like', '%test%')
                 ->delete();
             
-            $this->command->info("Deleted {$deletedLabOrders} test lab orders");
+            echo "Deleted {$deletedLabOrders} test lab orders" . PHP_EOL;
 
         } catch (\Exception $e) {
-            $this->command->error('Could not clean test lab orders: ' . $e->getMessage());
+            echo 'Could not clean test lab orders: ' . $e->getMessage() . PHP_EOL;
         }
     }
 
@@ -91,7 +91,7 @@ return new class extends Migration
      */
     private function fixDataInconsistencies()
     {
-        $this->command->info('Fixing data inconsistencies...');
+        echo 'Fixing data inconsistencies...' . PHP_EOL;
 
         try {
             // Fix orphaned appointments by deleting them instead of setting to null
@@ -101,10 +101,10 @@ return new class extends Migration
                 })
                 ->delete();
             
-            $this->command->info("Deleted {$orphanedAppointments} orphaned appointments");
+            echo "Deleted {$orphanedAppointments} orphaned appointments" . PHP_EOL;
 
         } catch (\Exception $e) {
-            $this->command->error('Could not fix orphaned appointments: ' . $e->getMessage());
+            echo 'Could not fix orphaned appointments: ' . $e->getMessage() . PHP_EOL;
         }
 
         try {
@@ -115,10 +115,10 @@ return new class extends Migration
                 })
                 ->delete();
             
-            $this->command->info("Deleted {$orphanedLabOrders} orphaned lab orders");
+            echo "Deleted {$orphanedLabOrders} orphaned lab orders" . PHP_EOL;
 
         } catch (\Exception $e) {
-            $this->command->error('Could not fix orphaned lab orders: ' . $e->getMessage());
+            echo 'Could not fix orphaned lab orders: ' . $e->getMessage() . PHP_EOL;
         }
 
         try {
@@ -130,10 +130,10 @@ return new class extends Migration
                 })
                 ->update(['patient_id' => null]);
             
-            $this->command->info("Fixed {$orphanedTransactions} orphaned billing transactions");
+            echo "Fixed {$orphanedTransactions} orphaned billing transactions" . PHP_EOL;
 
         } catch (\Exception $e) {
-            $this->command->error('Could not fix orphaned billing transactions: ' . $e->getMessage());
+            echo 'Could not fix orphaned billing transactions: ' . $e->getMessage() . PHP_EOL;
         }
     }
 
@@ -142,7 +142,7 @@ return new class extends Migration
      */
     private function addEssentialIndexes()
     {
-        $this->command->info('Adding essential indexes...');
+        echo 'Adding essential indexes...' . PHP_EOL;
 
         $indexes = [
             // Patients table
@@ -171,12 +171,12 @@ return new class extends Migration
                     Schema::table($index['table'], function (Blueprint $table) use ($index) {
                         $table->index($index['columns'], $index['name']);
                     });
-                    $this->command->info("Added index: {$index['name']}");
+                    echo "Added index: {$index['name']}" . PHP_EOL;
                 } else {
-                    $this->command->info("Index {$index['name']} already exists");
+                    echo "Index {$index['name']} already exists" . PHP_EOL;
                 }
             } catch (\Exception $e) {
-                $this->command->error("Could not add index {$index['name']}: " . $e->getMessage());
+                echo "Could not add index {$index['name']}: " . $e->getMessage() . PHP_EOL;
             }
         }
     }
@@ -205,6 +205,6 @@ return new class extends Migration
     public function down(): void
     {
         // This migration is not reversible as it involves data cleanup
-        $this->command->info('This migration cannot be reversed as it involves data cleanup.');
+        echo 'This migration cannot be reversed as it involves data cleanup.' . PHP_EOL;
     }
 };

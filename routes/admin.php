@@ -383,6 +383,50 @@ Route::prefix('admin')
                 Route::delete('/{supplier}', [SupplierController::class, 'destroy'])->name('destroy');
             });
             
+            // Supply Management routes (New system)
+            Route::prefix('supplies')->name('supplies.')->group(function () {
+                Route::get('/', [App\Http\Controllers\Inventory\SupplyController::class, 'index'])->name('index');
+                Route::get('/create', [App\Http\Controllers\Inventory\SupplyController::class, 'create'])->name('create');
+                Route::post('/', [App\Http\Controllers\Inventory\SupplyController::class, 'store'])->name('store');
+                Route::get('/{supply}', [App\Http\Controllers\Inventory\SupplyController::class, 'show'])->name('show');
+                Route::get('/{supply}/edit', [App\Http\Controllers\Inventory\SupplyController::class, 'edit'])->name('edit');
+                Route::put('/{supply}', [App\Http\Controllers\Inventory\SupplyController::class, 'update'])->name('update');
+                Route::delete('/{supply}', [App\Http\Controllers\Inventory\SupplyController::class, 'destroy'])->name('destroy');
+                Route::get('/{supply}/stock-levels', [App\Http\Controllers\Inventory\SupplyController::class, 'getStockLevels'])->name('stock-levels');
+                Route::get('/{supply}/transactions', [App\Http\Controllers\Inventory\SupplyController::class, 'getTransactions'])->name('transactions');
+                Route::get('/low-stock', [App\Http\Controllers\Inventory\SupplyController::class, 'getLowStock'])->name('low-stock');
+                Route::get('/expiring-soon', [App\Http\Controllers\Inventory\SupplyController::class, 'getExpiringSoon'])->name('expiring-soon');
+            });
+            
+            // Supply Transactions routes
+            Route::prefix('supply-transactions')->name('supply-transactions.')->group(function () {
+                Route::get('/', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'index'])->name('index');
+                Route::get('/create', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'create'])->name('create');
+                Route::post('/', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'store'])->name('store');
+                Route::get('/{transaction}', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'show'])->name('show');
+                Route::post('/{transaction}/approve', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'approve'])->name('approve');
+                Route::post('/{transaction}/reject', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'reject'])->name('reject');
+                Route::post('/{transaction}/verify', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'verify'])->name('verify');
+                Route::get('/pending-approvals', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'getPendingApprovals'])->name('pending-approvals');
+                Route::get('/used-supplies', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'getUsedSupplies'])->name('used-supplies');
+                Route::get('/rejected-supplies', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'getRejectedSupplies'])->name('rejected-supplies');
+            });
+            
+            // Supply Stock Management routes
+            Route::prefix('supply-stock')->name('supply-stock.')->group(function () {
+                Route::get('/', [App\Http\Controllers\Inventory\SupplyStockController::class, 'index'])->name('index');
+                Route::get('/low-stock', [App\Http\Controllers\Inventory\SupplyStockController::class, 'getLowStock'])->name('low-stock');
+                Route::get('/expiring-soon', [App\Http\Controllers\Inventory\SupplyStockController::class, 'getExpiringSoon'])->name('expiring-soon');
+                Route::get('/expired', [App\Http\Controllers\Inventory\SupplyStockController::class, 'getExpiredStock'])->name('expired');
+                Route::get('/{supply}/by-lot', [App\Http\Controllers\Inventory\SupplyStockController::class, 'getStockByLot'])->name('by-lot');
+                Route::get('/{supply}/history', [App\Http\Controllers\Inventory\SupplyStockController::class, 'getStockHistory'])->name('history');
+                Route::get('/report', [App\Http\Controllers\Inventory\SupplyStockController::class, 'getStockReport'])->name('report');
+                Route::get('/alerts', [App\Http\Controllers\Inventory\SupplyStockController::class, 'getStockAlerts'])->name('alerts');
+                Route::put('/{stockLevel}', [App\Http\Controllers\Inventory\SupplyStockController::class, 'updateStockLevel'])->name('update-level');
+                Route::post('/reserve', [App\Http\Controllers\Inventory\SupplyStockController::class, 'reserveStock'])->name('reserve');
+                Route::post('/release-reservation', [App\Http\Controllers\Inventory\SupplyStockController::class, 'releaseReservation'])->name('release-reservation');
+            });
+
             // Enhanced inventory dashboard and reports
             Route::prefix('enhanced')->name('enhanced.')->group(function () {
                 Route::get('/', [EnhancedInventoryController::class, 'index'])->name('index');
