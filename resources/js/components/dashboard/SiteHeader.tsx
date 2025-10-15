@@ -35,3 +35,5 @@ export function SiteHeader() {
         </header>
     );
 }
+
+export { SiteHeader };

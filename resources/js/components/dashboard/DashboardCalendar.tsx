@@ -173,3 +173,5 @@ export function DashboardCalendar() {
         </div>
     );
 }
+
+export { DashboardCalendar };

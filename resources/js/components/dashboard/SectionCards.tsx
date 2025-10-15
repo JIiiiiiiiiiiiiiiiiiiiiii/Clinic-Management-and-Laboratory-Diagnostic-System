@@ -101,3 +101,5 @@ export function SectionCards() {
         </div>
     );
 }
+
+export { SectionCards };

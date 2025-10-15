@@ -250,3 +250,5 @@ export function ChartAreaInteractive() {
     </Card>
   )
 }
+
+export { ChartAreaInteractive };
