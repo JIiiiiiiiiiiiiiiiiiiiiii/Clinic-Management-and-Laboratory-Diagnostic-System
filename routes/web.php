@@ -13,7 +13,7 @@ Route::get('/', function () {
         $mappedRole = $user->getMappedRole();
         
         if ($mappedRole === 'patient') {
-            return redirect()->route('patient.dashboard');
+            return redirect()->route('patient.dashboard.simple');
         } else {
             return redirect()->route('admin.dashboard');
         }
@@ -44,7 +44,7 @@ Route::get('/dashboard', function () {
     $mappedRole = $user->getMappedRole();
     
     if ($mappedRole === 'patient') {
-        return redirect()->route('patient.dashboard');
+        return redirect()->route('patient.dashboard.simple');
     } else {
         return redirect()->route('admin.dashboard');
     }

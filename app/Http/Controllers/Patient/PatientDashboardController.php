@@ -19,6 +19,16 @@ class PatientDashboardController extends Controller
     public function index(Request $request): Response|RedirectResponse
     {
         $user = $request->user();
+        
+        // Debug: Log user information
+        \Log::info('PatientDashboardController: User object', [
+            'user' => $user ? [
+                'id' => $user->id ?? 'null',
+                'email' => $user->email ?? 'null',
+                'role' => $user->role ?? 'null',
+                'class' => get_class($user)
+            ] : 'null'
+        ]);
 
         // Find the patient record associated with this user
         $patient = Patient::where('user_id', $user->id)->first();

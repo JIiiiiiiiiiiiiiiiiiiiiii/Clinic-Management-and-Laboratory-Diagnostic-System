@@ -15,15 +15,18 @@ class SimpleAuthMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Check if user is authenticated using standard Laravel auth
-        if (Auth::check()) {
-            $user = Auth::user();
-            \Log::info('SimpleAuthMiddleware: User authenticated via Laravel Auth: ' . $user->name);
+        // Check if user is authenticated using session-based auth
+        if (Session::has('auth.user') && Session::get('auth.login')) {
+            $user = Session::get('auth.user');
+            \Log::info('SimpleAuthMiddleware: User authenticated via session: ' . $user->name);
             
             // Set user in request for easy access
             $request->setUserResolver(function () use ($user) {
                 return $user;
             });
+            
+            // Also set the user in the auth facade to prevent database queries
+            Auth::setUser($user);
         } else {
             \Log::warning('SimpleAuthMiddleware: No user authenticated');
             // If no user authenticated, set resolver to return null

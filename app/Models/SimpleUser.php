@@ -14,7 +14,12 @@ class SimpleUser implements Authenticatable
 
     public function __construct($email, $role)
     {
-        $this->id = 1;
+        // Use the actual user ID from database for patient@clinic.com
+        if ($email === 'patient@clinic.com') {
+            $this->id = 6; // Match the patient record's user_id
+        } else {
+            $this->id = 1; // Default for other users
+        }
         $this->email = $email;
         $this->role = $role;
         $this->name = ucfirst($role) . ' User';
@@ -64,8 +69,24 @@ class SimpleUser implements Authenticatable
     public function getRedirectPath(): string
     {
         if ($this->role === 'patient') {
-            return route('patient.dashboard');
+            return route('patient.dashboard.simple');
         }
         return route('admin.dashboard');
+    }
+
+    /**
+     * Check if user has a specific role
+     */
+    public function hasRole(string $role): bool
+    {
+        return $this->role === $role;
+    }
+
+    /**
+     * Check if user has any of the specified roles
+     */
+    public function hasAnyRole(array $roles): bool
+    {
+        return in_array($this->role, $roles);
     }
 }

@@ -9,13 +9,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router, useForm } from '@inertiajs/react';
-import { Calendar, CheckCircle, Clock, Plus, Search, Stethoscope, Edit, Eye, CalendarDays, Bell, UserCheck, MapPin, Phone, Save, X, AlertCircle } from 'lucide-react';
+import { Head, router, useForm, Link } from '@inertiajs/react';
+import { Calendar, CheckCircle, Clock, Plus, Search, Stethoscope, Edit, Eye, CalendarDays, Bell, UserCheck, MapPin, Phone, Save, X, AlertCircle, ArrowLeft } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import RealtimeNotificationBell from '@/components/RealtimeNotificationBell';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/patient/dashboard' },
+    { title: 'Dashboard', href: '/patient/dashboard-simple' },
     { title: 'Appointments', href: '/patient/appointments' },
 ];
 
@@ -323,6 +323,12 @@ export default function PatientAppointments({
             <div className="min-h-screen bg-white p-6">
                 {/* Header Section */}
                 <div className="mb-8">
+                    <div className="mb-4">
+                        <Link href={route('patient.dashboard.simple')} className="inline-flex items-center text-blue-600 hover:text-blue-800">
+                            <ArrowLeft className="mr-2 h-4 w-4" />
+                            Back to Dashboard
+                        </Link>
+                    </div>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-6">
                             <div>

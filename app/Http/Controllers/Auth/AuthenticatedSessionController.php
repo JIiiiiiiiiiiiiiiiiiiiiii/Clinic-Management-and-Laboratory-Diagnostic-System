@@ -55,8 +55,9 @@ class AuthenticatedSessionController extends Controller
                     'mapped_role' => $user->getMappedRole()
                 ]);
 
-                // Redirect based on mapped role (admin -> admin.dashboard, patient -> patient.dashboard)
-                return redirect()->intended($user->getRedirectPath());
+                // Redirect based on mapped role (admin -> admin.dashboard, patient -> patient.dashboard.simple)
+                \Log::info('Redirecting user to: ' . $user->getRedirectPath());
+                return redirect($user->getRedirectPath());
             } else {
                 throw ValidationException::withMessages([
                     'email' => __('auth.failed'),
