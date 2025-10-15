@@ -140,6 +140,15 @@ class DashboardController extends Controller
         ];
 
         return Inertia::render('admin/dashboard', [
+            'dashboard' => [
+                'user' => $user,
+                'stats' => $stats,
+                'recent_appointments' => $recent_appointments,
+                'today_appointments' => $today_appointments,
+                'notifications' => $notifications,
+                'totals' => $totals,
+                'recent' => $recent,
+            ],
             'user' => $user,
             'stats' => $stats,
             'recent_appointments' => $recent_appointments,
