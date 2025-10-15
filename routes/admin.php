@@ -463,7 +463,7 @@ Route::prefix('admin')
             Route::get('/reports/daily-consumption/export', [App\Http\Controllers\InventoryReportController::class, 'exportDailyConsumption'])->name('reports.daily-consumption.export');
             Route::get('/reports/usage-by-location', [App\Http\Controllers\InventoryReportController::class, 'usageByLocationReport'])->name('reports.usage-by-location');
             Route::get('/reports/usage-by-location/export', [App\Http\Controllers\InventoryReportController::class, 'exportUsageByLocation'])->name('reports.usage-by-location.export');
-            Route::get('/reports/{id}/export', [App\Http\Controllers\InventoryReportController::class, 'exportReport'])->name('reports.export');
+            Route::get('/reports/{id}/export', [App\Http\Controllers\InventoryReportController::class, 'exportReport'])->name('reports.individual.export');
             Route::get('/reports/export-all', [App\Http\Controllers\InventoryReportController::class, 'exportAllReports'])->name('reports.export-all');
             Route::delete('/reports/{id}', [App\Http\Controllers\InventoryReportController::class, 'destroy'])->name('reports.destroy');
             

@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
+            SimpleAuthMiddleware::class, // Custom session-based authentication
             RedirectBasedOnRole::class, // Re-enabled after fixing authentication
         ]);
 
