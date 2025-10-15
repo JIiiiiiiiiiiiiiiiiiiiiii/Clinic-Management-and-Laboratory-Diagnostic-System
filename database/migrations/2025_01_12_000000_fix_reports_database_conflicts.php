@@ -12,27 +12,33 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Fix foreign key constraints in reports table
-        Schema::table('reports', function (Blueprint $table) {
-            // Drop existing foreign keys if they exist
-            $table->dropForeign(['created_by']);
-            $table->dropForeign(['updated_by']);
-        });
+        // Fix foreign key constraints in reports table (only if it exists)
+        if (Schema::hasTable('reports')) {
+            try {
+                Schema::table('reports', function (Blueprint $table) {
+                    // Drop existing foreign keys if they exist
+                    $table->dropForeign(['created_by']);
+                    $table->dropForeign(['updated_by']);
+                });
 
-        // Recreate foreign keys with proper constraints
-        Schema::table('reports', function (Blueprint $table) {
-            $table->foreign('created_by')
-                  ->references('id')
-                  ->on('users')
-                  ->onDelete('cascade')
-                  ->onUpdate('cascade');
-                  
-            $table->foreign('updated_by')
-                  ->references('id')
-                  ->on('users')
-                  ->onDelete('set null')
-                  ->onUpdate('cascade');
-        });
+                // Recreate foreign keys with proper constraints
+                Schema::table('reports', function (Blueprint $table) {
+                    $table->foreign('created_by')
+                          ->references('id')
+                          ->on('users')
+                          ->onDelete('cascade')
+                          ->onUpdate('cascade');
+                          
+                    $table->foreign('updated_by')
+                          ->references('id')
+                          ->on('users')
+                          ->onDelete('set null')
+                          ->onUpdate('cascade');
+                });
+            } catch (\Exception $e) {
+                // Foreign keys might not exist, continue
+            }
+        }
 
         // Add missing indexes for better query performance (check if they exist first)
         try {
@@ -90,12 +96,18 @@ return new class extends Migration
             // Indexes might already exist, continue
         }
 
-        // Fix data inconsistencies in billing_transactions
-        DB::statement("
-            UPDATE billing_transactions 
-            SET patient_id = NULL 
-            WHERE patient_id NOT IN (SELECT id FROM patients WHERE deleted_at IS NULL)
-        ");
+        // Fix data inconsistencies in billing_transactions (only if tables exist)
+        if (Schema::hasTable('billing_transactions') && Schema::hasTable('patients')) {
+            try {
+                DB::statement("
+                    UPDATE billing_transactions 
+                    SET patient_id = NULL 
+                    WHERE patient_id NOT IN (SELECT id FROM patients WHERE deleted_at IS NULL)
+                ");
+            } catch (\Exception $e) {
+                // Continue if there are any issues
+            }
+        }
 
         // Ensure all foreign key constraints are properly set
         DB::statement("SET FOREIGN_KEY_CHECKS = 0");
