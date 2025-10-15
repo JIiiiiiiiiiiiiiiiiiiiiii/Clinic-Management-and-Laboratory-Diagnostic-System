@@ -36,4 +36,3 @@ export function SiteHeader() {
     );
 }
 
-export { SiteHeader };

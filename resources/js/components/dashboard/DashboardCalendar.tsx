@@ -174,4 +174,3 @@ export function DashboardCalendar() {
     );
 }
 
-export { DashboardCalendar };

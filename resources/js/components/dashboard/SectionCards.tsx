@@ -102,4 +102,3 @@ export function SectionCards() {
     );
 }
 
-export { SectionCards };
