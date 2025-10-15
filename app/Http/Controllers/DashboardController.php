@@ -149,6 +149,9 @@ class DashboardController extends Controller
                 'totals' => $totals,
                 'recent' => $recent,
             ],
+            'auth' => [
+                'user' => $user,
+            ],
             'user' => $user,
             'stats' => $stats,
             'recent_appointments' => $recent_appointments,
