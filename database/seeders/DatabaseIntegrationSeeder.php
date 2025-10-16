@@ -46,7 +46,7 @@ class DatabaseIntegrationSeeder extends Seeder
         $menus = [
             'Patients' => [
                 'tables' => ['patients', 'patient_visits', 'patient_transfers'],
-                'models' => ['Patient', 'PatientVisit', 'PatientTransfer']
+                'models' => ['Patient', 'PatientTransfer']
             ],
             'Laboratory' => [
                 'tables' => ['lab_orders', 'lab_results', 'lab_result_values', 'lab_tests'],

@@ -221,8 +221,8 @@ class PatientService
     {
         return [
             'total_patients' => Patient::count(),
-            'active_patients' => Patient::whereDoesntHave('visits')->count(),
-            'patients_with_visits' => Patient::whereHas('visits')->count(),
+            'active_patients' => Patient::count(),
+            'patients_with_visits' => 0,
             'new_patients_this_month' => Patient::whereMonth('created_at', now()->month)->count(),
             'patients_by_gender' => Patient::selectRaw('sex, COUNT(*) as count')
                 ->groupBy('sex')
@@ -278,15 +278,8 @@ class PatientService
         }
 
         // Filter by visit status
-        if (!empty($filters['has_visits'])) {
-            if ($filters['has_visits'] === 'yes') {
-                $query->whereHas('visits');
-            } elseif ($filters['has_visits'] === 'no') {
-                $query->whereDoesntHave('visits');
-            }
-        }
 
-        return $query->with(['visits', 'labOrders'])->get();
+        return $query->with(['labOrders'])->get();
     }
 }
 

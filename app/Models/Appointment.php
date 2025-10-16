@@ -11,6 +11,7 @@ class Appointment extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'sequence_number',
         'patient_name',
         'patient_id',
         'contact_number',
@@ -246,4 +247,55 @@ class Appointment extends Model
     {
         return $this->hasOne(Visit::class);
     }
+
+    public function visits()
+    {
+        return $this->hasMany(Visit::class);
+    }
+
+    /**
+     * Create a visit record automatically when appointment is created
+     */
+    public function createVisit()
+    {
+        // Check if visit already exists using database query to avoid race conditions
+        if (!$this->visit()->exists()) {
+            return Visit::create([
+                'appointment_id' => $this->id,
+                'patient_id' => $this->patient_id,
+                'visit_date_time' => $this->appointment_date->setTimeFromTimeString($this->appointment_time->format('H:i:s')),
+                'purpose' => $this->appointment_type,
+                'attending_staff_id' => $this->specialist_id,
+                'status' => 'scheduled',
+                'visit_type' => 'initial',
+                'notes' => $this->notes,
+            ]);
+        }
+        return $this->visit;
+    }
+
+    /**
+     * Boot method to automatically create visit when appointment is created
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::created(function ($appointment) {
+            // Create visit for all appointments (not just confirmed/completed)
+            $appointment->createVisit();
+        });
+
+        static::updated(function ($appointment) {
+            // Only create visit if appointment status changed to confirmed/completed and no visit exists
+            if (in_array($appointment->status, ['Confirmed', 'Completed']) && !$appointment->visit()->exists()) {
+                $appointment->createVisit();
+            }
+        });
+
+        // Note: With proper foreign key constraints, cascade delete is handled at database level
+        // No need for manual deletion in model events
+    }
+
+
 }

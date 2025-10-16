@@ -9,6 +9,7 @@ use App\Models\Appointment;
 use App\Models\PendingAppointment;
 use App\Models\Notification;
 use App\Services\PatientService;
+use App\Services\AppointmentCreationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
@@ -17,10 +18,12 @@ use Inertia\Inertia;
 class OnlineAppointmentController extends Controller
 {
     protected $patientService;
+    protected $appointmentService;
 
-    public function __construct(PatientService $patientService)
+    public function __construct(PatientService $patientService, AppointmentCreationService $appointmentService)
     {
         $this->patientService = $patientService;
+        $this->appointmentService = $appointmentService;
     }
 
     /**
@@ -102,18 +105,6 @@ class OnlineAppointmentController extends Controller
             'request_data' => $request->all()
         ]);
 
-        // If patient doesn't exist, create one first
-        if (!$patient) {
-            $patient = $this->createPatientFromRequest($request);
-            if (!$patient) {
-                \Log::error('Failed to create patient in online appointment', [
-                    'user_id' => $user->id,
-                    'request_data' => $request->all()
-                ]);
-                return back()->with('error', 'Failed to create patient record.')->withInput();
-            }
-        }
-
         // Validate appointment data
         $appointmentValidator = Validator::make($request->all(), [
             'appointment_type' => 'required|string|in:general_consultation,cbc,fecalysis_test,urinarysis_test',
@@ -130,12 +121,9 @@ class OnlineAppointmentController extends Controller
         }
 
         try {
-            DB::beginTransaction();
-
             // Get specialist
             $specialist = User::find($request->specialist_id);
             if (!$specialist) {
-                DB::rollBack();
                 return back()->withErrors(['specialist_id' => 'Selected specialist not found.']);
             }
 
@@ -147,15 +135,13 @@ class OnlineAppointmentController extends Controller
                 ->exists();
 
             if ($conflictCheck) {
-                DB::rollBack();
                 return back()->withErrors(['appointment_time' => 'This time slot is already booked. Please choose another time.']);
             }
 
-            // Create pending appointment (requires admin approval)
-            $pendingAppointmentData = [
-                'patient_name' => $patient->first_name . ' ' . $patient->last_name,
-                'patient_id' => $patient->patient_no,
-                'contact_number' => $patient->mobile_no,
+            // Prepare appointment data
+            $appointmentData = [
+                'patient_name' => $patient ? $patient->first_name . ' ' . $patient->last_name : $request->first_name . ' ' . $request->last_name,
+                'contact_number' => $patient ? $patient->mobile_no : $request->mobile_no,
                 'appointment_type' => $request->appointment_type,
                 'specialist_type' => $request->specialist_type,
                 'specialist_name' => $specialist->name,
@@ -163,45 +149,108 @@ class OnlineAppointmentController extends Controller
                 'appointment_date' => $request->appointment_date,
                 'appointment_time' => $this->formatTimeForDatabase($request->appointment_time),
                 'duration' => '30 min',
-                'status' => 'Pending Approval',
-                'billing_status' => 'pending',
+                'status' => 'Pending',
                 'notes' => $request->notes,
                 'special_requirements' => $request->special_requirements,
+                'appointment_source' => 'online',
+                'billing_status' => 'pending',
+            ];
+
+            // Calculate price
+            $tempAppointment = new Appointment($appointmentData);
+            $appointmentData['price'] = $tempAppointment->calculatePrice();
+
+            // Prepare patient data if patient doesn't exist
+            $patientData = null;
+            if (!$patient) {
+                $patientData = [
+                    'first_name' => $request->first_name,
+                    'last_name' => $request->last_name,
+                    'middle_name' => $request->middle_name,
+                    'birthdate' => $request->birthdate,
+                    'age' => $request->age,
+                    'sex' => $request->sex,
+                    'civil_status' => $request->civil_status,
+                    'nationality' => $request->nationality,
+                    'present_address' => $request->present_address,
+                    'telephone_no' => $request->telephone_no,
+                    'mobile_no' => $request->mobile_no,
+                    'informant_name' => $request->informant_name,
+                    'relationship' => $request->relationship,
+                    'company_name' => $request->company_name,
+                    'hmo_name' => $request->hmo_name,
+                    'hmo_company_id_no' => $request->hmo_company_id_no,
+                    'validation_approval_code' => $request->validation_approval_code,
+                    'validity' => $request->validity,
+                    'drug_allergies' => $request->drug_allergies,
+                    'food_allergies' => $request->food_allergies,
+                    'past_medical_history' => $request->past_medical_history,
+                    'family_history' => $request->family_history,
+                    'social_personal_history' => $request->social_personal_history,
+                    'obstetrics_gynecology_history' => $request->obstetrics_gynecology_history,
+                    'user_id' => $user->id,
+                ];
+            } else {
+                // For existing patients, set the patient_id in appointment data
+                $appointmentData['patient_id'] = $patient->id;
+            }
+
+            // Create patient first if needed, then create pending appointment
+            $createdPatient = null;
+            if (!$patient && $patientData) {
+                // Create new patient using AppointmentCreationService
+                $appointmentService = app(\App\Services\AppointmentCreationService::class);
+                $createdPatient = $appointmentService->createOrFindPatient($patientData);
+                \Log::info('New patient created for online appointment', [
+                    'patient_id' => $createdPatient->id,
+                    'patient_no' => $createdPatient->patient_no,
+                    'user_id' => $user->id
+                ]);
+            }
+
+            // Use the patient (existing or newly created)
+            $finalPatient = $patient ?: $createdPatient;
+
+            // Create pending appointment with proper patient reference
+            $pendingAppointmentData = [
+                'patient_name' => $appointmentData['patient_name'],
+                'patient_id' => $finalPatient ? $finalPatient->patient_no : 'TBD',
+                'contact_number' => $appointmentData['contact_number'],
+                'appointment_type' => $appointmentData['appointment_type'],
+                'specialist_type' => $appointmentData['specialist_type'],
+                'specialist_name' => $appointmentData['specialist_name'],
+                'specialist_id' => $appointmentData['specialist_id'],
+                'appointment_date' => $appointmentData['appointment_date'],
+                'appointment_time' => $appointmentData['appointment_time'],
+                'duration' => $appointmentData['duration'],
+                'status' => 'Pending Approval',
+                'billing_status' => 'pending',
+                'notes' => $appointmentData['notes'],
+                'special_requirements' => $appointmentData['special_requirements'],
                 'booking_method' => 'Online',
+                'price' => $appointmentData['price'],
                 'status_approval' => 'pending',
                 'appointment_source' => 'online',
             ];
 
-            // Calculate price
-            $pendingAppointment = new PendingAppointment($pendingAppointmentData);
-            $pendingAppointmentData['price'] = $pendingAppointment->calculatePrice();
+            $pendingAppointment = \App\Models\PendingAppointment::create($pendingAppointmentData);
 
-            $pendingAppointment = PendingAppointment::create($pendingAppointmentData);
-
-            \Log::info('Pending appointment created', [
-                'appointment_id' => $pendingAppointment->id,
-                'patient_id' => $pendingAppointment->patient_id,
-                'patient_no' => $patient->patient_no,
-                'appointment_data' => $pendingAppointment->toArray()
+            \Log::info('Online pending appointment created successfully', [
+                'pending_appointment_id' => $pendingAppointment->id,
+                'patient_name' => $pendingAppointment->patient_name,
+                'patient_id' => $finalPatient ? $finalPatient->id : 'not created',
+                'patient_no' => $finalPatient ? $finalPatient->patient_no : 'TBD',
+                'user_id' => $user->id
             ]);
 
             // Send notification to admin for approval
             $this->notifyAdminPendingAppointment($pendingAppointment);
-
-            DB::commit();
-
-            \Log::info('Online appointment created successfully', [
-                'pending_appointment_id' => $pendingAppointment->id,
-                'patient_id' => $patient->id,
-                'user_id' => $user->id
-            ]);
 
             return redirect()->route('patient.dashboard')
                 ->with('success', 'Online appointment request submitted successfully! You will be notified once it\'s approved by the admin.')
                 ->with('pending_appointment_id', $pendingAppointment->id);
 
         } catch (\Exception $e) {
-            DB::rollBack();
             \Log::error('Failed to create online appointment', [
                 'error' => $e->getMessage(),
                 'user_id' => $user->id,
@@ -356,7 +405,7 @@ class OnlineAppointmentController extends Controller
                         'appointment_date' => $pendingAppointment->appointment_date,
                         'appointment_time' => $pendingAppointment->appointment_time,
                         'specialist_name' => $pendingAppointment->specialist_name,
-                        'status' => $pendingAppointment->status_approval,
+                        'status' => $pendingAppointment->status,
                         'price' => $pendingAppointment->price,
                         'source' => 'online',
                     ],

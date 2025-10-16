@@ -8,23 +8,21 @@ import { useRoleAccess } from '@/hooks/useRoleAccess';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { Calendar, Edit, ArrowLeft, Save, X, User, FileText } from 'lucide-react';
+import { Calendar, ArrowRight, ArrowLeft, Save, X, User, Stethoscope, FileText } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/admin/dashboard' },
     { title: 'Visits', href: '/admin/visits' },
-    { title: 'Edit Visit', href: '#' },
+    { title: 'Create Follow-up', href: '#' },
 ];
 
-interface VisitEditProps {
-    visit: {
+interface CreateFollowUpProps {
+    original_visit: {
         id: number;
         visit_date_time: string;
         purpose: string;
         notes?: string;
-        status: string;
-        visit_type: string;
         patient: {
             id: number;
             first_name: string;
@@ -45,15 +43,13 @@ interface VisitEditProps {
     }>;
 }
 
-export default function VisitEdit({ visit, staff }: VisitEditProps) {
+export default function CreateFollowUp({ original_visit, staff }: CreateFollowUpProps) {
     const { hasPermission } = useRoleAccess();
     const [formData, setFormData] = useState({
-        visit_date_time: visit.visit_date_time.split('T')[0] + 'T' + visit.visit_date_time.split('T')[1].substring(0, 5),
-        purpose: visit.purpose,
-        attending_staff_id: visit.attending_staff.id.toString(),
-        status: visit.status,
-        visit_type: visit.visit_type,
-        notes: visit.notes || '',
+        visit_date_time: '',
+        purpose: `Follow-up: ${original_visit.purpose}`,
+        attending_staff_id: original_visit.attending_staff.id.toString(),
+        notes: '',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,7 +59,7 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
         setIsSubmitting(true);
         setErrors({});
 
-        router.put(`/admin/visits/${visit.id}`, formData, {
+        router.post(`/admin/visits/${original_visit.id}/follow-up`, formData, {
             onSuccess: () => {
                 // Success handled by controller redirect
             },
@@ -92,9 +88,19 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
         }
     };
 
+    const formatDateTime = (dateTime: string) => {
+        return new Date(dateTime).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={`Edit Visit - ${visit.patient.first_name} ${visit.patient.last_name}`} />
+            <Head title={`Create Follow-up Visit - ${original_visit.patient.first_name} ${original_visit.patient.last_name}`} />
             
             <div className="flex flex-1 flex-col gap-6 p-6">
                 <div className="@container/main flex flex-1 flex-col gap-6">
@@ -102,17 +108,17 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <div className="p-3 bg-blue-100 rounded-xl">
-                                <Edit className="h-6 w-6 text-blue-600" />
+                                <ArrowRight className="h-6 w-6 text-blue-600" />
                             </div>
                             <div>
-                                <h1 className="text-4xl font-semibold text-black mb-4">Edit Visit</h1>
+                                <h1 className="text-4xl font-semibold text-black mb-4">Create Follow-up Visit</h1>
                                 <p className="text-sm text-gray-600 mt-1">
-                                    {visit.patient.first_name} {visit.patient.last_name} - {visit.patient.sequence_number || visit.patient.patient_no}
+                                    {original_visit.patient.first_name} {original_visit.patient.last_name} - {original_visit.patient.sequence_number || original_visit.patient.patient_no}
                                 </p>
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
-                            <Link href={`/admin/visits/${visit.id}`}>
+                            <Link href={`/admin/visits/${original_visit.id}`}>
                                 <Button variant="outline" size="sm">
                                     <ArrowLeft className="h-4 w-4 mr-2" />
                                     Back to Visit
@@ -121,17 +127,17 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
                         </div>
                     </div>
 
-                    {/* Edit Form */}
+                    {/* Follow-up Form */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div className="lg:col-span-2">
                             <Card className="holographic-card shadow-lg overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50 hover:bg-white/80 transition-all duration-300">
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                     <div className="flex items-center gap-3">
                                         <div className="p-2 bg-gray-100 rounded-lg">
-                                            <Edit className="h-5 w-5" />
+                                            <ArrowRight className="h-5 w-5" />
                                         </div>
                                         <div>
-                                            <CardTitle className="text-lg font-semibold text-gray-900">Visit Information</CardTitle>
+                                            <CardTitle className="text-lg font-semibold text-gray-900">Follow-up Visit Information</CardTitle>
                                         </div>
                                     </div>
                                 </CardHeader>
@@ -139,13 +145,14 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
                                 <form onSubmit={handleSubmit} className="space-y-6">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-2">
-                                            <Label htmlFor="visit_date_time">Date & Time *</Label>
+                                            <Label htmlFor="visit_date_time">Follow-up Date & Time *</Label>
                                             <Input
                                                 id="visit_date_time"
                                                 type="datetime-local"
                                                 value={formData.visit_date_time}
                                                 onChange={(e) => handleInputChange('visit_date_time', e.target.value)}
                                                 className={errors.visit_date_time ? 'border-red-500' : ''}
+                                                min={new Date().toISOString().slice(0, 16)}
                                             />
                                             {errors.visit_date_time && (
                                                 <p className="text-sm text-red-500 mt-1">{errors.visit_date_time}</p>
@@ -173,61 +180,20 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
                                                 <p className="text-sm text-red-500 mt-1">{errors.attending_staff_id}</p>
                                             )}
                                         </div>
+                                    </div>
 
-                                        <div className="space-y-2">
-                                            <Label htmlFor="purpose">Purpose *</Label>
-                                            <Input
-                                                id="purpose"
-                                                value={formData.purpose}
-                                                onChange={(e) => handleInputChange('purpose', e.target.value)}
-                                                className={errors.purpose ? 'border-red-500' : ''}
-                                                placeholder="Enter visit purpose"
-                                            />
-                                            {errors.purpose && (
-                                                <p className="text-sm text-red-500 mt-1">{errors.purpose}</p>
-                                            )}
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor="status">Status *</Label>
-                                            <Select
-                                                value={formData.status}
-                                                onValueChange={(value) => handleInputChange('status', value)}
-                                            >
-                                                <SelectTrigger className={errors.status ? 'border-red-500' : ''}>
-                                                    <SelectValue placeholder="Select status" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="scheduled">Scheduled</SelectItem>
-                                                    <SelectItem value="in_progress">In Progress</SelectItem>
-                                                    <SelectItem value="completed">Completed</SelectItem>
-                                                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            {errors.status && (
-                                                <p className="text-sm text-red-500 mt-1">{errors.status}</p>
-                                            )}
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor="visit_type">Visit Type *</Label>
-                                            <Select
-                                                value={formData.visit_type}
-                                                onValueChange={(value) => handleInputChange('visit_type', value)}
-                                            >
-                                                <SelectTrigger className={errors.visit_type ? 'border-red-500' : ''}>
-                                                    <SelectValue placeholder="Select type" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="initial">Initial Visit</SelectItem>
-                                                    <SelectItem value="follow_up">Follow-up Visit</SelectItem>
-                                                    <SelectItem value="lab_result_review">Lab Result Review</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            {errors.visit_type && (
-                                                <p className="text-sm text-red-500 mt-1">{errors.visit_type}</p>
-                                            )}
-                                        </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="purpose">Purpose *</Label>
+                                        <Input
+                                            id="purpose"
+                                            value={formData.purpose}
+                                            onChange={(e) => handleInputChange('purpose', e.target.value)}
+                                            className={errors.purpose ? 'border-red-500' : ''}
+                                            placeholder="Enter follow-up purpose"
+                                        />
+                                        {errors.purpose && (
+                                            <p className="text-sm text-red-500 mt-1">{errors.purpose}</p>
+                                        )}
                                     </div>
 
                                     <div className="space-y-2">
@@ -237,7 +203,7 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
                                             value={formData.notes}
                                             onChange={(e) => handleInputChange('notes', e.target.value)}
                                             className={errors.notes ? 'border-red-500' : ''}
-                                            placeholder="Enter any additional notes about this visit"
+                                            placeholder="Enter any additional notes for the follow-up visit"
                                             rows={4}
                                         />
                                         {errors.notes && (
@@ -252,10 +218,10 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
                                             className="flex items-center gap-2"
                                         >
                                             <Save className="h-4 w-4" />
-                                            {isSubmitting ? 'Saving...' : 'Save Changes'}
+                                            {isSubmitting ? 'Creating...' : 'Create Follow-up Visit'}
                                         </Button>
                                         
-                                        <Link href={`/admin/visits/${visit.id}`}>
+                                        <Link href={`/admin/visits/${original_visit.id}`}>
                                             <Button type="button" variant="outline" className="flex items-center gap-2">
                                                 <X className="h-4 w-4" />
                                                 Cancel
@@ -269,12 +235,49 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
 
                         {/* Sidebar */}
                         <div className="space-y-6">
-                            {/* Patient Information */}
+                            {/* Original Visit Information */}
                             <Card className="holographic-card shadow-lg overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50 hover:bg-white/80 transition-all duration-300">
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                                     <div className="flex items-center gap-3">
                                         <div className="p-2 bg-gray-100 rounded-lg">
                                             <Calendar className="h-5 w-5" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg font-semibold text-gray-900">Original Visit</CardTitle>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-500">Date & Time</label>
+                                        <p className="font-semibold">{formatDateTime(original_visit.visit_date_time)}</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-500">Purpose</label>
+                                        <p className="font-semibold">{original_visit.purpose}</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-500">Staff</label>
+                                        <p className="font-semibold">{original_visit.attending_staff.name}</p>
+                                        <p className="text-sm text-gray-500 capitalize">{original_visit.attending_staff.role}</p>
+                                    </div>
+                                    {original_visit.notes && (
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-gray-500">Notes</label>
+                                            <p className="text-sm bg-gray-50 p-3 rounded">{original_visit.notes}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                            {/* Patient Information */}
+                            <Card className="holographic-card shadow-lg overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50 hover:bg-white/80 transition-all duration-300">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <User className="h-5 w-5" />
                                         </div>
                                         <div>
                                             <CardTitle className="text-lg font-semibold text-gray-900">Patient Information</CardTitle>
@@ -283,47 +286,24 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
                                 </CardHeader>
                                 <CardContent>
                                 <div className="space-y-4">
-                                    <div>
+                                    <div className="space-y-2">
                                         <label className="text-sm font-medium text-gray-500">Patient Name</label>
-                                        <p className="text-lg font-semibold mt-1">
-                                            {visit.patient.first_name} {visit.patient.last_name}
+                                        <p className="text-lg font-semibold">
+                                            {original_visit.patient.first_name} {original_visit.patient.last_name}
                                         </p>
                                     </div>
-                                    <div>
+                                    <div className="space-y-2">
                                         <label className="text-sm font-medium text-gray-500">Patient Number</label>
-                                        <p className="text-lg font-semibold mt-1">{visit.patient.sequence_number || visit.patient.patient_no}</p>
+                                        <p className="text-lg font-semibold">{original_visit.patient.sequence_number || original_visit.patient.patient_no}</p>
                                     </div>
                                 </div>
                                 
                                 <div className="pt-6">
-                                    <Link href={`/admin/patient/${visit.patient.id}`}>
+                                    <Link href={`/admin/patient/${original_visit.patient.id}`}>
                                         <Button variant="outline" className="w-full">
                                             View Patient Profile
                                         </Button>
                                     </Link>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                            {/* Current Staff */}
-                            <Card className="holographic-card shadow-lg overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50 hover:bg-white/80 transition-all duration-300">
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-gray-100 rounded-lg">
-                                            <User className="h-5 w-5" />
-                                        </div>
-                                        <div>
-                                            <CardTitle className="text-lg font-semibold text-gray-900">Current Staff</CardTitle>
-                                        </div>
-                                    </div>
-                                </CardHeader>
-                                <CardContent>
-                                <div className="space-y-3">
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-500">Current Staff</label>
-                                        <p className="font-semibold mt-1">{visit.attending_staff.name}</p>
-                                        <p className="text-sm text-gray-500 capitalize">{visit.attending_staff.role}</p>
-                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -336,28 +316,29 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
                                             <FileText className="h-5 w-5" />
                                         </div>
                                         <div>
-                                            <CardTitle className="text-lg font-semibold text-gray-900">Help</CardTitle>
+                                            <CardTitle className="text-lg font-semibold text-gray-900">Follow-up Guidelines</CardTitle>
                                         </div>
                                     </div>
                                 </CardHeader>
                                 <CardContent>
-                                <div className="space-y-3 text-sm text-gray-600">
+                                <div className="space-y-4 text-sm text-gray-600">
                                     <div>
-                                        <p className="font-medium"><strong>Visit Type:</strong></p>
+                                        <p className="font-medium"><strong>When to create follow-up visits:</strong></p>
                                         <ul className="list-disc list-inside space-y-1 ml-2 mt-2">
-                                            <li><strong>Initial:</strong> First visit for this appointment</li>
-                                            <li><strong>Follow-up:</strong> Subsequent visit for monitoring</li>
-                                            <li><strong>Lab Result Review:</strong> Review of laboratory results</li>
+                                            <li>Doctor needs to monitor patient recovery</li>
+                                            <li>Lab results need review by med tech</li>
+                                            <li>Medication adjustment required</li>
+                                            <li>Progress check after treatment</li>
                                         </ul>
                                     </div>
                                     
                                     <div>
-                                        <p className="font-medium"><strong>Status:</strong></p>
+                                        <p className="font-medium"><strong>Best practices:</strong></p>
                                         <ul className="list-disc list-inside space-y-1 ml-2 mt-2">
-                                            <li><strong>Scheduled:</strong> Visit is planned</li>
-                                            <li><strong>In Progress:</strong> Visit is currently happening</li>
-                                            <li><strong>Completed:</strong> Visit is finished</li>
-                                            <li><strong>Cancelled:</strong> Visit was cancelled</li>
+                                            <li>Schedule follow-up 1-2 weeks after initial visit</li>
+                                            <li>Use same staff member when possible</li>
+                                            <li>Be specific about follow-up purpose</li>
+                                            <li>Include relevant notes from original visit</li>
                                         </ul>
                                     </div>
                                 </div>

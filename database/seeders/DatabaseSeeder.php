@@ -33,10 +33,5 @@ class DatabaseSeeder extends Seeder
 
         // Seed patients (PatientSeeder not found, skipping)
 
-        // Seed patient visits
-        $this->call(PatientVisitSeeder::class);
-
-        // Seed lab orders
-        $this->call(LabOrderSeeder::class);
     }
 }

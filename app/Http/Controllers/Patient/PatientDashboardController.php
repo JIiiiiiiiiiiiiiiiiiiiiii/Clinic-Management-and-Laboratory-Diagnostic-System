@@ -66,7 +66,7 @@ class PatientDashboardController extends Controller
             'total_appointments' => $appointments->count(),
             'upcoming_appointments' => $appointments->where('status', 'Confirmed')->count(),
             'completed_appointments' => $appointments->where('status', 'Completed')->count(),
-            'total_visits' => 0, // This would come from PatientVisit model if needed
+            'total_visits' => 0, // Visits functionality removed
             'pending_lab_results' => 0, // This would come from LabResult model if needed
         ];
 

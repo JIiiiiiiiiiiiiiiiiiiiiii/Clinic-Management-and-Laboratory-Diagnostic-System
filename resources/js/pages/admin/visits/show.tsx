@@ -1,406 +1,410 @@
-import React from 'react';
-import { Head, Link, router } from '@inertiajs/react';
-import { route } from 'ziggy-js';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { 
-  ArrowLeft, 
-  Edit, 
-  Calendar, 
-  Clock, 
-  User, 
-  Stethoscope, 
-  FileText, 
-  Pill, 
-  TestTube, 
-  CreditCard,
-  CheckCircle,
-  XCircle,
-  Printer
-} from 'lucide-react';
-import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
+import { Head, Link, router } from '@inertiajs/react';
+import { Calendar, CheckCircle, Clock, Edit, ArrowRight, User, Stethoscope, FileText, ArrowLeft, Trash2 } from 'lucide-react';
 
-interface Patient {
-  id: number;
-  first_name: string;
-  last_name: string;
-  patient_no: string;
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/admin/dashboard' },
+    { title: 'Visits', href: '/admin/visits' },
+    { title: 'Visit Details', href: '#' },
+];
+
+interface VisitShowProps {
+    visit: {
+        id: number;
+        visit_date_time: string;
+        purpose: string;
+        notes?: string;
+        status: string;
+        visit_type: string;
+        patient: {
+            id: number;
+            first_name: string;
+            last_name: string;
+            patient_no: string;
+            sequence_number?: string;
+            mobile_no?: string;
+            age: number;
+            sex: string;
+        };
+        attending_staff: {
+            id: number;
+            name: string;
+            role: string;
+        };
+        appointment: {
+            id: number;
+            appointment_type: string;
+            specialist_name: string;
+        };
+        follow_up_visits?: Array<{
+            id: number;
+            visit_date_time: string;
+            purpose: string;
+            status: string;
+            attending_staff: {
+                name: string;
+            };
+        }>;
+    };
 }
 
-interface Doctor {
-  id: number;
-  name: string;
-}
+export default function VisitShow({ visit }: VisitShowProps) {
+    const { hasPermission } = useRoleAccess();
 
-interface Appointment {
-  id: number;
-  appointment_type: string;
-  appointment_date: string;
-  appointment_time: string;
-}
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'scheduled': return 'bg-blue-100 text-blue-800';
+            case 'in_progress': return 'bg-yellow-100 text-yellow-800';
+            case 'completed': return 'bg-green-100 text-green-800';
+            case 'cancelled': return 'bg-red-100 text-red-800';
+            default: return 'bg-gray-100 text-gray-800';
+        }
+    };
 
-interface Billing {
-  id: number;
-  total_amount: number;
-  status: string;
-}
+    const getVisitTypeColor = (type: string) => {
+        switch (type) {
+            case 'initial': return 'bg-blue-100 text-blue-800';
+            case 'follow_up': return 'bg-purple-100 text-purple-800';
+            case 'lab_result_review': return 'bg-orange-100 text-orange-800';
+            default: return 'bg-gray-100 text-gray-800';
+        }
+    };
 
-interface LabOrder {
-  id: number;
-  status: string;
-  results: any[];
-}
+    const formatDateTime = (dateTime: string) => {
+        return new Date(dateTime).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
 
-interface Visit {
-  id: number;
-  visit_number: string;
-  visit_date: string;
-  status: 'Pending' | 'In Progress' | 'Completed' | 'Cancelled';
-  reason: string;
-  diagnosis?: string;
-  prescription?: string;
-  vitals?: any;
-  notes?: string;
-  lab_request: boolean;
-  follow_up_required: boolean;
-  follow_up_date?: string;
-  patient: Patient;
-  doctor: Doctor;
-  appointment?: Appointment;
-  billing?: Billing;
-  labOrders: LabOrder[];
-}
+    const handleStatusUpdate = (status: string) => {
+        if (confirm(`Are you sure you want to mark this visit as ${status}?`)) {
+            router.put(`/admin/visits/${visit.id}/${status === 'completed' ? 'complete' : 'cancel'}`);
+        }
+    };
 
-interface Props {
-  visit: Visit;
-}
+    return (
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title={`Visit Details - ${visit.patient.first_name} ${visit.patient.last_name}`} />
+            
+            <div className="flex flex-1 flex-col gap-6 p-6">
+                <div className="@container/main flex flex-1 flex-col gap-6">
+                    {/* Header Section */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-blue-100 rounded-xl">
+                                <Calendar className="h-6 w-6 text-blue-600" />
+                            </div>
+                            <div>
+                                <h1 className="text-4xl font-semibold text-black mb-4">Visit Details</h1>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    {visit.patient.first_name} {visit.patient.last_name} - {visit.patient.sequence_number || visit.patient.patient_no}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Link href="/admin/visits">
+                                <Button variant="outline" size="sm">
+                                    <ArrowLeft className="h-4 w-4 mr-2" />
+                                    Back to Visits
+                                </Button>
+                            </Link>
+                            
+                            <div className="flex items-center gap-2">
+                                {hasPermission('canEditAppointments') && (
+                                    <Link href={`/admin/visits/${visit.id}/edit`}>
+                                        <Button variant="outline">
+                                            <Edit className="h-4 w-4 mr-2" />
+                                            Edit Visit
+                                        </Button>
+                                    </Link>
+                                )}
 
-const statusColors = {
-  'Pending': 'bg-yellow-100 text-yellow-800',
-  'In Progress': 'bg-blue-100 text-blue-800',
-  'Completed': 'bg-green-100 text-green-800',
-  'Cancelled': 'bg-red-100 text-red-800',
-};
+                                {hasPermission('canEditAppointments') && visit.status !== 'completed' && (
+                                    <Link href={`/admin/visits/${visit.id}/follow-up`}>
+                                        <Button>
+                                            <ArrowRight className="h-4 w-4 mr-2" />
+                                            Create Follow-up
+                                        </Button>
+                                    </Link>
+                                )}
 
-export default function ShowVisit({ visit }: Props) {
-  const breadcrumbs: BreadcrumbItem[] = [
-    { label: 'Dashboard', href: '/admin/dashboard' },
-    { label: 'Visit Management', href: '/admin/visits' },
-    { label: `Visit ${visit.visit_number}`, href: `/admin/visits/${visit.id}` },
-  ];
-  const handleComplete = () => {
-    router.post(route('admin.visits.complete', visit.id));
-  };
+                                {hasPermission('canDeleteAppointments') && (
+                                    <Button 
+                                        variant="destructive"
+                                        onClick={() => {
+                                            if (confirm('Are you sure you want to delete this visit?')) {
+                                                router.delete(`/admin/visits/${visit.id}`);
+                                            }
+                                        }}
+                                    >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
 
-  const handleCancel = () => {
-    router.post(route('admin.visits.cancel', visit.id));
-  };
+                    {/* Status Actions */}
+                    {visit.status !== 'completed' && visit.status !== 'cancelled' && hasPermission('canEditAppointments') && (
+                        <Card className="holographic-card shadow-lg overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50 hover:bg-white/80 transition-all duration-300">
+                            <CardContent className="p-6">
+                                <div className="flex items-center gap-4">
+                                    <span className="text-sm font-medium text-gray-700">Update Status:</span>
+                                    <Button 
+                                        variant="outline" 
+                                        onClick={() => handleStatusUpdate('completed')}
+                                        className="text-green-600 hover:text-green-700"
+                                    >
+                                        <CheckCircle className="h-4 w-4 mr-2" />
+                                        Mark as Completed
+                                    </Button>
+                                    <Button 
+                                        variant="outline" 
+                                        onClick={() => handleStatusUpdate('cancelled')}
+                                        className="text-red-600 hover:text-red-700"
+                                    >
+                                        <Clock className="h-4 w-4 mr-2" />
+                                        Cancel Visit
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
 
-  const handlePrint = () => {
-    router.get(route('admin.visits.summary', visit.id));
-  };
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Main Visit Information */}
+                        <div className="lg:col-span-2 space-y-6">
+                            {/* Visit Details */}
+                            <Card className="holographic-card shadow-lg overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50 hover:bg-white/80 transition-all duration-300">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <Calendar className="h-5 w-5" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg font-semibold text-gray-900">Visit Information</CardTitle>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-500">Date & Time</label>
+                                        <p className="text-lg font-semibold">{formatDateTime(visit.visit_date_time)}</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-500">Purpose</label>
+                                        <p className="text-lg font-semibold">{visit.purpose}</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-500">Status</label>
+                                        <div>
+                                            <Badge className={getStatusColor(visit.status)}>
+                                                {visit.status.replace('_', ' ').toUpperCase()}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-500">Visit Type</label>
+                                        <div>
+                                            <Badge className={getVisitTypeColor(visit.visit_type)}>
+                                                {visit.visit_type.replace('_', ' ').toUpperCase()}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                </div>
 
-  return (
-    <AppLayout breadcrumbs={breadcrumbs}>
-      <Head title={`Visit ${visit.visit_number}`} />
-      
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href={route('admin.visits.index')}>
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Visits
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">
-                Visit {visit.visit_number}
-              </h1>
-              <p className="text-muted-foreground">
-                {visit.patient.first_name} {visit.patient.last_name} • {visit.patient.patient_no}
-              </p>
+                                {visit.notes && (
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-500">Notes</label>
+                                        <p className="text-gray-900 bg-gray-50 p-4 rounded-md">{visit.notes}</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                            {/* Patient Information */}
+                            <Card className="holographic-card shadow-lg overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50 hover:bg-white/80 transition-all duration-300">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <User className="h-5 w-5" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg font-semibold text-gray-900">Patient Information</CardTitle>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-500">Patient Name</label>
+                                        <p className="text-lg font-semibold">
+                                            {visit.patient.first_name} {visit.patient.last_name}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-500">Patient Number</label>
+                                        <p className="text-lg font-semibold">{visit.patient.sequence_number || visit.patient.patient_no}</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-500">Age</label>
+                                        <p className="text-lg font-semibold">{visit.patient.age} years old</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-500">Gender</label>
+                                        <p className="text-lg font-semibold capitalize">{visit.patient.sex}</p>
+                                    </div>
+                                    {visit.patient.mobile_no && (
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-gray-500">Contact</label>
+                                            <p className="text-lg font-semibold">{visit.patient.mobile_no}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Staff Information */}
+                        <Card className="shadow-sm">
+                            <CardHeader className="pb-4">
+                                <CardTitle className="flex items-center gap-2">
+                                    <Stethoscope className="h-5 w-5" />
+                                    Attending Staff
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-blue-100 rounded-full">
+                                        <Stethoscope className="h-6 w-6 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-lg font-semibold">{visit.attending_staff.name}</p>
+                                        <p className="text-sm text-gray-500 capitalize">{visit.attending_staff.role}</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Appointment Information */}
+                        <Card className="shadow-sm">
+                            <CardHeader className="pb-4">
+                                <CardTitle className="flex items-center gap-2">
+                                    <FileText className="h-5 w-5" />
+                                    Related Appointment
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-500">Appointment Type</label>
+                                        <p className="text-lg font-semibold">{visit.appointment.appointment_type}</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-500">Specialist</label>
+                                        <p className="text-lg font-semibold">{visit.appointment.specialist_name}</p>
+                                    </div>
+                                    <div className="pt-2">
+                                        <Link href={`/admin/appointments/${visit.appointment.id}`}>
+                                            <Button variant="outline" size="sm">
+                                                View Appointment Details
+                                            </Button>
+                                        </Link>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Sidebar */}
+                    <div className="space-y-6">
+                        {/* Follow-up Visits */}
+                        {visit.follow_up_visits && visit.follow_up_visits.length > 0 && (
+                            <Card className="shadow-sm">
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="flex items-center gap-2">
+                                        <ArrowRight className="h-5 w-5" />
+                                        Follow-up Visits
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-0">
+                                    <div className="space-y-4">
+                                        {visit.follow_up_visits.map((followUp) => (
+                                            <div key={followUp.id} className="border rounded-lg p-4">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div>
+                                                        <p className="font-medium">{followUp.purpose}</p>
+                                                        <p className="text-sm text-gray-500">
+                                                            {formatDateTime(followUp.visit_date_time)}
+                                                        </p>
+                                                    </div>
+                                                    <Badge className={getStatusColor(followUp.status)}>
+                                                        {followUp.status.replace('_', ' ').toUpperCase()}
+                                                    </Badge>
+                                                </div>
+                                                <div className="mb-3">
+                                                    <p className="text-sm text-gray-500">
+                                                        Staff: {followUp.attending_staff.name}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <Link href={`/admin/visits/${followUp.id}`}>
+                                                        <Button variant="outline" size="sm">
+                                                            View Details
+                                                        </Button>
+                                                    </Link>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Quick Actions */}
+                        <Card className="shadow-sm">
+                            <CardHeader className="pb-4">
+                                <CardTitle>Quick Actions</CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-0 space-y-3">
+                                <Link href={`/admin/patient/${visit.patient.id}`} className="block">
+                                    <Button variant="outline" className="w-full justify-start">
+                                        <User className="h-4 w-4 mr-2" />
+                                        View Patient Profile
+                                    </Button>
+                                </Link>
+                                
+                                <Link href={`/admin/appointments?patient=${visit.patient.id}`} className="block">
+                                    <Button variant="outline" className="w-full justify-start">
+                                        <Calendar className="h-4 w-4 mr-2" />
+                                        View Patient Appointments
+                                    </Button>
+                                </Link>
+
+                                {visit.status !== 'completed' && hasPermission('canEditAppointments') && (
+                                    <Link href={`/admin/visits/${visit.id}/follow-up`} className="block">
+                                        <Button variant="outline" className="w-full justify-start">
+                                            <ArrowRight className="h-4 w-4 mr-2" />
+                                            Create Follow-up Visit
+                                        </Button>
+                                    </Link>
+                                )}
+                            </CardContent>
+                            </Card>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Badge className={statusColors[visit.status]}>
-              {visit.status}
-            </Badge>
-            
-            {visit.status !== 'Completed' && visit.status !== 'Cancelled' && (
-              <Link href={route('admin.visits.edit', visit.id)}>
-                <Button variant="outline" size="sm">
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-              </Link>
-            )}
-            
-            <Button variant="outline" size="sm" onClick={handlePrint}>
-              <Printer className="h-4 w-4 mr-2" />
-              Print
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Visit Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Stethoscope className="h-5 w-5" />
-                  Visit Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Date:</span>
-                    <span className="text-sm">{format(new Date(visit.visit_date), 'MMM dd, yyyy')}</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Time:</span>
-                    <span className="text-sm">{format(new Date(visit.visit_date), 'h:mm a')}</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Doctor:</span>
-                    <span className="text-sm">{visit.doctor.name}</span>
-                  </div>
-                  
-                  {visit.appointment && (
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Appointment:</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {visit.appointment.appointment_type}
-                      </Badge>
-                    </div>
-                  )}
-                </div>
-
-                {visit.reason && (
-                  <div>
-                    <h4 className="font-medium mb-2">Reason for Visit</h4>
-                    <p className="text-sm text-muted-foreground">{visit.reason}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Medical Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Medical Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {visit.diagnosis && (
-                  <div>
-                    <h4 className="font-medium mb-2">Diagnosis</h4>
-                    <p className="text-sm text-muted-foreground">{visit.diagnosis}</p>
-                  </div>
-                )}
-
-                {visit.prescription && (
-                  <div>
-                    <h4 className="font-medium mb-2 flex items-center gap-2">
-                      <Pill className="h-4 w-4" />
-                      Prescription
-                    </h4>
-                    <p className="text-sm text-muted-foreground">{visit.prescription}</p>
-                  </div>
-                )}
-
-                {visit.notes && (
-                  <div>
-                    <h4 className="font-medium mb-2">Notes</h4>
-                    <p className="text-sm text-muted-foreground">{visit.notes}</p>
-                  </div>
-                )}
-
-                {visit.follow_up_required && (
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <h4 className="font-medium text-blue-900 mb-2">Follow-up Required</h4>
-                    <p className="text-sm text-blue-700">
-                      {visit.follow_up_date 
-                        ? `Scheduled for ${format(new Date(visit.follow_up_date), 'MMM dd, yyyy')}`
-                        : 'Follow-up date to be determined'
-                      }
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Vitals */}
-            {visit.vitals && Object.values(visit.vitals).some(v => v) && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Vital Signs</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {visit.vitals.blood_pressure && (
-                      <div>
-                        <p className="text-sm font-medium">Blood Pressure</p>
-                        <p className="text-lg font-semibold">{visit.vitals.blood_pressure}</p>
-                      </div>
-                    )}
-                    {visit.vitals.temperature && (
-                      <div>
-                        <p className="text-sm font-medium">Temperature</p>
-                        <p className="text-lg font-semibold">{visit.vitals.temperature}°C</p>
-                      </div>
-                    )}
-                    {visit.vitals.heart_rate && (
-                      <div>
-                        <p className="text-sm font-medium">Heart Rate</p>
-                        <p className="text-lg font-semibold">{visit.vitals.heart_rate} bpm</p>
-                      </div>
-                    )}
-                    {visit.vitals.respiratory_rate && (
-                      <div>
-                        <p className="text-sm font-medium">Respiratory Rate</p>
-                        <p className="text-lg font-semibold">{visit.vitals.respiratory_rate}</p>
-                      </div>
-                    )}
-                    {visit.vitals.weight && (
-                      <div>
-                        <p className="text-sm font-medium">Weight</p>
-                        <p className="text-lg font-semibold">{visit.vitals.weight} kg</p>
-                      </div>
-                    )}
-                    {visit.vitals.height && (
-                      <div>
-                        <p className="text-sm font-medium">Height</p>
-                        <p className="text-lg font-semibold">{visit.vitals.height} cm</p>
-                      </div>
-                    )}
-                    {visit.vitals.oxygen_saturation && (
-                      <div>
-                        <p className="text-sm font-medium">Oxygen Saturation</p>
-                        <p className="text-lg font-semibold">{visit.vitals.oxygen_saturation}%</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {visit.status === 'In Progress' && (
-                  <Button onClick={handleComplete} className="w-full">
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Complete Visit
-                  </Button>
-                )}
-                
-                {visit.status !== 'Completed' && visit.status !== 'Cancelled' && (
-                  <Button variant="destructive" onClick={handleCancel} className="w-full">
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Cancel Visit
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Lab Requests */}
-            {visit.lab_request && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TestTube className="h-5 w-5" />
-                    Laboratory
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <Badge variant="secondary">Lab Requested</Badge>
-                    {visit.labOrders && visit.labOrders.length > 0 && (
-                      <div className="text-sm text-muted-foreground">
-                        {visit.labOrders.length} lab order(s) pending
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Billing */}
-            {visit.billing && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
-                    Billing
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm font-medium">Total Amount:</span>
-                      <span className="text-sm font-semibold">₱{visit.billing.total_amount.toFixed(2)}</span>
-                    </div>
-                    <Badge variant={visit.billing.status === 'paid' ? 'default' : 'secondary'}>
-                      {visit.billing.status}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Patient Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Patient Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div>
-                    <p className="text-sm font-medium">Name</p>
-                    <p className="text-sm text-muted-foreground">
-                      {visit.patient.first_name} {visit.patient.last_name}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Patient No.</p>
-                    <p className="text-sm text-muted-foreground">{visit.patient.patient_no}</p>
-                  </div>
-                </div>
-                <Separator className="my-4" />
-                <Link href={route('admin.patient.show', visit.patient.id)}>
-                  <Button variant="outline" size="sm" className="w-full">
-                    View Patient Profile
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    </AppLayout>
-  );
+        </AppLayout>
+    );
 }

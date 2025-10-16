@@ -6,6 +6,7 @@ use App\Http\Requests\Patient\StorePatientRequest;
 use App\Http\Requests\Patient\UpdatePatientRequest;
 use App\Models\Patient;
 use App\Services\PatientService;
+use App\Services\AppointmentCreationService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -50,13 +51,6 @@ class PatientController extends Controller
                 $query->whereDate('created_at', '<=', $request->date_to);
             }
 
-            if ($request->filled('has_visits')) {
-                if ($request->has_visits === 'yes') {
-                    $query->whereHas('visits');
-                } elseif ($request->has_visits === 'no') {
-                    $query->whereDoesntHave('visits');
-                }
-            }
 
             // Apply sorting
             $sortBy = $request->get('p_sort_by', 'created_at');
@@ -65,21 +59,6 @@ class PatientController extends Controller
 
             $patients = $query->paginate(15);
 
-            // Get visits data
-            $visitsQuery = \App\Models\PatientVisit::query();
-
-            // Apply visit filters
-            if ($request->filled('v_start')) {
-                $visitsQuery->whereDate('arrival_date', '>=', $request->v_start);
-            }
-            if ($request->filled('v_end')) {
-                $visitsQuery->whereDate('arrival_date', '<=', $request->v_end);
-            }
-            if ($request->filled('v_doctor')) {
-                $visitsQuery->where('attending_physician', $request->v_doctor);
-            }
-
-            $visits = $visitsQuery->orderBy('arrival_date', 'desc')->paginate(15);
 
             // Get patient statistics
             $patientService = app(\App\Services\PatientService::class);
@@ -101,21 +80,7 @@ class PatientController extends Controller
                     'age_from' => $request->get('age_from', ''),
                     'age_to' => $request->get('age_to', ''),
                     'date_from' => $request->get('date_from', ''),
-                    'date_to' => $request->get('date_to', ''),
-                    'has_visits' => $request->get('has_visits', '')
-                ],
-                'visits' => $visits->items(),
-                'visits_pagination' => [
-                    'current_page' => $visits->currentPage(),
-                    'last_page' => $visits->lastPage(),
-                    'per_page' => $visits->perPage(),
-                    'total' => $visits->total()
-                ],
-                'visits_filters' => [
-                    'v_start' => $request->get('v_start'),
-                    'v_end' => $request->get('v_end'),
-                    'v_doctor' => $request->get('v_doctor'),
-                    'v_sort_dir' => $request->get('v_sort_dir', 'desc')
+                    'date_to' => $request->get('date_to', '')
                 ],
                 'statistics' => $statistics
             ]);
@@ -134,14 +99,6 @@ class PatientController extends Controller
                     'total' => 0
                 ],
                 'patients_filters' => [],
-                'visits' => [],
-                'visits_pagination' => [
-                    'current_page' => 1,
-                    'last_page' => 1,
-                    'per_page' => 15,
-                    'total' => 0
-                ],
-                'visits_filters' => [],
                 'statistics' => [],
                 'error' => 'Failed to load patient data. Please try again.'
             ]);
@@ -220,7 +177,7 @@ class PatientController extends Controller
     public function show(Patient $patient)
     {
         $patient->load(['visits' => function ($query) {
-            $query->orderBy('arrival_date', 'desc')->orderBy('arrival_time', 'desc');
+            $query->orderBy('visit_date_time', 'desc');
         }, 'labOrders.labTests', 'labOrders.orderedBy']);
 
         return Inertia::render('admin/patient/show', [
@@ -259,13 +216,6 @@ class PatientController extends Controller
         }
     }
 
-    public function destroy(Patient $patient)
-    {
-        $patient->delete();
-
-        return redirect()->route('admin.patient.index')->with('success', 'Patient deleted successfully!');
-    }
-
     /**
      * Find potential duplicate patient based on core identifying information
      */
@@ -299,5 +249,20 @@ class PatientController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Delete patient and all related records (cascade delete)
+     */
+    public function destroy(Patient $patient, AppointmentCreationService $appointmentService)
+    {
+        try {
+            $appointmentService->deletePatientWithCascade($patient->id);
+            
+            return redirect()->route('admin.patient.index')
+                ->with('success', 'Patient and all related records deleted successfully');
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'Failed to delete patient: ' . $e->getMessage()]);
+        }
     }
 }

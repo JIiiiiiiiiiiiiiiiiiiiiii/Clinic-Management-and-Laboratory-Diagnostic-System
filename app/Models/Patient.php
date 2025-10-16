@@ -22,6 +22,7 @@ class Patient extends Model
         'age',
         'sex',
         'patient_no',
+        'sequence_number',
 
         // Demographics
         'occupation',
@@ -87,19 +88,9 @@ class Patient extends Model
     }
 
     // Relationships
-    public function visits()
-    {
-        return $this->hasMany(PatientVisit::class);
-    }
-
     public function labOrders()
     {
         return $this->hasMany(LabOrder::class);
-    }
-
-    public function latestVisit()
-    {
-        return $this->hasOne(PatientVisit::class)->latest();
     }
 
     public function transfers()
@@ -112,7 +103,7 @@ class Patient extends Model
         return $this->hasMany(Appointment::class);
     }
 
-    public function medicalVisits()
+    public function visits()
     {
         return $this->hasMany(Visit::class);
     }
@@ -120,5 +111,16 @@ class Patient extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Boot method to handle cascading deletes
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        // Note: With proper foreign key constraints, cascade delete is handled at database level
+        // No need for manual deletion in model events
     }
 }

@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\PatientController;
-use App\Http\Controllers\PatientVisitController;
 use App\Http\Controllers\Lab\LabTestController;
 use App\Http\Controllers\Lab\LabOrderController;
 use App\Http\Controllers\Lab\LabResultController;
@@ -23,7 +22,6 @@ use App\Http\Controllers\Admin\AppointmentController;
 use App\Http\Controllers\Admin\ClinicProcedureController;
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\NotificationController;
-use App\Http\Controllers\VisitController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\DashboardController;
@@ -57,16 +55,6 @@ Route::prefix('admin')
             'destroy' => 'patient.destroy',
         ]);
 
-        // Patient Visit routes - All staff can access
-        Route::prefix('patient/{patient}/visits')->name('patient.visits.')->group(function () {
-            Route::get('/', [PatientVisitController::class, 'index'])->name('index');
-            Route::get('/create', [PatientVisitController::class, 'create'])->name('create');
-            Route::post('/', [PatientVisitController::class, 'store'])->name('store');
-            Route::get('/{visit}', [PatientVisitController::class, 'show'])->name('show');
-            Route::get('/{visit}/edit', [PatientVisitController::class, 'edit'])->name('edit');
-            Route::put('/{visit}', [PatientVisitController::class, 'update'])->name('update');
-            Route::delete('/{visit}', [PatientVisitController::class, 'destroy'])->name('destroy');
-        });
 
         // Specialist Management - Admin only
         Route::prefix('specialists')->name('specialists.')->middleware(['role:admin'])->group(function () {
@@ -237,6 +225,54 @@ Route::prefix('admin')
         Route::prefix('appointments')->name('appointments.')->middleware(['role:doctor,admin'])->group(function () {
             Route::get('/', [AppointmentController::class, 'index'])->name('index');
             Route::get('/create', [AppointmentController::class, 'create'])->name('create');
+            Route::get('/walk-in', function () {
+                // Get doctors and medtechs for the form
+                $doctors = \App\Models\User::where('role', 'doctor')->get()->map(function($user) {
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'specialization' => $user->specialization ?? 'General Practice',
+                        'employee_id' => $user->employee_id ?? '',
+                        'availability' => 'Available',
+                        'rating' => 4.5,
+                        'experience' => '5+ years',
+                        'nextAvailable' => 'Today'
+                    ];
+                });
+                
+                $medtechs = \App\Models\User::where('role', 'medtech')->get()->map(function($user) {
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'specialization' => $user->specialization ?? 'Medical Technology',
+                        'employee_id' => $user->employee_id ?? '',
+                        'availability' => 'Available',
+                        'rating' => 4.5,
+                        'experience' => '3+ years',
+                        'nextAvailable' => 'Today'
+                    ];
+                });
+                
+                $appointmentTypes = [
+                    'general_consultation' => 'General Consultation',
+                    'cbc' => 'Complete Blood Count (CBC)',
+                    'fecalysis_test' => 'Fecalysis Test',
+                    'urinarysis_test' => 'Urinalysis Test'
+                ];
+                
+                return Inertia::render('shared/appointment-booking', [
+                    'user' => auth()->user(),
+                    'patient' => null,
+                    'doctors' => $doctors,
+                    'medtechs' => $medtechs,
+                    'appointmentTypes' => $appointmentTypes,
+                    'isExistingPatient' => false,
+                    'isAdmin' => true,
+                    'backUrl' => route('admin.appointments.index'),
+                    'nextPatientId' => 'P001'
+                ]);
+            })->name('walk-in');
+            Route::post('/walk-in', [AppointmentController::class, 'storeWalkIn'])->name('walk-in.store');
             Route::post('/', [AppointmentController::class, 'store'])->name('store');
             Route::get('/{appointment}', [AppointmentController::class, 'show'])->name('show');
             Route::get('/{appointment}/edit', [AppointmentController::class, 'edit'])->name('edit');
@@ -253,6 +289,23 @@ Route::prefix('admin')
             })->name('availability')->middleware(['role:admin']);
         });
 
+        // Visits Routes - Doctor and admin only
+        Route::prefix('visits')->name('visits.')->middleware(['role:doctor,admin'])->group(function () {
+            Route::get('/', [\App\Http\Controllers\Admin\VisitController::class, 'index'])->name('index');
+            Route::get('/{visit}', [\App\Http\Controllers\Admin\VisitController::class, 'show'])->name('show');
+            Route::get('/{visit}/edit', [\App\Http\Controllers\Admin\VisitController::class, 'edit'])->name('edit');
+            Route::put('/{visit}', [\App\Http\Controllers\Admin\VisitController::class, 'update'])->name('update');
+            Route::delete('/{visit}', [\App\Http\Controllers\Admin\VisitController::class, 'destroy'])->name('destroy');
+            
+            // Follow-up visit routes
+            Route::get('/{visit}/follow-up', [\App\Http\Controllers\Admin\VisitController::class, 'createFollowUp'])->name('follow-up.create');
+            Route::post('/{visit}/follow-up', [\App\Http\Controllers\Admin\VisitController::class, 'storeFollowUp'])->name('follow-up.store');
+            
+            // Status update routes
+            Route::put('/{visit}/complete', [\App\Http\Controllers\Admin\VisitController::class, 'markCompleted'])->name('complete');
+            Route::put('/{visit}/cancel', [\App\Http\Controllers\Admin\VisitController::class, 'markCancelled'])->name('cancel');
+        });
+
         // Pending Appointments Routes - Admin only
         Route::prefix('pending-appointments')->name('pending-appointments.')->middleware(['role:admin'])->group(function () {
             Route::get('/', [\App\Http\Controllers\Admin\PendingAppointmentController::class, 'index'])->name('index');
@@ -263,26 +316,6 @@ Route::prefix('admin')
             
         });
 
-        // Visit Management Routes - Doctor and admin only
-        Route::prefix('visits')->name('visits.')->middleware(['role:doctor,admin'])->group(function () {
-            Route::get('/', [VisitController::class, 'index'])->name('index');
-            Route::get('/create', [VisitController::class, 'create'])->name('create');
-            Route::post('/', [VisitController::class, 'store'])->name('store');
-            Route::get('/today', [VisitController::class, 'today'])->name('today');
-            Route::get('/{visit}', [VisitController::class, 'show'])->name('show');
-            Route::get('/{visit}/edit', [VisitController::class, 'edit'])->name('edit');
-            Route::put('/{visit}', [VisitController::class, 'update'])->name('update');
-            Route::delete('/{visit}', [VisitController::class, 'destroy'])->name('destroy');
-            Route::post('/{visit}/complete', [VisitController::class, 'complete'])->name('complete');
-            Route::post('/{visit}/cancel', [VisitController::class, 'cancel'])->name('cancel');
-            Route::get('/{visit}/summary', [VisitController::class, 'summary'])->name('summary');
-            Route::get('/appointments/{appointment}/create-visit', [VisitController::class, 'createFromAppointment'])->name('create-from-appointment');
-        });
-
-        // Patient Visit History Routes - All staff can access
-        Route::prefix('patients/{patient}/visits')->name('patients.visits.')->group(function () {
-            Route::get('/', [VisitController::class, 'patientVisits'])->name('index');
-        });
 
         // Clinic Procedures Routes - Admin and lab staff only
         Route::prefix('clinic-procedures')->name('clinic-procedures.')->middleware(['role:admin,laboratory_technologist,medtech'])->group(function () {

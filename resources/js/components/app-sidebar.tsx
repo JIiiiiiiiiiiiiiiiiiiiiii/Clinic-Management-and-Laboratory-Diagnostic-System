@@ -73,6 +73,10 @@ const data = {
           title: "Add Patient",
           url: "/admin/patient/create",
         },
+        {
+          title: "Visits",
+          url: "/admin/visits",
+        },
       ],
     },
     {
@@ -137,25 +141,6 @@ const data = {
         {
           title: "Doctor Availability",
           url: "/admin/appointments/availability",
-        },
-      ],
-    },
-    {
-      title: "Visits",
-      url: "/admin/visits",
-      icon: StethoscopeIcon,
-      items: [
-        {
-          title: "All Visits",
-          url: "/admin/visits",
-        },
-        {
-          title: "Today's Visits",
-          url: "/admin/visits/today",
-        },
-        {
-          title: "New Visit",
-          url: "/admin/visits/create",
         },
       ],
     },

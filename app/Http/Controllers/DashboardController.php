@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Patient;
-use App\Models\PatientVisit;
 use App\Models\Appointment;
 use App\Models\LabOrder;
 use App\Models\LabResult;

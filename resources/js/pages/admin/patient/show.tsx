@@ -25,30 +25,12 @@ const buildBreadcrumbs = (patientId: number): BreadcrumbItem[] => [
     { title: 'Patient Details', href: `/admin/patient/${patientId}` },
 ];
 
-interface PatientVisit {
-    id: number;
-    arrival_date: string;
-    arrival_time: string;
-    mode_of_arrival: string;
-    attending_physician: string;
-    reason_for_consult: string;
-    assessment_diagnosis?: string;
-    time_seen: string;
-    status: 'active' | 'completed' | 'discharged';
-    notes: string;
-    visit_number: string;
-    full_arrival_date_time: string;
-    created_at: string;
-    updated_at: string;
-}
-
 interface ShowPatientProps {
     patient: PatientItem;
-    visits?: PatientVisit[];
     labOrders?: any[];
 }
 
-export default function ShowPatient({ patient, visits = [], labOrders = [] }: ShowPatientProps) {
+export default function ShowPatient({ patient, labOrders = [] }: ShowPatientProps) {
     const [confirmOpen, setConfirmOpen] = React.useState(false);
     const [activeTab, setActiveTab] = React.useState('details');
 
@@ -75,7 +57,7 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
             <Head title={`Patient Details - ${patient.first_name} ${patient.last_name}`} />
             <PatientPageLayout
                 title={`${patient.first_name} ${patient.last_name}`}
-                description={`Patient No: ${patient.patient_no}`}
+                description={`Patient No: ${patient.sequence_number || patient.patient_no}`}
                 icon={<User className="h-6 w-6" />}
                 actions={
                     <div className="flex items-center gap-4">
@@ -107,9 +89,8 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
                 {/* Patient Details Section */}
                 <PatientInfoCard title="Patient Information" icon={<User className="h-5 w-5 text-black" />} className="mb-8">
                     <Tabs defaultValue={activeTab}>
-                        <TabsList className="grid w-full grid-cols-3">
+                        <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="details">Patient Details</TabsTrigger>
-                            <TabsTrigger value="visits">Visit Records</TabsTrigger>
                             <TabsTrigger value="labs">Lab Orders</TabsTrigger>
                         </TabsList>
 
@@ -133,7 +114,7 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
                                             </div>
                                             <div>
                                                 <p className="text-sm font-medium text-gray-600">Patient Number</p>
-                                                <p className="text-sm font-semibold text-gray-900">{patient.patient_no}</p>
+                                                <p className="text-sm font-semibold text-gray-900">{patient.sequence_number || patient.patient_no}</p>
                                             </div>
                                             <div>
                                                 <p className="text-sm font-medium text-gray-600">Birth Date</p>
@@ -278,64 +259,6 @@ export default function ShowPatient({ patient, visits = [], labOrders = [] }: Sh
                             </Card>
                         </TabsContent>
 
-                        <TabsContent value="visits" className="pt-4">
-                            <Card className="shadow-sm">
-                                <div className="flex items-center justify-between border-b bg-gray-50 p-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="rounded-lg bg-gray-100 p-2">
-                                            <Calendar className="h-5 w-5 text-black" />
-                                        </div>
-                                        <h4 className="text-lg font-semibold text-gray-900">Visit Records</h4>
-                                    </div>
-                                    <Button onClick={() => router.visit(`/admin/patient/${patient.id}/visits/create`)}>
-                                        <Plus className="mr-2 h-4 w-4" />
-                                        Add Visit
-                                    </Button>
-                                </div>
-                                <CardContent className="p-6 pt-8">
-                                    {visits && visits.length > 0 ? (
-                                        <div className="space-y-4">
-                                            {visits.map((visit) => (
-                                                <div
-                                                    key={visit.id}
-                                                    className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md"
-                                                >
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="rounded-lg bg-gray-100 p-2">
-                                                                <Calendar className="h-4 w-4 text-black" />
-                                                            </div>
-                                                            <div>
-                                                                <h5 className="font-semibold text-gray-900">Visit #{visit.visit_number}</h5>
-                                                                <p className="text-sm text-gray-600">{formatDate(visit.full_arrival_date_time)}</p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <Badge variant={visit.status === 'active' ? 'default' : 'secondary'}>
-                                                                {visit.status}
-                                                            </Badge>
-                                                            <Button onClick={() => router.visit(`/admin/patient/${patient.id}/visits/${visit.id}`)}>
-                                                                View Details
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="py-8 text-center">
-                                            <Calendar className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                                            <h3 className="mb-2 text-lg font-semibold text-gray-900">No Visits Yet</h3>
-                                            <p className="mb-4 text-gray-600">This patient hasn't had any visits recorded yet.</p>
-                                            <Button onClick={() => router.visit(`/admin/patient/${patient.id}/visits/create`)}>
-                                                <Plus className="mr-2 h-4 w-4" />
-                                                Create First Visit
-                                            </Button>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
 
                         <TabsContent value="labs" className="pt-4">
                             <Card className="shadow-sm">

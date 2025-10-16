@@ -386,16 +386,7 @@ return new class extends Migration
             ");
         }
 
-        // Clean up orphaned patient visits
-        if (Schema::hasTable('patient_visits')) {
-            $patientQuery = Schema::hasColumn('patients', 'deleted_at') 
-                ? "SELECT id FROM patients WHERE deleted_at IS NULL"
-                : "SELECT id FROM patients";
-            DB::statement("
-                DELETE FROM patient_visits 
-                WHERE patient_id NOT IN ({$patientQuery})
-            ");
-        }
+        // Patient visits table has been removed - no cleanup needed
 
         // Clean up orphaned patient transfers
         if (Schema::hasTable('patient_transfers')) {

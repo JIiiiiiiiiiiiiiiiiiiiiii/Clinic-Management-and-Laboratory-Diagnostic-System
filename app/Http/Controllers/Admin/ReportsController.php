@@ -12,7 +12,6 @@ use App\Models\LabOrder;
 use App\Models\LabResult;
 use App\Models\Supply\Supply;
 use App\Models\User;
-use App\Models\PatientVisit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;

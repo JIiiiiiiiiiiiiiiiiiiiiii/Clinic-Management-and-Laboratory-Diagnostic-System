@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Patient;
 use App\Models\Notification;
 use App\Services\NotificationService;
+use App\Services\AppointmentCreationService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -171,7 +172,7 @@ class PatientAppointmentController extends Controller
             ->with('info', 'Please complete your registration and book your appointment.');
     }
 
-    public function store(Request $request)
+    public function store(Request $request, AppointmentCreationService $appointmentService)
     {
         \Log::info('PatientAppointmentController@store called', [
             'user_id' => auth()->id(),
@@ -217,7 +218,7 @@ class PatientAppointmentController extends Controller
         // Check for time conflicts
         $conflictCheck = Appointment::where('specialist_id', $request->specialist_id)
             ->where('appointment_date', $request->appointment_date)
-            ->where('appointment_time', $request->appointment_time)
+            ->where('appointment_time', $this->formatTimeForDatabase($request->appointment_time))
             ->where('status', '!=', 'Cancelled')
             ->exists();
 
@@ -225,43 +226,57 @@ class PatientAppointmentController extends Controller
             return back()->withErrors(['appointment_time' => 'This time slot is already booked. Please choose another time.']);
         }
 
-        // Convert time format from "10:00 AM" to "10:00:00"
-        $timeFormatted = $this->formatTimeForDatabase($request->appointment_time);
-
-        // Create pending appointment (requires admin approval)
-        $pendingAppointmentData = [
-            'patient_name' => $patient->first_name . ' ' . $patient->last_name,
-            'patient_id' => $patient->patient_no,
-            'contact_number' => $patient->mobile_no,
-            'appointment_type' => $request->appointment_type,
-            'specialist_type' => $request->specialist_type,
-            'specialist_name' => $specialist->name,
-            'specialist_id' => $specialist->employee_id ?? $specialist->id,
-            'appointment_date' => $request->appointment_date,
-            'appointment_time' => $timeFormatted,
-            'duration' => '30 min',
-            'status' => 'Pending Approval',
-            'billing_status' => 'pending',
-            'notes' => $request->notes,
-            'special_requirements' => $request->special_requirements,
-            'booking_method' => 'Online',
-            'status_approval' => 'pending',
-            'appointment_source' => 'online',
-        ];
-
-        // Calculate price
-        $pendingAppointment = new PendingAppointment($pendingAppointmentData);
-        $pendingAppointmentData['price'] = $pendingAppointment->calculatePrice();
-
         try {
-            \Log::info('Creating pending appointment', ['data' => $pendingAppointmentData]);
-            $pendingAppointment = PendingAppointment::create($pendingAppointmentData);
-            \Log::info('Pending appointment created successfully', [
+            // Prepare appointment data
+            $appointmentData = [
+                'patient_id' => $patient->id,
+                'patient_name' => $patient->first_name . ' ' . $patient->last_name,
+                'contact_number' => $patient->mobile_no,
+                'appointment_type' => $request->appointment_type,
+                'specialist_type' => $request->specialist_type,
+                'specialist_name' => $specialist->name,
+                'specialist_id' => $request->specialist_id,
+                'appointment_date' => $request->appointment_date,
+                'appointment_time' => $this->formatTimeForDatabase($request->appointment_time),
+                'duration' => '30 min',
+                'status' => 'Pending',
+                'notes' => $request->notes,
+                'special_requirements' => $request->special_requirements,
+                'appointment_source' => 'online',
+                'billing_status' => 'pending',
+            ];
+
+            // Calculate price
+            $tempAppointment = new Appointment($appointmentData);
+            $appointmentData['price'] = $tempAppointment->calculatePrice();
+
+            // Create pending appointment with proper patient reference
+            $pendingAppointmentData = [
+                'patient_name' => $appointmentData['patient_name'],
+                'patient_id' => $patient->patient_no, // Use existing patient's patient_no
+                'contact_number' => $appointmentData['contact_number'],
+                'appointment_type' => $appointmentData['appointment_type'],
+                'specialist_type' => $appointmentData['specialist_type'],
+                'specialist_name' => $appointmentData['specialist_name'],
+                'specialist_id' => $appointmentData['specialist_id'],
+                'appointment_date' => $appointmentData['appointment_date'],
+                'appointment_time' => $appointmentData['appointment_time'],
+                'duration' => $appointmentData['duration'],
+                'status' => 'Pending Approval',
+                'billing_status' => 'pending',
+                'notes' => $appointmentData['notes'],
+                'special_requirements' => $appointmentData['special_requirements'],
+                'booking_method' => 'Online',
+                'price' => $appointmentData['price'],
+                'status_approval' => 'pending',
+                'appointment_source' => 'online',
+            ];
+
+            $pendingAppointment = \App\Models\PendingAppointment::create($pendingAppointmentData);
+
+            \Log::info('Patient pending appointment created successfully', [
                 'pending_appointment_id' => $pendingAppointment->id,
-                'patient_name' => $pendingAppointment->patient_name,
-                'appointment_type' => $pendingAppointment->appointment_type,
-                'appointment_date' => $pendingAppointment->appointment_date,
-                'appointment_time' => $pendingAppointment->appointment_time,
+                'patient_id' => $patient->id
             ]);
 
             // Send notification to admin for approval
@@ -277,10 +292,10 @@ class PatientAppointmentController extends Controller
             return redirect()->route('patient.appointments')
                 ->with('success', 'Appointment request submitted successfully! You will be notified once it\'s approved by the admin.');
         } catch (\Exception $e) {
-            \Log::error('Failed to create pending appointment', [
+            \Log::error('Failed to create appointment', [
                 'error' => $e->getMessage(),
                 'patient_id' => $patient->id,
-                'appointment_data' => $pendingAppointmentData
+                'request_data' => $request->all()
             ]);
 
             return back()->withErrors(['error' => 'Failed to submit appointment request. Please try again.']);
@@ -523,7 +538,7 @@ class PatientAppointmentController extends Controller
     /**
      * Notify admin about pending appointment request
      */
-    private function notifyAdminPendingAppointment(PendingAppointment $pendingAppointment)
+    private function notifyAdminPendingAppointment($pendingAppointment)
     {
         try {
             // Get all admin users
@@ -547,7 +562,7 @@ class PatientAppointmentController extends Controller
                         'appointment_date' => $pendingAppointment->appointment_date,
                         'appointment_time' => $pendingAppointment->appointment_time,
                         'specialist_name' => $pendingAppointment->specialist_name,
-                        'status' => $pendingAppointment->status_approval,
+                        'status' => $pendingAppointment->status,
                         'price' => $pendingAppointment->price,
                     ],
                     'user_id' => $admin->id,
@@ -578,13 +593,13 @@ class PatientAppointmentController extends Controller
         } catch (\Exception $e) {
             \Log::error('Failed to create admin notifications', [
                 'error' => $e->getMessage(),
-                'pending_appointment_id' => $pendingAppointment->id
+                'appointment_id' => $appointment->id
             ]);
         }
 
-        \Log::info('Pending appointment notification sent to admin users', [
-            'pending_appointment_id' => $pendingAppointment->id,
-            'patient_name' => $pendingAppointment->patient_name
+        \Log::info('Appointment notification sent to admin users', [
+            'appointment_id' => $appointment->id,
+            'patient_name' => $appointment->patient_name
         ]);
     }
 
