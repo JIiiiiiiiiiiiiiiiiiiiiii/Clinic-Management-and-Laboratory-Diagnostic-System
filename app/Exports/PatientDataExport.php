@@ -112,7 +112,7 @@ class PatientDataExport implements FromCollection, WithHeadings, WithMapping, Wi
                         ucfirst($patient->civil_status ?? 'N/A'),
                         $patient->created_at ? $patient->created_at->format('Y-m-d H:i:s') : 'N/A',
                         $patient->visits ? $patient->visits->count() : 0,
-                        $patient->visits && $patient->visits->first() && $patient->visits->first()->arrival_date ? $patient->visits->first()->arrival_date->format('Y-m-d') : 'N/A'
+                        $patient->visits && $patient->visits->first() && $patient->visits->first()->visit_date_time ? $patient->visits->first()->visit_date_time->format('Y-m-d') : 'N/A'
                     ];
             case 'detailed':
                 return [

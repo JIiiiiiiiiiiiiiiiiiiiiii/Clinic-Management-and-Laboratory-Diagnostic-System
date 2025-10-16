@@ -110,10 +110,46 @@ class PendingAppointmentController extends Controller
                 return back()->withErrors(['error' => 'This appointment has already been approved. Please refresh the page.', 'code' => 'already_approved']);
             }
 
-            // Create the actual appointment
+            // Find or create patient first
+            $patient = null;
+            if ($pendingAppointment->patient_id !== 'TBD') {
+                $patient = \App\Models\Patient::where('patient_no', $pendingAppointment->patient_id)->first();
+            }
+
+            // If no patient found, create one from pending appointment data
+            if (!$patient) {
+                $patientData = [
+                    'first_name' => explode(' ', $pendingAppointment->patient_name)[0] ?? 'Unknown',
+                    'last_name' => explode(' ', $pendingAppointment->patient_name, 2)[1] ?? 'Unknown',
+                    'birthdate' => '1990-01-01', // Default birthdate
+                    'age' => 30, // Default age
+                    'sex' => 'male', // Default sex
+                    'civil_status' => 'single',
+                    'nationality' => 'Filipino',
+                    'present_address' => 'Not specified',
+                    'mobile_no' => $pendingAppointment->contact_number ?? 'Not specified',
+                    'informant_name' => 'Not specified',
+                    'relationship' => 'Self',
+                    'arrival_date' => now()->toDateString(),
+                    'arrival_time' => now()->toTimeString(),
+                    'attending_physician' => $pendingAppointment->specialist_name,
+                    'time_seen' => now()->toTimeString(),
+                ];
+
+                $appointmentService = app(\App\Services\AppointmentCreationService::class);
+                $patient = $appointmentService->createOrFindPatient($patientData);
+                
+                \Log::info('Patient created during approval', [
+                    'patient_id' => $patient->id,
+                    'patient_no' => $patient->patient_no,
+                    'pending_appointment_id' => $pendingAppointment->id
+                ]);
+            }
+
+            // Create appointment data with proper patient reference
             $appointmentData = [
                 'patient_name' => $pendingAppointment->patient_name,
-                'patient_id' => $pendingAppointment->patient_id,
+                'patient_id' => $patient->id, // Use actual patient ID
                 'contact_number' => $pendingAppointment->contact_number,
                 'appointment_type' => $pendingAppointment->appointment_type,
                 'specialist_type' => $pendingAppointment->specialist_type,
@@ -131,7 +167,17 @@ class PendingAppointmentController extends Controller
                 'appointment_source' => $pendingAppointment->appointment_source,
             ];
 
-            $appointment = Appointment::create($appointmentData);
+            // Use AppointmentCreationService to create appointment with proper relationships
+            $appointmentService = app(\App\Services\AppointmentCreationService::class);
+            $result = $appointmentService->createAppointmentWithPatient($appointmentData, null);
+            $appointment = $result['appointment'];
+            $visit = $result['visit'];
+
+            \Log::info('Appointment and visit created during approval', [
+                'appointment_id' => $appointment->id,
+                'visit_id' => $visit ? $visit->id : 'not created',
+                'patient_id' => $patient->id
+            ]);
 
             // Update pending appointment status
             $pendingAppointment->update([

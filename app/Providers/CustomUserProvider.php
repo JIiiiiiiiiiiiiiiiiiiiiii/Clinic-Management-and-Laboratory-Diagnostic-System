@@ -52,4 +52,12 @@ class CustomUserProvider implements UserProvider
     {
         return false;
     }
+
+    /**
+     * Rehash the user's password if required and supported.
+     */
+    public function rehashPasswordIfRequired(Authenticatable $user, array $credentials, bool $force = false): void
+    {
+        // Do nothing - no password rehashing needed for session-based auth
+    }
 }

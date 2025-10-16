@@ -83,7 +83,7 @@ class PatientSummaryExport implements FromArray, WithHeadings, WithStyles, WithC
 
             foreach ($this->patient->visits as $visit) {
                 $data[] = [
-                    $visit->arrival_date ? $visit->arrival_date->format('Y-m-d') : 'N/A',
+                    $visit->visit_date_time ? $visit->visit_date_time->format('Y-m-d') : 'N/A',
                     $visit->reason_for_consult,
                     $visit->attending_physician,
                     $visit->status

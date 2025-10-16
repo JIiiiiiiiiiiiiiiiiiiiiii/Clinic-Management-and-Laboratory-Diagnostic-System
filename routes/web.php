@@ -13,7 +13,7 @@ Route::get('/', function () {
         $mappedRole = $user->getMappedRole();
         
         if ($mappedRole === 'patient') {
-            return redirect()->route('patient.dashboard');
+            return redirect()->route('patient.dashboard.simple');
         } else {
             return redirect()->route('admin.dashboard');
         }
@@ -29,7 +29,7 @@ require __DIR__ . '/patient.php';
 require __DIR__ . '/hospital.php';
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
-require __DIR__.'/simple-auth.php';
+// require __DIR__.'/simple-auth.php'; // Removed - using main auth system
 
 
 
@@ -44,7 +44,7 @@ Route::get('/dashboard', function () {
     $mappedRole = $user->getMappedRole();
     
     if ($mappedRole === 'patient') {
-        return redirect()->route('patient.dashboard');
+        return redirect()->route('patient.dashboard.simple');
     } else {
         return redirect()->route('admin.dashboard');
     }

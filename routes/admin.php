@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\PatientController;
-use App\Http\Controllers\PatientVisitController;
 use App\Http\Controllers\Lab\LabTestController;
 use App\Http\Controllers\Lab\LabOrderController;
 use App\Http\Controllers\Lab\LabResultController;
@@ -12,17 +11,17 @@ use App\Http\Controllers\Admin\DoctorController;
 use App\Http\Controllers\Admin\NurseController;
 use App\Http\Controllers\Admin\MedTechController;
 use App\Http\Controllers\Admin\RoleController;
-use App\Http\Controllers\Inventory\InventoryController;
 use App\Http\Controllers\Inventory\ProductController;
 use App\Http\Controllers\Inventory\TransactionController;
 use App\Http\Controllers\Inventory\ReportController;
+use App\Http\Controllers\Inventory\SupplierController;
+use App\Http\Controllers\Inventory\EnhancedInventoryController;
 use App\Http\Controllers\Admin\UserRoleController;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\AppointmentController;
 use App\Http\Controllers\Admin\ClinicProcedureController;
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\NotificationController;
-use App\Http\Controllers\VisitController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\DashboardController;
@@ -56,16 +55,6 @@ Route::prefix('admin')
             'destroy' => 'patient.destroy',
         ]);
 
-        // Patient Visit routes - All staff can access
-        Route::prefix('patient/{patient}/visits')->name('patient.visits.')->group(function () {
-            Route::get('/', [PatientVisitController::class, 'index'])->name('index');
-            Route::get('/create', [PatientVisitController::class, 'create'])->name('create');
-            Route::post('/', [PatientVisitController::class, 'store'])->name('store');
-            Route::get('/{visit}', [PatientVisitController::class, 'show'])->name('show');
-            Route::get('/{visit}/edit', [PatientVisitController::class, 'edit'])->name('edit');
-            Route::put('/{visit}', [PatientVisitController::class, 'update'])->name('update');
-            Route::delete('/{visit}', [PatientVisitController::class, 'destroy'])->name('destroy');
-        });
 
         // Specialist Management - Admin only
         Route::prefix('specialists')->name('specialists.')->middleware(['role:admin'])->group(function () {
@@ -236,6 +225,54 @@ Route::prefix('admin')
         Route::prefix('appointments')->name('appointments.')->middleware(['role:doctor,admin'])->group(function () {
             Route::get('/', [AppointmentController::class, 'index'])->name('index');
             Route::get('/create', [AppointmentController::class, 'create'])->name('create');
+            Route::get('/walk-in', function () {
+                // Get doctors and medtechs for the form
+                $doctors = \App\Models\User::where('role', 'doctor')->get()->map(function($user) {
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'specialization' => $user->specialization ?? 'General Practice',
+                        'employee_id' => $user->employee_id ?? '',
+                        'availability' => 'Available',
+                        'rating' => 4.5,
+                        'experience' => '5+ years',
+                        'nextAvailable' => 'Today'
+                    ];
+                });
+                
+                $medtechs = \App\Models\User::where('role', 'medtech')->get()->map(function($user) {
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'specialization' => $user->specialization ?? 'Medical Technology',
+                        'employee_id' => $user->employee_id ?? '',
+                        'availability' => 'Available',
+                        'rating' => 4.5,
+                        'experience' => '3+ years',
+                        'nextAvailable' => 'Today'
+                    ];
+                });
+                
+                $appointmentTypes = [
+                    'general_consultation' => 'General Consultation',
+                    'cbc' => 'Complete Blood Count (CBC)',
+                    'fecalysis_test' => 'Fecalysis Test',
+                    'urinarysis_test' => 'Urinalysis Test'
+                ];
+                
+                return Inertia::render('shared/appointment-booking', [
+                    'user' => auth()->user(),
+                    'patient' => null,
+                    'doctors' => $doctors,
+                    'medtechs' => $medtechs,
+                    'appointmentTypes' => $appointmentTypes,
+                    'isExistingPatient' => false,
+                    'isAdmin' => true,
+                    'backUrl' => route('admin.appointments.index'),
+                    'nextPatientId' => 'P001'
+                ]);
+            })->name('walk-in');
+            Route::post('/walk-in', [AppointmentController::class, 'storeWalkIn'])->name('walk-in.store');
             Route::post('/', [AppointmentController::class, 'store'])->name('store');
             Route::get('/{appointment}', [AppointmentController::class, 'show'])->name('show');
             Route::get('/{appointment}/edit', [AppointmentController::class, 'edit'])->name('edit');
@@ -252,6 +289,23 @@ Route::prefix('admin')
             })->name('availability')->middleware(['role:admin']);
         });
 
+        // Visits Routes - Doctor and admin only
+        Route::prefix('visits')->name('visits.')->middleware(['role:doctor,admin'])->group(function () {
+            Route::get('/', [\App\Http\Controllers\Admin\VisitController::class, 'index'])->name('index');
+            Route::get('/{visit}', [\App\Http\Controllers\Admin\VisitController::class, 'show'])->name('show');
+            Route::get('/{visit}/edit', [\App\Http\Controllers\Admin\VisitController::class, 'edit'])->name('edit');
+            Route::put('/{visit}', [\App\Http\Controllers\Admin\VisitController::class, 'update'])->name('update');
+            Route::delete('/{visit}', [\App\Http\Controllers\Admin\VisitController::class, 'destroy'])->name('destroy');
+            
+            // Follow-up visit routes
+            Route::get('/{visit}/follow-up', [\App\Http\Controllers\Admin\VisitController::class, 'createFollowUp'])->name('follow-up.create');
+            Route::post('/{visit}/follow-up', [\App\Http\Controllers\Admin\VisitController::class, 'storeFollowUp'])->name('follow-up.store');
+            
+            // Status update routes
+            Route::put('/{visit}/complete', [\App\Http\Controllers\Admin\VisitController::class, 'markCompleted'])->name('complete');
+            Route::put('/{visit}/cancel', [\App\Http\Controllers\Admin\VisitController::class, 'markCancelled'])->name('cancel');
+        });
+
         // Pending Appointments Routes - Admin only
         Route::prefix('pending-appointments')->name('pending-appointments.')->middleware(['role:admin'])->group(function () {
             Route::get('/', [\App\Http\Controllers\Admin\PendingAppointmentController::class, 'index'])->name('index');
@@ -262,26 +316,6 @@ Route::prefix('admin')
             
         });
 
-        // Visit Management Routes - Doctor and admin only
-        Route::prefix('visits')->name('visits.')->middleware(['role:doctor,admin'])->group(function () {
-            Route::get('/', [VisitController::class, 'index'])->name('index');
-            Route::get('/create', [VisitController::class, 'create'])->name('create');
-            Route::post('/', [VisitController::class, 'store'])->name('store');
-            Route::get('/today', [VisitController::class, 'today'])->name('today');
-            Route::get('/{visit}', [VisitController::class, 'show'])->name('show');
-            Route::get('/{visit}/edit', [VisitController::class, 'edit'])->name('edit');
-            Route::put('/{visit}', [VisitController::class, 'update'])->name('update');
-            Route::delete('/{visit}', [VisitController::class, 'destroy'])->name('destroy');
-            Route::post('/{visit}/complete', [VisitController::class, 'complete'])->name('complete');
-            Route::post('/{visit}/cancel', [VisitController::class, 'cancel'])->name('cancel');
-            Route::get('/{visit}/summary', [VisitController::class, 'summary'])->name('summary');
-            Route::get('/appointments/{appointment}/create-visit', [VisitController::class, 'createFromAppointment'])->name('create-from-appointment');
-        });
-
-        // Patient Visit History Routes - All staff can access
-        Route::prefix('patients/{patient}/visits')->name('patients.visits.')->group(function () {
-            Route::get('/', [VisitController::class, 'patientVisits'])->name('index');
-        });
 
         // Clinic Procedures Routes - Admin and lab staff only
         Route::prefix('clinic-procedures')->name('clinic-procedures.')->middleware(['role:admin,laboratory_technologist,medtech'])->group(function () {
@@ -339,40 +373,138 @@ Route::prefix('admin')
 
         // Inventory routes - All authenticated staff can access
         Route::prefix('inventory')->name('inventory.')->group(function () {
+            // Main inventory dashboard
             Route::get('/', [App\Http\Controllers\InventoryController::class, 'index'])->name('index');
             Route::get('/create', [App\Http\Controllers\InventoryController::class, 'create'])->name('create');
             Route::post('/', [App\Http\Controllers\InventoryController::class, 'store'])->name('store');
             
             // Category-specific pages (must come before {id} routes)
+            Route::get('/supply-items', [App\Http\Controllers\InventoryController::class, 'supplyItems'])->name('supply-items');
             Route::get('/doctor-nurse', [App\Http\Controllers\InventoryController::class, 'doctorNurse'])->name('doctor-nurse');
             Route::get('/medtech', [App\Http\Controllers\InventoryController::class, 'medTech'])->name('medtech');
             
-            // Inventory Reports (moved to main reports section)
-            Route::get('/reports', [App\Http\Controllers\InventoryController::class, 'reports'])->name('reports');
-            Route::get('/reports/export', [App\Http\Controllers\InventoryController::class, 'exportReport'])->name('reports.export');
+            // Products management routes
+            Route::prefix('products')->name('products.')->group(function () {
+                Route::get('/', [ProductController::class, 'index'])->name('index');
+                Route::get('/create', [ProductController::class, 'create'])->name('create');
+                Route::post('/', [ProductController::class, 'store'])->name('store');
+                Route::get('/{product}', [ProductController::class, 'show'])->name('show');
+                Route::get('/{product}/edit', [ProductController::class, 'edit'])->name('edit');
+                Route::put('/{product}', [ProductController::class, 'update'])->name('update');
+                Route::delete('/{product}', [ProductController::class, 'destroy'])->name('destroy');
+            });
             
-            // Additional inventory report pages
-            Route::get('/reports/used-supplies', [ReportController::class, 'usedSupplies'])->name('reports.used-supplies');
-            Route::get('/reports/rejected-supplies', [App\Http\Controllers\InventoryController::class, 'rejectedSupplies'])->name('reports.rejected-supplies');
-            Route::get('/reports/in-out-supplies', [ReportController::class, 'inOutSupplies'])->name('reports.in-out-supplies');
-            Route::get('/reports/stock-levels', [ReportController::class, 'stockLevels'])->name('reports.stock-levels');
-            Route::get('/reports/daily-consumption', [ReportController::class, 'dailyConsumption'])->name('reports.daily-consumption');
-            Route::get('/reports/usage-by-location', [ReportController::class, 'usageByLocation'])->name('reports.usage-by-location');
+            // Transactions management routes
+            Route::prefix('transactions')->name('transactions.')->group(function () {
+                Route::get('/', [TransactionController::class, 'index'])->name('index');
+                Route::get('/create', [TransactionController::class, 'create'])->name('create');
+                Route::post('/', [TransactionController::class, 'store'])->name('store');
+                Route::get('/{transaction}', [TransactionController::class, 'show'])->name('show');
+                Route::post('/{transaction}/approve', [TransactionController::class, 'approve'])->name('approve');
+                Route::post('/{transaction}/reject', [TransactionController::class, 'reject'])->name('reject');
+                Route::delete('/{transaction}', [TransactionController::class, 'destroy'])->name('destroy');
+            });
             
-            // Export routes for specific reports
-            Route::get('/reports/used-supplies/export', [ReportController::class, 'exportUsedSupplies'])->name('reports.used-supplies.export');
-            Route::get('/reports/rejected-supplies/export', [App\Http\Controllers\InventoryController::class, 'exportRejectedSupplies'])->name('reports.rejected-supplies.export');
-            Route::get('/reports/in-out-supplies/export', [ReportController::class, 'exportInOutSupplies'])->name('reports.in-out-supplies.export');
-            Route::get('/reports/stock-levels/export', [ReportController::class, 'exportStockLevels'])->name('reports.stock-levels.export');
-            Route::get('/reports/daily-consumption/export', [ReportController::class, 'exportDailyConsumption'])->name('reports.daily-consumption.export');
-            Route::get('/reports/usage-by-location/export', [ReportController::class, 'exportUsageByLocation'])->name('reports.usage-by-location.export');
+            // Suppliers management routes
+            Route::prefix('suppliers')->name('suppliers.')->group(function () {
+                Route::get('/', [SupplierController::class, 'index'])->name('index');
+                Route::get('/create', [SupplierController::class, 'create'])->name('create');
+                Route::post('/', [SupplierController::class, 'store'])->name('store');
+                Route::get('/{supplier}', [SupplierController::class, 'show'])->name('show');
+                Route::get('/{supplier}/edit', [SupplierController::class, 'edit'])->name('edit');
+                Route::put('/{supplier}', [SupplierController::class, 'update'])->name('update');
+                Route::delete('/{supplier}', [SupplierController::class, 'destroy'])->name('destroy');
+            });
             
-            // ID-based routes (must come after specific routes)
+            // Supply Management routes (New system)
+            Route::prefix('supplies')->name('supplies.')->group(function () {
+                Route::get('/', [App\Http\Controllers\Inventory\SupplyController::class, 'index'])->name('index');
+                Route::get('/create', [App\Http\Controllers\Inventory\SupplyController::class, 'create'])->name('create');
+                Route::post('/', [App\Http\Controllers\Inventory\SupplyController::class, 'store'])->name('store');
+                Route::get('/{supply}', [App\Http\Controllers\Inventory\SupplyController::class, 'show'])->name('show');
+                Route::get('/{supply}/edit', [App\Http\Controllers\Inventory\SupplyController::class, 'edit'])->name('edit');
+                Route::put('/{supply}', [App\Http\Controllers\Inventory\SupplyController::class, 'update'])->name('update');
+                Route::delete('/{supply}', [App\Http\Controllers\Inventory\SupplyController::class, 'destroy'])->name('destroy');
+                Route::get('/{supply}/stock-levels', [App\Http\Controllers\Inventory\SupplyController::class, 'getStockLevels'])->name('stock-levels');
+                Route::get('/{supply}/transactions', [App\Http\Controllers\Inventory\SupplyController::class, 'getTransactions'])->name('transactions');
+                Route::get('/low-stock', [App\Http\Controllers\Inventory\SupplyController::class, 'getLowStock'])->name('low-stock');
+                Route::get('/expiring-soon', [App\Http\Controllers\Inventory\SupplyController::class, 'getExpiringSoon'])->name('expiring-soon');
+            });
+            
+            // Supply Transactions routes
+            Route::prefix('supply-transactions')->name('supply-transactions.')->group(function () {
+                Route::get('/', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'index'])->name('index');
+                Route::get('/create', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'create'])->name('create');
+                Route::post('/', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'store'])->name('store');
+                Route::get('/{transaction}', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'show'])->name('show');
+                Route::post('/{transaction}/approve', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'approve'])->name('approve');
+                Route::post('/{transaction}/reject', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'reject'])->name('reject');
+                Route::post('/{transaction}/verify', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'verify'])->name('verify');
+                Route::get('/pending-approvals', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'getPendingApprovals'])->name('pending-approvals');
+                Route::get('/used-supplies', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'getUsedSupplies'])->name('used-supplies');
+                Route::get('/rejected-supplies', [App\Http\Controllers\Inventory\SupplyTransactionController::class, 'getRejectedSupplies'])->name('rejected-supplies');
+            });
+            
+            // Supply Stock Management routes
+            Route::prefix('supply-stock')->name('supply-stock.')->group(function () {
+                Route::get('/', [App\Http\Controllers\Inventory\SupplyStockController::class, 'index'])->name('index');
+                Route::get('/low-stock', [App\Http\Controllers\Inventory\SupplyStockController::class, 'getLowStock'])->name('low-stock');
+                Route::get('/expiring-soon', [App\Http\Controllers\Inventory\SupplyStockController::class, 'getExpiringSoon'])->name('expiring-soon');
+                Route::get('/expired', [App\Http\Controllers\Inventory\SupplyStockController::class, 'getExpiredStock'])->name('expired');
+                Route::get('/{supply}/by-lot', [App\Http\Controllers\Inventory\SupplyStockController::class, 'getStockByLot'])->name('by-lot');
+                Route::get('/{supply}/history', [App\Http\Controllers\Inventory\SupplyStockController::class, 'getStockHistory'])->name('history');
+                Route::get('/report', [App\Http\Controllers\Inventory\SupplyStockController::class, 'getStockReport'])->name('report');
+                Route::get('/alerts', [App\Http\Controllers\Inventory\SupplyStockController::class, 'getStockAlerts'])->name('alerts');
+                Route::put('/{stockLevel}', [App\Http\Controllers\Inventory\SupplyStockController::class, 'updateStockLevel'])->name('update-level');
+                Route::post('/reserve', [App\Http\Controllers\Inventory\SupplyStockController::class, 'reserveStock'])->name('reserve');
+                Route::post('/release-reservation', [App\Http\Controllers\Inventory\SupplyStockController::class, 'releaseReservation'])->name('release-reservation');
+            });
+
+            // Enhanced inventory dashboard and reports
+            Route::prefix('enhanced')->name('enhanced.')->group(function () {
+                Route::get('/', [EnhancedInventoryController::class, 'index'])->name('index');
+                Route::get('/detailed-report', [EnhancedInventoryController::class, 'getDetailedReport'])->name('detailed-report');
+                Route::get('/usage-report', [EnhancedInventoryController::class, 'getUsageReport'])->name('usage-report');
+                Route::get('/supplier-report', [EnhancedInventoryController::class, 'getSupplierReport'])->name('supplier-report');
+                Route::get('/in-out-flow-report', [EnhancedInventoryController::class, 'getInOutFlowReport'])->name('in-out-flow-report');
+                Route::get('/export/{type}', [EnhancedInventoryController::class, 'exportReport'])->name('export');
+            });
+            
+            // Legacy inventory reports (keeping for backward compatibility)
+            Route::prefix('reports')->name('reports.')->group(function () {
+                Route::get('/', [App\Http\Controllers\InventoryController::class, 'reports'])->name('index');
+                Route::get('/export', [App\Http\Controllers\InventoryController::class, 'exportReport'])->name('export');
+            });
+            
+            // Movement routes (must come before {id} routes)
+            Route::get('/{id}/movement', [App\Http\Controllers\InventoryController::class, 'addMovement'])->name('add-movement');
+            Route::post('/{id}/movement', [App\Http\Controllers\InventoryController::class, 'storeMovement'])->name('store-movement');
+            
+            // Consume and Reject routes
+            Route::post('/{id}/consume', [App\Http\Controllers\InventoryController::class, 'consume'])->name('consume');
+            Route::post('/{id}/reject', [App\Http\Controllers\InventoryController::class, 'reject'])->name('reject');
+            
+            // Reports routes
+            Route::get('/reports', [App\Http\Controllers\InventoryReportController::class, 'index'])->name('reports.index');
+            Route::get('/reports/used-rejected', [App\Http\Controllers\InventoryReportController::class, 'usedRejectedReport'])->name('reports.used-rejected');
+            Route::get('/reports/used-rejected/export', [App\Http\Controllers\InventoryReportController::class, 'exportUsedRejected'])->name('reports.used-rejected.export');
+            Route::get('/reports/in-out-supplies', [App\Http\Controllers\InventoryReportController::class, 'inOutSuppliesReport'])->name('reports.in-out-supplies');
+            Route::get('/reports/in-out-supplies/export', [App\Http\Controllers\InventoryReportController::class, 'exportInOutSupplies'])->name('reports.in-out-supplies.export');
+            Route::get('/reports/stock-levels', [App\Http\Controllers\InventoryReportController::class, 'stockLevelsReport'])->name('reports.stock-levels');
+            Route::get('/reports/stock-levels/export', [App\Http\Controllers\InventoryReportController::class, 'exportStockLevels'])->name('reports.stock-levels.export');
+            Route::get('/reports/daily-consumption', [App\Http\Controllers\InventoryReportController::class, 'dailyConsumptionReport'])->name('reports.daily-consumption');
+            Route::get('/reports/daily-consumption/export', [App\Http\Controllers\InventoryReportController::class, 'exportDailyConsumption'])->name('reports.daily-consumption.export');
+            Route::get('/reports/usage-by-location', [App\Http\Controllers\InventoryReportController::class, 'usageByLocationReport'])->name('reports.usage-by-location');
+            Route::get('/reports/usage-by-location/export', [App\Http\Controllers\InventoryReportController::class, 'exportUsageByLocation'])->name('reports.usage-by-location.export');
+            Route::get('/reports/{id}/export', [App\Http\Controllers\InventoryReportController::class, 'exportReport'])->name('reports.individual.export');
+            Route::get('/reports/export-all', [App\Http\Controllers\InventoryReportController::class, 'exportAllReports'])->name('reports.export-all');
+            Route::delete('/reports/{id}', [App\Http\Controllers\InventoryReportController::class, 'destroy'])->name('reports.destroy');
+            
+            // ID-based routes for legacy inventory system (must come after specific routes)
             Route::get('/{id}', [App\Http\Controllers\InventoryController::class, 'show'])->name('show');
             Route::get('/{id}/edit', [App\Http\Controllers\InventoryController::class, 'edit'])->name('edit');
             Route::put('/{id}', [App\Http\Controllers\InventoryController::class, 'update'])->name('update');
             Route::delete('/{id}', [App\Http\Controllers\InventoryController::class, 'destroy'])->name('destroy');
-            Route::post('/{id}/movement', [App\Http\Controllers\InventoryController::class, 'movement'])->name('movement');
         });
 
         // Notifications Routes - All staff can access

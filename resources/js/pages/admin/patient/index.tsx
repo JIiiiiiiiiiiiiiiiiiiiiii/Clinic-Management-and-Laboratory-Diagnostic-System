@@ -1,6 +1,7 @@
 import {
     AlertDialog,
     AlertDialogAction,
+    AlertDialogCancel,
     AlertDialogContent,
     AlertDialogDescription,
     AlertDialogFooter,
@@ -23,7 +24,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { 
     Edit, Eye, Plus, Search, Filter, Calendar, User, Phone, Mail, MapPin, Clock, 
     Stethoscope, CheckCircle, AlertCircle, XCircle, Activity, TrendingUp,
-    FileText, Heart, Calendar as CalendarIcon, UserCheck, BarChart3, ArrowLeft, ArrowRight, UserPlus, Users
+    FileText, Heart, Calendar as CalendarIcon, UserCheck, BarChart3, ArrowLeft, ArrowRight, UserPlus, Users, Trash2
 } from 'lucide-react';
 import * as React from 'react';
 
@@ -44,8 +45,7 @@ interface Pagination {
 type VisitRow = {
     id: number;
     patient: { id: number; patient_no: string; first_name: string; last_name: string };
-    arrival_date: string;
-    arrival_time: string;
+    visit_date_time: string;
     attending_physician: string;
     status: 'active' | 'completed' | 'discharged';
 };
@@ -54,22 +54,52 @@ export default function Patient(props: {
     patients: PatientItem[];
     patients_pagination: Pagination;
     patients_filters: { p_search: string; p_sort_by: string; p_sort_dir: 'asc' | 'desc' };
-    visits: VisitRow[];
-    visits_pagination: Pagination;
-    visits_filters: { v_start?: string; v_end?: string; v_doctor?: string; v_sort_dir: 'asc' | 'desc' };
 }) {
-    const { patients, patients_pagination, patients_filters, visits, visits_pagination, visits_filters } = props as any;
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
+    const [patientToDelete, setPatientToDelete] = React.useState<PatientItem | null>(null);
+
+    const handleDeletePatient = (patient: PatientItem) => {
+        setPatientToDelete(patient);
+        setDeleteConfirmOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (patientToDelete) {
+            router.delete(`/admin/patient/${patientToDelete.id}`, {
+                onSuccess: () => {
+                    setDeleteConfirmOpen(false);
+                    setPatientToDelete(null);
+                },
+            });
+        }
+    };
+    const { patients, patients_pagination, patients_filters } = props as any;
     const [pSearch, setPSearch] = React.useState<string>(patients_filters?.p_search || '');
+    const [sortBy, setSortBy] = React.useState<string>(patients_filters?.p_sort_by || 'patient_no');
+    const [sortDir, setSortDir] = React.useState<'asc' | 'desc'>(patients_filters?.p_sort_dir || 'asc');
     const created = (usePage().props as any).flash?.created_patient as
         | { id: number; last_name: string; first_name: string; age: number; sex: string }
         | undefined;
     const [open, setOpen] = React.useState(Boolean(created));
 
+    // Handle sorting
+    const handleSort = (field: string) => {
+        const newSortDir = sortBy === field && sortDir === 'asc' ? 'desc' : 'asc';
+        setSortBy(field);
+        setSortDir(newSortDir);
+        router.get('/admin/patient', {
+            p_search: pSearch,
+            p_sort_by: field,
+            p_sort_dir: newSortDir,
+        }, {
+            preserveState: true,
+            replace: true,
+        });
+    };
+
     // Mock data for statistics
     const stats = {
         totalPatients: patients_pagination?.total || 0,
-        activeVisits: visits.filter((v: any) => v.status === 'active').length,
-        completedVisits: visits.filter((v: any) => v.status === 'completed').length,
         newThisMonth: Math.floor(Math.random() * 20) + 5
     };
 
@@ -94,14 +124,10 @@ export default function Patient(props: {
                     {/* Main Content with Tabs */}
                     <div className="space-y-6">
                         <Tabs defaultValue="patients" className="w-full">
-                            <TabsList className="grid w-full grid-cols-2 bg-gray-100 p-1 rounded-lg">
+                            <TabsList className="grid w-full grid-cols-1 bg-gray-100 p-1 rounded-lg">
                                 <TabsTrigger value="patients" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm">
                                     <Users className="h-4 w-4" />
                                     Patient Records
-                                </TabsTrigger>
-                                <TabsTrigger value="visits" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm">
-                                    <Calendar className="h-4 w-4" />
-                                    Visit History
                                 </TabsTrigger>
                             </TabsList>
 
@@ -153,7 +179,15 @@ export default function Patient(props: {
                                         <Table>
                                             <TableHeader className="bg-gray-50">
                                                 <TableRow>
-                                                    <TableHead className="font-semibold text-gray-700">Patient No.</TableHead>
+                                                    <TableHead 
+                                                        className="font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                                                        onClick={() => handleSort('patient_no')}
+                                                    >
+                                                        Patient No.
+                                                        {sortBy === 'patient_no' && (
+                                                            <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>
+                                                        )}
+                                                    </TableHead>
                                                     <TableHead className="font-semibold text-gray-700">Name</TableHead>
                                                     <TableHead className="font-semibold text-gray-700">Gender</TableHead>
                                                     <TableHead className="font-semibold text-gray-700">Age</TableHead>
@@ -166,7 +200,7 @@ export default function Patient(props: {
                                                 {patients.map((p: any) => (
                                                     <TableRow key={p.id} className="hover:bg-gray-50/50 transition-colors">
                                                         <TableCell className="font-semibold text-black">
-                                                            {p.patient_no || '—'}
+                                                            {p.sequence_number || p.patient_no || '—'}
                                                         </TableCell>
                                                         <TableCell>
                                                             <div>
@@ -205,6 +239,15 @@ export default function Patient(props: {
                                                                             label="Edit"
                                                                             href={`/admin/patient/${p.id}/edit`}
                                                                         />
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            onClick={() => handleDeletePatient(p)}
+                                                                            className="text-red-600 border-red-300 hover:bg-red-50 min-w-[75px] px-3"
+                                                                        >
+                                                                            <Trash2 className="h-4 w-4 mr-1" />
+                                                                            Delete
+                                                                        </Button>
                                                                     </div>
                                                                 </TableCell>
                                                     </TableRow>
@@ -256,157 +299,6 @@ export default function Patient(props: {
                             </PatientInfoCard>
                         </TabsContent>
 
-                        <TabsContent value="visits" className="space-y-6 mt-4">
-                            {/* Visit History Card */}
-                            <PatientInfoCard
-                                title="Visit History"
-                                icon={<Calendar className="h-5 w-5 text-black" />}
-                            >
-                                {/* Visit Filters */}
-                                <div className="flex flex-wrap gap-3 items-end">
-                                    <div className="flex-1 min-w-[180px]">
-                                        <label className="mb-1 block text-sm font-medium text-gray-700">Start Date</label>
-                                        <Input
-                                            type="date"
-                                            name="v_start"
-                                            defaultValue={(visits_filters as any)?.v_start || ''}
-                                            className="h-10 w-full"
-                                        />
-                                    </div>
-                                    <div className="flex-1 min-w-[180px]">
-                                        <label className="mb-1 block text-sm font-medium text-gray-700">End Date</label>
-                                        <Input
-                                            type="date"
-                                            name="v_end"
-                                            defaultValue={(visits_filters as any)?.v_end || ''}
-                                            className="h-10 w-full"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="mb-2 block text-sm font-medium text-gray-700">Doctor</label>
-                                        <Input 
-                                            name="v_doctor" 
-                                            placeholder="Doctor name" 
-                                            defaultValue={(visits_filters as any)?.v_doctor || ''} 
-                                            className="h-10"
-                                        />
-                                    </div>
-                                    <div className="flex items-end">
-                                        <PatientActionButton
-                                            variant="default"
-                                            icon={<Filter className="h-4 w-4" />}
-                                            label="Filter"
-                                            className="w-full bg-gray-600 hover:bg-gray-700 text-white"
-                                        />
-                                    </div>
-                                </div>
-                                    
-                                    {/* Visit History Table */}
-                                    <div className="mt-8 overflow-x-auto rounded-lg border border-gray-200 bg-white">
-                                        <Table>
-                                            <TableHeader className="bg-gray-50">
-                                                <TableRow>
-                                                    <TableHead className="font-semibold text-gray-700">Patient</TableHead>
-                                                    <TableHead className="font-semibold text-gray-700">Date & Time</TableHead>
-                                                    <TableHead className="font-semibold text-gray-700">Doctor</TableHead>
-                                                    <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                                                    <TableHead className="font-semibold text-gray-700">Actions</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {visits.map((v: any) => (
-                                                    <TableRow key={v.id} className="hover:bg-gray-50/50 transition-colors">
-                                                        <TableCell>
-                                                            <div>
-                                                                <div className="font-medium text-gray-900">{v.patient?.last_name}, {v.patient?.first_name}</div>
-                                                                <div className="text-sm text-gray-500">{v.patient?.patient_no || '—'}</div>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div>
-                                                                <div className="text-gray-900">{new Date(v.arrival_date).toLocaleDateString()}</div>
-                                                                <div className="text-sm text-gray-500">{String(v.arrival_time).match(/\d{2}:\d{2}/)?.[0] || v.arrival_time}</div>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="text-gray-700">{v.attending_physician}</TableCell>
-                                                        <TableCell>
-                                                            <Badge
-                                                                variant={
-                                                                    v.status === 'completed' 
-                                                                        ? 'default' 
-                                                                        : v.status === 'active'
-                                                                        ? 'secondary'
-                                                                        : 'destructive'
-                                                                }
-                                                                className='bg-gray-100 text-black'
-                                                            >
-                                                                {v.status === 'completed' && <CheckCircle className="w-3 h-3 mr-1" />}
-                                                                {v.status === 'active' && <AlertCircle className="w-3 h-3 mr-1" />}
-                                                                {v.status === 'discharged' && <XCircle className="w-3 h-3 mr-1" />}
-                                                                {v.status}
-                                                            </Badge>
-                                                        </TableCell>
-                                                                <TableCell>
-                                                                    <PatientActionButton
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        icon={<Eye className="h-4 w-4" />}
-                                                                        label="View"
-                                                                        href={`/admin/patient/${v.patient?.id}?tab=visits`}
-                                                                    />
-                                                                </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                    
-                                {/* Visit Pagination */}
-                                {visits_pagination?.last_page > 1 && (
-                                    <div className="flex items-center justify-center gap-3 pt-4">
-                                        <PatientActionButton
-                                            variant="outline"
-                                            size="sm"
-                                            icon={<ArrowLeft className="h-4 w-4" />}
-                                            label="Previous"
-                                            disabled={visits_pagination.current_page === 1}
-                                            onClick={() =>
-                                                router.visit(
-                                                    `/admin/patient?v_page=${visits_pagination.current_page - 1}&v_start=${encodeURIComponent(
-                                                        (visits_filters as any)?.v_start || '',
-                                                    )}&v_end=${encodeURIComponent((visits_filters as any)?.v_end || '')}&v_doctor=${encodeURIComponent(
-                                                        (visits_filters as any)?.v_doctor || '',
-                                                    )}&v_sort_dir=${(visits_filters as any)?.v_sort_dir || 'desc'}`,
-                                                )
-                                            }
-                                            className="px-4 py-2"
-                                        />
-                                        <div className="bg-gray-50 px-4 py-2 rounded-lg">
-                                            <span className="text-sm font-medium text-black">
-                                                Page {visits_pagination.current_page} of {visits_pagination.last_page}
-                                            </span>
-                                        </div>
-                                        <PatientActionButton
-                                            variant="outline"
-                                            size="sm"
-                                            icon={<ArrowRight className="h-4 w-4" />}
-                                            label="Next"
-                                            disabled={visits_pagination.current_page === visits_pagination.last_page}
-                                            onClick={() =>
-                                                router.visit(
-                                                    `/admin/patient?v_page=${visits_pagination.current_page + 1}&v_start=${encodeURIComponent(
-                                                        (visits_filters as any)?.v_start || '',
-                                                    )}&v_end=${encodeURIComponent((visits_filters as any)?.v_end || '')}&v_doctor=${encodeURIComponent(
-                                                        (visits_filters as any)?.v_doctor || '',
-                                                    )}&v_sort_dir=${(visits_filters as any)?.v_sort_dir || 'desc'}`,
-                                                )
-                                            }
-                                            className="px-4 py-2"
-                                        />
-                                    </div>
-                                )}
-                            </PatientInfoCard>
-                        </TabsContent>
                         </Tabs>
                     </div>
             </PatientPageLayout>
@@ -422,6 +314,27 @@ export default function Patient(props: {
                     )}
                     <AlertDialogFooter>
                         <AlertDialogAction onClick={() => setOpen(false)}>OK</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Patient</AlertDialogTitle>
+                    </AlertDialogHeader>
+                    <div className="py-4">
+                        <p className="text-sm text-gray-600">
+                            Are you sure you want to delete <strong>{patientToDelete?.first_name} {patientToDelete?.last_name}</strong>? 
+                            This will also delete all associated appointments and visits. This action cannot be undone.
+                        </p>
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
+                            Delete Patient
+                        </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

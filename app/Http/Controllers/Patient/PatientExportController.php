@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Patient;
 
 use App\Http\Controllers\Controller;
 use App\Models\Patient;
-use App\Models\PatientVisit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
@@ -145,7 +144,7 @@ class PatientExportController extends Controller
             // Load patient with all related data
             $patient->load([
                 'visits' => function ($query) {
-                    $query->orderBy('arrival_date', 'desc');
+                    $query->orderBy('visit_date_time', 'desc');
                 },
                 'labOrders.labTests',
                 'labOrders.results'
@@ -244,7 +243,7 @@ class PatientExportController extends Controller
             // Ensure patient data is properly loaded
             $patient->load([
                 'visits' => function ($query) {
-                    $query->orderBy('arrival_date', 'desc');
+                    $query->orderBy('visit_date_time', 'desc');
                 },
                 'labOrders.labTests',
                 'labOrders.results'
@@ -308,7 +307,7 @@ class PatientExportController extends Controller
 
                 foreach ($patient->visits as $visit) {
                     fputcsv($file, [
-                        $visit->arrival_date ? $visit->arrival_date->format('Y-m-d') : 'N/A',
+                        $visit->visit_date_time ? $visit->visit_date_time->format('Y-m-d') : 'N/A',
                         $visit->reason_for_consult,
                         $visit->attending_physician,
                         $visit->status
@@ -502,8 +501,8 @@ class PatientExportController extends Controller
                         ucfirst($patient->civil_status),
                         $patient->created_at->format('Y-m-d H:i:s'),
                         $patient->visits->count(),
-                        $patient->visits->first() && $patient->visits->first()->arrival_date
-                        ? $patient->visits->first()->arrival_date->format('Y-m-d')
+                        $patient->visits->first() && $patient->visits->first()->visit_date_time
+                        ? $patient->visits->first()->visit_date_time->format('Y-m-d')
                         : 'N/A'
                     ]);
                     break;
@@ -547,8 +546,8 @@ class PatientExportController extends Controller
                         $patient->social_personal_history,
                         $patient->obstetrics_gynecology_history,
                         $patient->visits->count(),
-                        $patient->visits->first() && $patient->visits->first()->arrival_date
-                        ? $patient->visits->first()->arrival_date->format('Y-m-d')
+                        $patient->visits->first() && $patient->visits->first()->visit_date_time
+                        ? $patient->visits->first()->visit_date_time->format('Y-m-d')
                         : 'N/A'
                     ]);
                     break;

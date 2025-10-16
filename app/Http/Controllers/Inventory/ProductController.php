@@ -3,64 +3,20 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
-use App\Models\Supply\Supply as Product;
-use App\Models\Supply\SupplyStockLevel as StockLevel;
+use App\Models\InventoryItem;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class ProductController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        $query = Product::with(['stockLevels'])
-            ->withSum('stockLevels as current_stock', 'current_stock')
-            ->withSum('stockLevels as available_stock', 'available_stock');
-
-        // Search functionality
-        if ($request->has('search') && $request->search) {
-            $query->where(function ($q) use ($request) {
-                $q->where('name', 'like', "%{$request->search}%")
-                  ->orWhere('code', 'like', "%{$request->search}%")
-                  ->orWhere('category', 'like', "%{$request->search}%");
-            });
-        }
-
-        // Filter by category
-        if ($request->has('category') && $request->category) {
-            $query->where('category', $request->category);
-        }
-
-        // Filter by stock status
-        if ($request->has('stock_status')) {
-            switch ($request->stock_status) {
-                case 'low_stock':
-                    $query->whereHas('stockLevels', function ($q) {
-                        $q->whereRaw('supply_stock_levels.current_stock <= supplies.minimum_stock_level')
-                          ->where('current_stock', '>', 0);
-                    });
-                    break;
-                case 'out_of_stock':
-                    $query->whereDoesntHave('stockLevels', function ($q) {
-                        $q->where('current_stock', '>', 0);
-                    });
-                    break;
-                case 'in_stock':
-                    $query->whereHas('stockLevels', function ($q) {
-                        $q->where('current_stock', '>', 0);
-                    });
-                    break;
-            }
-        }
-
-        $products = $query->orderBy('name')->paginate(20);
-
-        // Get categories for filter
-        $categories = Product::distinct()->pluck('category')->filter()->sort()->values();
+        $products = InventoryItem::with('movements')
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
 
         return Inertia::render('admin/inventory/products/index', [
             'products' => $products,
-            'categories' => $categories,
-            'filters' => $request->only(['search', 'category', 'stock_status']),
         ]);
     }
 
@@ -71,93 +27,84 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        try {
-            $validated = $request->validate([
-                'name' => 'required|string|max:255',
-                'code' => 'required|string|max:255|unique:supplies,code',
-                'description' => 'nullable|string',
-                'category' => 'nullable|string|max:255',
-                'unit_of_measure' => 'required|string|max:255',
-                'unit_cost' => 'required|numeric|min:0',
-                'minimum_stock_level' => 'required|integer|min:0',
-                'maximum_stock_level' => 'nullable|integer|min:0',
-                'requires_lot_tracking' => 'boolean',
-                'requires_expiry_tracking' => 'boolean',
-            ]);
+        $request->validate([
+            'item_name' => 'required|string|max:100',
+            'item_code' => 'required|string|max:50|unique:inventory_items,item_code',
+            'category' => 'required|string|max:50',
+            'unit' => 'required|string|max:20',
+            'assigned_to' => 'required|in:Doctor & Nurse,Med Tech',
+            'stock' => 'required|integer|min:0',
+            'low_stock_alert' => 'integer|min:0',
+        ]);
 
-            $product = Product::create($validated);
+        $product = InventoryItem::create([
+            'item_name' => $request->item_name,
+            'item_code' => $request->item_code,
+            'category' => $request->category,
+            'unit' => $request->unit,
+            'assigned_to' => $request->assigned_to,
+            'stock' => $request->stock,
+            'low_stock_alert' => $request->low_stock_alert ?? 10,
+        ]);
 
-            return redirect()->route('admin.inventory.products.index')
-                ->with('success', 'Product created successfully!');
-        } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Failed to create product: ' . $e->getMessage())
-                ->withInput();
-        }
+        $product->updateStatus();
+
+        return redirect()->route('admin.inventory.products.index')
+            ->with('success', 'Product created successfully!');
     }
 
-    public function show(Product $product)
+    public function show($id)
     {
-        $product->load(['stockLevels', 'transactions' => function ($query) {
-            $query->with(['user', 'approvedBy', 'chargedTo'])->latest()->limit(10);
-        }]);
-
+        $product = InventoryItem::with('movements')->findOrFail($id);
+        
         return Inertia::render('admin/inventory/products/show', [
             'product' => $product,
         ]);
     }
 
-    public function edit(Product $product)
+    public function edit($id)
     {
+        $product = InventoryItem::findOrFail($id);
+        
         return Inertia::render('admin/inventory/products/edit', [
             'product' => $product,
         ]);
     }
 
-    public function update(Request $request, Product $product)
+    public function update(Request $request, $id)
     {
-        try {
-            $validated = $request->validate([
-                'name' => 'required|string|max:255',
-                'code' => 'required|string|max:255|unique:supplies,code,' . $product->id,
-                'description' => 'nullable|string',
-                'category' => 'nullable|string|max:255',
-                'unit_of_measure' => 'required|string|max:255',
-                'unit_cost' => 'required|numeric|min:0',
-                'minimum_stock_level' => 'required|integer|min:0',
-                'maximum_stock_level' => 'nullable|integer|min:0',
-                'requires_lot_tracking' => 'boolean',
-                'requires_expiry_tracking' => 'boolean',
-                'is_active' => 'boolean',
-            ]);
+        $product = InventoryItem::findOrFail($id);
 
-            $product->update($validated);
+        $request->validate([
+            'item_name' => 'required|string|max:100',
+            'item_code' => 'required|string|max:50|unique:inventory_items,item_code,' . $id,
+            'category' => 'required|string|max:50',
+            'unit' => 'required|string|max:20',
+            'assigned_to' => 'required|in:Doctor & Nurse,Med Tech',
+            'low_stock_alert' => 'integer|min:0',
+        ]);
 
-            return redirect()->route('admin.inventory.products.index')
-                ->with('success', 'Product updated successfully!');
-        } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Failed to update product: ' . $e->getMessage())
-                ->withInput();
-        }
+        $product->update([
+            'item_name' => $request->item_name,
+            'item_code' => $request->item_code,
+            'category' => $request->category,
+            'unit' => $request->unit,
+            'assigned_to' => $request->assigned_to,
+            'low_stock_alert' => $request->low_stock_alert ?? 10,
+        ]);
+
+        $product->updateStatus();
+
+        return redirect()->route('admin.inventory.products.index')
+            ->with('success', 'Product updated successfully!');
     }
 
-    public function destroy(Product $product)
+    public function destroy($id)
     {
-        try {
-            // Check if product has transactions
-            if ($product->transactions()->count() > 0) {
-                return redirect()->back()
-                    ->with('error', 'Cannot delete product with existing transactions. Please deactivate it instead.');
-            }
+        $product = InventoryItem::findOrFail($id);
+        $product->delete();
 
-            $product->delete();
-
-            return redirect()->route('admin.inventory.products.index')
-                ->with('success', 'Product deleted successfully!');
-        } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Failed to delete product: ' . $e->getMessage());
-        }
+        return redirect()->route('admin.inventory.products.index')
+            ->with('success', 'Product deleted successfully!');
     }
 }

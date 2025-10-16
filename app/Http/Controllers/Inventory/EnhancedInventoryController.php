@@ -3,374 +3,205 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
-use App\Models\Supply\Supply as Product;
-use App\Models\Supply\SupplyTransaction as Transaction;
-use App\Models\Supply\SupplyStockLevel as StockLevel;
-use App\Models\InventoryAlert;
-use App\Models\InventoryCategory;
-use App\Models\Supplier;
+use App\Models\InventoryItem;
+use App\Models\InventoryMovement;
+use App\Models\Supply\Supplier;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Inertia\Response;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class EnhancedInventoryController extends Controller
 {
-    public function index(): Response
+    public function index()
     {
-        $analytics = $this->getInventoryAnalytics();
-        $alerts = $this->getInventoryAlerts();
-        $recentActivity = $this->getRecentActivity();
-        
-        return Inertia::render('Admin/Inventory/EnhancedIndex', [
-            'analytics' => $analytics,
-            'alerts' => $alerts,
-            'recentActivity' => $recentActivity,
+        $stats = [
+            'total_items' => InventoryItem::count(),
+            'low_stock_items' => InventoryItem::lowStock()->count(),
+            'out_of_stock_items' => InventoryItem::where('stock', 0)->count(),
+            'total_suppliers' => Supplier::count(),
+            'total_movements_today' => InventoryMovement::whereDate('created_at', today())->count(),
+        ];
+
+        $recentMovements = InventoryMovement::with(['inventoryItem'])
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+
+        $lowStockItems = InventoryItem::lowStock()
+            ->orderBy('stock', 'asc')
+            ->limit(10)
+            ->get();
+
+        return Inertia::render('admin/inventory/enhanced/index', [
+            'stats' => $stats,
+            'recentMovements' => $recentMovements,
+            'lowStockItems' => $lowStockItems,
         ]);
     }
 
-    public function getInventoryAnalytics(): array
+    public function getDetailedReport(Request $request)
     {
-        $today = Carbon::today();
-        $thisMonth = Carbon::now()->startOfMonth();
-        $lastMonth = Carbon::now()->subMonth()->startOfMonth();
+        $startDate = $request->get('start_date', Carbon::now()->subMonth()->format('Y-m-d'));
+        $endDate = $request->get('end_date', Carbon::now()->format('Y-m-d'));
 
-        return [
-            'overview' => [
-                'total_products' => Product::count(),
-                'active_products' => Product::active()->count(),
-                'total_value' => $this->calculateTotalInventoryValue(),
-                'low_stock_items' => StockLevel::getLowStockProducts()->count(),
-                'expiring_soon' => StockLevel::getExpiringSoon()->count(),
-                'expired_items' => StockLevel::getExpiredStock()->count(),
+        $items = InventoryItem::with(['movements' => function ($query) use ($startDate, $endDate) {
+            $query->whereBetween('created_at', [$startDate, $endDate]);
+        }])
+        ->orderBy('item_name')
+        ->get();
+
+        $reportData = $items->map(function ($item) {
+            $movements = $item->movements;
+            $totalIn = $movements->where('movement_type', 'IN')->sum('quantity');
+            $totalOut = $movements->where('movement_type', 'OUT')->sum('quantity');
+            
+            return [
+                'id' => $item->id,
+                'item_name' => $item->item_name,
+                'item_code' => $item->item_code,
+                'category' => $item->category,
+                'current_stock' => $item->stock,
+                'total_in' => $totalIn,
+                'total_out' => $totalOut,
+                'net_movement' => $totalIn - $totalOut,
+                'status' => $item->status,
+            ];
+        });
+
+        return response()->json([
+            'data' => $reportData,
+            'period' => [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
             ],
-            'movement' => [
-                'inbound_this_month' => Transaction::where('type', 'in')
-                    ->where('transaction_date', '>=', $thisMonth)
-                    ->sum('quantity'),
-                'outbound_this_month' => Transaction::where('type', 'out')
-                    ->where('transaction_date', '>=', $thisMonth)
-                    ->sum('quantity'),
-                'rejected_this_month' => Transaction::where('subtype', 'rejected')
-                    ->where('transaction_date', '>=', $thisMonth)
-                    ->sum('quantity'),
-                'waste_this_month' => Transaction::where('subtype', 'waste')
-                    ->where('transaction_date', '>=', $thisMonth)
-                    ->sum('quantity'),
-            ],
-            'categories' => $this->getCategoryBreakdown(),
-            'suppliers' => $this->getSupplierBreakdown(),
-            'trends' => $this->getInventoryTrends(),
-        ];
+        ]);
     }
 
-    public function getInventoryAlerts(): array
+    public function getUsageReport(Request $request)
     {
-        return [
-            'low_stock' => StockLevel::getLowStockProducts()
-                ->with('product')
-                ->limit(10)
-                ->get()
-                ->map(function ($item) {
-                    return [
-                        'id' => $item->product_id,
-                        'name' => $item->product->name ?? 'Unknown',
-                        'current_stock' => $item->total_stock,
-                        'min_level' => $item->min_level,
-                        'category' => $item->product->category ?? 'Uncategorized',
-                    ];
-                }),
-            'expiring_soon' => StockLevel::getExpiringSoon()
-                ->with('product')
-                ->limit(10)
-                ->get()
-                ->map(function ($item) {
-                    return [
-                        'id' => $item->product_id,
-                        'name' => $item->product->name ?? 'Unknown',
-                        'expiry_date' => $item->expiry_date,
-                        'days_until_expiry' => Carbon::parse($item->expiry_date)->diffInDays(Carbon::now()),
-                        'quantity' => $item->total_stock,
-                    ];
-                }),
-            'expired' => StockLevel::getExpiredStock()
-                ->with('product')
-                ->limit(10)
-                ->get()
-                ->map(function ($item) {
-                    return [
-                        'id' => $item->product_id,
-                        'name' => $item->product->name ?? 'Unknown',
-                        'expiry_date' => $item->expiry_date,
-                        'days_expired' => Carbon::parse($item->expiry_date)->diffInDays(Carbon::now()),
-                        'quantity' => $item->total_stock,
-                    ];
-                }),
-        ];
-    }
+        $startDate = $request->get('start_date', Carbon::now()->subMonth()->format('Y-m-d'));
+        $endDate = $request->get('end_date', Carbon::now()->format('Y-m-d'));
 
-    public function getRecentActivity(): array
-    {
-        return Transaction::with(['product', 'user', 'approvedBy'])
-            ->latest()
-            ->limit(20)
+        $usageData = InventoryMovement::with('inventoryItem')
+            ->where('movement_type', 'OUT')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->selectRaw('inventory_id, SUM(quantity) as total_usage')
+            ->groupBy('inventory_id')
+            ->orderBy('total_usage', 'desc')
             ->get()
-            ->map(function ($transaction) {
+            ->map(function ($movement) {
                 return [
-                    'id' => $transaction->id,
-                    'product_name' => $transaction->product->name ?? 'Unknown',
-                    'type' => $transaction->type,
-                    'subtype' => $transaction->subtype,
-                    'quantity' => $transaction->quantity,
-                    'user_name' => $transaction->user->name ?? 'Unknown',
-                    'transaction_date' => $transaction->transaction_date,
-                    'status' => $transaction->status,
-                    'notes' => $transaction->notes,
+                    'item_name' => $movement->inventoryItem->item_name,
+                    'item_code' => $movement->inventoryItem->item_code,
+                    'category' => $movement->inventoryItem->category,
+                    'total_usage' => $movement->total_usage,
                 ];
             });
+
+        return response()->json([
+            'data' => $usageData,
+            'period' => [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ],
+        ]);
     }
 
-    public function getDetailedReport(Request $request): Response
+    public function getSupplierReport()
     {
-        $query = Product::query();
-
-        // Apply filters
-        if ($request->filled('category')) {
-            $query->where('category', $request->category);
-        }
-
-        if ($request->filled('supplier')) {
-            $query->where('supplier_id', $request->supplier);
-        }
-
-        if ($request->filled('status')) {
-            if ($request->status === 'low_stock') {
-                $query->whereHas('stockLevel', function ($q) {
-                    $q->whereRaw('total_stock <= min_level');
-                });
-            } elseif ($request->status === 'expiring') {
-                $query->whereHas('stockLevel', function ($q) {
-                    $q->where('expiry_date', '<=', Carbon::now()->addDays(30));
-                });
-            }
-        }
-
-        $products = $query->with(['stockLevel', 'supplier', 'transactions' => function ($q) {
-            $q->latest()->limit(5);
+        $suppliers = Supplier::withCount(['inventoryItems' => function ($query) {
+            $query->whereHas('movements');
         }])
         ->orderBy('name')
-        ->paginate(20);
+        ->get();
 
-        $summary = [
-            'total_products' => $products->total(),
-            'low_stock_count' => $products->where('stockLevel.total_stock', '<=', 'stockLevel.min_level')->count(),
-            'expiring_count' => $products->where('stockLevel.expiry_date', '<=', Carbon::now()->addDays(30))->count(),
-            'total_value' => $products->sum(function ($product) {
-                return $product->stockLevel->total_stock * $product->price;
-            }),
-        ];
+        $supplierData = $suppliers->map(function ($supplier) {
+            return [
+                'id' => $supplier->id,
+                'name' => $supplier->name,
+                'contact_person' => $supplier->contact_person,
+                'email' => $supplier->email,
+                'phone' => $supplier->phone,
+                'items_count' => $supplier->inventory_items_count,
+                'is_active' => $supplier->is_active,
+            ];
+        });
 
-        return Inertia::render('Admin/Inventory/DetailedReport', [
-            'products' => $products,
-            'summary' => $summary,
-            'filters' => $request->only(['category', 'supplier', 'status']),
+        return response()->json([
+            'data' => $supplierData,
         ]);
     }
 
-    public function getUsageReport(Request $request): Response
+    public function getInOutFlowReport(Request $request)
     {
-        $query = Transaction::where('type', 'out');
+        $startDate = $request->get('start_date', Carbon::now()->subMonth()->format('Y-m-d'));
+        $endDate = $request->get('end_date', Carbon::now()->format('Y-m-d'));
 
-        if ($request->filled('date_from')) {
-            $query->where('transaction_date', '>=', $request->date_from);
-        }
+        $flowData = InventoryMovement::whereBetween('created_at', [$startDate, $endDate])
+            ->selectRaw('DATE(created_at) as date, movement_type, SUM(quantity) as total_quantity')
+            ->groupBy('date', 'movement_type')
+            ->orderBy('date')
+            ->get()
+            ->groupBy('date')
+            ->map(function ($dayMovements) {
+                $inFlow = $dayMovements->where('movement_type', 'IN')->sum('total_quantity');
+                $outFlow = $dayMovements->where('movement_type', 'OUT')->sum('total_quantity');
+                
+                return [
+                    'date' => $dayMovements->first()->date,
+                    'in_flow' => $inFlow,
+                    'out_flow' => $outFlow,
+                    'net_flow' => $inFlow - $outFlow,
+                ];
+            });
 
-        if ($request->filled('date_to')) {
-            $query->where('transaction_date', '<=', $request->date_to);
-        }
-
-        if ($request->filled('subtype')) {
-            $query->where('subtype', $request->subtype);
-        }
-
-        $transactions = $query->with(['product', 'user'])
-            ->orderBy('transaction_date', 'desc')
-            ->paginate(20);
-
-        $summary = [
-            'total_usage' => $transactions->sum('quantity'),
-            'used_items' => $transactions->where('subtype', 'used')->sum('quantity'),
-            'rejected_items' => $transactions->where('subtype', 'rejected')->sum('quantity'),
-            'waste_items' => $transactions->where('subtype', 'waste')->sum('quantity'),
-        ];
-
-        return Inertia::render('Admin/Inventory/UsageReport', [
-            'transactions' => $transactions,
-            'summary' => $summary,
-            'filters' => $request->only(['date_from', 'date_to', 'subtype']),
+        return response()->json([
+            'data' => $flowData->values(),
+            'period' => [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ],
         ]);
     }
 
-    public function getSupplierReport(Request $request): Response
+    public function exportReport(Request $request, $type)
     {
-        $query = Supplier::query();
-
-        if ($request->filled('search')) {
-            $query->where('name', 'like', "%{$request->search}%");
-        }
-
-        $suppliers = $query->withCount(['products', 'transactions'])
-            ->with(['products' => function ($q) {
-                $q->with('stockLevel');
-            }])
-            ->orderBy('name')
-            ->paginate(20);
-
-        $summary = [
-            'total_suppliers' => $suppliers->total(),
-            'active_suppliers' => $suppliers->where('is_active', true)->count(),
-            'total_products' => $suppliers->sum('products_count'),
-        ];
-
-        return Inertia::render('Admin/Inventory/SupplierReport', [
-            'suppliers' => $suppliers,
-            'summary' => $summary,
-            'filters' => $request->only(['search']),
-        ]);
-    }
-
-    public function getInOutFlowReport(Request $request): Response
-    {
-        $query = Transaction::query();
-
-        if ($request->filled('date_from')) {
-            $query->where('transaction_date', '>=', $request->date_from);
-        }
-
-        if ($request->filled('date_to')) {
-            $query->where('transaction_date', '<=', $request->date_to);
-        }
-
-        $transactions = $query->with(['product', 'user'])
-            ->orderBy('transaction_date', 'desc')
-            ->paginate(20);
-
-        $summary = [
-            'total_inbound' => $transactions->where('type', 'in')->sum('quantity'),
-            'total_outbound' => $transactions->where('type', 'out')->sum('quantity'),
-            'net_movement' => $transactions->where('type', 'in')->sum('quantity') - $transactions->where('type', 'out')->sum('quantity'),
-        ];
-
-        return Inertia::render('Admin/Inventory/InOutFlowReport', [
-            'transactions' => $transactions,
-            'summary' => $summary,
-            'filters' => $request->only(['date_from', 'date_to']),
-        ]);
-    }
-
-    public function exportReport(Request $request, string $type)
-    {
-        $format = $request->get('format', 'excel');
-        
         switch ($type) {
             case 'detailed':
-                return $this->exportDetailedReport($request, $format);
+                return $this->exportDetailedReport($request);
             case 'usage':
-                return $this->exportUsageReport($request, $format);
+                return $this->exportUsageReport($request);
             case 'supplier':
-                return $this->exportSupplierReport($request, $format);
-            case 'inoutflow':
-                return $this->exportInOutFlowReport($request, $format);
+                return $this->exportSupplierReport();
+            case 'flow':
+                return $this->exportFlowReport($request);
             default:
-                abort(404, 'Report type not found');
+                return response()->json(['error' => 'Invalid report type'], 400);
         }
     }
 
-    private function calculateTotalInventoryValue(): float
-    {
-        return Product::with('stockLevel')
-            ->get()
-            ->sum(function ($product) {
-                return $product->stockLevel->total_stock * $product->price;
-            });
-    }
-
-    private function getCategoryBreakdown(): array
-    {
-        return Product::select('category', DB::raw('count(*) as count'), DB::raw('sum(price * stock_levels.total_stock) as total_value'))
-            ->join('stock_levels', 'products.id', '=', 'stock_levels.product_id')
-            ->groupBy('category')
-            ->get()
-            ->mapWithKeys(function ($item) {
-                return [$item->category => [
-                    'count' => $item->count,
-                    'total_value' => $item->total_value,
-                ]];
-            });
-    }
-
-    private function getSupplierBreakdown(): array
-    {
-        return Supplier::withCount('products')
-            ->with(['products' => function ($q) {
-                $q->with('stockLevel');
-            }])
-            ->get()
-            ->mapWithKeys(function ($supplier) {
-                $totalValue = $supplier->products->sum(function ($product) {
-                    return $product->stockLevel->total_stock * $product->price;
-                });
-                
-                return [$supplier->name => [
-                    'products_count' => $supplier->products_count,
-                    'total_value' => $totalValue,
-                ]];
-            });
-    }
-
-    private function getInventoryTrends(): array
-    {
-        $last6Months = [];
-        for ($i = 5; $i >= 0; $i--) {
-            $month = Carbon::now()->subMonths($i);
-            $last6Months[] = [
-                'month' => $month->format('M Y'),
-                'inbound' => Transaction::where('type', 'in')
-                    ->whereMonth('transaction_date', $month->month)
-                    ->whereYear('transaction_date', $month->year)
-                    ->sum('quantity'),
-                'outbound' => Transaction::where('type', 'out')
-                    ->whereMonth('transaction_date', $month->month)
-                    ->whereYear('transaction_date', $month->year)
-                    ->sum('quantity'),
-            ];
-        }
-        
-        return $last6Months;
-    }
-
-    private function exportDetailedReport(Request $request, string $format)
+    private function exportDetailedReport(Request $request)
     {
         // Implementation for detailed report export
-        return response()->json(['message' => 'Detailed report export functionality']);
+        // This would typically generate an Excel or PDF file
+        return response()->json(['message' => 'Detailed report export not implemented yet']);
     }
 
-    private function exportUsageReport(Request $request, string $format)
+    private function exportUsageReport(Request $request)
     {
         // Implementation for usage report export
-        return response()->json(['message' => 'Usage report export functionality']);
+        return response()->json(['message' => 'Usage report export not implemented yet']);
     }
 
-    private function exportSupplierReport(Request $request, string $format)
+    private function exportSupplierReport()
     {
         // Implementation for supplier report export
-        return response()->json(['message' => 'Supplier report export functionality']);
+        return response()->json(['message' => 'Supplier report export not implemented yet']);
     }
 
-    private function exportInOutFlowReport(Request $request, string $format)
+    private function exportFlowReport(Request $request)
     {
-        // Implementation for in/out flow report export
-        return response()->json(['message' => 'In/Out flow report export functionality']);
+        // Implementation for flow report export
+        return response()->json(['message' => 'Flow report export not implemented yet']);
     }
 }

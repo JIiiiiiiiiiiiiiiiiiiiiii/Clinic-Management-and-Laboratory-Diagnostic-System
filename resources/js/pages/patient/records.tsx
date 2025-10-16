@@ -26,20 +26,6 @@ interface PatientRecordsProps {
         patient_no: string;
     };
     records: {
-        visits: Array<{
-            id: number;
-            visit_date: string;
-            chief_complaint: string;
-            diagnosis: string;
-            treatment: string;
-            vital_signs: {
-                blood_pressure: string;
-                temperature: string;
-                pulse_rate: string;
-                respiratory_rate: string;
-            };
-            notes: string;
-        }>;
         lab_orders: Array<{
             id: number;
             created_at: string;
@@ -83,17 +69,15 @@ export default function PatientRecords({ user, patient, records }: PatientRecord
                 {/* Summary Cards */}
                 <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
                     <PatientInfoCard title="Total Records" icon={<FileText className="h-5 w-5 text-blue-600" />}>
-                        <div className="text-2xl font-bold">{records.visits.length}</div>
+                        <div className="text-2xl font-bold">0</div>
                     </PatientInfoCard>
 
                     <PatientInfoCard title="Active Treatments" icon={<Heart className="h-5 w-5 text-red-600" />}>
-                        <div className="text-2xl font-bold text-blue-600">
-                            {Array.isArray(records?.visits) ? records.visits.filter((r) => r.diagnosis && r.diagnosis !== 'Healthy').length : 0}
-                        </div>
+                        <div className="text-2xl font-bold text-blue-600">0</div>
                     </PatientInfoCard>
 
                     <PatientInfoCard title="Last Visit" icon={<Calendar className="h-5 w-5 text-green-600" />}>
-                        <div className="text-2xl font-bold text-green-600">{records.visits[0]?.visit_date || 'N/A'}</div>
+                        <div className="text-2xl font-bold text-green-600">N/A</div>
                     </PatientInfoCard>
 
                     <PatientInfoCard title="Primary Doctor" icon={<User className="h-5 w-5 text-purple-600" />}>
@@ -132,47 +116,11 @@ export default function PatientRecords({ user, patient, records }: PatientRecord
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {Array.isArray(records?.visits)
-                                    ? records.visits.map((record) => (
-                                          <TableRow key={record.id}>
-                                              <TableCell>
-                                                  <div className="flex items-center gap-2">
-                                                      <Calendar className="h-4 w-4 text-gray-500" />
-                                                      {record.visit_date}
-                                                  </div>
-                                              </TableCell>
-                                              <TableCell>
-                                                  <div className="flex items-center gap-2">
-                                                      <FileText className="h-4 w-4 text-blue-500" />
-                                                      Medical Visit
-                                                  </div>
-                                              </TableCell>
-                                              <TableCell>
-                                                  <div className="flex items-center gap-2">
-                                                      <User className="h-4 w-4 text-green-500" />
-                                                      St. James Clinic
-                                                  </div>
-                                              </TableCell>
-                                              <TableCell>
-                                                  <div className="flex items-center gap-2">
-                                                      <Heart className="h-4 w-4 text-red-500" />
-                                                      {record.diagnosis || 'N/A'}
-                                                  </div>
-                                              </TableCell>
-                                              <TableCell className="max-w-xs">{record.treatment || 'N/A'}</TableCell>
-                                              <TableCell>
-                                                  <Badge className={getStatusBadge(record.diagnosis ? 'Active' : 'Completed')}>
-                                                      {record.diagnosis ? 'Active' : 'Completed'}
-                                                  </Badge>
-                                              </TableCell>
-                                              <TableCell>
-                                                  <Button variant="outline" size="sm">
-                                                      View Details
-                                                  </Button>
-                                              </TableCell>
-                                          </TableRow>
-                                      ))
-                                    : null}
+                                <TableRow>
+                                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                                        No medical records available. Visit history is now managed through the Patient Management system.
+                                    </TableCell>
+                                </TableRow>
                             </TableBody>
                         </Table>
                     </CardContent>

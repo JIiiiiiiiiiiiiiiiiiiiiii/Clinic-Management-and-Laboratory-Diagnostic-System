@@ -206,6 +206,81 @@ class InventoryController extends Controller
         ]);
     }
 
+    public function supplyItems()
+    {
+        $doctorNurseItems = InventoryItem::byAssignedTo('Doctor & Nurse')->get();
+        $medTechItems = InventoryItem::byAssignedTo('Med Tech')->get();
+        
+        // Calculate combined stats
+        $totalItems = InventoryItem::count();
+        $lowStockItems = InventoryItem::lowStock()->count();
+        $totalConsumed = InventoryItem::sum('consumed');
+        $totalRejected = InventoryItem::sum('rejected');
+
+        $stats = [
+            'totalItems' => $totalItems,
+            'lowStock' => $lowStockItems,
+            'consumedItems' => $totalConsumed,
+            'rejectedItems' => $totalRejected,
+        ];
+
+        return Inertia::render('Inventory/SupplyItems', [
+            'doctorNurseItems' => $doctorNurseItems,
+            'medTechItems' => $medTechItems,
+            'stats' => $stats,
+        ]);
+    }
+
+    public function addMovement($id)
+    {
+        $item = InventoryItem::findOrFail($id);
+        
+        // Add department information based on assigned_to
+        $item->department = $item->assigned_to;
+        
+        return Inertia::render('Inventory/AddMovement', [
+            'item' => $item,
+        ]);
+    }
+
+    public function storeMovement(Request $request, $id)
+    {
+        $request->validate([
+            'movement_type' => 'required|in:IN,OUT',
+            'quantity' => 'required|integer|min:1',
+            'date' => 'required|date',
+            'handled_by' => 'required|string|max:100',
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        $item = InventoryItem::findOrFail($id);
+
+        if ($request->movement_type === 'OUT' && $item->stock < $request->quantity) {
+            return back()->withErrors(['quantity' => 'Insufficient stock available.']);
+        }
+
+        // Create movement record
+        $movement = InventoryMovement::create([
+            'inventory_id' => $item->id,
+            'movement_type' => $request->movement_type,
+            'quantity' => $request->quantity,
+            'remarks' => $request->reason,
+            'created_by' => $request->handled_by,
+        ]);
+
+        // Update item stock
+        if ($request->movement_type === 'IN') {
+            $item->increment('stock', $request->quantity);
+        } else {
+            $item->decrement('stock', $request->quantity);
+            $item->increment('consumed', $request->quantity);
+        }
+
+        $item->updateStatus();
+
+        return redirect()->route('admin.inventory.supply-items')->with('success', 'Movement recorded successfully!');
+    }
+
     public function reports(Request $request)
     {
         // Get filter parameters
@@ -940,5 +1015,91 @@ class InventoryController extends Controller
                 'status' => $item->status
             ]
         ]);
+    }
+
+    public function consume(Request $request, $id)
+    {
+        $item = InventoryItem::findOrFail($id);
+
+        $validated = $request->validate([
+            'quantity' => 'required|integer|min:1|max:' . $item->stock,
+            'notes' => 'nullable|string|max:255',
+            'handled_by' => 'nullable|string|max:100',
+        ]);
+
+        // Use database transaction to ensure atomicity
+        $result = \DB::transaction(function () use ($item, $validated) {
+            // Create movement record
+            $movement = InventoryMovement::create([
+                'inventory_id' => $item->id,
+                'movement_type' => 'OUT',
+                'quantity' => $validated['quantity'],
+                'remarks' => 'Consumed: ' . ($validated['notes'] ?? 'No reason provided'),
+                'created_by' => $validated['handled_by'] ?? auth()->user()->name ?? 'System',
+            ]);
+
+            // Update item stock and consumed count
+            \DB::table('inventory_items')
+                ->where('id', $item->id)
+                ->update([
+                    'stock' => \DB::raw('stock - ' . $validated['quantity']),
+                    'consumed' => \DB::raw('consumed + ' . $validated['quantity']),
+                    'status' => \DB::raw("CASE 
+                        WHEN stock - " . $validated['quantity'] . " <= 0 THEN 'Out of Stock'
+                        WHEN stock - " . $validated['quantity'] . " <= low_stock_alert THEN 'Low Stock'
+                        ELSE 'In Stock'
+                    END")
+                ]);
+
+            return $movement;
+        });
+
+        // Force refresh the item from database
+        $item = InventoryItem::findOrFail($id);
+
+        return back()->with('success', "Item consumed successfully! Stock: {$item->stock}, Consumed: {$item->consumed}");
+    }
+
+    public function reject(Request $request, $id)
+    {
+        $item = InventoryItem::findOrFail($id);
+
+        $validated = $request->validate([
+            'quantity' => 'required|integer|min:1|max:' . $item->stock,
+            'notes' => 'nullable|string|max:255',
+            'handled_by' => 'nullable|string|max:100',
+        ]);
+
+        // Use database transaction to ensure atomicity
+        $result = \DB::transaction(function () use ($item, $validated) {
+            // Create movement record
+            $movement = InventoryMovement::create([
+                'inventory_id' => $item->id,
+                'movement_type' => 'OUT',
+                'quantity' => $validated['quantity'],
+                'remarks' => 'Rejected: ' . ($validated['notes'] ?? 'No reason provided'),
+                'created_by' => $validated['handled_by'] ?? auth()->user()->name ?? 'System',
+            ]);
+
+            // Update item stock and rejected count
+            \DB::table('inventory_items')
+                ->where('id', $item->id)
+                ->update([
+                    'stock' => \DB::raw('stock - ' . $validated['quantity']),
+                    'rejected' => \DB::raw('rejected + ' . $validated['quantity']),
+                    'status' => \DB::raw("CASE 
+                        WHEN stock - " . $validated['quantity'] . " <= 0 THEN 'Out of Stock'
+                        WHEN stock - " . $validated['quantity'] . " <= low_stock_alert THEN 'Low Stock'
+                        ELSE 'In Stock'
+                    END")
+                ]);
+
+            return $movement;
+        });
+
+        // Force refresh the item from database
+        $item = InventoryItem::findOrFail($id);
+
+        return back()->with('success', "Item rejected successfully! Stock: {$item->stock}, Rejected: {$item->rejected}");
     }
 }

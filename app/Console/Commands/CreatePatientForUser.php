@@ -44,3 +44,9 @@ class CreatePatientForUser extends Command
         $this->info("Created patient record for user {$userId}: {$patient->patient_no}");
     }
 }
+
+
+
+
+
+

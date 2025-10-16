@@ -20,28 +20,7 @@ Route::middleware(['auth'])
         Route::get('/dashboard', [PatientDashboardController::class, 'index'])->name('dashboard');
 
         // Simple dashboard fallback
-        Route::get('/dashboard-simple', function () {
-            $user = auth()->user();
-            $patient = \App\Models\Patient::where('user_id', $user->id)->first();
-
-            return Inertia::render('patient/dashboard', [
-                'user' => $user,
-                'patient' => $patient,
-                'stats' => [
-                    'total_appointments' => 0,
-                    'upcoming_appointments' => 0,
-                    'completed_appointments' => 0,
-                    'pending_lab_results' => 0,
-                    'total_visits' => 0,
-                ],
-                'recent_appointments' => [],
-                'upcoming_appointments' => [],
-                'recent_lab_orders' => [],
-                'recent_visits' => [],
-                'notifications' => [],
-                'unreadCount' => 0,
-            ]);
-        })->name('dashboard.simple');
+        Route::get('/dashboard-simple', [PatientDashboardController::class, 'index'])->name('dashboard.simple');
 
 
         // Patient Registration and Booking

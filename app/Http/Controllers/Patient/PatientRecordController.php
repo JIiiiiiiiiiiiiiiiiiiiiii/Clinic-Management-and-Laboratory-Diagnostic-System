@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Patient;
 
 use App\Http\Controllers\Controller;
 use App\Models\Patient;
-use App\Models\PatientVisit;
 use App\Models\LabOrder;
 use App\Models\LabResult;
 use Illuminate\Http\Request;
@@ -28,26 +27,8 @@ class PatientRecordController extends Controller
         ];
         
         if ($patient) {
-            // Get medical visits
-            $records['visits'] = PatientVisit::where('patient_id', $patient->id)
-                ->orderBy('visit_date', 'desc')
-                ->get()
-                ->map(function ($visit) {
-                    return [
-                        'id' => $visit->id,
-                        'visit_date' => $visit->visit_date->format('M d, Y'),
-                        'chief_complaint' => $visit->chief_complaint,
-                        'diagnosis' => $visit->diagnosis,
-                        'treatment' => $visit->treatment,
-                        'vital_signs' => [
-                            'blood_pressure' => $visit->blood_pressure,
-                            'temperature' => $visit->temperature,
-                            'pulse_rate' => $visit->pulse_rate,
-                            'respiratory_rate' => $visit->respiratory_rate,
-                        ],
-                        'notes' => $visit->notes,
-                    ];
-                });
+            // Visits functionality removed - visit history is now managed in Patient Management
+            $records['visits'] = [];
             
             // Get lab orders
             $records['lab_orders'] = LabOrder::where('patient_id', $patient->id)

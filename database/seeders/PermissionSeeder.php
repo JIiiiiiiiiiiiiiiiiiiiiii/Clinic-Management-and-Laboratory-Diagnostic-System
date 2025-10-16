@@ -24,7 +24,7 @@ class PermissionSeeder extends Seeder
         ];
 
         foreach ($permissions as $p) {
-            Permission::findOrCreate($p, 'web');
+            Permission::findOrCreate($p, 'session');
         }
 
         // Map common permissions to roles

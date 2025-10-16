@@ -9,29 +9,13 @@ use Inertia\Inertia;
 
 class SupplierController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        $query = Supplier::query();
-
-        // Search functionality
-        if ($request->has('search') && $request->search) {
-            $query->where(function ($q) use ($request) {
-                $q->where('name', 'like', "%{$request->search}%")
-                  ->orWhere('contact_person', 'like', "%{$request->search}%")
-                  ->orWhere('email', 'like', "%{$request->search}%");
-            });
-        }
-
-        // Filter by active status
-        if ($request->has('status')) {
-            $query->where('is_active', $request->status === 'active');
-        }
-
-        $suppliers = $query->orderBy('name')->paginate(20);
+        $suppliers = Supplier::orderBy('name')
+            ->paginate(20);
 
         return Inertia::render('admin/inventory/suppliers/index', [
             'suppliers' => $suppliers,
-            'filters' => $request->only(['search', 'status']),
         ]);
     }
 
@@ -42,88 +26,82 @@ class SupplierController extends Controller
 
     public function store(Request $request)
     {
-        try {
-            $validated = $request->validate([
-                'name' => 'required|string|max:255',
-                'contact_person' => 'nullable|string|max:255',
-                'email' => 'nullable|email|max:255',
-                'phone' => 'nullable|string|max:255',
-                'address' => 'nullable|string',
-                'tax_id' => 'nullable|string|max:255',
-                'notes' => 'nullable|string',
-                'is_active' => 'boolean',
-            ]);
+        $request->validate([
+            'name' => 'required|string|max:100',
+            'contact_person' => 'nullable|string|max:100',
+            'email' => 'nullable|email|max:100',
+            'phone' => 'nullable|string|max:20',
+            'address' => 'nullable|string|max:255',
+            'notes' => 'nullable|string|max:500',
+            'is_active' => 'boolean',
+        ]);
 
-            $supplier = Supplier::create($validated);
+        Supplier::create([
+            'name' => $request->name,
+            'contact_person' => $request->contact_person,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'address' => $request->address,
+            'notes' => $request->notes,
+            'is_active' => $request->is_active ?? true,
+        ]);
 
-            return redirect()->route('admin.inventory.suppliers.index')
-                ->with('success', 'Supplier created successfully!');
-        } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Failed to create supplier: ' . $e->getMessage())
-                ->withInput();
-        }
+        return redirect()->route('admin.inventory.suppliers.index')
+            ->with('success', 'Supplier created successfully!');
     }
 
-    public function show(Supplier $supplier)
+    public function show($id)
     {
-        $supplier->load(['transactions' => function ($query) {
-            $query->with(['product', 'user'])->latest()->limit(20);
-        }]);
-
+        $supplier = Supplier::findOrFail($id);
+        
         return Inertia::render('admin/inventory/suppliers/show', [
             'supplier' => $supplier,
         ]);
     }
 
-    public function edit(Supplier $supplier)
+    public function edit($id)
     {
+        $supplier = Supplier::findOrFail($id);
+        
         return Inertia::render('admin/inventory/suppliers/edit', [
             'supplier' => $supplier,
         ]);
     }
 
-    public function update(Request $request, Supplier $supplier)
+    public function update(Request $request, $id)
     {
-        try {
-            $validated = $request->validate([
-                'name' => 'required|string|max:255',
-                'contact_person' => 'nullable|string|max:255',
-                'email' => 'nullable|email|max:255',
-                'phone' => 'nullable|string|max:255',
-                'address' => 'nullable|string',
-                'tax_id' => 'nullable|string|max:255',
-                'notes' => 'nullable|string',
-                'is_active' => 'boolean',
-            ]);
+        $supplier = Supplier::findOrFail($id);
 
-            $supplier->update($validated);
+        $request->validate([
+            'name' => 'required|string|max:100',
+            'contact_person' => 'nullable|string|max:100',
+            'email' => 'nullable|email|max:100',
+            'phone' => 'nullable|string|max:20',
+            'address' => 'nullable|string|max:255',
+            'notes' => 'nullable|string|max:500',
+            'is_active' => 'boolean',
+        ]);
 
-            return redirect()->route('admin.inventory.suppliers.index')
-                ->with('success', 'Supplier updated successfully!');
-        } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Failed to update supplier: ' . $e->getMessage())
-                ->withInput();
-        }
+        $supplier->update([
+            'name' => $request->name,
+            'contact_person' => $request->contact_person,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'address' => $request->address,
+            'notes' => $request->notes,
+            'is_active' => $request->is_active ?? true,
+        ]);
+
+        return redirect()->route('admin.inventory.suppliers.index')
+            ->with('success', 'Supplier updated successfully!');
     }
 
-    public function destroy(Supplier $supplier)
+    public function destroy($id)
     {
-        try {
-            // Check if supplier has transactions
-            if ($supplier->transactions()->count() > 0) {
-                return redirect()->back()
-                    ->with('error', 'Cannot delete supplier with existing transactions. Please deactivate it instead.');
-            }
+        $supplier = Supplier::findOrFail($id);
+        $supplier->delete();
 
-            $supplier->delete();
-
-            return redirect()->route('admin.inventory.suppliers.index')
-                ->with('success', 'Supplier deleted successfully!');
-        } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Failed to delete supplier: ' . $e->getMessage());
-        }
+        return redirect()->route('admin.inventory.suppliers.index')
+            ->with('success', 'Supplier deleted successfully!');
     }
 }

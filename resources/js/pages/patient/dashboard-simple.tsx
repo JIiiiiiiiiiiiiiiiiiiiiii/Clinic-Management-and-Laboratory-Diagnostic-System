@@ -22,7 +22,6 @@ interface SimpleDashboardProps {
         upcoming_appointments: number;
         completed_appointments: number;
         pending_lab_results: number;
-        total_visits: number;
     };
     recent_appointments: Array<{
         id: number;
@@ -52,13 +51,6 @@ interface SimpleDashboardProps {
         has_results: boolean;
         status: string;
     }>;
-    recent_visits: Array<{
-        id: number;
-        visit_date: string;
-        chief_complaint: string;
-        diagnosis: string;
-        treatment: string;
-    }>;
     notifications: Array<{
         id: number;
         type: string;
@@ -78,7 +70,6 @@ export default function SimpleDashboard({
     recent_appointments, 
     upcoming_appointments, 
     recent_lab_orders, 
-    recent_visits,
     notifications,
     unreadCount
 }: SimpleDashboardProps) {

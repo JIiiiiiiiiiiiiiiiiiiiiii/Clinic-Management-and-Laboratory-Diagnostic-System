@@ -24,7 +24,8 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
-            RedirectBasedOnRole::class, // Re-enabled for proper role-based redirects
+            SimpleAuthMiddleware::class, // Custom session-based authentication
+            RedirectBasedOnRole::class, // Re-enabled after fixing authentication
         ]);
 
         // Register role middleware aliases

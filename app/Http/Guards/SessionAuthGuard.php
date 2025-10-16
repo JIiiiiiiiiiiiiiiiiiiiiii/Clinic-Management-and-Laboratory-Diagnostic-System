@@ -73,4 +73,9 @@ class SessionAuthGuard implements Guard
         Session::forget('auth.login');
         $this->user = null;
     }
+
+    public function hasUser(): bool
+    {
+        return !is_null($this->user());
+    }
 }
