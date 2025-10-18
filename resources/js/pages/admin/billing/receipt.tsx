@@ -15,6 +15,7 @@ import {
     DollarSign,
     FileText
 } from 'lucide-react';
+import { formatCurrency } from '@/utils/currency';
 
 type BillingTransaction = {
     id: number;
@@ -87,6 +88,7 @@ export default function BillingReceipt({
     const calculateNetAmount = () => {
         return calculateSubtotal() - calculateDiscount();
     };
+
 
     const getPaymentMethodLabel = (method: string) => {
         const methods = {
@@ -246,8 +248,8 @@ export default function BillingReceipt({
                                                         <td className="border border-gray-300 px-4 py-3 font-medium">{item.item_name}</td>
                                                         <td className="border border-gray-300 px-4 py-3 text-sm text-gray-600">{item.item_description}</td>
                                                         <td className="border border-gray-300 px-4 py-3 text-center">{item.quantity}</td>
-                                                        <td className="border border-gray-300 px-4 py-3 text-right">₱{item.unit_price.toLocaleString()}</td>
-                                                        <td className="border border-gray-300 px-4 py-3 text-right font-semibold">₱{item.total_price.toLocaleString()}</td>
+                                                        <td className="border border-gray-300 px-4 py-3 text-right">₱{formatCurrency(item.unit_price)}</td>
+                                                        <td className="border border-gray-300 px-4 py-3 text-right font-semibold">₱{formatCurrency(item.total_price)}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -261,7 +263,7 @@ export default function BillingReceipt({
                                         <div className="space-y-3">
                                             <div className="flex justify-between text-lg">
                                                 <span className="font-medium">Subtotal:</span>
-                                                <span className="font-semibold">₱{calculateSubtotal().toLocaleString()}</span>
+                                                <span className="font-semibold">₱{formatCurrency(calculateSubtotal())}</span>
                                             </div>
                                             
                                             {calculateDiscount() > 0 && (
@@ -269,14 +271,14 @@ export default function BillingReceipt({
                                                     <span className="font-medium">
                                                         Discount {transaction.discount_percentage ? `(${transaction.discount_percentage}%)` : ''}:
                                                     </span>
-                                                    <span className="font-semibold">-₱{calculateDiscount().toLocaleString()}</span>
+                                                    <span className="font-semibold">-₱{formatCurrency(calculateDiscount())}</span>
                                                 </div>
                                             )}
 
                                             <div className="border-t border-gray-300 pt-3">
                                                 <div className="flex justify-between text-xl font-bold">
                                                     <span>Total Amount:</span>
-                                                    <span>₱{calculateNetAmount().toLocaleString()}</span>
+                                                    <span>₱{formatCurrency(calculateNetAmount())}</span>
                                                 </div>
                                             </div>
                                         </div>

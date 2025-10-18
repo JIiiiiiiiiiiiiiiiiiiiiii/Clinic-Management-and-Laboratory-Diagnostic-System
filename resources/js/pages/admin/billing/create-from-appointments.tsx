@@ -10,6 +10,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import Heading from '@/components/heading';
+import { formatAppointmentTime, formatAppointmentDateShort } from '@/utils/dateTime';
 import { 
     ArrowLeft, 
     Calendar,
@@ -311,11 +312,11 @@ export default function CreateFromAppointments({
                                                     <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
                                                         <div className="flex items-center gap-1">
                                                             <Calendar className="h-4 w-4" />
-                                                            {new Date(appointment.appointment_date).toLocaleDateString()}
+                                                            {formatAppointmentDateShort(appointment.appointment_date)}
                                                         </div>
                                                         <div className="flex items-center gap-1">
                                                             <Clock className="h-4 w-4" />
-                                                            {appointment.appointment_time}
+                                                            {formatAppointmentTime(appointment.appointment_time)}
                                                         </div>
                                                         <div className="flex items-center gap-1">
                                                             <User className="h-4 w-4" />

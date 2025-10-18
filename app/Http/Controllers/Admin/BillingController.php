@@ -78,7 +78,22 @@ class BillingController extends Controller
             $pendingAppointments = Appointment::where('billing_status', 'pending')
                 ->with(['patient', 'specialist'])
                 ->orderBy('appointment_date', 'asc')
-                ->get();
+                ->get()
+                ->map(function ($appointment) {
+                    return [
+                        'id' => $appointment->id,
+                        'patient_name' => $appointment->patient_name,
+                        'patient_id' => $appointment->patient_id,
+                        'appointment_type' => $appointment->appointment_type,
+                        'price' => $appointment->price,
+                        'appointment_date' => $appointment->appointment_date ? $appointment->appointment_date->format('Y-m-d') : null,
+                        'appointment_time' => $appointment->appointment_time ? $appointment->appointment_time->format('H:i:s') : null,
+                        'specialist_name' => $appointment->specialist_name,
+                        'billing_status' => $appointment->billing_status,
+                        'patient' => $appointment->patient,
+                        'specialist' => $appointment->specialist
+                    ];
+                });
                 
 
         // Get summary statistics
@@ -228,7 +243,21 @@ class BillingController extends Controller
         $pendingAppointments = Appointment::pendingBilling()
             ->with(['billingLinks'])
             ->orderBy('appointment_date', 'asc')
-            ->get();
+            ->get()
+            ->map(function ($appointment) {
+                return [
+                    'id' => $appointment->id,
+                    'patient_name' => $appointment->patient_name,
+                    'patient_id' => $appointment->patient_id,
+                    'appointment_type' => $appointment->appointment_type,
+                    'price' => $appointment->price,
+                    'appointment_date' => $appointment->appointment_date ? $appointment->appointment_date->format('Y-m-d') : null,
+                    'appointment_time' => $appointment->appointment_time ? $appointment->appointment_time->format('H:i:s') : null,
+                    'specialist_name' => $appointment->specialist_name,
+                    'billing_status' => $appointment->billing_status,
+                    'billingLinks' => $appointment->billingLinks
+                ];
+            });
 
         $doctors = User::where('role', 'doctor')->select('id', 'name')->get();
 

@@ -117,7 +117,7 @@ class Patient extends Model
         return $this->birthdate ? $this->birthdate->format('M d, Y') : 'N/A';
     }
 
-    // Boot method to generate patient number
+    // Boot method to generate patient number and ensure address consistency
     protected static function boot()
     {
         parent::boot();
@@ -127,6 +127,18 @@ class Patient extends Model
             if (empty($patient->patient_no)) {
                 $nextId = static::max('id') + 1;
                 $patient->patient_no = 'P' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+            }
+            
+            // Ensure present_address is set - use address if present_address is empty
+            if (empty($patient->present_address) && !empty($patient->address)) {
+                $patient->present_address = $patient->address;
+            }
+        });
+        
+        static::updating(function ($patient) {
+            // Ensure present_address is set - use address if present_address is empty
+            if (empty($patient->present_address) && !empty($patient->address)) {
+                $patient->present_address = $patient->address;
             }
         });
     }
