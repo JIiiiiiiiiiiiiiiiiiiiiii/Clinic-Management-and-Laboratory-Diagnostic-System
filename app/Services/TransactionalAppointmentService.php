@@ -164,14 +164,15 @@ class TransactionalAppointmentService
                 $appointment->update([
                     'status' => 'Confirmed',
                     'admin_notes' => $adminNotes,
-                    'specialist_id' => $assignedStaffId ?? $appointment->specialist_id
+                    'specialist_id' => $assignedStaffId ?? $appointment->specialist_id,
+                    'billing_status' => 'pending' // Set billing status to pending for manual processing
                 ]);
 
                 // Create visit
                 $visit = $this->createVisit($appointment);
 
-                // Create billing transaction
-                $billingTransaction = $this->createBillingTransaction($appointment);
+                // Skip auto-generating billing transaction - admin will handle this manually
+                // $billingTransaction = $this->createBillingTransaction($appointment);
 
                 // Notify patient
                 $this->notifyPatientAppointmentApproved($appointment);
@@ -181,19 +182,16 @@ class TransactionalAppointmentService
                     'appointment_code' => $appointment->appointment_code,
                     'visit_id' => $visit->id,
                     'visit_code' => $visit->visit_code,
-                    'transaction_id' => $billingTransaction->id,
-                    'transaction_code' => $billingTransaction->transaction_code
+                    'note' => 'Billing transaction will be created manually by admin'
                 ]);
 
                 return [
                     'success' => true,
                     'appointment' => $appointment,
                     'visit' => $visit,
-                    'billing_transaction' => $billingTransaction,
+                    'note' => 'Billing transaction will be created manually by admin',
                     'visit_id' => $visit->id,
-                    'visit_code' => $visit->visit_code,
-                    'transaction_id' => $billingTransaction->id,
-                    'transaction_code' => $billingTransaction->transaction_code
+                    'visit_code' => $visit->visit_code
                 ];
 
             } catch (Exception $e) {

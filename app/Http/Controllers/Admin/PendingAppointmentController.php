@@ -123,8 +123,7 @@ class PendingAppointmentController extends Controller
                 'pending_appointment_id' => $pendingAppointment->id,
                 'appointment_id' => $result['appointment']->id,
                 'visit_id' => $result['visit']->id,
-                'billing_transaction_id' => $result['billing_transaction']->id,
-                'billing_link_id' => $result['billing_link']->id
+                'note' => 'Billing transaction will be created manually by admin'
             ]);
 
             return redirect()->route('admin.pending-appointments.index')

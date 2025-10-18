@@ -30,6 +30,7 @@ class Patient extends Model
         'civil_status',
         'nationality',
         'address',
+        'present_address',
         'telephone_no',
         'mobile_no',
         'emergency_name',

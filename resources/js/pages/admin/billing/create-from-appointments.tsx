@@ -111,8 +111,23 @@ export default function CreateFromAppointments({
             notes: notes,
         }, {
             onStart: () => console.log('Form submission started'),
-            onSuccess: (page) => console.log('Form submission successful:', page),
-            onError: (errors) => console.error('Form submission failed:', errors),
+            onSuccess: (page) => {
+                console.log('Form submission successful:', page);
+                // Check if we got redirected to billing index
+                if (page.url.includes('/admin/billing') && !page.url.includes('create-from-appointments')) {
+                    console.log('Redirected to billing index successfully');
+                } else {
+                    console.log('Still on create-from-appointments page');
+                }
+            },
+            onError: (errors) => {
+                console.error('Form submission failed:', errors);
+                if (errors.error) {
+                    alert('Error: ' + errors.error);
+                } else {
+                    alert('Error: Unknown error occurred');
+                }
+            },
             onFinish: () => console.log('Form submission finished')
         });
     };

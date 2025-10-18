@@ -265,8 +265,15 @@ class BillingController extends Controller
         
         
         // SYSTEM-WIDE FIX: Ensure all appointments have valid specialist data
-        \App\Helpers\SystemWideSpecialistBillingHelper::validateAllAppointments();
-        \App\Helpers\SystemWideSpecialistBillingHelper::fixAllBillingTransactions();
+        try {
+            \App\Helpers\SystemWideSpecialistBillingHelper::validateAllAppointments();
+            \App\Helpers\SystemWideSpecialistBillingHelper::fixAllBillingTransactions();
+        } catch (\Exception $e) {
+            \Log::warning('System-wide billing helper failed, continuing with transaction creation', [
+                'error' => $e->getMessage()
+            ]);
+            // Continue with transaction creation even if helper fails
+        }
         $request->validate([
             'appointment_ids' => 'required|array|min:1',
             'appointment_ids.*' => 'exists:appointments,id',
@@ -285,9 +292,24 @@ class BillingController extends Controller
 
             \Log::info('Found appointments: ' . $appointments->count());
             \Log::info('Appointment IDs: ' . $appointments->pluck('id')->toJson());
+            \Log::info('Request appointment IDs: ' . json_encode($request->appointment_ids));
 
             if ($appointments->isEmpty()) {
                 \Log::warning('No valid pending appointments found');
+                \Log::warning('Requested IDs: ' . json_encode($request->appointment_ids));
+                
+                // Check what appointments exist with these IDs
+                $allAppointments = Appointment::whereIn('id', $request->appointment_ids)->get();
+                \Log::warning('All appointments with these IDs: ' . $allAppointments->map(function($apt) {
+                    return "ID: {$apt->id}, Status: {$apt->status}, Billing Status: " . ($apt->billing_status ?? 'NULL');
+                })->toJson());
+                
+                // Check if appointments exist but are not approved
+                $unapprovedAppointments = $allAppointments->where('status', '!=', 'Confirmed');
+                if ($unapprovedAppointments->isNotEmpty()) {
+                    return back()->withErrors(['error' => 'Selected appointments have not been approved yet. Please approve them first before creating billing transactions.']);
+                }
+                
                 return back()->withErrors(['error' => 'No valid pending appointments selected.']);
             }
 
@@ -310,8 +332,16 @@ class BillingController extends Controller
             $specialist = \App\Models\Specialist::where('role', 'Doctor')->first();
             $doctorId = $specialist ? $specialist->specialist_id : null;
             
+            // Create new transaction using the first appointment's ID
+            $firstAppointment = $appointments->first();
+            
+            // Generate sequential transaction ID (like patient codes)
+            $nextTransactionId = BillingTransaction::max('id') + 1;
+            $transactionId = 'TXN-' . str_pad($nextTransactionId, 6, '0', STR_PAD_LEFT);
+            
             $transaction = BillingTransaction::create([
                 'transaction_id' => $transactionId,
+                'appointment_id' => $firstAppointment->id, // Use first appointment as primary
                 'patient_id' => $patientId,
                 'doctor_id' => $doctorId,
                 'payment_type' => 'cash',
@@ -333,19 +363,32 @@ class BillingController extends Controller
 
             // Create appointment billing links and update appointment status
             foreach ($appointments as $appointment) {
-                AppointmentBillingLink::create([
-                    'appointment_id' => $appointment->id,
-                    'billing_transaction_id' => $transaction->id,
-                    'appointment_type' => $appointment->appointment_type,
-                    'appointment_price' => $appointment->price,
-                    'status' => 'pending',
-                ]);
+                // Check if billing link already exists to avoid duplicates
+                $existingLink = AppointmentBillingLink::where('appointment_id', $appointment->id)
+                    ->where('billing_transaction_id', $transaction->id)
+                    ->first();
+                
+                if (!$existingLink) {
+                    AppointmentBillingLink::create([
+                        'appointment_id' => $appointment->id,
+                        'billing_transaction_id' => $transaction->id,
+                        'appointment_type' => $appointment->appointment_type,
+                        'appointment_price' => $appointment->price,
+                        'status' => 'pending',
+                    ]);
+                }
 
                 // Update appointment billing status to indicate it's now in a transaction
                 $appointment->update(['billing_status' => 'in_transaction']);
             }
 
             DB::commit();
+
+            \Log::info('Transaction creation completed successfully', [
+                'transaction_id' => $transaction->id,
+                'appointments_count' => $appointments->count(),
+                'total_amount' => $totalAmount
+            ]);
 
             return redirect()->route('admin.billing.index')
                 ->with('success', 'Transaction created successfully for ' . $appointments->count() . ' appointment(s)!');

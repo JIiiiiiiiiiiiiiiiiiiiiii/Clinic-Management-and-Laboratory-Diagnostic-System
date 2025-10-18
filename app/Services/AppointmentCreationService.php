@@ -120,8 +120,12 @@ class AppointmentCreationService
         if (!isset($patientData['time_seen'])) {
             $patientData['time_seen'] = now()->format('H:i:s');
         }
+        if (!isset($patientData['present_address'])) {
+            $patientData['present_address'] = 'Not specified';
+        }
+        // Also set address for backward compatibility
         if (!isset($patientData['address'])) {
-            $patientData['address'] = 'Not specified';
+            $patientData['address'] = $patientData['present_address'];
         }
         if (!isset($patientData['emergency_name'])) {
             $patientData['emergency_name'] = 'Not specified';

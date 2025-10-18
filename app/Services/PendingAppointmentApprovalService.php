@@ -38,15 +38,16 @@ class PendingAppointmentApprovalService
 
                 // Step 2: Create appointment record
                 $appointment = $this->createAppointmentFromPending($pendingAppointment, $patient, $adminData);
+                
+                // Set billing status to pending for manual processing
+                $appointment->update(['billing_status' => 'pending']);
 
                 // Step 3: Create visit record
                 $visit = $this->createVisitFromAppointment($appointment);
 
-                // Step 4: Create billing transaction
-                $billingTransaction = $this->createBillingTransactionFromAppointment($appointment);
-
-                // Step 5: Create billing link
-                $billingLink = $this->createBillingLink($appointment, $billingTransaction);
+                // Step 4: Skip auto-generating billing transaction - admin will handle this manually
+                // $billingTransaction = $this->createBillingTransactionFromAppointment($appointment);
+                // $billingLink = $this->createBillingLink($appointment, $billingTransaction);
 
                 // Step 6: Update pending appointment status
                 $pendingAppointment->update([
@@ -63,8 +64,7 @@ class PendingAppointmentApprovalService
                     'pending_appointment_id' => $pendingAppointment->id,
                     'appointment_id' => $appointment->id,
                     'visit_id' => $visit->id,
-                    'billing_transaction_id' => $billingTransaction->id,
-                    'billing_link_id' => $billingLink->id
+                    'note' => 'Billing transaction will be created manually by admin'
                 ]);
 
                 return [
@@ -72,8 +72,7 @@ class PendingAppointmentApprovalService
                     'pending_appointment' => $pendingAppointment,
                     'appointment' => $appointment,
                     'visit' => $visit,
-                    'billing_transaction' => $billingTransaction,
-                    'billing_link' => $billingLink
+                    'note' => 'Billing transaction will be created manually by admin'
                 ];
 
             } catch (\Exception $e) {
@@ -119,8 +118,8 @@ class PendingAppointmentApprovalService
             'sex' => 'male', // Default sex
             'civil_status' => 'single',
             'nationality' => 'Filipino',
-            'address' => 'Not specified',
             'present_address' => 'Not specified',
+            'address' => 'Not specified', // Keep for backward compatibility
             'mobile_no' => $pendingAppointment->contact_number ?? 'Not specified',
             'emergency_name' => 'Not specified',
             'emergency_relation' => 'Self',
