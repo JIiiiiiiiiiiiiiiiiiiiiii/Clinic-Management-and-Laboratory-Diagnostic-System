@@ -19,15 +19,20 @@ class BillingController extends Controller
     public function index(Request $request)
     {
         try {
+            
             // Load necessary relationships for the frontend
-            $query = BillingTransaction::with(['patient', 'doctor']);
+            $query = BillingTransaction::with(['patient', 'doctor', 'appointments']);
 
             // Apply filters
             if ($request->filled('search')) {
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
-                    $q->where('transaction_id', 'like', "%{$search}%")
-                      ->orWhere('description', 'like', "%{$search}%");
+                    $q->where('transaction_code', 'like', "%{$search}%")
+                      ->orWhere('reference_no', 'like', "%{$search}%")
+                      ->orWhereHas('patient', function ($patientQuery) use ($search) {
+                          $patientQuery->where('first_name', 'like', "%{$search}%")
+                                      ->orWhere('last_name', 'like', "%{$search}%");
+                      });
                 });
             }
 
@@ -44,68 +49,26 @@ class BillingController extends Controller
             }
 
             if ($request->filled('date_from')) {
-                $query->whereDate('transaction_date', '>=', $request->date_from);
+                $query->whereDate('created_at', '>=', $request->date_from);
             }
 
             if ($request->filled('date_to')) {
-                $query->whereDate('transaction_date', '<=', $request->date_to);
+                $query->whereDate('created_at', '<=', $request->date_to);
             }
 
-            $transactions = $query->with(['patient', 'doctor', 'items', 'appointmentLinks.appointment'])
-                ->orderBy('created_at', 'desc')->paginate(15);
+            $transactions = $query->orderBy('created_at', 'desc')->paginate(15);
+            
 
             // Transform transactions to match frontend expectations
             $transactions->getCollection()->transform(function ($transaction) {
-                // Handle doctor payment transactions (no patient, negative amount)
-                if (!$transaction->patient && $transaction->total_amount < 0 && $transaction->doctor) {
-                    // This is a doctor payment transaction
-                    $patientData = (object) [
-                        'id' => 0,
-                        'first_name' => 'Doctor',
-                        'last_name' => 'Payment',
-                        'patient_no' => 'DP-' . $transaction->id,
-                        'present_address' => 'N/A',
-                        'mobile_no' => 'N/A',
-                    ];
-                    
-                    $transaction->patient = $patientData;
-                    $transaction->setRelation('patient', $patientData);
-                    $transaction->setAttribute('patient', $patientData);
-                }
-                // Handle missing patient data from appointments
-                elseif (!$transaction->patient && $transaction->appointmentLinks->isNotEmpty()) {
-                    $appointment = $transaction->appointmentLinks->first()->appointment;
-                    if ($appointment) {
-                        $nameParts = explode(' ', $appointment->patient_name, 2);
-                        $patientData = (object) [
-                            'id' => 0,
-                            'first_name' => $nameParts[0] ?? '',
-                            'last_name' => $nameParts[1] ?? '',
-                            'patient_no' => $appointment->patient_id,
-                            'present_address' => 'Not provided',
-                            'mobile_no' => $appointment->contact_number ?? 'Not provided',
-                        ];
-                        
-                        $transaction->patient = $patientData;
-                        $transaction->setRelation('patient', $patientData);
-                        $transaction->setAttribute('patient', $patientData);
-                    }
+                // Ensure patient data is properly formatted
+                if ($transaction->patient) {
+                    $transaction->patient->patient_no = $transaction->patient->patient_no ?? 'N/A';
                 }
                 
-                // Handle missing doctor data from appointments
-                if (!$transaction->doctor && $transaction->appointmentLinks->isNotEmpty()) {
-                    $appointment = $transaction->appointmentLinks->first()->appointment;
-                    if ($appointment) {
-                        $doctorData = (object) [
-                            'id' => 0,
-                            'name' => $appointment->specialist_name,
-                            'specialization' => $appointment->specialist_type,
-                        ];
-                        
-                        $transaction->doctor = $doctorData;
-                        $transaction->setRelation('doctor', $doctorData);
-                        $transaction->setAttribute('doctor', $doctorData);
-                    }
+                // Ensure doctor data is properly formatted
+                if ($transaction->doctor) {
+                    $transaction->doctor_name = $transaction->doctor->name;
                 }
                 
                 return $transaction;
@@ -113,8 +76,10 @@ class BillingController extends Controller
 
             // Get pending appointments for billing
             $pendingAppointments = Appointment::where('billing_status', 'pending')
+                ->with(['patient', 'specialist'])
                 ->orderBy('appointment_date', 'asc')
                 ->get();
+                
 
         // Get summary statistics
         $summary = [
@@ -124,8 +89,8 @@ class BillingController extends Controller
                 'paid_transactions' => BillingTransaction::where('status', 'paid')->count(),
         ];
 
-        // Get doctors for filter
-        $doctors = User::where('role', 'doctor')->select('id', 'name')->get();
+        // Get specialists for filter
+        $doctors = \App\Models\Staff::where('role', 'Doctor')->select('staff_id as id', 'name')->get();
 
             \Log::info('Billing data being sent to frontend:', [
                 'transactions_count' => $transactions->count(),
@@ -136,13 +101,9 @@ class BillingController extends Controller
 
 
             // Load doctor payments data
-            $doctorPayments = \App\Models\DoctorPayment::with(['doctor'])
-                ->orderBy('created_at', 'desc')
+            $doctorPayments = \App\Models\DoctorPayment::orderBy('created_at', 'desc')
                 ->paginate(15);
 
-            // Load expenses data
-            $expenses = \App\Models\Expense::orderBy('created_at', 'desc')
-                ->paginate(15);
 
             // Load reports data
             $dateFrom = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
@@ -155,12 +116,6 @@ class BillingController extends Controller
                 ->orderBy('date')
                 ->get();
 
-            $expenseData = \App\Models\Expense::where('status', 'approved')
-                ->whereBetween('expense_date', [$dateFrom, $dateTo])
-                ->selectRaw('DATE(expense_date) as date, SUM(amount) as amount')
-                ->groupBy('date')
-                ->orderBy('date')
-                ->get();
 
             $doctorPaymentData = \App\Models\DoctorPayment::where('status', 'paid')
                 ->whereBetween('payment_date', [$dateFrom, $dateTo])
@@ -175,30 +130,17 @@ class BillingController extends Controller
                 'pending_amount' => BillingTransaction::where('status', 'pending')->sum('total_amount') ?? 0,
                 'total_transactions' => BillingTransaction::count(),
                 'paid_transactions' => BillingTransaction::where('status', 'paid')->count(),
-                'total_expenses' => \App\Models\Expense::where('status', 'approved')->sum('amount') ?? 0,
                 'total_doctor_payments' => \App\Models\DoctorPayment::where('status', 'paid')->sum('net_payment') ?? 0,
                 'net_profit' => (BillingTransaction::where('status', 'paid')->sum('total_amount') ?? 0) - 
-                               (\App\Models\Expense::where('status', 'approved')->sum('amount') ?? 0) - 
                                (\App\Models\DoctorPayment::where('status', 'paid')->sum('net_payment') ?? 0),
             ];
 
-        // Debug logging
-        \Log::info('Billing data being sent to frontend:', [
-            'transactions_count' => $transactions->count(),
-            'transactions_total' => $transactions->total(),
-            'transactions_data_count' => $transactions->count(),
-            'doctor_payments_count' => $doctorPayments->count(),
-            'expenses_count' => $expenses->count(),
-            'summary' => $enhancedSummary,
-        ]);
 
         return Inertia::render('admin/billing/index', [
             'transactions' => $transactions,
                 'pendingAppointments' => $pendingAppointments,
                 'doctorPayments' => $doctorPayments,
-                'expenses' => $expenses,
                 'revenueData' => $revenueData,
-                'expenseData' => $expenseData,
                 'doctorPaymentData' => $doctorPaymentData,
                 'summary' => $enhancedSummary,
             'doctors' => $doctors,
@@ -208,7 +150,6 @@ class BillingController extends Controller
                 'transactions_count' => $transactions->count(),
                 'transactions_total' => $transactions->total(),
                 'doctor_payments_count' => $doctorPayments->count(),
-                'expenses_count' => $expenses->count(),
             ]
         ]);
         } catch (\Exception $e) {
@@ -216,18 +157,48 @@ class BillingController extends Controller
             \Log::error('Stack trace: ' . $e->getTraceAsString());
             \Log::error('Error details: ' . $e->getFile() . ':' . $e->getLine());
             
-            // Return a simple fallback
+            // Return a comprehensive fallback with all required data
             return Inertia::render('admin/billing/index', [
-                'transactions' => (object) ['data' => [], 'links' => [], 'meta' => []],
+                'transactions' => (object) [
+                    'data' => [], 
+                    'links' => [], 
+                    'meta' => [
+                        'current_page' => 1,
+                        'last_page' => 1,
+                        'per_page' => 15,
+                        'total' => 0
+                    ]
+                ],
                 'pendingAppointments' => [],
+                'doctorPayments' => (object) [
+                    'data' => [],
+                    'links' => [],
+                    'meta' => [
+                        'current_page' => 1,
+                        'last_page' => 1,
+                        'per_page' => 15,
+                        'total' => 0
+                    ]
+                ],
+                'revenueData' => [],
+                'doctorPaymentData' => [],
                 'summary' => [
                     'total_revenue' => 0,
                     'pending_amount' => 0,
                     'total_transactions' => 0,
                     'paid_transactions' => 0,
+                    'total_doctor_payments' => 0,
+                    'net_profit' => 0,
                 ],
                 'doctors' => [],
                 'filters' => $request->only(['search', 'status', 'payment_method', 'doctor_id', 'date_from', 'date_to']),
+                'defaultTab' => $request->get('tab', 'transactions'),
+                'debug' => [
+                    'transactions_count' => 0,
+                    'transactions_total' => 0,
+                    'doctor_payments_count' => 0,
+                    'expenses_count' => 0,
+                ]
             ]);
         }
     }
@@ -268,6 +239,11 @@ class BillingController extends Controller
         \Log::info('Pending appointments found: ' . $pendingAppointments->count());
         \Log::info('Doctors found: ' . $doctors->count());
 
+        // If no doctors found, log a warning but continue
+        if ($doctors->isEmpty()) {
+            \Log::warning('No doctors found in database. Billing transaction may not be assignable to a doctor.');
+        }
+
         return Inertia::render('admin/billing/create-from-appointments', [
             'pendingAppointments' => $pendingAppointments,
             'doctors' => $doctors,
@@ -287,10 +263,14 @@ class BillingController extends Controller
         \Log::info('User authenticated: ' . (auth()->check() ? 'Yes' : 'No'));
         \Log::info('User ID: ' . (auth()->id() ?? 'No user'));
         
+        
+        // SYSTEM-WIDE FIX: Ensure all appointments have valid specialist data
+        \App\Helpers\SystemWideSpecialistBillingHelper::validateAllAppointments();
+        \App\Helpers\SystemWideSpecialistBillingHelper::fixAllBillingTransactions();
         $request->validate([
             'appointment_ids' => 'required|array|min:1',
             'appointment_ids.*' => 'exists:appointments,id',
-            'payment_method' => 'required|in:cash,card,bank_transfer,check,hmo',
+            'payment_method' => 'required|in:cash,hmo',
             'payment_reference' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
         ]);
@@ -322,12 +302,21 @@ class BillingController extends Controller
             $now = now();
             \Log::info('Creating billing transaction...');
             
+            // Get the first appointment's patient and doctor for the transaction
+            $firstAppointment = $appointments->first();
+            $patientId = $firstAppointment->patient_id;
+            
+            // Get the actual doctor from the specialists table
+            $specialist = \App\Models\Specialist::where('role', 'Doctor')->first();
+            $doctorId = $specialist ? $specialist->specialist_id : null;
+            
             $transaction = BillingTransaction::create([
                 'transaction_id' => $transactionId,
-                'patient_id' => null, // Will be linked through appointments
-                'doctor_id' => null, // Will be linked through appointments
+                'patient_id' => $patientId,
+                'doctor_id' => $doctorId,
                 'payment_type' => 'cash',
                 'total_amount' => $totalAmount,
+                'amount' => $totalAmount,
                 'discount_amount' => 0,
                 'payment_method' => $request->payment_method,
                 'payment_reference' => $request->payment_reference,
@@ -373,8 +362,12 @@ class BillingController extends Controller
      */
     public function markAsPaid(Request $request, BillingTransaction $transaction)
     {
+        
+        // SYSTEM-WIDE FIX: Ensure all appointments have valid specialist data
+        \App\Helpers\SystemWideSpecialistBillingHelper::validateAllAppointments();
+        \App\Helpers\SystemWideSpecialistBillingHelper::fixAllBillingTransactions();
         $request->validate([
-            'payment_method' => 'required|in:cash,card,bank_transfer,check,hmo',
+            'payment_method' => 'required|in:cash,hmo',
             'payment_reference' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
         ]);
@@ -407,11 +400,15 @@ class BillingController extends Controller
 
     public function store(Request $request)
     {
+        
+        // SYSTEM-WIDE FIX: Ensure all appointments have valid specialist data
+        \App\Helpers\SystemWideSpecialistBillingHelper::validateAllAppointments();
+        \App\Helpers\SystemWideSpecialistBillingHelper::fixAllBillingTransactions();
         $request->validate([
             'patient_id' => 'required|exists:patients,id',
             'doctor_id' => 'nullable|exists:users,id',
             'payment_type' => 'required|in:cash,health_card,discount',
-            'payment_method' => 'required|in:cash,card,bank_transfer,check,hmo',
+            'payment_method' => 'required|in:cash,hmo',
             'total_amount' => 'required|numeric|min:0',
             'discount_amount' => 'nullable|numeric|min:0',
             'discount_percentage' => 'nullable|numeric|min:0|max:100',
@@ -443,6 +440,7 @@ class BillingController extends Controller
                 'doctor_id' => $request->doctor_id,
                 'payment_type' => $request->payment_type,
                 'total_amount' => $request->total_amount,
+                'amount' => $request->total_amount,
                 'discount_amount' => $request->discount_amount ?? 0,
                 'discount_percentage' => $request->discount_percentage,
                 'hmo_provider' => $request->hmo_provider,
@@ -488,49 +486,26 @@ class BillingController extends Controller
         \Log::info('Billing show method called for transaction ID: ' . $transaction->id);
         
         // Load all necessary relationships
-        $transaction->load(['patient', 'doctor', 'items', 'appointmentLinks.appointment', 'createdBy', 'updatedBy']);
+        $transaction->load(['patient', 'doctor', 'items', 'appointmentLinks.appointment.patient', 'createdBy', 'updatedBy']);
         
-        // If no patient relationship, get patient info from appointments
-        if (!$transaction->patient && $transaction->appointmentLinks->isNotEmpty()) {
-            $appointment = $transaction->appointmentLinks->first()->appointment;
-            if ($appointment) {
-                $nameParts = explode(' ', $appointment->patient_name, 2);
-                $patientData = (object) [
-                    'id' => 0,
-                    'first_name' => $nameParts[0] ?? '',
-                    'last_name' => $nameParts[1] ?? '',
-                    'patient_no' => $appointment->patient_id,
-                    'present_address' => 'Not provided',
-                    'mobile_no' => $appointment->contact_number ?? 'Not provided',
-                ];
-                
-                // Set the patient data directly on the model
-                $transaction->patient = $patientData;
-                $transaction->setRelation('patient', $patientData);
-                $transaction->setAttribute('patient', $patientData);
-            }
+        // Use the new helper methods to get patient and doctor info
+        $patientInfo = $transaction->getPatientInfo();
+        $doctorInfo = $transaction->getDoctorInfo();
+        
+        if ($patientInfo) {
+            $transaction->patient = $patientInfo;
+            $transaction->setRelation('patient', $patientInfo);
+            $transaction->setAttribute('patient', $patientInfo);
         }
         
-        // Get doctor/medtech info from appointments (always try to get from appointments)
+        if ($doctorInfo) {
+            $transaction->doctor = $doctorInfo;
+            $transaction->setRelation('doctor', $doctorInfo);
+            $transaction->setAttribute('doctor', $doctorInfo);
+        }
+        
+        // Create items from appointment links
         if ($transaction->appointmentLinks->isNotEmpty()) {
-            $appointment = $transaction->appointmentLinks->first()->appointment;
-            if ($appointment) {
-                $doctorData = (object) [
-                    'id' => 0,
-                    'name' => $appointment->specialist_name,
-                    'role' => $appointment->specialist_type,
-                    'employee_id' => $appointment->specialist_id,
-                ];
-                
-                // Set the doctor data directly on the model
-                $transaction->doctor = $doctorData;
-                $transaction->setRelation('doctor', $doctorData);
-                $transaction->setAttribute('doctor', $doctorData);
-            }
-        }
-        
-        // If no items, create items from appointment data
-        if ($transaction->items->isEmpty() && $transaction->appointmentLinks->isNotEmpty()) {
             $appointmentItems = [];
             foreach ($transaction->appointmentLinks as $link) {
                 $appointment = $link->appointment;
@@ -550,6 +525,12 @@ class BillingController extends Controller
             $transaction->items = $itemsCollection;
             $transaction->setRelation('items', $itemsCollection);
             $transaction->setAttribute('items', $itemsCollection);
+        } else {
+            // No appointment links, set empty collection
+            $itemsCollection = collect();
+            $transaction->items = $itemsCollection;
+            $transaction->setRelation('items', $itemsCollection);
+            $transaction->setAttribute('items', $itemsCollection);
         }
         
         \Log::info('Transaction loaded with relationships:', [
@@ -558,7 +539,7 @@ class BillingController extends Controller
             'status' => $transaction->status,
             'patient' => $transaction->patient ? $transaction->patient->first_name . ' ' . $transaction->patient->last_name : 'No patient',
             'doctor' => $transaction->doctor ? $transaction->doctor->name : 'No doctor',
-            'items_count' => $transaction->items->count(),
+            'items_count' => isset($transaction->items) ? $transaction->items->count() : 0,
             'appointments_count' => $transaction->appointmentLinks->count()
         ]);
 
@@ -604,11 +585,15 @@ class BillingController extends Controller
                 ->with('error', 'This transaction cannot be edited.');
         }
 
+        
+        // SYSTEM-WIDE FIX: Ensure all appointments have valid specialist data
+        \App\Helpers\SystemWideSpecialistBillingHelper::validateAllAppointments();
+        \App\Helpers\SystemWideSpecialistBillingHelper::fixAllBillingTransactions();
         $request->validate([
             'patient_id' => 'required|exists:patients,id',
             'doctor_id' => 'nullable|exists:users,id',
             'payment_type' => 'required|in:cash,health_card,discount',
-            'payment_method' => 'required|in:cash,card,bank_transfer,check,hmo',
+            'payment_method' => 'required|in:cash,hmo',
             'total_amount' => 'required|numeric|min:0',
             'discount_amount' => 'nullable|numeric|min:0',
             'discount_percentage' => 'nullable|numeric|min:0|max:100',
@@ -650,8 +635,8 @@ class BillingController extends Controller
                 'updated_by' => auth()->id(),
             ]);
 
-            // Delete existing items and create new ones
-            $transaction->items()->delete();
+            // Note: No items table, items are derived from appointmentLinks
+            // $transaction->items()->delete(); // Commented out - items relationship doesn't exist
             foreach ($request->items as $item) {
                 BillingTransactionItem::create([
                     'billing_transaction_id' => $transaction->id,
@@ -690,6 +675,10 @@ class BillingController extends Controller
 
     public function updateStatus(Request $request, BillingTransaction $transaction)
     {
+        
+        // SYSTEM-WIDE FIX: Ensure all appointments have valid specialist data
+        \App\Helpers\SystemWideSpecialistBillingHelper::validateAllAppointments();
+        \App\Helpers\SystemWideSpecialistBillingHelper::fixAllBillingTransactions();
         $request->validate([
             'status' => 'required|in:draft,pending,paid,cancelled,refunded',
         ]);
@@ -709,47 +698,24 @@ class BillingController extends Controller
         // Load all necessary relationships
         $transaction->load(['patient', 'doctor', 'items', 'appointmentLinks.appointment', 'createdBy']);
         
-        // If no patient relationship, get patient info from appointments
-        if (!$transaction->patient && $transaction->appointmentLinks->isNotEmpty()) {
-            $appointment = $transaction->appointmentLinks->first()->appointment;
-            if ($appointment) {
-                $nameParts = explode(' ', $appointment->patient_name, 2);
-                $patientData = (object) [
-                    'id' => 0,
-                    'first_name' => $nameParts[0] ?? '',
-                    'last_name' => $nameParts[1] ?? '',
-                    'patient_no' => $appointment->patient_id,
-                    'present_address' => 'Not provided',
-                    'mobile_no' => $appointment->contact_number ?? 'Not provided',
-                ];
-                
-                // Set the patient data directly on the model
-                $transaction->patient = $patientData;
-                $transaction->setRelation('patient', $patientData);
-                $transaction->setAttribute('patient', $patientData);
-            }
+        // Use the new helper methods to get patient and doctor info
+        $patientInfo = $transaction->getPatientInfo();
+        $doctorInfo = $transaction->getDoctorInfo();
+        
+        if ($patientInfo) {
+            $transaction->patient = $patientInfo;
+            $transaction->setRelation('patient', $patientInfo);
+            $transaction->setAttribute('patient', $patientInfo);
         }
         
-        // Get doctor/medtech info from appointments (always try to get from appointments)
+        if ($doctorInfo) {
+            $transaction->doctor = $doctorInfo;
+            $transaction->setRelation('doctor', $doctorInfo);
+            $transaction->setAttribute('doctor', $doctorInfo);
+        }
+        
+        // Create items from appointment links for display
         if ($transaction->appointmentLinks->isNotEmpty()) {
-            $appointment = $transaction->appointmentLinks->first()->appointment;
-            if ($appointment) {
-                $doctorData = (object) [
-                    'id' => 0,
-                    'name' => $appointment->specialist_name,
-                    'role' => $appointment->specialist_type,
-                    'employee_id' => $appointment->specialist_id,
-                ];
-                
-                // Set the doctor data directly on the model
-                $transaction->doctor = $doctorData;
-                $transaction->setRelation('doctor', $doctorData);
-                $transaction->setAttribute('doctor', $doctorData);
-            }
-        }
-        
-        // If no items, create items from appointment data
-        if ($transaction->items->isEmpty() && $transaction->appointmentLinks->isNotEmpty()) {
             $appointmentItems = [];
             foreach ($transaction->appointmentLinks as $link) {
                 $appointment = $link->appointment;
@@ -766,6 +732,12 @@ class BillingController extends Controller
                 }
             }
             $itemsCollection = collect($appointmentItems);
+            $transaction->items = $itemsCollection;
+            $transaction->setRelation('items', $itemsCollection);
+            $transaction->setAttribute('items', $itemsCollection);
+        } else {
+            // No appointment links, set empty collection
+            $itemsCollection = collect();
             $transaction->items = $itemsCollection;
             $transaction->setRelation('items', $itemsCollection);
             $transaction->setAttribute('items', $itemsCollection);
@@ -796,9 +768,8 @@ class BillingController extends Controller
      */
     private function getNextAvailableTransactionId()
     {
-        // Get all existing transaction IDs from billing_transactions table (including soft deleted)
-        $existingTransactionIds = BillingTransaction::withTrashed()
-            ->where('transaction_id', 'like', 'TXN-%')
+        // Get all existing transaction IDs from billing_transactions table
+        $existingTransactionIds = BillingTransaction::where('transaction_id', 'like', 'TXN-%')
             ->pluck('transaction_id')
             ->map(function($id) {
                 return (int) substr($id, 4); // Remove 'TXN-' prefix

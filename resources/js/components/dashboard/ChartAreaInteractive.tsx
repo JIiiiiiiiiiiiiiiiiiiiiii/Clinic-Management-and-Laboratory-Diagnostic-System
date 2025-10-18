@@ -104,11 +104,11 @@ const chartConfig = {
   },
   desktop: {
     label: "Desktop",
-    color: "hsl(var(--chart-1))",
+    color: "#22c55e", // Green-500
   },
   mobile: {
-    label: "Mobile",
-    color: "hsl(var(--chart-2))",
+    label: "Mobile", 
+    color: "#16a34a", // Green-600
   },
 } satisfies ChartConfig
 
@@ -124,8 +124,8 @@ export function ChartAreaInteractive() {
   }))
 
   return (
-    <Card>
-      <CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row">
+    <Card className="border-green-200 bg-gradient-to-br from-green-50 to-white w-full min-w-0">
+      <CardHeader className="flex items-center gap-2 space-y-0 border-b border-green-200 py-5 sm:flex-row">
         <div className="grid flex-1 gap-1 text-center sm:text-left">
           <CardTitle>Total Visitors</CardTitle>
           <CardDescription>
@@ -144,7 +144,11 @@ export function ChartAreaInteractive() {
                 variant={timeRange === item.period ? "outline" : "ghost"}
                 size="sm"
                 onClick={() => setTimeRange(item.period)}
-                className="relative h-7 rounded-md px-3 text-xs font-normal data-[state=active]:bg-muted"
+                className={`relative h-7 rounded-md px-3 text-xs font-normal ${
+                  timeRange === item.period 
+                    ? "bg-green-100 border-green-300 text-green-700 hover:bg-green-200" 
+                    : "hover:bg-green-50"
+                }`}
               >
                 {item.label}
               </Button>
@@ -155,31 +159,31 @@ export function ChartAreaInteractive() {
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto h-[250px] w-full"
+          className="aspect-auto h-[250px] w-full min-w-0"
         >
           <ComposedChart data={dataWithTotal}>
             <defs>
               <linearGradient id="fillDesktop" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="5%"
-                  stopColor="var(--color-desktop)"
+                  stopColor="#22c55e"
                   stopOpacity={0.8}
                 />
                 <stop
                   offset="95%"
-                  stopColor="var(--color-desktop)"
+                  stopColor="#22c55e"
                   stopOpacity={0.1}
                 />
               </linearGradient>
               <linearGradient id="fillMobile" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="5%"
-                  stopColor="var(--color-mobile)"
+                  stopColor="#16a34a"
                   stopOpacity={0.8}
                 />
                 <stop
                   offset="95%"
-                  stopColor="var(--color-mobile)"
+                  stopColor="#16a34a"
                   stopOpacity={0.1}
                 />
               </linearGradient>
@@ -219,7 +223,7 @@ export function ChartAreaInteractive() {
               type="natural"
               fill="url(#fillMobile)"
               fillOpacity={0.4}
-              stroke="#000000"
+              stroke="#16a34a"
               strokeWidth={2}
               stackId="a"
             />
@@ -228,20 +232,20 @@ export function ChartAreaInteractive() {
               type="natural"
               fill="url(#fillDesktop)"
               fillOpacity={0.4}
-              stroke="#000000"
+              stroke="#22c55e"
               strokeWidth={2}
               stackId="a"
             />
           </ComposedChart>
         </ChartContainer>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="bg-green-50/50 border-t border-green-200">
         <div className="flex w-full items-start gap-2 text-sm">
           <div className="grid gap-2">
-            <div className="flex items-center gap-2 font-medium leading-none">
-              Trending up by 5.2% this month <TrendingUp className="h-4 w-4" />
+            <div className="flex items-center gap-2 font-medium leading-none text-green-700">
+              Trending up by 5.2% this month <TrendingUp className="h-4 w-4 text-green-600" />
             </div>
-            <div className="flex items-center gap-2 leading-none text-muted-foreground">
+            <div className="flex items-center gap-2 leading-none text-green-600">
               January - June 2024
             </div>
           </div>

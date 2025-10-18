@@ -28,7 +28,7 @@ class PendingAppointment extends Model
         'admin_notes',
         'approved_by',
         'approved_at',
-        'appointment_source',
+        'source',
     ];
 
     protected $casts = [
@@ -52,10 +52,16 @@ class PendingAppointment extends Model
     public function calculatePrice(): float
     {
         $basePrice = match($this->appointment_type) {
+            'consultation' => 300.00,
             'general_consultation' => 300.00,
-            'cbc' => 800.00,
-            'fecalysis_test' => 800.00,
-            'urinarysis_test' => 800.00,
+            'checkup' => 300.00,
+            'fecalysis' => 500.00,
+            'fecalysis_test' => 500.00,
+            'cbc' => 500.00,
+            'urinalysis' => 500.00,
+            'urinarysis_test' => 500.00,
+            'x-ray' => 700.00,
+            'ultrasound' => 800.00,
             default => 300.00,
         };
 

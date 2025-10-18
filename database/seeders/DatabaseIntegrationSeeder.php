@@ -69,8 +69,8 @@ class DatabaseIntegrationSeeder extends Seeder
                 'models' => ['User']
             ],
             'Billing' => [
-                'tables' => ['billing_transactions', 'billing_transaction_items', 'doctor_payments', 'expenses', 'daily_transactions'],
-                'models' => ['BillingTransaction', 'BillingTransactionItem', 'DoctorPayment', 'Expense', 'DailyTransaction']
+                'tables' => ['billing_transactions', 'billing_transaction_items', 'doctor_payments', 'daily_transactions'],
+                'models' => ['BillingTransaction', 'BillingTransactionItem', 'DoctorPayment', 'DailyTransaction']
             ]
         ];
 

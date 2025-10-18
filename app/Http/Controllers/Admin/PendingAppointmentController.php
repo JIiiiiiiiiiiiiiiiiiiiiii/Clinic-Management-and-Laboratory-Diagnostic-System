@@ -47,6 +47,8 @@ class PendingAppointmentController extends Controller
                     'price' => $appointment->formatted_price,
                     'notes' => $appointment->notes,
                     'special_requirements' => $appointment->special_requirements,
+                    'appointment_source' => $appointment->appointment_source,
+                    'booking_method' => $appointment->booking_method,
                     'created_at' => $appointment->created_at->format('M d, Y g:i A'),
                 ];
             });
@@ -81,6 +83,7 @@ class PendingAppointmentController extends Controller
                 'price' => $pendingAppointment->formatted_price,
                 'notes' => $pendingAppointment->notes,
                 'special_requirements' => $pendingAppointment->special_requirements,
+                'appointment_source' => $pendingAppointment->appointment_source,
                 'booking_method' => $pendingAppointment->booking_method,
                 'status_approval' => $pendingAppointment->status_approval,
                 'created_at' => $pendingAppointment->created_at->format('M d, Y g:i A'),
@@ -110,105 +113,31 @@ class PendingAppointmentController extends Controller
                 return back()->withErrors(['error' => 'This appointment has already been approved. Please refresh the page.', 'code' => 'already_approved']);
             }
 
-            // Find or create patient first
-            $patient = null;
-            if ($pendingAppointment->patient_id !== 'TBD') {
-                $patient = \App\Models\Patient::where('patient_no', $pendingAppointment->patient_id)->first();
-            }
-
-            // If no patient found, create one from pending appointment data
-            if (!$patient) {
-                $patientData = [
-                    'first_name' => explode(' ', $pendingAppointment->patient_name)[0] ?? 'Unknown',
-                    'last_name' => explode(' ', $pendingAppointment->patient_name, 2)[1] ?? 'Unknown',
-                    'birthdate' => '1990-01-01', // Default birthdate
-                    'age' => 30, // Default age
-                    'sex' => 'male', // Default sex
-                    'civil_status' => 'single',
-                    'nationality' => 'Filipino',
-                    'present_address' => 'Not specified',
-                    'mobile_no' => $pendingAppointment->contact_number ?? 'Not specified',
-                    'informant_name' => 'Not specified',
-                    'relationship' => 'Self',
-                    'arrival_date' => now()->toDateString(),
-                    'arrival_time' => now()->toTimeString(),
-                    'attending_physician' => $pendingAppointment->specialist_name,
-                    'time_seen' => now()->toTimeString(),
-                ];
-
-                $appointmentService = app(\App\Services\AppointmentCreationService::class);
-                $patient = $appointmentService->createOrFindPatient($patientData);
-                
-                \Log::info('Patient created during approval', [
-                    'patient_id' => $patient->id,
-                    'patient_no' => $patient->patient_no,
-                    'pending_appointment_id' => $pendingAppointment->id
-                ]);
-            }
-
-            // Create appointment data with proper patient reference
-            $appointmentData = [
-                'patient_name' => $pendingAppointment->patient_name,
-                'patient_id' => $patient->id, // Use actual patient ID
-                'contact_number' => $pendingAppointment->contact_number,
-                'appointment_type' => $pendingAppointment->appointment_type,
-                'specialist_type' => $pendingAppointment->specialist_type,
-                'specialist_name' => $pendingAppointment->specialist_name,
-                'specialist_id' => $pendingAppointment->specialist_id,
-                'appointment_date' => $pendingAppointment->appointment_date,
-                'appointment_time' => $pendingAppointment->appointment_time,
-                'duration' => $pendingAppointment->duration,
-                'status' => 'Confirmed',
-                'billing_status' => $pendingAppointment->billing_status,
-                'notes' => $pendingAppointment->notes,
-                'special_requirements' => $pendingAppointment->special_requirements,
-                'booking_method' => $pendingAppointment->booking_method,
-                'price' => $pendingAppointment->price,
-                'appointment_source' => $pendingAppointment->appointment_source,
-            ];
-
-            // Use AppointmentCreationService to create appointment with proper relationships
-            $appointmentService = app(\App\Services\AppointmentCreationService::class);
-            $result = $appointmentService->createAppointmentWithPatient($appointmentData, null);
-            $appointment = $result['appointment'];
-            $visit = $result['visit'];
-
-            \Log::info('Appointment and visit created during approval', [
-                'appointment_id' => $appointment->id,
-                'visit_id' => $visit ? $visit->id : 'not created',
-                'patient_id' => $patient->id
-            ]);
-
-            // Update pending appointment status
-            $pendingAppointment->update([
-                'status_approval' => 'approved',
-                'admin_notes' => $request->admin_notes,
-                'approved_by' => auth()->id(),
-                'approved_at' => now(),
-            ]);
-
-            // Log the pending appointment update
-            \Log::info('Pending appointment updated', [
-                'pending_appointment_id' => $pendingAppointment->id,
-                'status_approval' => 'approved',
-                'patient_id' => $pendingAppointment->patient_id
-            ]);
-
-            // Notify patient about approval with admin notes
-            $this->notifyPatientAppointmentApproved($appointment, $request->admin_notes);
-
-            // Log the approval for debugging
-            \Log::info('Appointment approved successfully', [
-                'appointment_id' => $appointment->id,
-                'patient_id' => $appointment->patient_id,
+            // Use the new approval service
+            $approvalService = app(\App\Services\PendingAppointmentApprovalService::class);
+            $result = $approvalService->approvePendingAppointment($pendingAppointment, [
                 'admin_notes' => $request->admin_notes
+            ]);
+
+            \Log::info('Appointment approved successfully using new service', [
+                'pending_appointment_id' => $pendingAppointment->id,
+                'appointment_id' => $result['appointment']->id,
+                'visit_id' => $result['visit']->id,
+                'billing_transaction_id' => $result['billing_transaction']->id,
+                'billing_link_id' => $result['billing_link']->id
             ]);
 
             return redirect()->route('admin.pending-appointments.index')
                 ->with('success', 'Appointment approved successfully! Patient has been notified.');
 
         } catch (\Exception $e) {
-            return back()->withErrors(['error' => 'Failed to approve appointment. Please try again.']);
+            \Log::error('Appointment approval failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'pending_appointment_id' => $pendingAppointment->id,
+                'request_data' => $request->all()
+            ]);
+            return back()->withErrors(['error' => 'Failed to approve appointment: ' . $e->getMessage()]);
         }
     }
 
@@ -253,7 +182,7 @@ class PendingAppointmentController extends Controller
         ]);
 
         // Find patient user
-        $patient = \App\Models\Patient::where('patient_no', $appointment->patient_id)->first();
+        $patient = \App\Models\Patient::find($appointment->patient_id);
         if (!$patient || !$patient->user_id) {
             \Log::error('Patient not found for notification', [
                 'appointment_id' => $appointment->id,
@@ -364,7 +293,11 @@ class PendingAppointmentController extends Controller
     private function notifyPatientAppointmentRejected(PendingAppointment $pendingAppointment)
     {
         // Find patient user
-        $patient = \App\Models\Patient::where('patient_id', $pendingAppointment->patient_id)->first();
+        $patient = \App\Models\Patient::find((int)$pendingAppointment->patient_id);
+        if (!$patient) {
+            $patient = \App\Models\Patient::where('patient_no', $pendingAppointment->patient_id)->first();
+        }
+        
         if (!$patient || !$patient->user_id) {
             return;
         }

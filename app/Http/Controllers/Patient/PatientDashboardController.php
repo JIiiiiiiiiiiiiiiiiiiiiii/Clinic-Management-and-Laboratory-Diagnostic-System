@@ -42,7 +42,7 @@ class PatientDashboardController extends Controller
         // Get patient's appointments (only confirmed, completed, or cancelled)
         $appointments = collect([]);
         if ($patient) {
-            $appointments = Appointment::where('patient_id', $patient->patient_no)
+            $appointments = Appointment::where('patient_id', $patient->id)
                 ->whereIn('status', ['Confirmed', 'Completed', 'Cancelled'])
                 ->orderBy('appointment_date', 'desc')
                 ->get()

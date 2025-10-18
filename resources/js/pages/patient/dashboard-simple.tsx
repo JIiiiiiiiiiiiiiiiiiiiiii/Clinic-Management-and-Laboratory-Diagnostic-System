@@ -90,8 +90,12 @@ export default function SimpleDashboard({
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
                                 <div className="bg-white rounded-full p-3">
-                                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                                        <Stethoscope className="h-8 w-8 text-blue-600" />
+                                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
+                                        <img 
+                                            src="/st-james-logo.png" 
+                                            alt="St. James Hospital Logo" 
+                                            className="w-10 h-10 object-contain"
+                                        />
                                     </div>
                                 </div>
                                 <div>

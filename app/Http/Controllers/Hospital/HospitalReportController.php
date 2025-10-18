@@ -15,7 +15,7 @@ use App\Models\LabResult;
 use App\Models\LabTest;
 use App\Models\PatientReferral;
 use App\Models\DoctorPayment;
-use App\Models\Expense;
+// use App\Models\Expense; // Expense model removed
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;

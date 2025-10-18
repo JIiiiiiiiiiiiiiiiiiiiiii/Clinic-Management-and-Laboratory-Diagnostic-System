@@ -73,8 +73,8 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
         mobile_no: patient.mobile_no || '',
 
         // Emergency Contact
-        informant_name: patient.informant_name || '',
-        relationship: patient.relationship || '',
+        emergency_name: patient.emergency_name || '',
+        emergency_relation: patient.emergency_relation || '',
 
         // Financial/Insurance
         company_name: patient.company_name || '',
@@ -324,26 +324,26 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                     >
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="informant_name" className="text-base font-bold text-gray-700">Informant Name *</Label>
+                                    <Label htmlFor="emergency_name" className="text-base font-bold text-gray-700">Informant Name *</Label>
                                     <Input
-                                        id="informant_name"
-                                        value={data.informant_name}
-                                        onChange={(e) => setData('informant_name', e.target.value)}
+                                        id="emergency_name"
+                                        value={data.emergency_name}
+                                        onChange={(e) => setData('emergency_name', e.target.value)}
                                         className="w-full"
                                         required
                                     />
-                                    {errors.informant_name && <p className="text-black text-sm">{errors.informant_name}</p>}
+                                    {errors.emergency_name && <p className="text-black text-sm">{errors.emergency_name}</p>}
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="relationship" className="text-base font-bold text-gray-700">Relationship *</Label>
+                                    <Label htmlFor="emergency_relation" className="text-base font-bold text-gray-700">Relationship *</Label>
                                     <Input
-                                        id="relationship"
-                                        value={data.relationship}
-                                        onChange={(e) => setData('relationship', e.target.value)}
+                                        id="emergency_relation"
+                                        value={data.emergency_relation}
+                                        onChange={(e) => setData('emergency_relation', e.target.value)}
                                         className="w-full"
                                         required
                                     />
-                                    {errors.relationship && <p className="text-black text-sm">{errors.relationship}</p>}
+                                    {errors.emergency_relation && <p className="text-black text-sm">{errors.emergency_relation}</p>}
                                 </div>
                             </div>
                     </PatientInfoCard>

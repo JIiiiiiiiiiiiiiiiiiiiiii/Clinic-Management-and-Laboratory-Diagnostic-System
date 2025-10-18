@@ -12,6 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
+            // Default role is 'patient' - all new signups automatically get patient role
             $table->enum('role', ['patient', 'laboratory_technologist', 'medtech', 'cashier', 'doctor', 'admin', 'hospital_admin'])->default('patient');
             $table->boolean('is_active')->default(true);
             $table->string('employee_id')->nullable();

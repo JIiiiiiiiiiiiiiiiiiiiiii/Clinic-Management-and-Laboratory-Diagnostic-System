@@ -27,6 +27,8 @@ class PatientService
                     $validatedData['patient_no'] = $this->getNextAvailablePatientNo();
                 }
 
+                // patient_no is already set, no need for patient_code
+
                 // Additional validation before creation
                 $this->validatePatientData($validatedData);
 
@@ -115,26 +117,28 @@ class PatientService
     /**
      * Get the next available patient number with smart reset logic
      * If patient 1 is deleted, start from 1 again instead of continuing from highest number
+     * Uses consistent "P" + padded format (e.g., P001, P002, P003)
      */
     private function getNextAvailablePatientNo()
     {
-        // Get the highest patient number (including soft deleted)
-        $maxPatientNo = Patient::withTrashed()->max('patient_no');
+        // Get the highest sequence number (including soft deleted)
+        $maxSequence = Patient::max('id');
 
-        if ($maxPatientNo === null) {
+        if ($maxSequence === null) {
             // No patients exist, start with 1
-            return '1';
+            return 'P001';
         }
 
-        // Convert to integer and increment
-        $nextNumber = (int) $maxPatientNo + 1;
-
-        // Safety check: ensure the number doesn't already exist (including soft deleted)
-        while (Patient::withTrashed()->where('patient_no', (string) $nextNumber)->exists()) {
-            $nextNumber++;
+        // Find the first missing sequence number starting from 1
+        for ($i = 1; $i <= 999; $i++) {
+            if (!Patient::withTrashed()->where('id', $i)->exists()) {
+                return 'P' . str_pad($i, 3, '0', STR_PAD_LEFT);
+            }
         }
 
-        return (string) $nextNumber;
+        // If all numbers 1-999 are taken, find the next available
+        $nextSequence = $maxSequence + 1;
+        return 'P' . str_pad($nextSequence, 3, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -161,9 +165,9 @@ class PatientService
             'birthdate',
             'sex',
             'mobile_no',
-            'present_address',
-            'informant_name',
-            'relationship'
+            'present_address', // Use actual database column name
+            'emergency_name', // Use actual database column name
+            'emergency_relation' // Use actual database column name
         ];
 
         foreach ($requiredFields as $field) {

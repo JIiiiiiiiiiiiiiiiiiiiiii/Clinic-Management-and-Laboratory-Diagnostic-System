@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class DailyTransaction extends Model
 {
@@ -30,52 +30,24 @@ class DailyTransaction extends Model
         'amount' => 'decimal:2',
     ];
 
-    // Scope for filtering by date
-    public function scopeForDate($query, $date)
+    // Scopes
+    public function scopeByDate($query, $date)
     {
-        return $query->whereDate('transaction_date', $date);
+        return $query->where('transaction_date', $date);
     }
 
-    // Scope for filtering by transaction type
     public function scopeByType($query, $type)
     {
         return $query->where('transaction_type', $type);
     }
 
-    // Scope for filtering by status
-    public function scopeByStatus($query, $status)
+    public function scopeBilling($query)
     {
-        return $query->where('status', $status);
+        return $query->where('transaction_type', 'billing');
     }
 
-    // Get formatted amount with currency
-    public function getFormattedAmountAttribute()
+    public function scopeDoctorPayments($query)
     {
-        return '₱' . number_format($this->amount, 2);
-    }
-
-    // Get transaction type badge color
-    public function getTypeColorAttribute()
-    {
-        return match($this->transaction_type) {
-            'billing' => 'green',
-            'doctor_payment' => 'blue',
-            'expense' => 'red',
-            'appointment' => 'yellow',
-            default => 'gray'
-        };
-    }
-
-    // Get status badge color
-    public function getStatusColorAttribute()
-    {
-        return match($this->status) {
-            'paid' => 'green',
-            'pending' => 'yellow',
-            'cancelled' => 'red',
-            'approved' => 'blue',
-            'refunded' => 'gray',
-            default => 'gray'
-        };
+        return $query->where('transaction_type', 'doctor_payment');
     }
 }

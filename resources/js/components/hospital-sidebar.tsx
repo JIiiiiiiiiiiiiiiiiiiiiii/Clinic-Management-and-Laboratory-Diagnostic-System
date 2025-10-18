@@ -1,48 +1,33 @@
 import * as React from "react"
 import {
   LayoutDashboardIcon,
-  StethoscopeIcon,
   UsersIcon,
   FileBarChartIcon,
 } from "lucide-react"
 import { Link, usePage } from "@inertiajs/react"
 
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
 import { NavMain } from "@/components/nav-main"
-import { NavUser } from "@/components/nav-user"
 
 const data = {
-  user: {
-    name: "Hospital Admin",
-    email: "hospital@stjames.com",
-    avatar: "/avatars/hospital.jpg",
-  },
   navMain: [
     {
       title: "Dashboard",
       url: "/hospital/dashboard",
       icon: LayoutDashboardIcon,
+      items: [
+        {
+          title: "Overview",
+          url: "/hospital/dashboard",
+        },
+      ],
     },
     {
       title: "Patients",
@@ -87,8 +72,7 @@ const data = {
       ],
     },
   ],
-  navSecondary: [],
-  documents: [],
+  navSecondary: [  ],
 }
 
 export function HospitalSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -96,18 +80,36 @@ export function HospitalSidebar({ ...props }: React.ComponentProps<typeof Sideba
   const { auth } = page.props;
 
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <Sidebar 
+      collapsible="icon" 
+      variant="inset" 
+      className="!bg-green-600 !border-green-500 [&_[data-sidebar=menu-button]]:!text-white [&_[data-sidebar=menu-button]]:hover:!bg-green-500/30 [&_[data-sidebar=menu-button]]:hover:!text-white [&_[data-sidebar=menu-button]]:data-[active=true]:!bg-green-500/40 [&_[data-sidebar=menu-button]]:data-[active=true]:!text-white [&_[data-sidebar=group-label]]:!text-white [&_[data-sidebar=group-label]]:!font-semibold [&_[data-sidebar=menu-sub-button]]:!text-white [&_[data-sidebar=menu-sub-button]]:hover:!bg-green-500/30 [&_[data-sidebar=menu-sub-button]]:hover:!text-white [&_[data-sidebar=menu-sub-button]]:data-[active=true]:!bg-green-500/40 [&_[data-sidebar=menu-sub-button]]:data-[active=true]:!text-white [&_[data-sidebar=menu-action]]:!text-white [&_[data-sidebar=menu-action]]:hover:!bg-green-500/30 [&_[data-sidebar=menu-action]]:hover:!text-white [&_*]:!text-white [&_span]:!text-white [&_svg]:!text-white" 
+      style={{
+        backgroundColor: '#16a34a !important',
+        color: 'white !important',
+        '--sidebar': '#16a34a',
+        '--sidebar-foreground': 'white',
+        '--sidebar-accent': 'rgba(34, 197, 94, 0.3)',
+        '--sidebar-accent-foreground': 'white',
+        '--sidebar-border': '#15803d'
+      } as React.CSSProperties}
+      {...props}
+    >
       <SidebarHeader>
         <SidebarMenu>
-          <SidebarMenuItem>
+            <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href="/hospital/dashboard">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <StethoscopeIcon className="size-4" />
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-white/90 p-1 shadow-lg">
+                  <img 
+                    src="/st-james-logo.png" 
+                    alt="St. James Hospital Logo" 
+                    className="size-6 object-contain"
+                  />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">St. James Clinic</span>
-                  <span className="truncate text-xs">Management System</span>
+                  <span className="truncate font-semibold text-white drop-shadow-sm">St. James Clinic</span>
+                  <span className="truncate text-xs text-white/90 drop-shadow-sm">Management System</span>
                 </div>
               </Link>
             </SidebarMenuButton>
@@ -117,9 +119,6 @@ export function HospitalSidebar({ ...props }: React.ComponentProps<typeof Sideba
       <SidebarContent>
         <NavMain items={data.navMain} />
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser user={auth.user} />
-      </SidebarFooter>
     </Sidebar>
   )
 }

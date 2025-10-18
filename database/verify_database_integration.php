@@ -42,7 +42,7 @@ echo "\n2. Checking data consistency...\n";
 // Check for orphaned records
 $orphanedAppointments = DB::table('appointments')
     ->whereNotIn('patient_id', function($query) {
-        $query->select('id')->from('patients');
+        $query->select('patient_id')->from('patients');
     })
     ->count();
 
@@ -50,7 +50,7 @@ echo "  Orphaned appointments: {$orphanedAppointments}\n";
 
 $orphanedLabOrders = DB::table('lab_orders')
     ->whereNotIn('patient_id', function($query) {
-        $query->select('id')->from('patients');
+        $query->select('patient_id')->from('patients');
     })
     ->count();
 
@@ -59,7 +59,7 @@ echo "  Orphaned lab orders: {$orphanedLabOrders}\n";
 $orphanedBillingTransactions = DB::table('billing_transactions')
     ->whereNotNull('patient_id')
     ->whereNotIn('patient_id', function($query) {
-        $query->select('id')->from('patients');
+        $query->select('patient_id')->from('patients');
     })
     ->count();
 

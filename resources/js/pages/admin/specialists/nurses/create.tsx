@@ -27,11 +27,9 @@ export default function NurseCreate() {
     const { data, setData, processing, errors, reset } = useForm({
         name: '',
         email: '',
-        password: '',
-        password_confirmation: '',
         specialization: '',
-        license_number: '',
-        is_active: true,
+        contact: '',
+        status: 'Active',
     });
 
     const submit: React.FormEventHandler = (e) => {

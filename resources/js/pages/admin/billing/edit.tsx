@@ -236,7 +236,7 @@ export default function BillingEdit({
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {patients.map((patient) => (
-                                                    <SelectItem key={patient.id} value={patient.id.toString()}>
+                                                    <SelectItem key={patient.patient_id} value={patient.patient_id.toString()}>
                                                         {patient.last_name}, {patient.first_name} ({patient.patient_no})
                                                     </SelectItem>
                                                 ))}
@@ -306,9 +306,6 @@ export default function BillingEdit({
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="cash">Cash</SelectItem>
-                                                <SelectItem value="card">Card</SelectItem>
-                                                <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                                                <SelectItem value="check">Check</SelectItem>
                                                 <SelectItem value="hmo">HMO</SelectItem>
                                             </SelectContent>
                                         </Select>
@@ -494,7 +491,7 @@ export default function BillingEdit({
 
                                                 <div className="mt-4 flex justify-end">
                                                     <div className="text-lg font-semibold text-gray-900">
-                                                        Total: ₱{item.total_price.toLocaleString()}
+                                                        Total: ₱{(item.total_price || 0).toLocaleString()}
                                                     </div>
                                                 </div>
                                             </div>

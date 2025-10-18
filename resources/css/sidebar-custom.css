@@ -1,0 +1,71 @@
+/* Custom sidebar styling to ensure green theme and visibility */
+[data-sidebar] {
+  background: #16a34a !important;
+  color: white !important;
+}
+
+[data-sidebar] * {
+  color: white !important;
+}
+
+[data-sidebar] [data-sidebar="menu-button"] {
+  color: white !important;
+}
+
+[data-sidebar] [data-sidebar="menu-button"]:hover {
+  background-color: rgba(34, 197, 94, 0.3) !important;
+  color: white !important;
+}
+
+[data-sidebar] [data-sidebar="menu-button"][data-active="true"] {
+  background-color: rgba(34, 197, 94, 0.4) !important;
+  color: white !important;
+}
+
+[data-sidebar] [data-sidebar="menu-sub-button"] {
+  color: white !important;
+}
+
+[data-sidebar] [data-sidebar="menu-sub-button"]:hover {
+  background-color: rgba(34, 197, 94, 0.3) !important;
+  color: white !important;
+}
+
+[data-sidebar] [data-sidebar="group-label"] {
+  color: white !important;
+  font-weight: 600 !important;
+}
+
+[data-sidebar] [data-sidebar="menu-action"] {
+  color: white !important;
+}
+
+[data-sidebar] [data-sidebar="menu-action"]:hover {
+  background-color: rgba(34, 197, 94, 0.3) !important;
+  color: white !important;
+}
+
+[data-sidebar] span {
+  color: white !important;
+}
+
+[data-sidebar] svg {
+  color: white !important;
+}
+
+/* Force visibility for all text elements */
+[data-sidebar] .text-muted-foreground {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+[data-sidebar] .text-foreground {
+  color: white !important;
+}
+
+[data-sidebar] .text-sidebar-foreground {
+  color: white !important;
+}
+
+[data-sidebar] .text-sidebar-accent-foreground {
+  color: white !important;
+}

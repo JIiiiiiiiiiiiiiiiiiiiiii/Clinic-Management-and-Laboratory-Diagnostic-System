@@ -4,123 +4,129 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Patient extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
+    
+    protected $primaryKey = 'id';
 
     protected $fillable = [
-        // User relationship
         'user_id',
-        
-        // Patient Identification
+        'patient_code',
+        'sequence_number',
+        'patient_no',
+        'arrival_date',
+        'arrival_time',
         'last_name',
         'first_name',
         'middle_name',
         'birthdate',
         'age',
         'sex',
-        'patient_no',
-        'sequence_number',
-
-        // Demographics
         'occupation',
         'religion',
+        'attending_physician',
         'civil_status',
         'nationality',
-
-        // Contact Information
-        'present_address',
+        'address',
         'telephone_no',
         'mobile_no',
-
-        // Emergency Contact
-        'informant_name',
-        'relationship',
-
-        // Financial/Insurance
-        'company_name',
+        'emergency_name',
+        'emergency_relation',
+        'insurance_company',
         'hmo_name',
-        'hmo_company_id_no',
-        'validation_approval_code',
+        'hmo_id_no',
+        'approval_code',
         'validity',
-
-        // Medical History & Allergies
+        'mode_of_arrival',
         'drug_allergies',
         'food_allergies',
+        'blood_pressure',
+        'heart_rate',
+        'respiratory_rate',
+        'temperature',
+        'weight_kg',
+        'height_cm',
+        'pain_assessment_scale',
+        'oxygen_saturation',
+        'reason_for_consult',
+        'time_seen',
+        'history_of_present_illness',
+        'pertinent_physical_findings',
+        'plan_management',
         'past_medical_history',
         'family_history',
-        'social_personal_history',
-        'obstetrics_gynecology_history',
+        'social_history',
+        'obgyn_history',
+        'lmp',
+        'assessment_diagnosis',
+        'status',
     ];
 
     protected $casts = [
         'birthdate' => 'date',
-        'age' => 'integer',
+        'arrival_date' => 'date',
+        'arrival_time' => 'datetime:H:i:s',
+        'time_seen' => 'datetime:H:i:s',
+        'weight_kg' => 'decimal:2',
+        'height_cm' => 'decimal:2',
     ];
 
-    // Accessor for full name
-    public function getFullNameAttribute()
-    {
-        $name = $this->last_name . ', ' . $this->first_name;
-        if ($this->middle_name) {
-            $name .= ' ' . $this->middle_name;
-        }
-        return $name;
-    }
-
-    // Scope for active patients
-    public function scopeActive($query)
-    {
-        return $query->whereNull('deleted_at');
-    }
-
-    // Scope for searching patients
-    public function scopeSearch($query, $search)
-    {
-        return $query->where(function ($q) use ($search) {
-            $q->where('first_name', 'like', "%{$search}%")
-              ->orWhere('last_name', 'like', "%{$search}%")
-              ->orWhere('patient_no', 'like', "%{$search}%")
-              ->orWhere('mobile_no', 'like', "%{$search}%");
-        });
-    }
-
     // Relationships
-    public function labOrders()
-    {
-        return $this->hasMany(LabOrder::class);
-    }
-
-    public function transfers()
-    {
-        return $this->hasMany(PatientTransfer::class);
-    }
-
     public function appointments()
     {
-        return $this->hasMany(Appointment::class);
+        return $this->hasMany(Appointment::class, 'patient_id', 'id');
     }
 
     public function visits()
     {
-        return $this->hasMany(Visit::class);
+        return $this->hasMany(Visit::class, 'patient_id', 'id');
+    }
+
+    public function billingTransactions()
+    {
+        return $this->hasMany(BillingTransaction::class, 'patient_id', 'id');
+    }
+
+    public function labOrders()
+    {
+        return $this->hasMany(LabOrder::class, 'patient_id', 'id');
     }
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id', 'id');
     }
 
-    /**
-     * Boot method to handle cascading deletes
-     */
+    // Scopes
+    public function scopeBySex($query, $sex)
+    {
+        return $query->where('sex', $sex);
+    }
+
+    // Accessors
+    public function getFullNameAttribute()
+    {
+        return $this->first_name . ' ' . $this->last_name;
+    }
+
+    public function getFormattedBirthdateAttribute()
+    {
+        return $this->birthdate ? $this->birthdate->format('M d, Y') : 'N/A';
+    }
+
+    // Boot method to generate patient number
     protected static function boot()
     {
         parent::boot();
 
-        // Note: With proper foreign key constraints, cascade delete is handled at database level
-        // No need for manual deletion in model events
+        static::creating(function ($patient) {
+            // Generate patient_no if not provided
+            if (empty($patient->patient_no)) {
+                $nextId = static::max('id') + 1;
+                $patient->patient_no = 'P' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+            }
+        });
     }
 }

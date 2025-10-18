@@ -1,5 +1,5 @@
 export interface PatientItem {
-    id: number;
+    patient_id: number;
     // Arrival Information
     arrival_date: string;
     arrival_time: string;

@@ -3,16 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Models\Specialist;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 
 class DoctorController extends Controller
 {
     public function index()
     {
-        $doctors = User::where('role', 'doctor')
+        $doctors = Specialist::where('role', 'Doctor')
             ->orderBy('name')
             ->get();
 
@@ -31,17 +30,20 @@ class DoctorController extends Controller
         try {
             $validated = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
-                'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-                'password' => ['required', 'string', 'min:8', 'confirmed'],
+                'email' => ['nullable', 'string', 'email', 'max:255'],
                 'specialization' => ['nullable', 'string', 'max:255'],
-                'license_number' => ['nullable', 'string', 'max:255'],
-                'is_active' => ['boolean'],
+                'contact' => ['nullable', 'string', 'max:20'],
+                'status' => ['required', 'in:Active,Inactive'],
             ]);
 
-            $validated['password'] = Hash::make($validated['password']);
-            $validated['role'] = 'doctor';
+            $validated['role'] = 'Doctor';
+            
+            // Generate specialist code if not provided
+            if (empty($validated['specialist_code'])) {
+                $validated['specialist_code'] = 'DOC' . str_pad(Specialist::where('role', 'Doctor')->count() + 1, 3, '0', STR_PAD_LEFT);
+            }
 
-            User::create($validated);
+            Specialist::create($validated);
 
             return back()->with('success', 'Doctor created successfully!');
         } catch (\Throwable $e) {
@@ -49,10 +51,10 @@ class DoctorController extends Controller
         }
     }
 
-    public function edit(User $doctor)
+    public function edit(Specialist $doctor)
     {
-        if ($doctor->role !== 'doctor') {
-            return back()->with('error', 'User is not a doctor.');
+        if ($doctor->role !== 'Doctor') {
+            return back()->with('error', 'Specialist is not a doctor.');
         }
 
         return Inertia::render('admin/specialists/doctors/edit', [
@@ -60,27 +62,20 @@ class DoctorController extends Controller
         ]);
     }
 
-    public function update(Request $request, User $doctor)
+    public function update(Request $request, Specialist $doctor)
     {
-        if ($doctor->role !== 'doctor') {
-            return back()->with('error', 'User is not a doctor.');
+        if ($doctor->role !== 'Doctor') {
+            return back()->with('error', 'Specialist is not a doctor.');
         }
 
         try {
             $validated = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
-                'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $doctor->id],
-                'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+                'email' => ['nullable', 'string', 'email', 'max:255'],
                 'specialization' => ['nullable', 'string', 'max:255'],
-                'license_number' => ['nullable', 'string', 'max:255'],
-                'is_active' => ['boolean'],
+                'contact' => ['nullable', 'string', 'max:20'],
+                'status' => ['required', 'in:Active,Inactive'],
             ]);
-
-            if (!empty($validated['password'])) {
-                $validated['password'] = Hash::make($validated['password']);
-            } else {
-                unset($validated['password']);
-            }
 
             $doctor->update($validated);
 
@@ -90,10 +85,10 @@ class DoctorController extends Controller
         }
     }
 
-    public function destroy(User $doctor)
+    public function destroy(Specialist $doctor)
     {
-        if ($doctor->role !== 'doctor') {
-            return back()->with('error', 'User is not a doctor.');
+        if ($doctor->role !== 'Doctor') {
+            return back()->with('error', 'Specialist is not a doctor.');
         }
 
         try {

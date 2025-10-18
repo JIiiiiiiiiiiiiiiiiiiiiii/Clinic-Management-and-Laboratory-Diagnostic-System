@@ -179,7 +179,7 @@ export default function AppointmentShow({
                                         </div>
                                         <div>
                                             <label className="text-sm font-medium text-gray-500">Price</label>
-                                            <p className="text-lg font-semibold text-gray-900">₱{appointment.price.toLocaleString()}</p>
+                                            <p className="text-lg font-semibold text-gray-900">₱{(appointment.price || 0).toLocaleString()}</p>
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

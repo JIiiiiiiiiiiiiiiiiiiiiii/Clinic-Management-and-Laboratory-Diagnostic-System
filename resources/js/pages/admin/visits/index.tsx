@@ -47,14 +47,14 @@ interface VisitsIndexProps {
 }
 
 export default function VisitsIndex({ 
-    initial_visits, 
-    follow_up_visits,
-    initial_visits_pagination,
-    follow_up_visits_pagination,
-    filters, 
-    staff, 
-    status_options, 
-    visit_type_options 
+    initial_visits = [], 
+    follow_up_visits = [], 
+    initial_visits_pagination, 
+    follow_up_visits_pagination, 
+    filters = {}, 
+    staff = [], 
+    status_options = {}, 
+    visit_type_options = {} 
 }: VisitsIndexProps) {
     const { hasPermission } = useRoleAccess();
     
@@ -64,7 +64,7 @@ export default function VisitsIndex({
     const [dateFromFilter, setDateFromFilter] = useState(filters.date_from || '');
     const [dateToFilter, setDateToFilter] = useState(filters.date_to || '');
     const [staffFilter, setStaffFilter] = useState(filters.staff_id || undefined);
-    const [sortBy, setSortBy] = useState(filters.sort_by || 'visit_date_time');
+    const [sortBy, setSortBy] = useState(filters.sort_by || 'visit_date');
     const [sortDir, setSortDir] = useState(filters.sort_dir || 'desc');
 
     const handleSearch = () => {
@@ -98,14 +98,24 @@ export default function VisitsIndex({
         });
     };
 
-    const formatDateTime = (dateTime: string) => {
-        return new Date(dateTime).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+    const formatDateTime = (dateTime: string | null | undefined) => {
+        if (!dateTime) return 'No date set';
+        
+        try {
+            const date = new Date(dateTime);
+            if (isNaN(date.getTime())) {
+                return 'Invalid date';
+            }
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch (error) {
+            return 'Invalid date';
+        }
     };
 
     const getStatusColor = (status: string) => {
@@ -210,8 +220,8 @@ export default function VisitsIndex({
                                     <div>
                                         <p className="text-sm font-medium text-gray-600">Completed Today</p>
                                         <div className="text-2xl font-bold text-gray-900">
-                                            {initial_visits.filter(v => v.status === 'completed' && new Date(v.visit_date_time).toDateString() === new Date().toDateString()).length + 
-                                             follow_up_visits.filter(v => v.status === 'completed' && new Date(v.visit_date_time).toDateString() === new Date().toDateString()).length}
+                                            {initial_visits.filter(v => v.status === 'completed' && new Date(v.visit_date).toDateString() === new Date().toDateString()).length + 
+                                             follow_up_visits.filter(v => v.status === 'completed' && new Date(v.visit_date).toDateString() === new Date().toDateString()).length}
                                         </div>
                                     </div>
                                     <div className="p-3 bg-green-100 rounded-lg">
@@ -258,7 +268,7 @@ export default function VisitsIndex({
                                             <SelectValue placeholder="All Status" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {Object.entries(status_options).map(([key, label]) => (
+                                            {status_options && Object.entries(status_options).map(([key, label]) => (
                                                 <SelectItem key={key} value={key}>{label}</SelectItem>
                                             ))}
                                         </SelectContent>
@@ -272,7 +282,7 @@ export default function VisitsIndex({
                                             <SelectValue placeholder="All Types" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {Object.entries(visit_type_options).map(([key, label]) => (
+                                            {visit_type_options && Object.entries(visit_type_options).map(([key, label]) => (
                                                 <SelectItem key={key} value={key}>{label}</SelectItem>
                                             ))}
                                         </SelectContent>
@@ -286,11 +296,15 @@ export default function VisitsIndex({
                                             <SelectValue placeholder="All Staff" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {staff.map((member) => (
+                                            {staff && staff.length > 0 ? staff.map((member) => (
                                                 <SelectItem key={member.id} value={member.id.toString()}>
                                                     {member.name} ({member.role})
                                                 </SelectItem>
-                                            ))}
+                                            )) : (
+                                                <SelectItem value="no-staff" disabled>
+                                                    No staff available
+                                                </SelectItem>
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -376,17 +390,17 @@ export default function VisitsIndex({
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {initial_visits.map((visit) => (
+                                    {initial_visits && initial_visits.length > 0 ? initial_visits.map((visit) => (
                                         <TableRow key={visit.id} className="hover:bg-gray-50">
                                             <TableCell className="font-medium py-4">
                                                 <div className="text-sm">
-                                                    {formatDateTime(visit.visit_date_time)}
+                                                    {formatDateTime(visit.visit_date_time_time || visit.visit_date_time || visit.visit_date)}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="py-4">
                                                 <div className="space-y-1">
                                                     <div className="font-medium text-sm">{visit.patient?.first_name} {visit.patient?.last_name}</div>
-                                                    <div className="text-xs text-gray-500">{visit.patient?.sequence_number || visit.patient?.patient_no}</div>
+                                                    <div className="text-xs text-gray-500">{visit.patient?.patient_code || visit.patient?.sequence_number || visit.patient?.patient_no}</div>
                                                 </div>
                                             </TableCell>
                                             <TableCell className="py-4">
@@ -396,8 +410,8 @@ export default function VisitsIndex({
                                             </TableCell>
                                             <TableCell className="py-4">
                                                 <div className="space-y-1">
-                                                    <div className="font-medium text-sm">{visit.attending_staff?.name}</div>
-                                                    <div className="text-xs text-gray-500 capitalize">{visit.attending_staff?.role}</div>
+                                                    <div className="font-medium text-sm">{visit.staff?.name || 'No staff assigned'}</div>
+                                                    <div className="text-xs text-gray-500 capitalize">{visit.staff?.role || 'N/A'}</div>
                                                 </div>
                                             </TableCell>
                                             <TableCell className="py-4">
@@ -416,7 +430,13 @@ export default function VisitsIndex({
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
-                                    ))}
+                                    )) : (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                                                No initial visits found
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
                                 </TableBody>
                             </Table>
                         </div>
@@ -483,17 +503,17 @@ export default function VisitsIndex({
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {follow_up_visits.map((visit) => (
+                                    {follow_up_visits && follow_up_visits.length > 0 ? follow_up_visits.map((visit) => (
                                         <TableRow key={visit.id} className="hover:bg-gray-50">
                                             <TableCell className="font-medium py-4">
                                                 <div className="text-sm">
-                                                    {formatDateTime(visit.visit_date_time)}
+                                                    {formatDateTime(visit.visit_date_time_time || visit.visit_date_time || visit.visit_date)}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="py-4">
                                                 <div className="space-y-1">
                                                     <div className="font-medium text-sm">{visit.patient?.first_name} {visit.patient?.last_name}</div>
-                                                    <div className="text-xs text-gray-500">{visit.patient?.sequence_number || visit.patient?.patient_no}</div>
+                                                    <div className="text-xs text-gray-500">{visit.patient?.patient_code || visit.patient?.sequence_number || visit.patient?.patient_no}</div>
                                                 </div>
                                             </TableCell>
                                             <TableCell className="py-4">
@@ -503,8 +523,8 @@ export default function VisitsIndex({
                                             </TableCell>
                                             <TableCell className="py-4">
                                                 <div className="space-y-1">
-                                                    <div className="font-medium text-sm">{visit.attending_staff?.name}</div>
-                                                    <div className="text-xs text-gray-500 capitalize">{visit.attending_staff?.role}</div>
+                                                    <div className="font-medium text-sm">{visit.staff?.name || 'No staff assigned'}</div>
+                                                    <div className="text-xs text-gray-500 capitalize">{visit.staff?.role || 'N/A'}</div>
                                                 </div>
                                             </TableCell>
                                             <TableCell className="py-4">
@@ -531,7 +551,13 @@ export default function VisitsIndex({
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
-                                    ))}
+                                    )) : (
+                                        <TableRow>
+                                            <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                                                No follow-up visits found
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
                                 </TableBody>
                             </Table>
                         </div>

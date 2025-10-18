@@ -42,7 +42,7 @@ class TestNotificationController extends Controller
                 'booking_method' => 'online',
                 'price' => 500.00,
                 'status_approval' => 'pending',
-                'appointment_source' => 'online',
+                'source' => 'Online',
             ]);
 
             // Create notification for the admin

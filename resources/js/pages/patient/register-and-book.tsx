@@ -154,6 +154,7 @@ export default function RegisterAndBook({
     const [selectedSpecialist, setSelectedSpecialist] = useState<Doctor | Medtech | null>(null);
     const [availableTimes, setAvailableTimes] = useState<Array<{value: string, label: string}>>([]);
     const [appointmentPrice, setAppointmentPrice] = useState(0);
+    const [createNewPatient, setCreateNewPatient] = useState(false);
 
     const totalSteps = 6; // 5 patient steps + 1 appointment step
 
@@ -193,9 +194,9 @@ export default function RegisterAndBook({
         }
     }, [data.appointment_type]);
 
-    // Pre-fill form data for existing patients
+    // Pre-fill form data for existing patients (only if not creating new patient)
     useEffect(() => {
-        if (isExistingPatient && patient) {
+        if (isExistingPatient && patient && !createNewPatient) {
             setData({
                 ...data,
                 last_name: patient.last_name || '',
@@ -225,8 +226,39 @@ export default function RegisterAndBook({
                 social_personal_history: patient.social_personal_history || '',
                 obstetrics_gynecology_history: patient.obstetrics_gynecology_history || '',
             });
+        } else if (createNewPatient) {
+            // Clear form data when creating new patient
+            setData({
+                ...data,
+                last_name: '',
+                first_name: '',
+                middle_name: '',
+                birthdate: '',
+                age: 0,
+                sex: 'male',
+                occupation: '',
+                religion: '',
+                civil_status: 'single',
+                nationality: 'Filipino',
+                present_address: '',
+                telephone_no: '',
+                mobile_no: '',
+                informant_name: '',
+                relationship: '',
+                company_name: '',
+                hmo_name: '',
+                hmo_company_id_no: '',
+                validation_approval_code: '',
+                validity: '',
+                drug_allergies: 'NONE',
+                food_allergies: 'NONE',
+                past_medical_history: '',
+                family_history: '',
+                social_personal_history: '',
+                obstetrics_gynecology_history: '',
+            });
         }
-    }, [isExistingPatient, patient]);
+    }, [isExistingPatient, patient, createNewPatient]);
 
     // Generate available time slots
     useEffect(() => {
@@ -263,7 +295,7 @@ export default function RegisterAndBook({
         console.log('Form submitted!', { currentStep, totalSteps, isExistingPatient });
         
         // For new patients, only validate and submit on the final step
-        if (!isExistingPatient && currentStep < totalSteps) {
+        if ((!isExistingPatient || createNewPatient) && currentStep < totalSteps) {
             // If not on final step, just go to next step
             console.log('Going to next step...');
             nextStep();
@@ -306,11 +338,12 @@ export default function RegisterAndBook({
         }
 
         // Submit the form
-        if (isExistingPatient) {
+        if (isExistingPatient && !createNewPatient) {
             console.log('Submitting existing patient appointment...');
             post(route('patient.appointments.store'), {
                 onSuccess: () => {
                     console.log('Appointment created successfully!');
+                    // Use Inertia navigation instead of window.location
                     window.location.href = route('patient.dashboard');
                 },
                 onError: (errs) => {
@@ -319,10 +352,13 @@ export default function RegisterAndBook({
             });
         } else {
             console.log('Submitting new patient registration and booking...');
+            // Add force_create flag when creating new patient despite having existing one
+            const submitData = createNewPatient ? { ...data, force_create: true } : data;
             post(route('patient.register.and.book.store'), {
+                data: submitData,
                 onSuccess: () => {
                     console.log('Registration and booking submitted successfully!');
-                    alert('Registration and appointment request submitted successfully! You will be notified once it\'s approved by the admin.');
+                    // Use Inertia navigation instead of window.location
                     window.location.href = route('patient.dashboard');
                 },
                 onError: (errs) => {
@@ -394,7 +430,7 @@ export default function RegisterAndBook({
                                     {isExistingPatient ? 'Book New Appointment' : 'Register & Book Appointment'}
                                 </h1>
                                 <p className="text-sm text-gray-600 mt-1">
-                                    {isExistingPatient 
+                                    {isExistingPatient && !createNewPatient
                                         ? 'You are already registered. Book your appointment below.'
                                         : 'Complete your registration and submit an appointment request for admin approval'
                                     }
@@ -492,8 +528,33 @@ export default function RegisterAndBook({
                         )
                     )}
 
+                    {/* Toggle for existing patients */}
+                    {isExistingPatient && (
+                        <Card className="bg-yellow-50 border-yellow-200">
+                            <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-start gap-3">
+                                        <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                                        <div className="text-yellow-800 text-sm">
+                                            <p className="font-medium mb-1">Existing Patient Detected</p>
+                                            <p>You already have a patient record. You can either book an appointment for yourself or register a new patient (e.g., family member).</p>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setCreateNewPatient(!createNewPatient)}
+                                        className="ml-4"
+                                    >
+                                        {createNewPatient ? 'Use Existing Patient' : 'Register New Patient'}
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
                     {/* Information Card about the Process */}
-                    {!isExistingPatient && (
+                    {(!isExistingPatient || createNewPatient) && (
                         <Card className="bg-blue-50 border-blue-200">
                             <CardContent className="p-4">
                                 <div className="flex items-start gap-3">

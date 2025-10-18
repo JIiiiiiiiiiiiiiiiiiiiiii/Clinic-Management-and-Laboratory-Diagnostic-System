@@ -38,7 +38,7 @@ type LabOrder = {
 const breadcrumbs = (patient: Patient): BreadcrumbItem[] => [
     { title: 'Laboratory', href: '/admin/laboratory' },
     { title: 'Lab Orders', href: '/admin/laboratory/orders' },
-    { title: `${patient.last_name}, ${patient.first_name}`, href: `/admin/laboratory/patients/${patient.id}/orders` },
+    { title: `${patient.last_name}, ${patient.first_name}`, href: `/admin/laboratory/patients/${patient.patient_id}/orders` },
 ];
 
 export default function PatientLabOrders({
@@ -75,7 +75,7 @@ export default function PatientLabOrders({
             return;
         }
 
-        router.post(`/admin/laboratory/patients/${patient.id}/orders`, data, {
+        router.post(`/admin/laboratory/patients/${patient.patient_id}/orders`, data, {
             onSuccess: () => {
                 setShowCreateForm(false);
                 setSelectedTests([]);

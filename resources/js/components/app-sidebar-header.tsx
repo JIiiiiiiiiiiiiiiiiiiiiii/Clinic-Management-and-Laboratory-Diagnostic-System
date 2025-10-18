@@ -2,6 +2,7 @@ import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import { UserMenuContent } from '@/components/user-menu-content';
 import RealtimeNotificationBell from '@/components/RealtimeNotificationBell';
 import { useInitials } from '@/hooks/use-initials';
@@ -17,7 +18,10 @@ export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: Breadcrum
     if (!auth?.user) {
         return (
             <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b px-4">
-                <Breadcrumbs breadcrumbs={breadcrumbs} />
+                <div className="flex items-center gap-2">
+                    <SidebarTrigger />
+                    <Breadcrumbs breadcrumbs={breadcrumbs} />
+                </div>
                 <div className="flex items-center space-x-2">
                     <span className="text-sm text-gray-500">Not authenticated</span>
                 </div>
@@ -27,7 +31,10 @@ export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: Breadcrum
 
     return (
         <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b px-4">
-            <Breadcrumbs breadcrumbs={breadcrumbs} />
+            <div className="flex items-center gap-2">
+                <SidebarTrigger />
+                <Breadcrumbs breadcrumbs={breadcrumbs} />
+            </div>
             <div className="flex items-center space-x-2">
                 {/* Show notification bell for admin users */}
                 {auth.user.role === 'admin' && (

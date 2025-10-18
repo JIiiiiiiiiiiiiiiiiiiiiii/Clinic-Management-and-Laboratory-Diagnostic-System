@@ -43,9 +43,11 @@ class UpdatePatientRequest extends FormRequest
             'telephone_no' => 'nullable|string|max:255',
             'mobile_no' => 'required|string|max:255',
 
-            // Emergency Contact
-            'informant_name' => 'required|string|max:255',
-            'relationship' => 'required|string|max:255',
+            // Emergency Contact (accept both old and new field names)
+            'emergency_name' => 'nullable|string|max:255',
+            'emergency_relation' => 'nullable|string|max:255',
+            'informant_name' => 'nullable|string|max:255',
+            'relationship' => 'nullable|string|max:255',
 
             // Financial/Insurance
             'company_name' => 'nullable|string|max:255',
@@ -62,5 +64,21 @@ class UpdatePatientRequest extends FormRequest
             'social_personal_history' => 'nullable|string',
             'obstetrics_gynecology_history' => 'nullable|string',
         ];
+    }
+
+    /**
+     * Configure the validator instance.
+     */
+    public function withValidator($validator)
+    {
+        $validator->after(function ($validator) {
+            // Ensure at least one emergency contact field is provided
+            $emergencyName = $this->input('emergency_name') ?: $this->input('informant_name');
+            $emergencyRelation = $this->input('emergency_relation') ?: $this->input('relationship');
+            
+            if (empty($emergencyName) || empty($emergencyRelation)) {
+                $validator->errors()->add('emergency_contact', 'Both emergency contact name and relationship are required.');
+            }
+        });
     }
 }

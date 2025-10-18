@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\BillingTransaction;
 use App\Models\DoctorPayment;
-use App\Models\Expense;
 use App\Models\DailyTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -25,11 +24,6 @@ class BillingReportController extends Controller
                 ->orderBy('transaction_date', 'desc')
                 ->get();
             
-            // Get expense data
-            $expenseData = Expense::whereBetween('expense_date', [$dateFrom, $dateTo])
-                ->with(['createdBy', 'updatedBy'])
-                ->orderBy('expense_date', 'desc')
-                ->get();
             
             // Get doctor payment data
             $doctorPaymentData = DoctorPayment::whereBetween('payment_date', [$dateFrom, $dateTo])
@@ -40,11 +34,9 @@ class BillingReportController extends Controller
             // Calculate summary
             $summary = [
                 'total_revenue' => $revenueData->sum('total_amount'),
-                'total_expenses' => $expenseData->sum('amount'),
                 'total_doctor_payments' => $doctorPaymentData->sum('amount_paid'),
-                'net_profit' => $revenueData->sum('total_amount') - $expenseData->sum('amount') - $doctorPaymentData->sum('amount_paid'),
+                'net_profit' => $revenueData->sum('total_amount') - $doctorPaymentData->sum('amount_paid'),
                 'revenue_count' => $revenueData->count(),
-                'expense_count' => $expenseData->count(),
             ];
             
             // Get filters
@@ -56,7 +48,7 @@ class BillingReportController extends Controller
             
             return inertia('admin/billing/reports', [
                 'revenueData' => $revenueData,
-                'expenseData' => $expenseData,
+                'expenseData' => collect(),
                 'doctorPaymentData' => $doctorPaymentData,
                 'summary' => $summary,
                 'filters' => $filters,
@@ -128,10 +120,8 @@ class BillingReportController extends Controller
                 ->orderBy('created_at', 'asc')
                 ->get();
 
-        // Get expenses separately for the expenses table
-        $expenses = Expense::whereDate('expense_date', $date)
-            ->with(['createdBy', 'updatedBy'])
-            ->get();
+        // Get expenses separately for the expenses table (removed - Expense model deleted)
+        $expenses = collect();
 
         // Convert daily transactions to the format expected by the frontend
         $allTransactions = $dailyTransactions->map(function ($transaction) {
@@ -174,7 +164,7 @@ class BillingReportController extends Controller
 
         return inertia('admin/billing/daily-report', [
             'transactions' => $allTransactions->values(),
-            'expenses' => $expenses,
+            'expenses' => collect(), // Expense model removed
             'summary' => $summary,
             'date' => $date,
         ]);
@@ -197,7 +187,7 @@ class BillingReportController extends Controller
         // Get all transactions for the month
         $billingTransactions = BillingTransaction::whereYear('transaction_date', substr($month, 0, 4))
             ->whereMonth('transaction_date', substr($month, 5, 2))
-            ->with(['patient', 'doctor', 'items', 'appointmentLinks.appointment'])
+            ->with(['patient', 'doctor', 'appointmentLinks.appointment'])
             ->get();
 
         $doctorPayments = DoctorPayment::whereYear('payment_date', substr($month, 0, 4))
@@ -205,10 +195,7 @@ class BillingReportController extends Controller
             ->with(['doctor'])
             ->get();
 
-        $expenses = Expense::whereYear('expense_date', substr($month, 0, 4))
-            ->whereMonth('expense_date', substr($month, 5, 2))
-            ->with(['createdBy', 'updatedBy'])
-            ->get();
+        $expenses = collect(); // Expense model removed
 
         // Combine all transactions
         $allTransactions = collect();
@@ -226,7 +213,7 @@ class BillingReportController extends Controller
                 'status' => $transaction->status,
                 'description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',
                 'time' => $transaction->transaction_date,
-                'items_count' => $transaction->items->count(),
+                'items_count' => $transaction->appointmentLinks->count(), // Use appointmentLinks instead of items
                 'appointments_count' => $transaction->appointmentLinks->count(),
             ]);
         }
@@ -249,23 +236,7 @@ class BillingReportController extends Controller
             ]);
         }
 
-        // Add expenses
-        foreach ($expenses as $expense) {
-            $allTransactions->push((object) [
-                'id' => $expense->id,
-                'type' => 'expense',
-                'transaction_id' => 'EXP-' . $expense->id,
-                'patient_name' => 'Expense',
-                'specialist_name' => 'System',
-                'amount' => -$expense->amount,
-                'payment_method' => $expense->payment_method,
-                'status' => $expense->status,
-                'description' => $expense->description,
-                'time' => $expense->expense_date,
-                'items_count' => 0,
-                'appointments_count' => 0,
-            ]);
-        }
+        // Add expenses (removed - Expense model deleted)
 
         // Sort by time
         $allTransactions = $allTransactions->sortBy('time');
@@ -274,16 +245,16 @@ class BillingReportController extends Controller
         $summary = [
             'total_revenue' => $billingTransactions->sum('total_amount'),
             'total_doctor_payments' => $doctorPayments->sum('amount_paid'),
-            'total_expenses' => $expenses->sum('amount'),
-            'net_profit' => $billingTransactions->sum('total_amount') - $doctorPayments->sum('amount_paid') - $expenses->sum('amount'),
+            'total_expenses' => 0, // Expense model removed
+            'net_profit' => $billingTransactions->sum('total_amount') - $doctorPayments->sum('amount_paid'), // Expenses removed
             'transaction_count' => $billingTransactions->count(),
-            'expense_count' => $expenses->count(),
+            'expense_count' => 0, // Expense model removed
             'doctor_payment_count' => $doctorPayments->count(),
         ];
 
         return inertia('admin/billing/monthly-report', [
             'transactions' => $allTransactions->values(),
-            'expenses' => $expenses,
+            'expenses' => collect(), // Expense model removed
             'summary' => $summary,
             'month' => $month,
         ]);
@@ -295,16 +266,14 @@ class BillingReportController extends Controller
 
         // Get all transactions for the year
         $billingTransactions = BillingTransaction::whereYear('transaction_date', $year)
-            ->with(['patient', 'doctor', 'items', 'appointmentLinks.appointment'])
+            ->with(['patient', 'doctor', 'appointmentLinks.appointment'])
             ->get();
 
         $doctorPayments = DoctorPayment::whereYear('payment_date', $year)
             ->with(['doctor'])
             ->get();
 
-        $expenses = Expense::whereYear('expense_date', $year)
-            ->with(['createdBy', 'updatedBy'])
-            ->get();
+        $expenses = collect(); // Expense model removed
 
         // Combine all transactions
         $allTransactions = collect();
@@ -322,7 +291,7 @@ class BillingReportController extends Controller
                 'status' => $transaction->status,
                 'description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',
                 'time' => $transaction->transaction_date,
-                'items_count' => $transaction->items->count(),
+                'items_count' => $transaction->appointmentLinks->count(), // Use appointmentLinks instead of items
                 'appointments_count' => $transaction->appointmentLinks->count(),
             ]);
         }
@@ -345,23 +314,7 @@ class BillingReportController extends Controller
             ]);
         }
 
-        // Add expenses
-        foreach ($expenses as $expense) {
-            $allTransactions->push((object) [
-                'id' => $expense->id,
-                'type' => 'expense',
-                'transaction_id' => 'EXP-' . $expense->id,
-                'patient_name' => 'Expense',
-                'specialist_name' => 'System',
-                'amount' => -$expense->amount,
-                'payment_method' => $expense->payment_method,
-                'status' => $expense->status,
-                'description' => $expense->description,
-                'time' => $expense->expense_date,
-                'items_count' => 0,
-                'appointments_count' => 0,
-            ]);
-        }
+        // Add expenses (removed - Expense model deleted)
 
         // Sort by time
         $allTransactions = $allTransactions->sortBy('time');
@@ -370,16 +323,16 @@ class BillingReportController extends Controller
         $summary = [
             'total_revenue' => $billingTransactions->sum('total_amount'),
             'total_doctor_payments' => $doctorPayments->sum('amount_paid'),
-            'total_expenses' => $expenses->sum('amount'),
-            'net_profit' => $billingTransactions->sum('total_amount') - $doctorPayments->sum('amount_paid') - $expenses->sum('amount'),
+            'total_expenses' => 0, // Expense model removed
+            'net_profit' => $billingTransactions->sum('total_amount') - $doctorPayments->sum('amount_paid'), // Expenses removed
             'transaction_count' => $billingTransactions->count(),
-            'expense_count' => $expenses->count(),
+            'expense_count' => 0, // Expense model removed
             'doctor_payment_count' => $doctorPayments->count(),
         ];
 
         return inertia('admin/billing/yearly-report', [
             'transactions' => $allTransactions->values(),
-            'expenses' => $expenses,
+            'expenses' => collect(), // Expense model removed
             'summary' => $summary,
             'year' => $year,
         ]);
@@ -395,7 +348,7 @@ class BillingReportController extends Controller
 
         // Build query
         $query = BillingTransaction::whereBetween('transaction_date', [$dateFrom, $dateTo])
-            ->with(['patient', 'doctor', 'items', 'appointmentLinks.appointment']);
+            ->with(['patient', 'doctor', 'appointmentLinks.appointment']);
 
         // Apply filters
         if ($status !== 'all') {
@@ -500,7 +453,7 @@ class BillingReportController extends Controller
         $hmoTransactions = BillingTransaction::whereBetween('transaction_date', [$dateFrom, $dateTo])
             ->where('payment_method', 'hmo')
             ->whereNotNull('hmo_provider')
-            ->with(['patient', 'doctor', 'items', 'appointmentLinks.appointment'])
+            ->with(['patient', 'doctor', 'appointmentLinks.appointment'])
             ->get();
 
         // Group by HMO provider
@@ -543,16 +496,14 @@ class BillingReportController extends Controller
 
         // Get all data
         $billingTransactions = BillingTransaction::whereBetween('transaction_date', [$dateFrom, $dateTo])
-            ->with(['patient', 'doctor', 'items', 'appointmentLinks.appointment'])
+            ->with(['patient', 'doctor', 'appointmentLinks.appointment'])
             ->get();
 
         $doctorPayments = DoctorPayment::whereBetween('payment_date', [$dateFrom, $dateTo])
             ->with(['doctor'])
             ->get();
 
-        $expenses = Expense::whereBetween('expense_date', [$dateFrom, $dateTo])
-            ->with(['createdBy', 'updatedBy'])
-            ->get();
+        $expenses = collect(); // Expense model removed
 
         // Prepare comprehensive export data
         $exportData = [];
@@ -571,7 +522,7 @@ class BillingReportController extends Controller
                 'Description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',
                 'Date' => $transaction->transaction_date->format('Y-m-d'),
                 'Time' => $transaction->transaction_date->format('H:i:s'),
-                'Items Count' => $transaction->items->count(),
+                'Items Count' => $transaction->appointmentLinks->count(), // Use appointmentLinks instead of items
                 'Appointments Count' => $transaction->appointmentLinks->count(),
             ];
         }
@@ -595,24 +546,7 @@ class BillingReportController extends Controller
             ];
         }
 
-        // Add expenses
-        foreach ($expenses as $expense) {
-            $exportData[] = [
-                'Type' => 'Expense',
-                'Transaction ID' => 'EXP-' . $expense->id,
-                'Patient Name' => 'Expense',
-                'Specialist' => 'System',
-                'Amount' => -$expense->amount,
-                'Payment Method' => $expense->payment_method,
-                'HMO Provider' => 'N/A',
-                'Status' => $expense->status,
-                'Description' => $expense->description,
-                'Date' => $expense->expense_date->format('Y-m-d'),
-                'Time' => $expense->expense_date->format('H:i:s'),
-                'Items Count' => 0,
-                'Appointments Count' => 0,
-            ];
-        }
+        // Add expenses (removed - Expense model deleted)
 
         // Sort by date
         usort($exportData, function($a, $b) {
@@ -694,16 +628,14 @@ class BillingReportController extends Controller
 
         // Get all transactions for the date
         $billingTransactions = BillingTransaction::whereDate('transaction_date', $date)
-            ->with(['patient', 'doctor', 'items', 'appointmentLinks.appointment'])
+            ->with(['patient', 'doctor', 'appointmentLinks.appointment'])
             ->get();
 
         $doctorPayments = DoctorPayment::whereDate('payment_date', $date)
             ->with(['doctor'])
             ->get();
 
-        $expenses = Expense::whereDate('expense_date', $date)
-            ->with(['createdBy', 'updatedBy'])
-            ->get();
+        $expenses = collect(); // Expense model removed
 
         // Sync billing transactions
         foreach ($billingTransactions as $transaction) {
@@ -717,7 +649,7 @@ class BillingReportController extends Controller
                 'payment_method' => $transaction->payment_method,
                 'status' => $transaction->status,
                 'description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',
-                'items_count' => $transaction->items->count(),
+                'items_count' => $transaction->appointmentLinks->count(), // Count appointment links instead of items
                 'appointments_count' => $transaction->appointmentLinks->count(),
                 'original_transaction_id' => $transaction->id,
                 'original_table' => 'billing_transactions',
@@ -733,7 +665,7 @@ class BillingReportController extends Controller
                 'patient_name' => 'Doctor Payment',
                 'specialist_name' => $payment->doctor ? $payment->doctor->name : 'Unknown Doctor',
                 'amount' => -$payment->amount_paid,
-                'payment_method' => $payment->payment_method,
+                'payment_method' => $payment->payment_method ?? 'cash',
                 'status' => $payment->status,
                 'description' => 'Doctor Payment - ' . $payment->description,
                 'items_count' => 0,
@@ -743,24 +675,7 @@ class BillingReportController extends Controller
             ]);
         }
 
-        // Sync expenses
-        foreach ($expenses as $expense) {
-            DailyTransaction::create([
-                'transaction_date' => $date,
-                'transaction_type' => 'expense',
-                'transaction_id' => 'EXP-' . $expense->id,
-                'patient_name' => 'Expense',
-                'specialist_name' => 'System',
-                'amount' => -$expense->amount,
-                'payment_method' => $expense->payment_method,
-                'status' => $expense->status,
-                'description' => $expense->description,
-                'items_count' => 0,
-                'appointments_count' => 0,
-                'original_transaction_id' => $expense->id,
-                'original_table' => 'expenses',
-            ]);
-        }
+        // Sync expenses (removed - Expense model deleted)
     }
 
     public function exportDailyReport(Request $request)
@@ -777,16 +692,14 @@ class BillingReportController extends Controller
 
         // Get all transactions for the date
         $billingTransactions = BillingTransaction::whereDate('transaction_date', $date)
-            ->with(['patient', 'doctor', 'items', 'appointmentLinks.appointment'])
+            ->with(['patient', 'doctor', 'appointmentLinks.appointment'])
             ->get();
 
         $doctorPayments = DoctorPayment::whereDate('payment_date', $date)
             ->with(['doctor'])
             ->get();
 
-        $expenses = Expense::whereDate('expense_date', $date)
-            ->with(['createdBy', 'updatedBy'])
-            ->get();
+        $expenses = collect(); // Expense model removed
 
         // Prepare data for export
         $exportData = [];
@@ -805,7 +718,7 @@ class BillingReportController extends Controller
                 'Date' => $transaction->transaction_date_only ?? $transaction->transaction_date->format('Y-m-d'),
                 'Time' => $transaction->transaction_time_only ?? $transaction->transaction_date->format('H:i:s'),
                 'Full DateTime' => $transaction->transaction_date->format('Y-m-d H:i:s'),
-                'Items Count' => $transaction->items->count(),
+                'Items Count' => $transaction->appointmentLinks->count(), // Use appointmentLinks instead of items
                 'Appointments Count' => $transaction->appointmentLinks->count(),
             ];
         }
@@ -829,24 +742,7 @@ class BillingReportController extends Controller
             ];
         }
 
-        // Add expenses
-        foreach ($expenses as $expense) {
-            $exportData[] = [
-                'Type' => 'Expense',
-                'Transaction ID' => 'EXP-' . $expense->id,
-                'Patient Name' => 'Expense',
-                'Specialist' => 'System',
-                'Amount' => -$expense->amount,
-                'Payment Method' => $expense->payment_method,
-                'Status' => $expense->status,
-                'Description' => $expense->description,
-                'Date' => $expense->expense_date->format('Y-m-d'),
-                'Time' => $expense->expense_date->format('H:i:s'),
-                'Full DateTime' => $expense->expense_date->format('Y-m-d H:i:s'),
-                'Items Count' => 0,
-                'Appointments Count' => 0,
-            ];
-        }
+        // Add expenses (removed - Expense model deleted)
 
         // Sort by time
         usort($exportData, function($a, $b) {
@@ -900,7 +796,7 @@ class BillingReportController extends Controller
         // Get all transactions for the month
         $billingTransactions = BillingTransaction::whereYear('transaction_date', substr($month, 0, 4))
             ->whereMonth('transaction_date', substr($month, 5, 2))
-            ->with(['patient', 'doctor', 'items', 'appointmentLinks.appointment'])
+            ->with(['patient', 'doctor', 'appointmentLinks.appointment'])
             ->get();
 
         $doctorPayments = DoctorPayment::whereYear('payment_date', substr($month, 0, 4))
@@ -908,10 +804,7 @@ class BillingReportController extends Controller
             ->with(['doctor'])
             ->get();
 
-        $expenses = Expense::whereYear('expense_date', substr($month, 0, 4))
-            ->whereMonth('expense_date', substr($month, 5, 2))
-            ->with(['createdBy', 'updatedBy'])
-            ->get();
+        $expenses = collect(); // Expense model removed
 
         // Prepare data for export
         $exportData = [];
@@ -930,7 +823,7 @@ class BillingReportController extends Controller
                 'Date' => $transaction->transaction_date_only ?? $transaction->transaction_date->format('Y-m-d'),
                 'Time' => $transaction->transaction_time_only ?? $transaction->transaction_date->format('H:i:s'),
                 'Full DateTime' => $transaction->transaction_date->format('Y-m-d H:i:s'),
-                'Items Count' => $transaction->items->count(),
+                'Items Count' => $transaction->appointmentLinks->count(), // Use appointmentLinks instead of items
                 'Appointments Count' => $transaction->appointmentLinks->count(),
             ];
         }
@@ -954,24 +847,7 @@ class BillingReportController extends Controller
             ];
         }
 
-        // Add expenses
-        foreach ($expenses as $expense) {
-            $exportData[] = [
-                'Type' => 'Expense',
-                'Transaction ID' => 'EXP-' . $expense->id,
-                'Patient Name' => 'Expense',
-                'Specialist' => 'System',
-                'Amount' => -$expense->amount,
-                'Payment Method' => $expense->payment_method,
-                'Status' => $expense->status,
-                'Description' => $expense->description,
-                'Date' => $expense->expense_date->format('Y-m-d'),
-                'Time' => $expense->expense_date->format('H:i:s'),
-                'Full DateTime' => $expense->expense_date->format('Y-m-d H:i:s'),
-                'Items Count' => 0,
-                'Appointments Count' => 0,
-            ];
-        }
+        // Add expenses (removed - Expense model deleted)
 
         // Sort by time
         usort($exportData, function($a, $b) {
@@ -1013,16 +889,14 @@ class BillingReportController extends Controller
 
         // Get all transactions for the year
         $billingTransactions = BillingTransaction::whereYear('transaction_date', $year)
-            ->with(['patient', 'doctor', 'items', 'appointmentLinks.appointment'])
+            ->with(['patient', 'doctor', 'appointmentLinks.appointment'])
             ->get();
 
         $doctorPayments = DoctorPayment::whereYear('payment_date', $year)
             ->with(['doctor'])
             ->get();
 
-        $expenses = Expense::whereYear('expense_date', $year)
-            ->with(['createdBy', 'updatedBy'])
-            ->get();
+        $expenses = collect(); // Expense model removed
 
         // Prepare data for export
         $exportData = [];
@@ -1041,7 +915,7 @@ class BillingReportController extends Controller
                 'Date' => $transaction->transaction_date_only ?? $transaction->transaction_date->format('Y-m-d'),
                 'Time' => $transaction->transaction_time_only ?? $transaction->transaction_date->format('H:i:s'),
                 'Full DateTime' => $transaction->transaction_date->format('Y-m-d H:i:s'),
-                'Items Count' => $transaction->items->count(),
+                'Items Count' => $transaction->appointmentLinks->count(), // Use appointmentLinks instead of items
                 'Appointments Count' => $transaction->appointmentLinks->count(),
             ];
         }
@@ -1065,24 +939,7 @@ class BillingReportController extends Controller
             ];
         }
 
-        // Add expenses
-        foreach ($expenses as $expense) {
-            $exportData[] = [
-                'Type' => 'Expense',
-                'Transaction ID' => 'EXP-' . $expense->id,
-                'Patient Name' => 'Expense',
-                'Specialist' => 'System',
-                'Amount' => -$expense->amount,
-                'Payment Method' => $expense->payment_method,
-                'Status' => $expense->status,
-                'Description' => $expense->description,
-                'Date' => $expense->expense_date->format('Y-m-d'),
-                'Time' => $expense->expense_date->format('H:i:s'),
-                'Full DateTime' => $expense->expense_date->format('Y-m-d H:i:s'),
-                'Items Count' => 0,
-                'Appointments Count' => 0,
-            ];
-        }
+        // Add expenses (removed - Expense model deleted)
 
         // Sort by time
         usort($exportData, function($a, $b) {

@@ -2,9 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use App\Models\Patient;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -14,6 +11,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call([
+            SpecialistsSeeder::class,
+            // Add other seeders here as needed
+        ]);
+    }
+}
+
         // Seed RBAC roles
         $this->call(RoleSeeder::class);
         // Seed default permissions and role mappings

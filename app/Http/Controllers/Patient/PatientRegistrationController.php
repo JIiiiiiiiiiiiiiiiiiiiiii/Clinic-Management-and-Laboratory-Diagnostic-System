@@ -116,8 +116,8 @@ class PatientRegistrationController extends Controller
             'mobile_no' => 'required|string|max:20',
 
             // Emergency Contact
-            'informant_name' => 'required|string|max:255',
-            'relationship' => 'required|string|max:255',
+            'informant_name' => 'nullable|string|max:255',
+            'relationship' => 'nullable|string|max:255',
 
             // Financial/Insurance
             'company_name' => 'nullable|string|max:255',
@@ -135,7 +135,7 @@ class PatientRegistrationController extends Controller
             'obstetrics_gynecology_history' => 'nullable|string|max:1000',
 
             // Appointment data
-            'appointment_type' => 'required|string|in:consultation,checkup,fecalysis,cbc,urinalysis,x-ray,ultrasound',
+            'appointment_type' => 'required|string|in:consultation,general_consultation,checkup,fecalysis,fecalysis_test,cbc,urinalysis,urinarysis_test,x-ray,ultrasound',
             'specialist_type' => 'required|string|in:doctor,medtech',
             'specialist_id' => 'required|string',
             'appointment_date' => 'required|date|after_or_equal:today',
@@ -167,16 +167,32 @@ class PatientRegistrationController extends Controller
                     ->withInput();
             }
 
-            // Create patient record
-            $patientData = $request->only([
-                'last_name', 'first_name', 'middle_name', 'birthdate', 'age', 'sex',
-                'occupation', 'religion', 'civil_status', 'nationality',
-                'present_address', 'telephone_no', 'mobile_no',
-                'informant_name', 'relationship',
-                'company_name', 'hmo_name', 'hmo_company_id_no', 'validation_approval_code', 'validity',
-                'drug_allergies', 'food_allergies', 'past_medical_history', 'family_history',
-                'social_personal_history', 'obstetrics_gynecology_history'
-            ]);
+            // Create patient record - use actual database column names
+            $patientData = [
+                'last_name' => $request->last_name,
+                'first_name' => $request->first_name,
+                'middle_name' => $request->middle_name,
+                'birthdate' => $request->birthdate,
+                'age' => $request->age,
+                'sex' => $request->sex,
+                'civil_status' => $request->civil_status,
+                'nationality' => $request->nationality,
+                'present_address' => $request->present_address, // Use actual database column name
+                'telephone_no' => $request->telephone_no,
+                'mobile_no' => $request->mobile_no,
+                'informant_name' => $request->informant_name, // Use actual database column name
+                'relationship' => $request->relationship, // Use actual database column name
+                'company_name' => $request->company_name, // Use actual database column name
+                'hmo_name' => $request->hmo_name,
+                'hmo_company_id_no' => $request->hmo_company_id_no, // Use actual database column name
+                'validation_approval_code' => $request->validation_approval_code, // Use actual database column name
+                'validity' => $request->validity,
+                'drug_allergies' => $request->drug_allergies,
+                'past_medical_history' => $request->past_medical_history,
+                'family_history' => $request->family_history,
+                'social_personal_history' => $request->social_personal_history, // Use actual database column name
+                'obstetrics_gynecology_history' => $request->obstetrics_gynecology_history, // Use actual database column name
+            ];
 
             $patientData['user_id'] = $user->id;
             $patient = $this->patientService->createPatient($patientData);
@@ -201,34 +217,25 @@ class PatientRegistrationController extends Controller
             }
 
             // Create pending appointment (requires admin approval)
-            $pendingAppointmentData = [
-                'patient_name' => $patient->first_name . ' ' . $patient->last_name,
-                'patient_id' => $patient->patient_no,
-                'contact_number' => $patient->mobile_no,
+            // Create appointment directly in appointments table with status 'Pending'
+            $appointmentData = [
+                'patient_id' => $patient->patient_id,
+                'specialist_id' => $request->specialist_id,
                 'appointment_type' => $request->appointment_type,
                 'specialist_type' => $request->specialist_type,
-                'specialist_name' => $specialist->name,
-                'specialist_id' => $request->specialist_id,
                 'appointment_date' => $request->appointment_date,
                 'appointment_time' => $this->formatTimeForDatabase($request->appointment_time),
                 'duration' => '30 min',
-                'status' => 'Pending Approval',
-                'billing_status' => 'pending',
-                'notes' => $request->notes,
-                'special_requirements' => $request->special_requirements,
-                'booking_method' => 'Online',
-                'status_approval' => 'pending',
-                'appointment_source' => 'online',
+                'price' => $this->calculatePrice($request->appointment_type),
+                'additional_info' => $request->notes,
+                'source' => 'Online',
+                'status' => 'Pending',
             ];
 
-            // Calculate price
-            $pendingAppointment = new \App\Models\PendingAppointment($pendingAppointmentData);
-            $pendingAppointmentData['price'] = $pendingAppointment->calculatePrice();
-
-            $pendingAppointment = \App\Models\PendingAppointment::create($pendingAppointmentData);
+            $appointment = \App\Models\Appointment::create($appointmentData);
 
             // Send notification to admin for approval
-            $this->notifyAdminPendingAppointment($pendingAppointment);
+            $this->notifyAdminPendingAppointment($appointment);
 
             DB::commit();
 
@@ -295,7 +302,25 @@ class PatientRegistrationController extends Controller
     /**
      * Notify admin users about pending appointment
      */
-    private function notifyAdminPendingAppointment($pendingAppointment)
+    /**
+     * Calculate price based on appointment type
+     */
+    private function calculatePrice($appointmentType)
+    {
+        $prices = [
+            'consultation' => 500.00,
+            'checkup' => 300.00,
+            'fecalysis' => 150.00,
+            'cbc' => 200.00,
+            'urinalysis' => 100.00,
+            'Follow-up' => 400.00,
+            'general_consultation' => 500.00,
+        ];
+
+        return $prices[$appointmentType] ?? 300.00;
+    }
+
+    private function notifyAdminPendingAppointment($appointment)
     {
         try {
             // Get all admin users
@@ -303,24 +328,28 @@ class PatientRegistrationController extends Controller
 
             \Log::info('Sending notifications to admin users', [
                 'admin_count' => $adminUsers->count(),
-                'pending_appointment_id' => $pendingAppointment->id
+                'appointment_id' => $appointment->appointment_id
             ]);
+
+            // Get patient information
+            $patient = $appointment->patient;
+            $patientName = $patient ? $patient->first_name . ' ' . $patient->last_name : 'Unknown Patient';
 
             foreach ($adminUsers as $admin) {
                 // Create notification
                 $notification = \App\Models\Notification::create([
                     'type' => 'appointment_request',
                     'title' => 'New Appointment Request - Pending Approval',
-                    'message' => "Patient {$pendingAppointment->patient_name} has requested an appointment for {$pendingAppointment->appointment_type} on {$pendingAppointment->appointment_date} at {$pendingAppointment->appointment_time}. Please review and approve.",
+                    'message' => "Patient {$patientName} has requested an appointment for {$appointment->appointment_type} on {$appointment->appointment_date} at {$appointment->appointment_time}. Please review and approve.",
                     'data' => [
-                        'pending_appointment_id' => $pendingAppointment->id,
-                        'patient_name' => $pendingAppointment->patient_name,
-                        'appointment_type' => $pendingAppointment->appointment_type,
-                        'appointment_date' => $pendingAppointment->appointment_date,
-                        'appointment_time' => $pendingAppointment->appointment_time,
-                        'specialist_name' => $pendingAppointment->specialist_name,
-                        'status' => $pendingAppointment->status_approval,
-                        'price' => $pendingAppointment->price,
+                        'appointment_id' => $appointment->appointment_id,
+                        'patient_name' => $patientName,
+                        'appointment_type' => $appointment->appointment_type,
+                        'appointment_date' => $appointment->appointment_date,
+                        'appointment_time' => $appointment->appointment_time,
+                        'specialist_name' => $appointment->specialist ? $appointment->specialist->name : 'Unknown Specialist',
+                        'status' => $appointment->status,
+                        'price' => $appointment->price,
                     ],
                     'user_id' => $admin->id,
                     'read' => false,

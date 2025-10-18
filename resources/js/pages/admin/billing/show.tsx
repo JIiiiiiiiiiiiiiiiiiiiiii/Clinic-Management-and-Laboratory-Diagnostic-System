@@ -253,8 +253,8 @@ export default function BillingShow({
                                                     <TableCell className="font-medium">{item.item_name}</TableCell>
                                                     <TableCell className="text-sm text-gray-600">{item.item_description}</TableCell>
                                                     <TableCell className="text-center">{item.quantity}</TableCell>
-                                                    <TableCell className="text-right">₱{item.unit_price.toLocaleString()}</TableCell>
-                                                    <TableCell className="text-right font-semibold">₱{item.total_price.toLocaleString()}</TableCell>
+                                                    <TableCell className="text-right">₱{(item.unit_price || 0).toLocaleString()}</TableCell>
+                                                    <TableCell className="text-right font-semibold">₱{(item.total_price || 0).toLocaleString()}</TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -342,20 +342,20 @@ export default function BillingShow({
                                 <div className="space-y-3">
                                     <div className="flex justify-between">
                                         <span className="text-gray-600">Subtotal:</span>
-                                        <span className="font-semibold">₱{calculateSubtotal().toLocaleString()}</span>
+                                        <span className="font-semibold">₱{(calculateSubtotal() || 0).toLocaleString()}</span>
                                     </div>
                                     
                                     {transaction.discount_amount > 0 && (
                                         <div className="flex justify-between text-red-600">
                                             <span>Discount {transaction.discount_percentage ? `(${transaction.discount_percentage}%)` : ''}:</span>
-                                            <span className="font-semibold">-₱{transaction.discount_amount.toLocaleString()}</span>
+                                            <span className="font-semibold">-₱{(transaction.discount_amount || 0).toLocaleString()}</span>
                                         </div>
                                     )}
 
                                     <div className="border-t border-gray-300 pt-3">
                                         <div className="flex justify-between text-lg font-bold">
                                             <span>Total Amount:</span>
-                                            <span>₱{calculateNetAmount().toLocaleString()}</span>
+                                            <span>₱{(calculateNetAmount() || 0).toLocaleString()}</span>
                                         </div>
                                     </div>
                                 </div>

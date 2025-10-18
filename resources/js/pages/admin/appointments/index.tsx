@@ -115,10 +115,10 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
     };
 
     const filteredAppointments = appointmentsList.filter(appointment => {
-        const matchesSearch = appointment.patient_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            appointment.specialist_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            appointment.patient_id.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === 'all' || appointment.status.toLowerCase() === statusFilter.toLowerCase();
+        const matchesSearch = (appointment.patient_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (appointment.specialist_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (appointment.patient_id || '').toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus = statusFilter === 'all' || (appointment.status || '').toLowerCase() === statusFilter.toLowerCase();
         const matchesDate = dateFilter === 'all' || appointment.appointment_date === dateFilter;
         const matchesDoctor = doctorFilter === 'all' || appointment.specialist_id === doctorFilter;
         return matchesSearch && matchesStatus && matchesDate && matchesDoctor;
@@ -516,8 +516,8 @@ const getTypeBadge = (type: string) => {
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell className="px-6 py-4">
-                                                        <Badge className={appointment.appointment_source === 'online' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}>
-                                                            {appointment.appointment_source === 'online' ? 'Online' : 'Walk-in'}
+                                                        <Badge className={appointment.source === 'Online' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}>
+                                                            {appointment.source}
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell className="px-6 py-4">

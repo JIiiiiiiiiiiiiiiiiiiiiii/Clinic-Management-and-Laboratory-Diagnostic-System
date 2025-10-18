@@ -57,7 +57,19 @@ class PatientController extends Controller
             $sortDir = $request->get('p_sort_dir', 'desc');
             $query->orderBy($sortBy, $sortDir);
 
-            $patients = $query->paginate(15);
+            $patients = $query->select([
+                'id',
+                'patient_no', 
+                'first_name',
+                'last_name',
+                'middle_name',
+                'sex',
+                'age',
+                'mobile_no',
+                'address', // Fixed: was 'present_address'
+                'created_at',
+                'updated_at'
+            ])->paginate(15);
 
 
             // Get patient statistics
@@ -109,25 +121,17 @@ class PatientController extends Controller
     {
         // Get next patient number for display only (not used in form submission)
         $max = Patient::query()->max('patient_no');
-        $numericMax = is_numeric($max) ? (int) $max : (int) ltrim((string) $max, '0');
+        $numericMax = is_numeric($max) ? (int) $max : (int) ltrim((string) $max, 'P0');
         $candidate = $numericMax + 1;
-        while (Patient::where('patient_no', (string) $candidate)->exists()) {
+        while (Patient::where('patient_no', 'P' . str_pad($candidate, 3, '0', STR_PAD_LEFT))->exists()) {
             $candidate++;
         }
-        $nextPatientNo = (string) $candidate;
+        $nextPatientNo = 'P' . str_pad($candidate, 3, '0', STR_PAD_LEFT);
 
-        $doctors = \App\Models\User::query()
-            ->where('role', 'doctor')
-            ->where(function ($q) {
-                // Some setups may not have is_active; guard with exists check
-                try {
-                    $q->where('is_active', true);
-                } catch (\Throwable $e) {
-                    // ignore
-                }
-            })
+        $doctors = \App\Models\Staff::query()
+            ->where('role', 'Doctor')
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['staff_id as id', 'name']);
 
         return Inertia::render('admin/patient/create');
     }
@@ -141,7 +145,7 @@ class PatientController extends Controller
             if ($duplicatePatient && !$request->boolean('force_create')) {
                 return back()
                     ->with('error', 'A possible duplicate patient was found.')
-                    ->with('duplicate_patient', [
+                    ->with(                    'duplicate_patient', [
                         'id' => $duplicatePatient->id,
                         'patient_no' => $duplicatePatient->patient_no,
                         'last_name' => $duplicatePatient->last_name,
@@ -176,9 +180,30 @@ class PatientController extends Controller
 
     public function show(Patient $patient)
     {
-        $patient->load(['visits' => function ($query) {
-            $query->orderBy('visit_date_time', 'desc');
-        }, 'labOrders.labTests', 'labOrders.orderedBy']);
+        // Check if visits table exists
+        if (!\Schema::hasTable('visits')) {
+            // If visits table doesn't exist, load patient without visits
+            $patient->load(['labOrders.labTests', 'labOrders.orderedBy']);
+
+            return Inertia::render('admin/patient/show', [
+                'patient' => $patient,
+                'visits' => collect([]),
+                'labOrders' => $patient->labOrders
+            ]);
+        }
+
+        // Check if visit_date column exists in visits table
+        if (!\Schema::hasColumn('visits', 'visit_date')) {
+            // If visit_date column doesn't exist, order by created_at
+            $patient->load(['visits' => function ($query) {
+                $query->orderBy('created_at', 'desc');
+            }, 'labOrders.labTests', 'labOrders.orderedBy']);
+        } else {
+            // If visit_date column exists, order by it
+            $patient->load(['visits' => function ($query) {
+                $query->orderBy('visit_date', 'desc');
+            }, 'labOrders.labTests', 'labOrders.orderedBy']);
+        }
 
         return Inertia::render('admin/patient/show', [
             'patient' => $patient,
@@ -189,10 +214,10 @@ class PatientController extends Controller
 
     public function edit(Patient $patient)
     {
-        $doctors = \App\Models\User::query()
-            ->where('role', 'doctor')
+        $doctors = \App\Models\Staff::query()
+            ->where('role', 'Doctor')
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['staff_id as id', 'name']);
 
         return Inertia::render('admin/patient/edit', [
             'patient' => $patient,
@@ -205,6 +230,16 @@ class PatientController extends Controller
         try {
             $validated = $request->validated();
 
+            // Map old field names to new field names for backward compatibility
+            if (isset($validated['informant_name']) && !isset($validated['emergency_name'])) {
+                $validated['emergency_name'] = $validated['informant_name'];
+                unset($validated['informant_name']);
+            }
+            if (isset($validated['relationship']) && !isset($validated['emergency_relation'])) {
+                $validated['emergency_relation'] = $validated['relationship'];
+                unset($validated['relationship']);
+            }
+
             // Update the patient via service
             $patientService->updatePatient($patient, $validated);
 
@@ -214,6 +249,151 @@ class PatientController extends Controller
                 ->with('error', 'Failed to update patient: '.($e->getMessage()))
                 ->withInput();
         }
+    }
+
+    /**
+     * Export patient data
+     */
+    public function export(Request $request, $patientId = null)
+    {
+        try {
+            $format = $request->get('format', 'excel');
+            $type = $request->get('type', 'summary');
+            $dateFrom = $request->get('date_from');
+            $dateTo = $request->get('date_to');
+            $includeVisits = $request->boolean('include_visits', true);
+            $includeLabOrders = $request->boolean('include_lab_orders', true);
+            $includeMedicalHistory = $request->boolean('include_medical_history', true);
+
+            // Get patient data
+            if ($patientId) {
+                $patient = Patient::findOrFail($patientId);
+                $patients = collect([$patient]);
+            } else {
+                $query = Patient::query();
+                
+                if ($dateFrom) {
+                    $query->whereDate('created_at', '>=', $dateFrom);
+                }
+                if ($dateTo) {
+                    $query->whereDate('created_at', '<=', $dateTo);
+                }
+                
+                $patients = $query->get();
+            }
+
+            // Prepare export data
+            $exportData = [];
+            foreach ($patients as $patient) {
+                $data = [
+                    'Patient No' => $patient->patient_no,
+                    'First Name' => $patient->first_name,
+                    'Last Name' => $patient->last_name,
+                    'Middle Name' => $patient->middle_name,
+                    'Sex' => $patient->sex,
+                    'Age' => $patient->age,
+                    'Birthdate' => $patient->birthdate,
+                    'Mobile No' => $patient->mobile_no,
+                    'Present Address' => $patient->address,
+                    'Created At' => $patient->created_at->format('Y-m-d H:i:s'),
+                ];
+
+                if ($includeVisits && $patient->visits) {
+                    $data['Total Visits'] = $patient->visits->count();
+                }
+
+                if ($includeLabOrders && $patient->labOrders) {
+                    $data['Total Lab Orders'] = $patient->labOrders->count();
+                }
+
+                $exportData[] = $data;
+            }
+
+            // Generate filename
+            $filename = $patientId 
+                ? "patient_{$patient->patient_no}_export_" . date('Y-m-d_H-i-s')
+                : "patients_export_" . date('Y-m-d_H-i-s');
+
+            // Export based on format
+            if ($format === 'csv') {
+                return $this->exportToCsv($exportData, $filename);
+            } elseif ($format === 'pdf') {
+                return $this->exportToPdf($exportData, $filename);
+            } else {
+                return $this->exportToExcel($exportData, $filename);
+            }
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Export failed: ' . $e->getMessage()], 500);
+        }
+    }
+
+    private function exportToCsv($data, $filename)
+    {
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"{$filename}.csv\"",
+        ];
+
+        $callback = function() use ($data) {
+            $file = fopen('php://output', 'w');
+            
+            if (!empty($data)) {
+                fputcsv($file, array_keys($data[0]));
+                foreach ($data as $row) {
+                    fputcsv($file, $row);
+                }
+            }
+            
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    private function exportToExcel($data, $filename)
+    {
+        // For now, return CSV format with Excel extension
+        // In a real implementation, you'd use Laravel Excel package
+        $headers = [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => "attachment; filename=\"{$filename}.xlsx\"",
+        ];
+
+        $callback = function() use ($data) {
+            $file = fopen('php://output', 'w');
+            
+            if (!empty($data)) {
+                fputcsv($file, array_keys($data[0]));
+                foreach ($data as $row) {
+                    fputcsv($file, $row);
+                }
+            }
+            
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    private function exportToPdf($data, $filename)
+    {
+        // For now, return a simple text response
+        // In a real implementation, you'd use a PDF library like DomPDF
+        $content = "Patient Export Report\n\n";
+        foreach ($data as $patient) {
+            $content .= "Patient: {$patient['First Name']} {$patient['Last Name']}\n";
+            $content .= "Patient No: {$patient['Patient No']}\n";
+            $content .= "Age: {$patient['Age']}\n";
+            $content .= "Mobile: {$patient['Mobile No']}\n\n";
+        }
+
+        $headers = [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => "attachment; filename=\"{$filename}.pdf\"",
+        ];
+
+        return response($content, 200, $headers);
     }
 
     /**
