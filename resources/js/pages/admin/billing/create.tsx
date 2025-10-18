@@ -208,7 +208,7 @@ export default function BillingCreate({
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {patients.map((patient) => (
-                                                    <SelectItem key={patient.id} value={patient.id.toString()}>
+                                                    <SelectItem key={patient.patient_id} value={patient.patient_id.toString()}>
                                                         {patient.last_name}, {patient.first_name} ({patient.patient_no})
                                                     </SelectItem>
                                                 ))}
@@ -278,9 +278,6 @@ export default function BillingCreate({
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="cash">Cash</SelectItem>
-                                                <SelectItem value="card">Card</SelectItem>
-                                                <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                                                <SelectItem value="check">Check</SelectItem>
                                                 <SelectItem value="hmo">HMO</SelectItem>
                                             </SelectContent>
                                         </Select>

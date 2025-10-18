@@ -20,19 +20,19 @@ const breadcrumbs: BreadcrumbItem[] = [
 interface VisitEditProps {
     visit: {
         id: number;
-        visit_date_time: string;
+        visit_date: string;
         purpose: string;
         notes?: string;
         status: string;
         visit_type: string;
         patient: {
-            id: number;
+            patient_id: number;
             first_name: string;
             last_name: string;
             patient_no: string;
             sequence_number?: string;
         };
-        attending_staff: {
+        staff: {
             id: number;
             name: string;
             role: string;
@@ -48,11 +48,11 @@ interface VisitEditProps {
 export default function VisitEdit({ visit, staff }: VisitEditProps) {
     const { hasPermission } = useRoleAccess();
     const [formData, setFormData] = useState({
-        visit_date_time: visit.visit_date_time.split('T')[0] + 'T' + visit.visit_date_time.split('T')[1].substring(0, 5),
+        visit_date: visit.visit_date.split('T')[0] + 'T' + visit.visit_date.split('T')[1].substring(0, 5),
         purpose: visit.purpose,
-        attending_staff_id: visit.attending_staff.id.toString(),
+        staff_id: visit.staff?.id?.toString() || '',
         status: visit.status,
-        visit_type: visit.visit_type,
+        visit_type: visit.visit_type || 'initial',
         notes: visit.notes || '',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -63,7 +63,16 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
         setIsSubmitting(true);
         setErrors({});
 
-        router.put(`/admin/visits/${visit.id}`, formData, {
+        // Map staff_id to doctor_id for backend compatibility
+        const submitData = {
+            ...formData,
+            doctor_id: formData.staff_id,
+        };
+        // Remove staff_id and visit_type as they're not in the database
+        delete submitData.staff_id;
+        delete submitData.visit_type;
+
+        router.put(`/admin/visits/${visit.id}`, submitData, {
             onSuccess: () => {
                 // Success handled by controller redirect
             },
@@ -107,7 +116,7 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
                             <div>
                                 <h1 className="text-4xl font-semibold text-black mb-4">Edit Visit</h1>
                                 <p className="text-sm text-gray-600 mt-1">
-                                    {visit.patient.first_name} {visit.patient.last_name} - {visit.patient.sequence_number || visit.patient.patient_no}
+                                    {visit.patient.first_name} {visit.patient.last_name} - {visit.patient.patient_code || visit.patient.sequence_number || visit.patient.patient_no}
                                 </p>
                             </div>
                         </div>
@@ -139,26 +148,26 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
                                 <form onSubmit={handleSubmit} className="space-y-6">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-2">
-                                            <Label htmlFor="visit_date_time">Date & Time *</Label>
+                                            <Label htmlFor="visit_date">Date & Time *</Label>
                                             <Input
-                                                id="visit_date_time"
+                                                id="visit_date"
                                                 type="datetime-local"
-                                                value={formData.visit_date_time}
-                                                onChange={(e) => handleInputChange('visit_date_time', e.target.value)}
-                                                className={errors.visit_date_time ? 'border-red-500' : ''}
+                                                value={formData.visit_date}
+                                                onChange={(e) => handleInputChange('visit_date', e.target.value)}
+                                                className={errors.visit_date ? 'border-red-500' : ''}
                                             />
-                                            {errors.visit_date_time && (
-                                                <p className="text-sm text-red-500 mt-1">{errors.visit_date_time}</p>
+                                            {errors.visit_date && (
+                                                <p className="text-sm text-red-500 mt-1">{errors.visit_date}</p>
                                             )}
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label htmlFor="attending_staff_id">Attending Staff *</Label>
+                                            <Label htmlFor="staff_id">Attending Staff *</Label>
                                             <Select
-                                                value={formData.attending_staff_id}
-                                                onValueChange={(value) => handleInputChange('attending_staff_id', value)}
+                                                value={formData.staff_id}
+                                                onValueChange={(value) => handleInputChange('staff_id', value)}
                                             >
-                                                <SelectTrigger className={errors.attending_staff_id ? 'border-red-500' : ''}>
+                                                <SelectTrigger className={errors.staff_id ? 'border-red-500' : ''}>
                                                     <SelectValue placeholder="Select staff" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -169,8 +178,8 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
                                                     ))}
                                                 </SelectContent>
                                             </Select>
-                                            {errors.attending_staff_id && (
-                                                <p className="text-sm text-red-500 mt-1">{errors.attending_staff_id}</p>
+                                            {errors.staff_id && (
+                                                <p className="text-sm text-red-500 mt-1">{errors.staff_id}</p>
                                             )}
                                         </div>
 
@@ -291,12 +300,12 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
                                     </div>
                                     <div>
                                         <label className="text-sm font-medium text-gray-500">Patient Number</label>
-                                        <p className="text-lg font-semibold mt-1">{visit.patient.sequence_number || visit.patient.patient_no}</p>
+                                        <p className="text-lg font-semibold mt-1">{visit.patient.patient_code || visit.patient.sequence_number || visit.patient.patient_no}</p>
                                     </div>
                                 </div>
                                 
                                 <div className="pt-6">
-                                    <Link href={`/admin/patient/${visit.patient.id}`}>
+                                    <Link href={`/admin/patient/${visit.patient.patient_id}`}>
                                         <Button variant="outline" className="w-full">
                                             View Patient Profile
                                         </Button>
@@ -321,8 +330,8 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
                                 <div className="space-y-3">
                                     <div>
                                         <label className="text-sm font-medium text-gray-500">Current Staff</label>
-                                        <p className="font-semibold mt-1">{visit.attending_staff.name}</p>
-                                        <p className="text-sm text-gray-500 capitalize">{visit.attending_staff.role}</p>
+                                        <p className="font-semibold mt-1">{visit.staff?.name || 'No staff assigned'}</p>
+                                        <p className="text-sm text-gray-500 capitalize">{visit.staff?.role || 'N/A'}</p>
                                     </div>
                                 </div>
                             </CardContent>

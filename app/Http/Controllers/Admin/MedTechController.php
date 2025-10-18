@@ -3,16 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Models\Specialist;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 
 class MedTechController extends Controller
 {
     public function index()
     {
-        $medtechs = User::where('role', 'medtech')
+        $medtechs = Specialist::where('role', 'MedTech')
             ->orderBy('name')
             ->get();
 
@@ -31,17 +30,20 @@ class MedTechController extends Controller
         try {
             $validated = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
-                'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-                'password' => ['required', 'string', 'min:8', 'confirmed'],
+                'email' => ['nullable', 'string', 'email', 'max:255'],
                 'specialization' => ['nullable', 'string', 'max:255'],
-                'license_number' => ['nullable', 'string', 'max:255'],
-                'is_active' => ['boolean'],
+                'contact' => ['nullable', 'string', 'max:20'],
+                'status' => ['required', 'in:Active,Inactive'],
             ]);
 
-            $validated['password'] = Hash::make($validated['password']);
-            $validated['role'] = 'medtech';
+            $validated['role'] = 'MedTech';
+            
+            // Generate specialist code if not provided
+            if (empty($validated['specialist_code'])) {
+                $validated['specialist_code'] = 'MED' . str_pad(Specialist::where('role', 'MedTech')->count() + 1, 3, '0', STR_PAD_LEFT);
+            }
 
-            User::create($validated);
+            Specialist::create($validated);
 
             return back()->with('success', 'Med Tech created successfully!');
         } catch (\Throwable $e) {
@@ -49,10 +51,10 @@ class MedTechController extends Controller
         }
     }
 
-    public function edit(User $medtech)
+    public function edit(Specialist $medtech)
     {
-        if ($medtech->role !== 'medtech') {
-            return back()->with('error', 'User is not a med tech.');
+        if ($medtech->role !== 'MedTech') {
+            return back()->with('error', 'Specialist is not a med tech.');
         }
 
         return Inertia::render('admin/specialists/medtechs/edit', [
@@ -60,27 +62,20 @@ class MedTechController extends Controller
         ]);
     }
 
-    public function update(Request $request, User $medtech)
+    public function update(Request $request, Specialist $medtech)
     {
-        if ($medtech->role !== 'medtech') {
-            return back()->with('error', 'User is not a med tech.');
+        if ($medtech->role !== 'MedTech') {
+            return back()->with('error', 'Specialist is not a med tech.');
         }
 
         try {
             $validated = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
-                'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $medtech->id],
-                'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+                'email' => ['nullable', 'string', 'email', 'max:255'],
                 'specialization' => ['nullable', 'string', 'max:255'],
-                'license_number' => ['nullable', 'string', 'max:255'],
-                'is_active' => ['boolean'],
+                'contact' => ['nullable', 'string', 'max:20'],
+                'status' => ['required', 'in:Active,Inactive'],
             ]);
-
-            if (!empty($validated['password'])) {
-                $validated['password'] = Hash::make($validated['password']);
-            } else {
-                unset($validated['password']);
-            }
 
             $medtech->update($validated);
 
@@ -90,10 +85,10 @@ class MedTechController extends Controller
         }
     }
 
-    public function destroy(User $medtech)
+    public function destroy(Specialist $medtech)
     {
-        if ($medtech->role !== 'medtech') {
-            return back()->with('error', 'User is not a med tech.');
+        if ($medtech->role !== 'MedTech') {
+            return back()->with('error', 'Specialist is not a med tech.');
         }
 
         try {

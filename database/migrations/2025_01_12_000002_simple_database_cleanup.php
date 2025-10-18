@@ -97,7 +97,7 @@ return new class extends Migration
             // Fix orphaned appointments by deleting them instead of setting to null
             $orphanedAppointments = DB::table('appointments')
                 ->whereNotIn('patient_id', function($query) {
-                    $query->select('id')->from('patients');
+                    $query->select('patient_id')->from('patients');
                 })
                 ->delete();
             
@@ -111,7 +111,7 @@ return new class extends Migration
             // Fix orphaned lab orders
             $orphanedLabOrders = DB::table('lab_orders')
                 ->whereNotIn('patient_id', function($query) {
-                    $query->select('id')->from('patients');
+                    $query->select('patient_id')->from('patients');
                 })
                 ->delete();
             
@@ -126,7 +126,7 @@ return new class extends Migration
             $orphanedTransactions = DB::table('billing_transactions')
                 ->whereNotNull('patient_id')
                 ->whereNotIn('patient_id', function($query) {
-                    $query->select('id')->from('patients');
+                    $query->select('patient_id')->from('patients');
                 })
                 ->update(['patient_id' => null]);
             

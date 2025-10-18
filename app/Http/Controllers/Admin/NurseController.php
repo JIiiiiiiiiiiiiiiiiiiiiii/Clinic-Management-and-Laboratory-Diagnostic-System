@@ -3,16 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Models\Specialist;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 
 class NurseController extends Controller
 {
     public function index()
     {
-        $nurses = User::where('role', 'nurse')
+        $nurses = Specialist::where('role', 'Nurse')
             ->orderBy('name')
             ->get();
 
@@ -31,17 +30,20 @@ class NurseController extends Controller
         try {
             $validated = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
-                'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-                'password' => ['required', 'string', 'min:8', 'confirmed'],
+                'email' => ['nullable', 'string', 'email', 'max:255'],
                 'specialization' => ['nullable', 'string', 'max:255'],
-                'license_number' => ['nullable', 'string', 'max:255'],
-                'is_active' => ['boolean'],
+                'contact' => ['nullable', 'string', 'max:20'],
+                'status' => ['required', 'in:Active,Inactive'],
             ]);
 
-            $validated['password'] = Hash::make($validated['password']);
-            $validated['role'] = 'nurse';
+            $validated['role'] = 'Nurse';
+            
+            // Generate specialist code if not provided
+            if (empty($validated['specialist_code'])) {
+                $validated['specialist_code'] = 'NUR' . str_pad(Specialist::where('role', 'Nurse')->count() + 1, 3, '0', STR_PAD_LEFT);
+            }
 
-            User::create($validated);
+            Specialist::create($validated);
 
             return back()->with('success', 'Nurse created successfully!');
         } catch (\Throwable $e) {
@@ -49,10 +51,10 @@ class NurseController extends Controller
         }
     }
 
-    public function edit(User $nurse)
+    public function edit(Specialist $nurse)
     {
-        if ($nurse->role !== 'nurse') {
-            return back()->with('error', 'User is not a nurse.');
+        if ($nurse->role !== 'Nurse') {
+            return back()->with('error', 'Specialist is not a nurse.');
         }
 
         return Inertia::render('admin/specialists/nurses/edit', [
@@ -60,27 +62,20 @@ class NurseController extends Controller
         ]);
     }
 
-    public function update(Request $request, User $nurse)
+    public function update(Request $request, Specialist $nurse)
     {
-        if ($nurse->role !== 'nurse') {
-            return back()->with('error', 'User is not a nurse.');
+        if ($nurse->role !== 'Nurse') {
+            return back()->with('error', 'Specialist is not a nurse.');
         }
 
         try {
             $validated = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
-                'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $nurse->id],
-                'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+                'email' => ['nullable', 'string', 'email', 'max:255'],
                 'specialization' => ['nullable', 'string', 'max:255'],
-                'license_number' => ['nullable', 'string', 'max:255'],
-                'is_active' => ['boolean'],
+                'contact' => ['nullable', 'string', 'max:20'],
+                'status' => ['required', 'in:Active,Inactive'],
             ]);
-
-            if (!empty($validated['password'])) {
-                $validated['password'] = Hash::make($validated['password']);
-            } else {
-                unset($validated['password']);
-            }
 
             $nurse->update($validated);
 
@@ -90,10 +85,10 @@ class NurseController extends Controller
         }
     }
 
-    public function destroy(User $nurse)
+    public function destroy(Specialist $nurse)
     {
-        if ($nurse->role !== 'nurse') {
-            return back()->with('error', 'User is not a nurse.');
+        if ($nurse->role !== 'Nurse') {
+            return back()->with('error', 'Specialist is not a nurse.');
         }
 
         try {

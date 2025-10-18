@@ -11,13 +11,17 @@ return new class extends Migration
      */
     private function indexExists(string $table, string $index): bool
     {
-        $indexes = \DB::select("SHOW INDEX FROM {$table}");
-        foreach ($indexes as $idx) {
-            if ($idx->Key_name === $index) {
-                return true;
+        try {
+            $indexes = \DB::select("SHOW INDEX FROM {$table}");
+            foreach ($indexes as $idx) {
+                if ($idx->Key_name === $index) {
+                    return true;
+                }
             }
+            return false;
+        } catch (\Exception $e) {
+            return false;
         }
-        return false;
     }
 
     /**
@@ -107,37 +111,41 @@ return new class extends Migration
             }
         });
 
-        // Optimize supply_transactions table
-        Schema::table('supply_transactions', function (Blueprint $table) {
-            if (!$this->indexExists('supply_transactions', 'supply_transactions_product_id_transaction_date_index')) {
-                $table->index(['product_id', 'transaction_date']);
-            }
-            if (!$this->indexExists('supply_transactions', 'supply_transactions_type_transaction_date_index')) {
-                $table->index(['type', 'transaction_date']);
-            }
-            if (!$this->indexExists('supply_transactions', 'supply_transactions_subtype_transaction_date_index')) {
-                $table->index(['subtype', 'transaction_date']);
-            }
-            if (!$this->indexExists('supply_transactions', 'supply_transactions_user_id_transaction_date_index')) {
-                $table->index(['user_id', 'transaction_date']);
-            }
-            if (!$this->indexExists('supply_transactions', 'supply_transactions_lot_number_expiry_date_index')) {
-                $table->index(['lot_number', 'expiry_date']);
-            }
-        });
+        // Optimize supply_transactions table (only if it exists)
+        if (Schema::hasTable('supply_transactions')) {
+            Schema::table('supply_transactions', function (Blueprint $table) {
+                if (!$this->indexExists('supply_transactions', 'supply_transactions_product_id_transaction_date_index')) {
+                    $table->index(['product_id', 'transaction_date']);
+                }
+                if (!$this->indexExists('supply_transactions', 'supply_transactions_type_transaction_date_index')) {
+                    $table->index(['type', 'transaction_date']);
+                }
+                if (!$this->indexExists('supply_transactions', 'supply_transactions_subtype_transaction_date_index')) {
+                    $table->index(['subtype', 'transaction_date']);
+                }
+                if (!$this->indexExists('supply_transactions', 'supply_transactions_user_id_transaction_date_index')) {
+                    $table->index(['user_id', 'transaction_date']);
+                }
+                if (!$this->indexExists('supply_transactions', 'supply_transactions_lot_number_expiry_date_index')) {
+                    $table->index(['lot_number', 'expiry_date']);
+                }
+            });
+        }
 
-        // Optimize supply_stock_levels table
-        Schema::table('supply_stock_levels', function (Blueprint $table) {
-            if (!$this->indexExists('supply_stock_levels', 'supply_stock_levels_product_id_current_stock_index')) {
-                $table->index(['product_id', 'current_stock']);
-            }
-            if (!$this->indexExists('supply_stock_levels', 'supply_stock_levels_expiry_date_current_stock_index')) {
-                $table->index(['expiry_date', 'current_stock']);
-            }
-            if (!$this->indexExists('supply_stock_levels', 'supply_stock_levels_is_expired_is_near_expiry_index')) {
-                $table->index(['is_expired', 'is_near_expiry']);
-            }
-        });
+        // Optimize supply_stock_levels table (only if it exists)
+        if (Schema::hasTable('supply_stock_levels')) {
+            Schema::table('supply_stock_levels', function (Blueprint $table) {
+                if (!$this->indexExists('supply_stock_levels', 'supply_stock_levels_product_id_current_stock_index')) {
+                    $table->index(['product_id', 'current_stock']);
+                }
+                if (!$this->indexExists('supply_stock_levels', 'supply_stock_levels_expiry_date_current_stock_index')) {
+                    $table->index(['expiry_date', 'current_stock']);
+                }
+                if (!$this->indexExists('supply_stock_levels', 'supply_stock_levels_is_expired_is_near_expiry_index')) {
+                    $table->index(['is_expired', 'is_near_expiry']);
+                }
+            });
+        }
 
         // Optimize notifications table
         Schema::table('notifications', function (Blueprint $table) {

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\BillingTransaction;
 use App\Models\DoctorPayment;
-use App\Models\Expense;
 use App\Models\Patient;
 use App\Models\Appointment;
 use App\Models\LabOrder;
@@ -37,7 +36,6 @@ class ReportsController extends Controller
                 'total_appointments' => Appointment::count(),
                 'total_transactions' => BillingTransaction::count(),
                 'total_revenue' => BillingTransaction::sum('total_amount') ?? 0,
-                'total_expenses' => Expense::sum('amount') ?? 0,
                 'total_lab_orders' => LabOrder::count(),
                 'total_products' => Supply::count(),
             ];
@@ -1055,17 +1053,17 @@ class ReportsController extends Controller
                 })->toArray();
 
             // Doctor performance (appointments per doctor)
-            // Since appointments table uses specialist_id (string) instead of doctor_id (foreign key),
-            // we'll group by specialist_name and specialist_id
-            $doctorPerformance = Appointment::selectRaw('specialist_name, specialist_id, COUNT(*) as appointments')
+            // Use relationships to get specialist information
+            $doctorPerformance = Appointment::with('specialist')
                 ->where('specialist_type', 'doctor')
-                ->groupBy('specialist_name', 'specialist_id')
+                ->selectRaw('specialist_id, COUNT(*) as appointments')
+                ->groupBy('specialist_id')
                 ->orderBy('appointments', 'desc')
                 ->limit(5)
                 ->get()
                 ->map(function ($item) {
                     return [
-                        'doctor' => $item->specialist_name,
+                        'doctor' => $item->specialist ? $item->specialist->name : 'Unknown',
                         'appointments' => $item->appointments,
                     ];
                 })->toArray();

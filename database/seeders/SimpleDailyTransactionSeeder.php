@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use App\Models\Appointment;
 use App\Models\DailyTransaction;
 use App\Models\ClinicProcedure;
-use App\Models\Expense;
+// use App\Models\Expense; // Expense model removed
 use App\Models\PatientTransfer;
 use Illuminate\Database\Seeder;
 use Faker\Factory;
@@ -92,39 +92,7 @@ class SimpleDailyTransactionSeeder extends Seeder
             );
         }
 
-        // Create some expenses
-        $expenses = [
-            [
-                'expense_date' => $faker->dateTimeBetween('-30 days', 'now'),
-                'expense_category' => 'medical_supplies',
-                'expense_name' => 'Medical Supplies Purchase',
-                'description' => 'Purchase of medical supplies',
-                'amount' => $faker->randomFloat(2, 500, 2000),
-                'vendor_name' => 'MedSupply Philippines',
-                'payment_method' => 'cash',
-                'receipt_number' => 'EXP-' . $faker->numerify('####'),
-                'notes' => 'Monthly medical supplies purchase',
-                'status' => 'approved',
-                'created_by' => 1,
-            ],
-            [
-                'expense_date' => $faker->dateTimeBetween('-30 days', 'now'),
-                'expense_category' => 'utilities',
-                'expense_name' => 'Electricity Bill',
-                'description' => 'Electricity bill',
-                'amount' => $faker->randomFloat(2, 2000, 5000),
-                'vendor_name' => 'Meralco',
-                'payment_method' => 'bank_transfer',
-                'receipt_number' => 'EXP-' . $faker->numerify('####'),
-                'notes' => 'Monthly electricity bill',
-                'status' => 'approved',
-                'created_by' => 1,
-            ],
-        ];
-
-        foreach ($expenses as $expense) {
-            Expense::create($expense);
-        }
+        // Create some expenses (removed - Expense model deleted)
 
         // Create some patient transfers
         $transfers = [
@@ -151,7 +119,7 @@ class SimpleDailyTransactionSeeder extends Seeder
         $this->command->info('Created:');
         $this->command->info('- Daily Transactions: ' . DailyTransaction::count());
         $this->command->info('- Clinic Procedures: ' . ClinicProcedure::count());
-        $this->command->info('- Expenses: ' . Expense::count());
+        // $this->command->info('- Expenses: ' . Expense::count()); // Expense model removed
         $this->command->info('- Patient Transfers: ' . PatientTransfer::count());
     }
 }

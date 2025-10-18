@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
+import { formatAppointmentTime } from '@/utils/dateTime';
 import { 
   Calendar, 
   Download, 
@@ -329,7 +330,7 @@ export default function HospitalAppointmentReports({ user, appointments, stats, 
                             {new Date(appointment.appointment_date).toLocaleDateString()}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {appointment.appointment_time}
+                            {formatAppointmentTime(appointment.appointment_time)}
                           </div>
                         </div>
                       </TableCell>

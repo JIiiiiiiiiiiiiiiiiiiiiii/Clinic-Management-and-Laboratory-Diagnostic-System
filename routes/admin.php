@@ -160,6 +160,15 @@ Route::prefix('admin')
                 return Inertia::render('admin/billing/transaction-report');
             })->name('transaction-report');
             
+            // Daily Report (MUST come before parameterized routes)
+            Route::get('/daily-report', [App\Http\Controllers\Admin\BillingReportController::class, 'dailyReport'])->name('daily-report');
+            
+            // Monthly Report (MUST come before parameterized routes)
+            Route::get('/monthly-report', [App\Http\Controllers\Admin\BillingReportController::class, 'monthlyReport'])->name('monthly-report');
+            
+            // Yearly Report (MUST come before parameterized routes)
+            Route::get('/yearly-report', [App\Http\Controllers\Admin\BillingReportController::class, 'yearlyReport'])->name('yearly-report');
+            
             // Doctor Summary (MUST come before parameterized routes)
             Route::get('/doctor-summary', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'doctorSummary'])->name('doctor-summary');
             
@@ -191,17 +200,6 @@ Route::prefix('admin')
 
 
 
-            // Expenses
-            Route::prefix('expenses')->name('expenses.')->group(function () {
-                Route::get('/', [App\Http\Controllers\Admin\ExpenseController::class, 'index'])->name('index');
-                Route::get('/create', [App\Http\Controllers\Admin\ExpenseController::class, 'create'])->name('create');
-                Route::post('/', [App\Http\Controllers\Admin\ExpenseController::class, 'store'])->name('store');
-                Route::get('/{expense}', [App\Http\Controllers\Admin\ExpenseController::class, 'show'])->name('show');
-                Route::get('/{expense}/edit', [App\Http\Controllers\Admin\ExpenseController::class, 'edit'])->name('edit');
-                Route::put('/{expense}', [App\Http\Controllers\Admin\ExpenseController::class, 'update'])->name('update');
-                Route::delete('/{expense}', [App\Http\Controllers\Admin\ExpenseController::class, 'destroy'])->name('destroy');
-                Route::put('/{expense}/status', [App\Http\Controllers\Admin\ExpenseController::class, 'updateStatus'])->name('status.update');
-            });
 
             // Legacy Billing Reports (moved to specific billing routes)
             Route::prefix('billing-reports')->name('billing-reports.')->group(function () {

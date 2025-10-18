@@ -61,6 +61,7 @@ interface PatientAppointmentsProps {
         data: any;
     }>;
     unreadCount?: number;
+    noPatientRecord?: boolean;
 }
 
 // Removed hardcoded sample data - using data from controller
@@ -76,7 +77,8 @@ export default function PatientAppointments({
     appointments = [], 
     available_doctors = [],
     notifications = [],
-    unreadCount = 0
+    unreadCount = 0,
+    noPatientRecord = false
 }: PatientAppointmentsProps) {
     console.log('PatientAppointments received data:', {
         user,
@@ -107,37 +109,41 @@ export default function PatientAppointments({
     useEffect(() => {
         // Set up real-time listeners for appointment updates
         const setupRealtimeUpdates = () => {
-            // Get user ID from props
-            const userId = user?.id || 1; // Default to 1 if not available
-            
-            // Listen for appointment status updates
-            (window as any).Echo?.private(`patient.appointments.${userId}`)
-                .listen('AppointmentStatusUpdate', (e: any) => {
-                    console.log('Appointment status update received:', e);
-                    
-                    // Force a complete page reload to get fresh data
-                    window.location.reload();
-                });
+            try {
+                // Get user ID from props
+                const userId = user?.id || 1; // Default to 1 if not available
+                
+                // Listen for appointment status updates
+                (window as any).Echo?.private(`patient.appointments.${userId}`)
+                    ?.listen('AppointmentStatusUpdate', (e: any) => {
+                        console.log('Appointment status update received:', e);
+                        
+                        // Force a complete page reload to get fresh data
+                        window.location.reload();
+                    });
 
-            // Listen for new notifications
-            (window as any).Echo?.private(`patient.notifications.${userId}`)
-                .listen('appointment.status.update', (e: any) => {
-                    console.log('Real-time notification received:', e);
-                    
-                    if (e.notification) {
-                        setNotificationsList(prev => [e.notification, ...prev]);
-                        setUnreadCountState(prev => prev + 1);
-                    }
-                });
+                // Listen for new notifications
+                (window as any).Echo?.private(`patient.notifications.${userId}`)
+                    ?.listen('appointment.status.update', (e: any) => {
+                        console.log('Real-time notification received:', e);
+                        
+                        if (e.notification) {
+                            setNotificationsList(prev => [e.notification, ...prev]);
+                            setUnreadCountState(prev => prev + 1);
+                        }
+                    });
 
-            // Listen for appointment approval notifications
-            (window as any).Echo?.private(`patient.notifications.${userId}`)
-                .listen('AppointmentApproved', (e: any) => {
-                    console.log('Appointment approved notification received:', e);
-                    
-                    // Force a complete page reload to get fresh data
-                    window.location.reload();
-                });
+                // Listen for appointment approval notifications
+                (window as any).Echo?.private(`patient.notifications.${userId}`)
+                    ?.listen('AppointmentApproved', (e: any) => {
+                        console.log('Appointment approved notification received:', e);
+                        
+                        // Force a complete page reload to get fresh data
+                        window.location.reload();
+                    });
+            } catch (error) {
+                console.warn('Error setting up real-time updates:', error);
+            }
         };
 
         // Initialize real-time updates
@@ -147,11 +153,8 @@ export default function PatientAppointments({
 
         // Cleanup on unmount
         return () => {
-            const userId = user?.id || 1;
-            if ((window as any).Echo) {
-                (window as any).Echo.leave(`patient.appointments.${userId}`);
-                (window as any).Echo.leave(`patient.notifications.${userId}`);
-            }
+            // No cleanup needed for Echo channels in this implementation
+            // The channels will be automatically cleaned up when the component unmounts
         };
     }, [user?.id]);
 
@@ -177,9 +180,9 @@ export default function PatientAppointments({
     });
 
     const filteredAppointments = appointmentsList.filter(appointment => {
-        const matchesSearch = appointment.specialist.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            appointment.type.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === 'all' || appointment.status.toLowerCase() === statusFilter.toLowerCase();
+        const matchesSearch = (appointment.specialist || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (appointment.type || '').toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus = statusFilter === 'all' || (appointment.status || '').toLowerCase() === statusFilter.toLowerCase();
         return matchesSearch && matchesStatus;
     }).sort((a, b) => {
         let comparison = 0;
@@ -608,8 +611,28 @@ export default function PatientAppointments({
                                 <TableBody>
                                     {filteredAppointments.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                                                No appointments found
+                                            <TableCell colSpan={6} className="text-center py-8">
+                                                {noPatientRecord ? (
+                                                    <div className="space-y-4">
+                                                        <div className="text-gray-500">
+                                                            <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                                                            <h3 className="text-lg font-semibold mb-2">No Patient Record Found</h3>
+                                                            <p className="text-gray-600 mb-4">
+                                                                You don't have a patient record yet. Create your first appointment to get started.
+                                                            </p>
+                                                            <Link href="/patient/online-appointment">
+                                                                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                                                                    <Plus className="mr-2 h-4 w-4" />
+                                                                    Create Your First Appointment
+                                                                </Button>
+                                                            </Link>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-gray-500">
+                                                        No appointments found
+                                                    </div>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     ) : (
@@ -619,7 +642,7 @@ export default function PatientAppointments({
                                                     <div>
                                                         <div className="font-medium text-black">{appointment.specialist}</div>
                                                         <div className="text-sm text-gray-500">{appointment.type}</div>
-                                                        <div className="text-sm text-gray-500">Price: {appointment.price}</div>
+                                                        <div className="text-sm text-gray-500">Price: {appointment.price || '₱0.00'}</div>
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
@@ -746,7 +769,7 @@ export default function PatientAppointments({
                                     </div>
                                     <div>
                                         <Label className="text-sm font-medium text-gray-600">Price</Label>
-                                        <p className="text-lg font-semibold text-green-600">{selectedAppointment.price}</p>
+                                        <p className="text-lg font-semibold text-green-600">{selectedAppointment.price || '₱0.00'}</p>
                                     </div>
                                 </div>
                                 

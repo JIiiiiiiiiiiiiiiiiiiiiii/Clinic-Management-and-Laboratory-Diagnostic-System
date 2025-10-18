@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Models\Specialist;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -11,15 +11,15 @@ class SpecialistController extends Controller
 {
     public function index()
     {
-        $doctors = User::where('role', 'doctor')
+        $doctors = Specialist::where('role', 'Doctor')
             ->orderBy('name')
             ->get();
             
-        $nurses = User::where('role', 'nurse')
+        $nurses = Specialist::where('role', 'Nurse')
             ->orderBy('name')
             ->get();
             
-        $medtechs = User::where('role', 'medtech')
+        $medtechs = Specialist::where('role', 'MedTech')
             ->orderBy('name')
             ->get();
 

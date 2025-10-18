@@ -16,13 +16,13 @@ const breadcrumbs: BreadcrumbItem[] = [
 interface VisitShowProps {
     visit: {
         id: number;
-        visit_date_time: string;
+        visit_date: string;
         purpose: string;
         notes?: string;
         status: string;
         visit_type: string;
         patient: {
-            id: number;
+            patient_id: number;
             first_name: string;
             last_name: string;
             patient_no: string;
@@ -31,7 +31,7 @@ interface VisitShowProps {
             age: number;
             sex: string;
         };
-        attending_staff: {
+        staff: {
             id: number;
             name: string;
             role: string;
@@ -43,10 +43,10 @@ interface VisitShowProps {
         };
         follow_up_visits?: Array<{
             id: number;
-            visit_date_time: string;
+            visit_date: string;
             purpose: string;
             status: string;
-            attending_staff: {
+            staff: {
                 name: string;
             };
         }>;
@@ -75,14 +75,24 @@ export default function VisitShow({ visit }: VisitShowProps) {
         }
     };
 
-    const formatDateTime = (dateTime: string) => {
-        return new Date(dateTime).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+    const formatDateTime = (dateTime: string | null | undefined) => {
+        if (!dateTime) return 'No date set';
+        
+        try {
+            const date = new Date(dateTime);
+            if (isNaN(date.getTime())) {
+                return 'Invalid date';
+            }
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch (error) {
+            return 'Invalid date';
+        }
     };
 
     const handleStatusUpdate = (status: string) => {
@@ -106,7 +116,7 @@ export default function VisitShow({ visit }: VisitShowProps) {
                             <div>
                                 <h1 className="text-4xl font-semibold text-black mb-4">Visit Details</h1>
                                 <p className="text-sm text-gray-600 mt-1">
-                                    {visit.patient.first_name} {visit.patient.last_name} - {visit.patient.sequence_number || visit.patient.patient_no}
+                                    {visit.patient.first_name} {visit.patient.last_name} - {visit.patient.patient_code || visit.patient.sequence_number || visit.patient.patient_no}
                                 </p>
                             </div>
                         </div>
@@ -200,7 +210,7 @@ export default function VisitShow({ visit }: VisitShowProps) {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-gray-500">Date & Time</label>
-                                        <p className="text-lg font-semibold">{formatDateTime(visit.visit_date_time)}</p>
+                                        <p className="text-lg font-semibold">{formatDateTime(visit.visit_date)}</p>
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-gray-500">Purpose</label>
@@ -217,8 +227,8 @@ export default function VisitShow({ visit }: VisitShowProps) {
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-gray-500">Visit Type</label>
                                         <div>
-                                            <Badge className={getVisitTypeColor(visit.visit_type)}>
-                                                {visit.visit_type.replace('_', ' ').toUpperCase()}
+                                            <Badge className={getVisitTypeColor(visit.visit_type || 'initial')}>
+                                                {visit.visit_type ? visit.visit_type.replace('_', ' ').toUpperCase() : 'INITIAL'}
                                             </Badge>
                                         </div>
                                     </div>
@@ -255,7 +265,7 @@ export default function VisitShow({ visit }: VisitShowProps) {
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-gray-500">Patient Number</label>
-                                        <p className="text-lg font-semibold">{visit.patient.sequence_number || visit.patient.patient_no}</p>
+                                        <p className="text-lg font-semibold">{visit.patient.patient_code || visit.patient.sequence_number || visit.patient.patient_no}</p>
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-gray-500">Age</label>
@@ -289,8 +299,8 @@ export default function VisitShow({ visit }: VisitShowProps) {
                                         <Stethoscope className="h-6 w-6 text-blue-600" />
                                     </div>
                                     <div>
-                                        <p className="text-lg font-semibold">{visit.attending_staff.name}</p>
-                                        <p className="text-sm text-gray-500 capitalize">{visit.attending_staff.role}</p>
+                                        <p className="text-lg font-semibold">{visit.staff?.name || 'No staff assigned'}</p>
+                                        <p className="text-sm text-gray-500 capitalize">{visit.staff?.role || 'N/A'}</p>
                                     </div>
                                 </div>
                             </CardContent>
@@ -345,7 +355,7 @@ export default function VisitShow({ visit }: VisitShowProps) {
                                                     <div>
                                                         <p className="font-medium">{followUp.purpose}</p>
                                                         <p className="text-sm text-gray-500">
-                                                            {formatDateTime(followUp.visit_date_time)}
+                                                            {formatDateTime(followUp.visit_date)}
                                                         </p>
                                                     </div>
                                                     <Badge className={getStatusColor(followUp.status)}>
@@ -354,7 +364,7 @@ export default function VisitShow({ visit }: VisitShowProps) {
                                                 </div>
                                                 <div className="mb-3">
                                                     <p className="text-sm text-gray-500">
-                                                        Staff: {followUp.attending_staff.name}
+                                                        Staff: {followUp.staff?.name || 'No staff assigned'}
                                                     </p>
                                                 </div>
                                                 <div>
@@ -377,14 +387,14 @@ export default function VisitShow({ visit }: VisitShowProps) {
                                 <CardTitle>Quick Actions</CardTitle>
                             </CardHeader>
                             <CardContent className="pt-0 space-y-3">
-                                <Link href={`/admin/patient/${visit.patient.id}`} className="block">
+                                <Link href={`/admin/patient/${visit.patient.patient_id}`} className="block">
                                     <Button variant="outline" className="w-full justify-start">
                                         <User className="h-4 w-4 mr-2" />
                                         View Patient Profile
                                     </Button>
                                 </Link>
                                 
-                                <Link href={`/admin/appointments?patient=${visit.patient.id}`} className="block">
+                                <Link href={`/admin/appointments?patient=${visit.patient.patient_id}`} className="block">
                                     <Button variant="outline" className="w-full justify-start">
                                         <Calendar className="h-4 w-4 mr-2" />
                                         View Patient Appointments

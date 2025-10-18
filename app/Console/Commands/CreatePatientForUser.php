@@ -28,7 +28,7 @@ class CreatePatientForUser extends Command
         
         $patient = new Patient();
         $patient->user_id = $userId;
-        $patient->patient_no = 'P' . str_pad(Patient::max('id') + 1, 3, '0', STR_PAD_LEFT);
+        $patient->patient_no = 'P' . str_pad(Patient::max('id') + 1, 4, '0', STR_PAD_LEFT);
         $patient->first_name = $user->name;
         $patient->last_name = 'User';
         $patient->mobile_no = '1234567890';
@@ -37,8 +37,8 @@ class CreatePatientForUser extends Command
         $patient->sex = 'male';
         $patient->civil_status = 'single';
         $patient->present_address = 'Test Address';
-        $patient->informant_name = 'Self';
-        $patient->relationship = 'Self';
+        $patient->emergency_name = 'Self';
+        $patient->emergency_relation = 'Self';
         $patient->save();
         
         $this->info("Created patient record for user {$userId}: {$patient->patient_no}");

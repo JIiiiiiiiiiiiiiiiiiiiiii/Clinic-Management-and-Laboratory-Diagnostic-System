@@ -26,11 +26,9 @@ export default function DoctorCreate() {
     const { data, setData, processing, errors, reset } = useForm({
         name: '',
         email: '',
-        password: '',
-        password_confirmation: '',
         specialization: '',
-        license_number: '',
-        is_active: true,
+        contact: '',
+        status: 'Active',
     });
 
     const submit: React.FormEventHandler = (e) => {
@@ -124,47 +122,48 @@ export default function DoctorCreate() {
                                     </div>
                                 </div>
 
-                                {/* Password Section */}
+                                {/* Contact Information */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
-                                        <Label htmlFor="password" className="text-black font-medium">
-                                            <Lock className="h-4 w-4 inline mr-2" />
-                                            Password *
+                                        <Label htmlFor="contact" className="text-black font-medium">
+                                            <User className="h-4 w-4 inline mr-2" />
+                                            Contact Number
                                         </Label>
                                         <Input
-                                            id="password"
-                                            type="password"
-                                            value={data.password}
-                                            onChange={(e) => setData('password', e.target.value)}
+                                            id="contact"
+                                            type="text"
+                                            value={data.contact}
+                                            onChange={(e) => setData('contact', e.target.value)}
                                             className="border-gray-300 focus:border-black focus:ring-black"
-                                            placeholder="Enter password"
+                                            placeholder="Enter contact number"
                                         />
-                                        {errors.password && (
-                                            <p className="text-black text-sm">{errors.password}</p>
+                                        {errors.contact && (
+                                            <p className="text-black text-sm">{errors.contact}</p>
                                         )}
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label htmlFor="password_confirmation" className="text-black font-medium">
-                                            <Shield className="h-4 w-4 inline mr-2" />
-                                            Confirm Password *
+                                        <Label htmlFor="status" className="text-black font-medium">
+                                            <CheckCircle className="h-4 w-4 inline mr-2" />
+                                            Status
                                         </Label>
-                                        <Input
-                                            id="password_confirmation"
-                                            type="password"
-                                            value={data.password_confirmation}
-                                            onChange={(e) => setData('password_confirmation', e.target.value)}
-                                            className="border-gray-300 focus:border-black focus:ring-black"
-                                            placeholder="Confirm password"
-                                        />
-                                        {errors.password_confirmation && (
-                                            <p className="text-black text-sm">{errors.password_confirmation}</p>
+                                        <select
+                                            id="status"
+                                            value={data.status}
+                                            onChange={(e) => setData('status', e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                                        >
+                                            <option value="Active">Active</option>
+                                            <option value="Inactive">Inactive</option>
+                                        </select>
+                                        {errors.status && (
+                                            <p className="text-black text-sm">{errors.status}</p>
                                         )}
                                     </div>
                                 </div>
 
                                 {/* Professional Information */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 gap-6">
                                     <div className="space-y-2">
                                         <Label htmlFor="specialization" className="text-black font-medium">
                                             <Stethoscope className="h-4 w-4 inline mr-2" />
@@ -181,51 +180,6 @@ export default function DoctorCreate() {
                                         {errors.specialization && (
                                             <p className="text-black text-sm">{errors.specialization}</p>
                                         )}
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="license_number" className="text-black font-medium">
-                                            <CheckCircle className="h-4 w-4 inline mr-2" />
-                                            License Number
-                                        </Label>
-                                        <Input
-                                            id="license_number"
-                                            type="text"
-                                            value={data.license_number}
-                                            onChange={(e) => setData('license_number', e.target.value)}
-                                            className="border-gray-300 focus:border-black focus:ring-black"
-                                            placeholder="Enter license number"
-                                        />
-                                        {errors.license_number && (
-                                            <p className="text-black text-sm">{errors.license_number}</p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Status */}
-                                <div className="space-y-2">
-                                    <Label className="text-black font-medium">Status</Label>
-                                    <div className="flex items-center space-x-4">
-                                        <label className="flex items-center">
-                                            <input
-                                                type="radio"
-                                                name="is_active"
-                                                checked={data.is_active === true}
-                                                onChange={() => setData('is_active', true)}
-                                                className="mr-2"
-                                            />
-                                            <span className="text-black">Active</span>
-                                        </label>
-                                        <label className="flex items-center">
-                                            <input
-                                                type="radio"
-                                                name="is_active"
-                                                checked={data.is_active === false}
-                                                onChange={() => setData('is_active', false)}
-                                                className="mr-2"
-                                            />
-                                            <span className="text-black">Inactive</span>
-                                        </label>
                                     </div>
                                 </div>
 

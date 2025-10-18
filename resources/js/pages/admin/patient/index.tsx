@@ -200,11 +200,11 @@ export default function Patient(props: {
                                                 {patients.map((p: any) => (
                                                     <TableRow key={p.id} className="hover:bg-gray-50/50 transition-colors">
                                                         <TableCell className="font-semibold text-black">
-                                                            {p.sequence_number || p.patient_no || '—'}
+                                                            {p.patient_no || '—'}
                                                         </TableCell>
                                                         <TableCell>
                                                             <div>
-                                                                <div className="font-medium text-gray-900">{p.last_name}, {p.first_name}</div>
+                                                                <div className="font-medium text-gray-900">{p.first_name} {p.last_name}</div>
                                                                 <div className="text-sm text-gray-500">{p.email || 'No email'}</div>
                                                             </div>
                                                         </TableCell>

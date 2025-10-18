@@ -12,7 +12,7 @@ class CheckPatientNumbers extends Command
 
     public function handle()
     {
-        $patients = Patient::orderByRaw('CAST(patient_no AS UNSIGNED)')->get(['id', 'patient_no', 'first_name', 'last_name', 'created_at']);
+        $patients = Patient::orderByRaw('CAST(patient_no AS UNSIGNED)')->get(['patient_id', 'patient_no', 'first_name', 'last_name', 'created_at']);
         
         $this->info('Current patient numbers:');
         $this->table(

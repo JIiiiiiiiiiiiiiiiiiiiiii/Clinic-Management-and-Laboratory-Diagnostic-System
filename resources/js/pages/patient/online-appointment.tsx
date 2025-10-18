@@ -21,6 +21,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { CreatePatientItem } from '@/types/patients';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { useState, useEffect } from 'react';
 import { 
     Save, User, Calendar, Phone, MapPin, Heart, Shield, FileText, Activity, 
     Stethoscope, Plus, CheckCircle, AlertCircle, 
@@ -31,7 +32,6 @@ import {
     TrendingUp, BarChart3, PieChart, LineChart, CalendarDays, Clock3,
     Bell, BellRing, CheckCircle2, XCircle, Info, AlertTriangle
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -155,6 +155,7 @@ export default function OnlineAppointment({
     const [selectedSpecialist, setSelectedSpecialist] = useState<Doctor | Medtech | null>(null);
     const [availableTimes, setAvailableTimes] = useState<Array<{value: string, label: string}>>([]);
     const [appointmentPrice, setAppointmentPrice] = useState(0);
+    const [isProcessing, setIsProcessing] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     const totalSteps = 6; // 5 patient steps + 1 appointment step
@@ -178,11 +179,17 @@ export default function OnlineAppointment({
     const calculatePrice = (type: string) => {
         const prices: Record<string, number> = {
             'general_consultation': 300,
-            'cbc': 800,
-            'fecalysis_test': 800,
-            'urinarysis_test': 800,
+            'consultation': 300,
+            'checkup': 300,
+            'fecalysis': 500,
+            'fecalysis_test': 500,
+            'cbc': 500,
+            'urinalysis': 500,
+            'urinarysis_test': 500,
+            'x-ray': 700,
+            'ultrasound': 800,
         };
-        return prices[type] || 0;
+        return prices[type] || 300;
     };
 
     // Update price and specialist type when appointment type changes
@@ -193,7 +200,7 @@ export default function OnlineAppointment({
             // Automatically set specialist type based on appointment type
             if (data.appointment_type === 'general_consultation') {
                 setData('specialist_type', 'doctor');
-            } else if (['cbc', 'fecalysis_test', 'urinarysis_test'].includes(data.appointment_type)) {
+            } else if (['fecalysis', 'fecalysis_test', 'cbc', 'urinalysis', 'urinarysis_test', 'x-ray', 'ultrasound'].includes(data.appointment_type)) {
                 setData('specialist_type', 'medtech');
             }
             
@@ -294,18 +301,15 @@ export default function OnlineAppointment({
         }
     };
 
-    const handleFinalSubmit = (e?: React.FormEvent) => {
+    const handleFinalSubmit = async (e?: React.FormEvent) => {
         if (e) {
             e.preventDefault();
         }
         
         // Prevent multiple submissions
-        if (processing) {
-            console.log('Form already processing, ignoring submission');
+        if (isProcessing) {
             return;
         }
-        
-        console.log('Form submission started', { data, isExistingPatient });
         
         // Validate appointment fields
         const requiredChecks = [
@@ -347,27 +351,79 @@ export default function OnlineAppointment({
             }
         }
 
-        // Submit the form with all data
-        if (isExistingPatient) {
-            // For existing patients, only submit appointment data
-            const appointmentData = {
+        // Prepare request body for new API
+        const requestBody = {
+            existingPatientId: isExistingPatient && patient ? patient.id : 0,
+            patient: !isExistingPatient ? {
+                last_name: data.last_name,
+                first_name: data.first_name,
+                middle_name: data.middle_name,
+                birthdate: data.birthdate,
+                age: data.age,
+                sex: data.sex,
+                nationality: data.nationality,
+                civil_status: data.civil_status,
+                address: data.present_address,
+                telephone_no: data.telephone_no,
+                mobile_no: data.mobile_no,
+                email: data.email_address,
+                emergency_name: data.informant_name,
+                emergency_relation: data.relationship,
+                insurance_company: data.insurance_company,
+                hmo_name: data.hmo_name,
+                hmo_id_no: data.hmo_id_no,
+                approval_code: data.approval_code,
+                validity: data.validity,
+                drug_allergies: data.drug_allergies,
+                past_medical_history: data.past_medical_history,
+                family_history: data.family_history,
+                social_history: data.social_history,
+                obgyn_history: data.obgyn_history,
+            } : undefined,
+            appointment: {
                 appointment_type: data.appointment_type,
-                specialist_type: data.specialist_type,
-                specialist_id: data.specialist_id,
-                appointment_date: data.appointment_date,
-                appointment_time: data.appointment_time,
-                notes: data.notes,
-                special_requirements: data.special_requirements,
-            };
+                specialist_type: data.specialist_type === 'doctor' ? 'Doctor' : 'MedTech',
+                specialist_id: parseInt(data.specialist_id),
+                date: data.appointment_date,
+                time: data.appointment_time,
+                duration: '30 min',
+                price: appointmentPrice,
+                additional_info: `${data.notes || ''}${data.special_requirements ? '\nSpecial Requirements: ' + data.special_requirements : ''}`.trim(),
+            },
+        };
+
+        try {
+            setIsProcessing(true);
             
-            console.log('Submitting appointment for existing patient:', appointmentData);
-            
-            post(route('patient.appointments.store'));
-        } else {
-            // For new patients, submit all data
-            console.log('Submitting registration and appointment for new patient:', data);
-            
-            post(route('patient.online.appointment.store'));
+            const response = await fetch('/api/appointments/online', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify(requestBody),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Show success message
+                alert(`✅ Appointment Created Successfully!\n\nPatient Code: ${result.patient_code}\nAppointment Code: ${result.appointment_code}\n\nYour appointment request has been sent to admin for approval. You will be notified once it's confirmed.`);
+                
+                // Redirect to appointments page
+                window.location.href = '/patient/appointments';
+            } else {
+                // Show error message
+                const errorMsg = result.message || result.error || 'Failed to create appointment';
+                const errors = result.errors ? '\n\n' + Object.values(result.errors).flat().join('\n') : '';
+                alert('❌ Error: ' + errorMsg + errors);
+                setIsProcessing(false);
+            }
+        } catch (error) {
+            console.error('Error creating appointment:', error);
+            alert('❌ Failed to create appointment. Please check your internet connection and try again.');
+            setIsProcessing(false);
         }
     };
 
@@ -1284,12 +1340,12 @@ export default function OnlineAppointment({
                                     // Show complete button when all fields are filled
                                     return (
                                         <Button 
-                                            disabled={processing} 
+                                            disabled={isProcessing} 
                                             type="submit"
                                             className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 h-12 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold"
                                         >
                                             <Save className="mr-3 h-6 w-6" />
-                                            {processing ? 'Submitting Request...' : 'Submit Online Appointment Request'}
+                                            {isProcessing ? 'Submitting Request...' : 'Submit Online Appointment Request'}
                                         </Button>
                                     );
                                 })()}

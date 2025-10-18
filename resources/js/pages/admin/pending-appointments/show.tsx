@@ -89,19 +89,25 @@ export default function PendingAppointmentShow({
                 console.error('Approval errors:', errors);
                 setIsProcessing(false);
                 
-                // If appointment already approved, just close popup and redirect
-                if (errors.error && (errors.error.includes('already been approved') || errors.code === 'already_approved')) {
-                    setShowApproveDialog(false);
-                    setApproveData({ admin_notes: '' });
-                    router.visit(route('admin.pending-appointments.index'), {
-                        method: 'get',
-                        onFinish: () => {
-                            // Show a brief, friendly message
-                            alert('This appointment has already been approved. You have been redirected to the updated list.');
-                        }
-                    });
+                // Handle specific error cases
+                if (errors.error) {
+                    if (errors.error.includes('already been approved') || errors.code === 'already_approved') {
+                        setShowApproveDialog(false);
+                        setApproveData({ admin_notes: '' });
+                        router.visit(route('admin.pending-appointments.index'), {
+                            method: 'get',
+                            onFinish: () => {
+                                alert('This appointment has already been approved. You have been redirected to the updated list.');
+                            }
+                        });
+                        return;
+                    }
+                    
+                    // Show the specific error message
+                    alert(`Failed to approve appointment: ${errors.error}`);
                 } else {
-                    alert('Error approving appointment. Please try again.');
+                    // Generic error message
+                    alert('Failed to approve appointment. Please try again.');
                 }
             }
         });

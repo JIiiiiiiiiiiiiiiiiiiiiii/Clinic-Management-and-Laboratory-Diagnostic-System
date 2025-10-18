@@ -5,6 +5,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 import Heading from '@/components/heading';
+import { formatAppointmentTime, formatAppointmentDate, formatAppointmentDateShort } from '@/utils/dateTime';
 import { 
     ArrowLeft, 
     Edit,
@@ -179,20 +180,20 @@ export default function AppointmentShow({
                                         </div>
                                         <div>
                                             <label className="text-sm font-medium text-gray-500">Price</label>
-                                            <p className="text-lg font-semibold text-gray-900">₱{appointment.price.toLocaleString()}</p>
+                                            <p className="text-lg font-semibold text-gray-900">₱{(appointment.price || 0).toLocaleString()}</p>
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label className="text-sm font-medium text-gray-500">Date</label>
                                             <p className="text-lg font-semibold text-gray-900">
-                                                {new Date(appointment.appointment_date).toLocaleDateString()}
+                                                {formatAppointmentDate(appointment.appointment_date)}
                                             </p>
                                         </div>
                                         <div>
                                             <label className="text-sm font-medium text-gray-500">Time</label>
                                             <p className="text-lg font-semibold text-gray-900">
-                                                {new Date(appointment.appointment_time).toLocaleTimeString()}
+                                                {formatAppointmentTime(appointment.appointment_time)}
                                             </p>
                                         </div>
                                     </div>
@@ -303,11 +304,13 @@ export default function AppointmentShow({
                                 <div className="space-y-3">
                                     <div className="flex justify-between">
                                         <span className="font-medium">Appointment Date:</span>
-                                        <span>{new Date(appointment.appointment_date).toLocaleDateString()}</span>
+                                        <span>{formatAppointmentDateShort(appointment.appointment_date)}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="font-medium">Appointment Time:</span>
-                                        <span>{new Date(appointment.appointment_time).toLocaleTimeString()}</span>
+                                        <span>
+                                            {formatAppointmentTime(appointment.appointment_time)}
+                                        </span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="font-medium">Created:</span>

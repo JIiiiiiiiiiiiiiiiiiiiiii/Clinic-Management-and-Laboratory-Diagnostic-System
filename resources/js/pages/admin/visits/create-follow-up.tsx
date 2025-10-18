@@ -20,17 +20,17 @@ const breadcrumbs: BreadcrumbItem[] = [
 interface CreateFollowUpProps {
     original_visit: {
         id: number;
-        visit_date_time: string;
+        visit_date: string;
         purpose: string;
         notes?: string;
         patient: {
-            id: number;
+            patient_id: number;
             first_name: string;
             last_name: string;
             patient_no: string;
             sequence_number?: string;
         };
-        attending_staff: {
+        staff: {
             id: number;
             name: string;
             role: string;
@@ -46,9 +46,9 @@ interface CreateFollowUpProps {
 export default function CreateFollowUp({ original_visit, staff }: CreateFollowUpProps) {
     const { hasPermission } = useRoleAccess();
     const [formData, setFormData] = useState({
-        visit_date_time: '',
+        visit_date: '',
         purpose: `Follow-up: ${original_visit.purpose}`,
-        attending_staff_id: original_visit.attending_staff.id.toString(),
+        staff_id: original_visit.staff?.id?.toString() || '',
         notes: '',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -59,7 +59,15 @@ export default function CreateFollowUp({ original_visit, staff }: CreateFollowUp
         setIsSubmitting(true);
         setErrors({});
 
-        router.post(`/admin/visits/${original_visit.id}/follow-up`, formData, {
+        // Map staff_id to doctor_id for backend compatibility
+        const submitData = {
+            ...formData,
+            doctor_id: formData.staff_id,
+        };
+        // Remove staff_id as it's not in the database
+        delete submitData.staff_id;
+
+        router.post(`/admin/visits/${original_visit.id}/follow-up`, submitData, {
             onSuccess: () => {
                 // Success handled by controller redirect
             },
@@ -88,14 +96,24 @@ export default function CreateFollowUp({ original_visit, staff }: CreateFollowUp
         }
     };
 
-    const formatDateTime = (dateTime: string) => {
-        return new Date(dateTime).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+    const formatDateTime = (dateTime: string | null | undefined) => {
+        if (!dateTime) return 'No date set';
+        
+        try {
+            const date = new Date(dateTime);
+            if (isNaN(date.getTime())) {
+                return 'Invalid date';
+            }
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch (error) {
+            return 'Invalid date';
+        }
     };
 
     return (
@@ -113,7 +131,7 @@ export default function CreateFollowUp({ original_visit, staff }: CreateFollowUp
                             <div>
                                 <h1 className="text-4xl font-semibold text-black mb-4">Create Follow-up Visit</h1>
                                 <p className="text-sm text-gray-600 mt-1">
-                                    {original_visit.patient.first_name} {original_visit.patient.last_name} - {original_visit.patient.sequence_number || original_visit.patient.patient_no}
+                                    {original_visit.patient.first_name} {original_visit.patient.last_name} - {original_visit.patient.patient_code || original_visit.patient.sequence_number || original_visit.patient.patient_no}
                                 </p>
                             </div>
                         </div>
@@ -145,27 +163,27 @@ export default function CreateFollowUp({ original_visit, staff }: CreateFollowUp
                                 <form onSubmit={handleSubmit} className="space-y-6">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-2">
-                                            <Label htmlFor="visit_date_time">Follow-up Date & Time *</Label>
+                                            <Label htmlFor="visit_date">Follow-up Date & Time *</Label>
                                             <Input
-                                                id="visit_date_time"
+                                                id="visit_date"
                                                 type="datetime-local"
-                                                value={formData.visit_date_time}
-                                                onChange={(e) => handleInputChange('visit_date_time', e.target.value)}
-                                                className={errors.visit_date_time ? 'border-red-500' : ''}
+                                                value={formData.visit_date}
+                                                onChange={(e) => handleInputChange('visit_date', e.target.value)}
+                                                className={errors.visit_date ? 'border-red-500' : ''}
                                                 min={new Date().toISOString().slice(0, 16)}
                                             />
-                                            {errors.visit_date_time && (
-                                                <p className="text-sm text-red-500 mt-1">{errors.visit_date_time}</p>
+                                            {errors.visit_date && (
+                                                <p className="text-sm text-red-500 mt-1">{errors.visit_date}</p>
                                             )}
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label htmlFor="attending_staff_id">Attending Staff *</Label>
+                                            <Label htmlFor="staff_id">Attending Staff *</Label>
                                             <Select
-                                                value={formData.attending_staff_id}
-                                                onValueChange={(value) => handleInputChange('attending_staff_id', value)}
+                                                value={formData.staff_id}
+                                                onValueChange={(value) => handleInputChange('staff_id', value)}
                                             >
-                                                <SelectTrigger className={errors.attending_staff_id ? 'border-red-500' : ''}>
+                                                <SelectTrigger className={errors.staff_id ? 'border-red-500' : ''}>
                                                     <SelectValue placeholder="Select staff" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -176,8 +194,8 @@ export default function CreateFollowUp({ original_visit, staff }: CreateFollowUp
                                                     ))}
                                                 </SelectContent>
                                             </Select>
-                                            {errors.attending_staff_id && (
-                                                <p className="text-sm text-red-500 mt-1">{errors.attending_staff_id}</p>
+                                            {errors.staff_id && (
+                                                <p className="text-sm text-red-500 mt-1">{errors.staff_id}</p>
                                             )}
                                         </div>
                                     </div>
@@ -251,7 +269,7 @@ export default function CreateFollowUp({ original_visit, staff }: CreateFollowUp
                                 <div className="space-y-4">
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-gray-500">Date & Time</label>
-                                        <p className="font-semibold">{formatDateTime(original_visit.visit_date_time)}</p>
+                                        <p className="font-semibold">{formatDateTime(original_visit.visit_date)}</p>
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-gray-500">Purpose</label>
@@ -259,8 +277,8 @@ export default function CreateFollowUp({ original_visit, staff }: CreateFollowUp
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-gray-500">Staff</label>
-                                        <p className="font-semibold">{original_visit.attending_staff.name}</p>
-                                        <p className="text-sm text-gray-500 capitalize">{original_visit.attending_staff.role}</p>
+                                        <p className="font-semibold">{original_visit.staff?.name || 'No staff assigned'}</p>
+                                        <p className="text-sm text-gray-500 capitalize">{original_visit.staff?.role || 'N/A'}</p>
                                     </div>
                                     {original_visit.notes && (
                                         <div className="space-y-2">
@@ -294,12 +312,12 @@ export default function CreateFollowUp({ original_visit, staff }: CreateFollowUp
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-gray-500">Patient Number</label>
-                                        <p className="text-lg font-semibold">{original_visit.patient.sequence_number || original_visit.patient.patient_no}</p>
+                                        <p className="text-lg font-semibold">{original_visit.patient.patient_code || original_visit.patient.sequence_number || original_visit.patient.patient_no}</p>
                                     </div>
                                 </div>
                                 
                                 <div className="pt-6">
-                                    <Link href={`/admin/patient/${original_visit.patient.id}`}>
+                                    <Link href={`/admin/patient/${original_visit.patient.patient_id}`}>
                                         <Button variant="outline" className="w-full">
                                             View Patient Profile
                                         </Button>

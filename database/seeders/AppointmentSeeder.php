@@ -49,6 +49,8 @@ class AppointmentSeeder extends Seeder
                 'confirmation_sent' => $faker->boolean(70),
                 'notes' => $faker->optional(0.3)->sentence(),
                 'special_requirements' => $faker->optional(0.2)->sentence(),
+                'source' => 'Walk-in', // Seeder creates walk-in appointments
+                'booking_method' => 'Walk-in',
                 'created_at' => $faker->dateTimeBetween('-30 days', 'now'),
             ]);
 

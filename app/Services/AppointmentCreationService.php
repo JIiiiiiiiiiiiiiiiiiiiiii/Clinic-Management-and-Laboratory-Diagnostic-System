@@ -37,7 +37,22 @@ class AppointmentCreationService
 
             // Create appointment with proper patient_id and sequence
             $appointmentData['patient_id'] = $patient->id;
-            $appointmentData['sequence_number'] = $patient->sequence_number;
+            
+            // Add required fields that are missing
+            if (!isset($appointmentData['patient_name'])) {
+                $appointmentData['patient_name'] = $patient->first_name . ' ' . $patient->last_name;
+            }
+            if (!isset($appointmentData['contact_number'])) {
+                $appointmentData['contact_number'] = $patient->mobile_no ?? 'Not specified';
+            }
+            if (!isset($appointmentData['specialist_name'])) {
+                $appointmentData['specialist_name'] = 'To be assigned';
+            }
+            
+            // Remove fields that don't exist in the appointments table
+            unset($appointmentData['admin_notes']);
+            unset($appointmentData['created_by']);
+            
             $appointment = Appointment::create($appointmentData);
 
             Log::info('Appointment created successfully', [
@@ -46,10 +61,24 @@ class AppointmentCreationService
                 'appointment_type' => $appointment->appointment_type
             ]);
 
+            // Create visit automatically
+            $visit = $this->createVisit($appointment);
+
+            // Create billing transaction and link if appointment is confirmed
+            $billingTransaction = null;
+            $billingLink = null;
+            
+            if ($appointment->status === 'Confirmed') {
+                $billingTransaction = $this->createBillingTransaction($appointment);
+                $billingLink = $this->createBillingLink($appointment, $billingTransaction);
+            }
+
             return [
                 'patient' => $patient,
                 'appointment' => $appointment,
-                'visit' => $appointment->visit // Visit is auto-created by the model
+                'visit' => $visit,
+                'billing_transaction' => $billingTransaction,
+                'billing_link' => $billingLink
             ];
         });
     }
@@ -74,15 +103,41 @@ class AppointmentCreationService
         }
 
         // Create new patient with sequence number and patient number
-        $nextSequence = Patient::max('sequence_number') + 1;
-        $patientData['sequence_number'] = $nextSequence;
-        $patientData['patient_no'] = 'P' . str_pad($nextSequence, 3, '0', STR_PAD_LEFT);
+        $maxId = Patient::max('id');
+        $nextId = $maxId ? $maxId + 1 : 1;
+        $patientData['patient_no'] = 'P' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        
+        // Add required fields if not provided
+        if (!isset($patientData['arrival_date'])) {
+            $patientData['arrival_date'] = now()->toDateString();
+        }
+        if (!isset($patientData['arrival_time'])) {
+            $patientData['arrival_time'] = now()->format('H:i:s');
+        }
+        if (!isset($patientData['attending_physician'])) {
+            $patientData['attending_physician'] = 'To be assigned';
+        }
+        if (!isset($patientData['time_seen'])) {
+            $patientData['time_seen'] = now()->format('H:i:s');
+        }
+        if (!isset($patientData['present_address'])) {
+            $patientData['present_address'] = 'Not specified';
+        }
+        // Also set address for backward compatibility
+        if (!isset($patientData['address'])) {
+            $patientData['address'] = $patientData['present_address'];
+        }
+        if (!isset($patientData['emergency_name'])) {
+            $patientData['emergency_name'] = 'Not specified';
+        }
+        if (!isset($patientData['emergency_relation'])) {
+            $patientData['emergency_relation'] = 'Self';
+        }
         
         $patient = Patient::create($patientData);
         
         Log::info('Created new patient', [
             'patient_id' => $patient->id,
-            'sequence_number' => $patient->sequence_number,
             'patient_no' => $patient->patient_no
         ]);
         
@@ -160,5 +215,105 @@ class AppointmentCreationService
         $maxPatientNo = Patient::max('patient_no');
         $numericMax = is_numeric($maxPatientNo) ? (int) $maxPatientNo : 0;
         return (string) ($numericMax + 1);
+    }
+
+    /**
+     * Create a visit for an appointment
+     * 
+     * @param Appointment $appointment
+     * @return Visit
+     */
+    private function createVisit(Appointment $appointment)
+    {
+        // Safely construct visit_date by handling different time formats
+        $appointmentDate = $appointment->appointment_date;
+        $appointmentTime = $appointment->appointment_time;
+        
+        // Extract just the date part from appointment_date if it's a datetime
+        if (strpos($appointmentDate, ' ') !== false) {
+            $appointmentDate = date('Y-m-d', strtotime($appointmentDate));
+        }
+        
+        // Extract just the time part from appointment_time if it's a datetime
+        if (strpos($appointmentTime, ' ') !== false) {
+            $appointmentTime = date('H:i:s', strtotime($appointmentTime));
+        }
+        
+        // Get a valid attending staff ID - use current user or find a doctor
+        $attendingStaffId = null;
+        if (auth()->check()) {
+            $attendingStaffId = auth()->id();
+        } else {
+            // Find any doctor or admin user as fallback
+            $staffUser = \App\Models\User::whereIn('role', ['doctor', 'admin'])->first();
+            if ($staffUser) {
+                $attendingStaffId = $staffUser->id;
+            }
+        }
+        
+        $visitData = [
+            'appointment_id' => $appointment->id,
+            'patient_id' => $appointment->patient_id,
+            'visit_date_time_time' => $appointmentDate . ' ' . $appointmentTime,
+            'visit_date_time' => $appointmentDate . ' ' . $appointmentTime,
+            'purpose' => $appointment->appointment_type,
+            'status' => 'in_progress',
+            'attending_staff_id' => $attendingStaffId, // Use valid user ID or null
+        ];
+        
+        $visit = Visit::create($visitData);
+        
+        Log::info('Visit created successfully', [
+            'visit_id' => $visit->id,
+            'visit_code' => $visit->visit_code,
+            'appointment_id' => $appointment->id,
+            'patient_id' => $appointment->patient_id
+        ]);
+        
+        return $visit;
+    }
+
+    /**
+     * Create a billing transaction for an appointment
+     * 
+     * @param Appointment $appointment
+     * @return BillingTransaction
+     */
+        private function createBillingTransaction(Appointment $appointment)
+    {
+        // SYSTEM-WIDE FIX: Use the comprehensive helper
+        return \App\Helpers\SystemWideSpecialistBillingHelper::createBillingTransactionSafely($appointment->id, [
+            "patient_id" => $appointment->patient_id,
+            "total_amount" => $appointment->price,
+            "status" => "pending",
+            "transaction_date" => now(),
+            "created_by" => 1,
+        ]);
+    }
+
+    /**
+     * Create a billing link between appointment and transaction
+     * 
+     * @param Appointment $appointment
+     * @param \App\Models\BillingTransaction $billingTransaction
+     * @return AppointmentBillingLink
+     */
+    private function createBillingLink(Appointment $appointment, \App\Models\BillingTransaction $billingTransaction)
+    {
+        $billingLink = \App\Models\AppointmentBillingLink::create([
+            'appointment_id' => $appointment->id,
+            'billing_transaction_id' => $billingTransaction->id,
+            'appointment_type' => $appointment->appointment_type,
+            'appointment_price' => $appointment->price,
+            'status' => 'pending',
+        ]);
+        
+        Log::info('Billing link created', [
+            'billing_link_id' => $billingLink->id,
+            'appointment_id' => $appointment->id,
+            'billing_transaction_id' => $billingTransaction->id
+        ]);
+        
+        return $billingLink;
     }
 }

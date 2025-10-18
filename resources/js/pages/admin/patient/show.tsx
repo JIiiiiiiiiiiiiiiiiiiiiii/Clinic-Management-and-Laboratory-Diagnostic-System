@@ -57,7 +57,7 @@ export default function ShowPatient({ patient, labOrders = [] }: ShowPatientProp
             <Head title={`Patient Details - ${patient.first_name} ${patient.last_name}`} />
             <PatientPageLayout
                 title={`${patient.first_name} ${patient.last_name}`}
-                description={`Patient No: ${patient.sequence_number || patient.patient_no}`}
+                description={`Patient No: ${patient.patient_no || 'N/A'}`}
                 icon={<User className="h-6 w-6" />}
                 actions={
                     <div className="flex items-center gap-4">
@@ -114,7 +114,7 @@ export default function ShowPatient({ patient, labOrders = [] }: ShowPatientProp
                                             </div>
                                             <div>
                                                 <p className="text-sm font-medium text-gray-600">Patient Number</p>
-                                                <p className="text-sm font-semibold text-gray-900">{patient.sequence_number || patient.patient_no}</p>
+                                                <p className="text-sm font-semibold text-gray-900">{patient.patient_no || 'N/A'}</p>
                                             </div>
                                             <div>
                                                 <p className="text-sm font-medium text-gray-600">Birth Date</p>
@@ -207,11 +207,11 @@ export default function ShowPatient({ patient, labOrders = [] }: ShowPatientProp
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <p className="text-sm font-medium text-gray-600">Informant Name</p>
-                                                <p className="text-sm font-bold text-black">{patient.informant_name}</p>
+                                                <p className="text-sm font-bold text-black">{patient.emergency_name || 'Not provided'}</p>
                                             </div>
                                             <div>
                                                 <p className="text-sm font-medium text-gray-600">Relationship</p>
-                                                <p className="text-sm font-semibold text-gray-900">{patient.relationship}</p>
+                                                <p className="text-sm font-semibold text-gray-900">{patient.emergency_relation || 'Not provided'}</p>
                                             </div>
                                         </div>
                                     </CardContent>

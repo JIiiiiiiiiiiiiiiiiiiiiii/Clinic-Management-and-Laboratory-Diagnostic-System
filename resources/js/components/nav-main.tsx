@@ -17,9 +17,9 @@ import {
 } from "@/components/ui/sidebar"
 
 export function NavMain({
-  items,
+  items = [],
 }: {
-  items: {
+  items?: {
     title: string
     href?: string
     url?: string
@@ -46,7 +46,7 @@ export function NavMain({
   return (
     <SidebarGroup>
       <SidebarMenu>
-        {items.map((item) => {
+        {items?.map((item) => {
           // Only open if the current URL matches this item or any of its sub-items
           const shouldBeOpen = item.url && currentUrl.startsWith(item.url) || 
                               (item.items && isSubItemActive(item.items));
@@ -62,10 +62,12 @@ export function NavMain({
               {item.items ? (
                 <>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton tooltip={item.title}>
-                      {item.icon && <item.icon />}
-                      <span>{item.title}</span>
-                      <ChevronRightIcon className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    <SidebarMenuButton tooltip={item.title} asChild>
+                      <Link href={item.href || item.url || '#'}>
+                        {item.icon && <item.icon />}
+                        <span>{item.title}</span>
+                        <ChevronRightIcon className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                      </Link>
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
@@ -73,7 +75,7 @@ export function NavMain({
                       {item.items?.map((subItem) => (
                         <SidebarMenuSubItem key={subItem.title}>
                           <SidebarMenuSubButton asChild>
-                            <Link href={subItem.href || subItem.url}>
+                            <Link href={subItem.href || subItem.url || '#'}>
                               <span>{subItem.title}</span>
                             </Link>
                           </SidebarMenuSubButton>
@@ -84,7 +86,7 @@ export function NavMain({
                 </>
               ) : (
                 <SidebarMenuButton tooltip={item.title} asChild>
-                  <Link href={item.href || item.url}>
+                  <Link href={item.href || item.url || '#'}>
                     {item.icon && <item.icon />}
                     <span>{item.title}</span>
                   </Link>

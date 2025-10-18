@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { ChevronRightIcon, LucideIcon } from "lucide-react"
-import { Link } from "@inertiajs/react"
+import { Link, usePage } from "@inertiajs/react"
 
 import {
   Collapsible,
@@ -21,12 +21,12 @@ import {
 } from "@/components/ui/sidebar"
 
 export function NavSecondary({
-  items,
+  items = [],
   ...props
 }: {
-  items: {
+  items?: {
     title: string
-    url: string
+    url?: string
     icon: LucideIcon
     isActive?: boolean
     items?: {
@@ -35,17 +35,43 @@ export function NavSecondary({
     }[]
   }[]
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
+  const page = usePage<any>();
+  const currentUrl = page.url;
+
+  // Function to check if any sub-item is active
+  const isSubItemActive = (subItems: any[]) => {
+    return subItems?.some(subItem => {
+      const subUrl = subItem.href || subItem.url;
+      return subUrl && currentUrl.startsWith(subUrl);
+    }) || false;
+  };
+
+  // State to track which items are open - start with all closed
+  const [openItems, setOpenItems] = React.useState<string[]>([]);
+
+  const toggleItem = (itemTitle: string) => {
+    setOpenItems(prev => 
+      prev.includes(itemTitle) 
+        ? prev.filter(title => title !== itemTitle)
+        : [...prev, itemTitle]
+    );
+  };
+
   return (
     <SidebarGroup {...props}>
       <SidebarGroupContent>
         <SidebarMenu>
-          {items.map((item) => (
-            <Collapsible
-              key={item.title}
-              asChild
-              defaultOpen={item.isActive}
-              className="group/collapsible"
-            >
+          {items?.map((item) => {
+            const isOpen = openItems.includes(item.title);
+            
+            return (
+              <Collapsible
+                key={item.title}
+                asChild
+                open={isOpen}
+                onOpenChange={() => toggleItem(item.title)}
+                className="group/collapsible"
+              >
               <SidebarMenuItem>
                 {item.items ? (
                   <>
@@ -61,7 +87,7 @@ export function NavSecondary({
                         {item.items?.map((subItem) => (
                           <SidebarMenuSubItem key={subItem.title}>
                             <SidebarMenuSubButton asChild>
-                              <Link href={subItem.url}>
+                              <Link href={subItem.url || '#'}>
                                 <span>{subItem.title}</span>
                               </Link>
                             </SidebarMenuSubButton>
@@ -72,7 +98,7 @@ export function NavSecondary({
                   </>
                 ) : (
                   <SidebarMenuButton tooltip={item.title} asChild size="sm">
-                    <Link href={item.url}>
+                    <Link href={item.url || '#'}>
                       <item.icon />
                       <span>{item.title}</span>
                     </Link>
@@ -80,7 +106,8 @@ export function NavSecondary({
                 )}
               </SidebarMenuItem>
             </Collapsible>
-          ))}
+            );
+          })}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>

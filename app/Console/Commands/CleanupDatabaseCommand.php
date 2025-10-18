@@ -137,7 +137,7 @@ class CleanupDatabaseCommand extends Command
         // Check for orphaned records
         $orphanedAppointments = DB::table('appointments')
             ->whereNotIn('patient_id', function($query) {
-                $query->select('id')->from('patients');
+                $query->select('patient_id')->from('patients');
             })
             ->count();
 
@@ -145,7 +145,7 @@ class CleanupDatabaseCommand extends Command
 
         $orphanedLabOrders = DB::table('lab_orders')
             ->whereNotIn('patient_id', function($query) {
-                $query->select('id')->from('patients');
+                $query->select('patient_id')->from('patients');
             })
             ->count();
 
@@ -154,7 +154,7 @@ class CleanupDatabaseCommand extends Command
         $orphanedBillingTransactions = DB::table('billing_transactions')
             ->whereNotNull('patient_id')
             ->whereNotIn('patient_id', function($query) {
-                $query->select('id')->from('patients');
+                $query->select('patient_id')->from('patients');
             })
             ->count();
 
@@ -178,7 +178,7 @@ class CleanupDatabaseCommand extends Command
         // Delete orphaned appointments
         $deletedAppointments = DB::table('appointments')
             ->whereNotIn('patient_id', function($query) {
-                $query->select('id')->from('patients');
+                $query->select('patient_id')->from('patients');
             })
             ->delete();
         
@@ -187,7 +187,7 @@ class CleanupDatabaseCommand extends Command
         // Delete orphaned lab orders
         $deletedLabOrders = DB::table('lab_orders')
             ->whereNotIn('patient_id', function($query) {
-                $query->select('id')->from('patients');
+                $query->select('patient_id')->from('patients');
             })
             ->delete();
         
@@ -197,7 +197,7 @@ class CleanupDatabaseCommand extends Command
         $fixedTransactions = DB::table('billing_transactions')
             ->whereNotNull('patient_id')
             ->whereNotIn('patient_id', function($query) {
-                $query->select('id')->from('patients');
+                $query->select('patient_id')->from('patients');
             })
             ->update(['patient_id' => null]);
         

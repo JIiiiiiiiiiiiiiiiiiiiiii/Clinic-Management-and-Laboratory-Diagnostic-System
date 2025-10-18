@@ -33,20 +33,15 @@ class Notification extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function related()
+    public function appointment()
     {
-        return $this->morphTo('related', 'related_type', 'related_id');
+        return $this->belongsTo(Appointment::class, 'related_id', 'id');
     }
 
     // Scopes
     public function scopeUnread($query)
     {
         return $query->where('read', false);
-    }
-
-    public function scopeRead($query)
-    {
-        return $query->where('read', true);
     }
 
     public function scopeByType($query, $type)
@@ -57,27 +52,6 @@ class Notification extends Model
     // Methods
     public function markAsRead()
     {
-        $this->update([
-            'read' => true,
-            'read_at' => now(),
-        ]);
-    }
-
-    public function markAsUnread()
-    {
-        $this->update([
-            'read' => false,
-            'read_at' => null,
-        ]);
-    }
-
-    public function isRead()
-    {
-        return $this->read;
-    }
-
-    public function isUnread()
-    {
-        return !$this->read;
+        $this->update(['read' => true, 'read_at' => now()]);
     }
 }

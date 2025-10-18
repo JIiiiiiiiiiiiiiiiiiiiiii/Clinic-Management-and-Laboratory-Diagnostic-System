@@ -32,6 +32,9 @@ Route::middleware(['auth'])
         Route::get('/online-appointment', [\App\Http\Controllers\Patient\OnlineAppointmentController::class, 'show'])->name('online.appointment');
         Route::post('/online-appointment', [\App\Http\Controllers\Patient\OnlineAppointmentController::class, 'store'])->name('online.appointment.store');
         Route::post('/online-appointment/force-create', [\App\Http\Controllers\Patient\OnlineAppointmentController::class, 'forceCreate'])->name('online.appointment.force');
+        
+        // Staff API
+        Route::get('/staff', [\App\Http\Controllers\Patient\OnlineAppointmentController::class, 'getStaff'])->name('staff');
 
         // Appointments
         Route::prefix('appointments')->name('appointments.')->group(function () {

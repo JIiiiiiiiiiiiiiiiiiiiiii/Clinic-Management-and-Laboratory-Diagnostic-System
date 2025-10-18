@@ -12,6 +12,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import Heading from '@/components/heading';
+import { formatAppointmentTime, formatAppointmentDateShort } from '@/utils/dateTime';
 import { 
     AlertCircle, 
     ArrowLeft, 
@@ -56,7 +57,7 @@ type BillingTransaction = {
     total_amount: number;
     discount_amount: number;
     hmo_provider: string | null;
-    payment_method: 'cash' | 'card' | 'bank_transfer' | 'check' | 'hmo';
+    payment_method: 'cash' | 'hmo';
     status: 'draft' | 'pending' | 'paid' | 'cancelled' | 'refunded';
     description: string | null;
     transaction_date: string;
@@ -77,7 +78,6 @@ type Summary = {
     pending_amount: number;
     total_transactions: number;
     paid_transactions: number;
-    total_expenses: number;
     total_doctor_payments: number;
     net_profit: number;
 };
@@ -104,9 +104,6 @@ const statusConfig = {
 
 const paymentMethodConfig = {
     cash: { label: 'Cash', color: 'bg-green-100 text-green-800' },
-    card: { label: 'Card', color: 'bg-blue-100 text-blue-800' },
-    bank_transfer: { label: 'Bank Transfer', color: 'bg-purple-100 text-purple-800' },
-    check: { label: 'Check', color: 'bg-yellow-100 text-yellow-800' },
     hmo: { label: 'HMO', color: 'bg-indigo-100 text-indigo-800' },
 };
 
@@ -126,9 +123,7 @@ export default function BillingIndex({
     transactions, 
     pendingAppointments,
     doctorPayments,
-    expenses,
     revenueData,
-    expenseData,
     doctorPaymentData,
     summary, 
     doctors, 
@@ -139,9 +134,7 @@ export default function BillingIndex({
     transactions: any;
     pendingAppointments: PendingAppointment[];
     doctorPayments: any;
-    expenses: any;
     revenueData: any[];
-    expenseData: any[];
     doctorPaymentData: any[];
     summary: Summary;
     doctors: Doctor[];
@@ -163,29 +156,30 @@ export default function BillingIndex({
     // Ensure we have data to work with
     const transactionsData = transactions?.data || [];
     
-    // Debug logging
-    console.log('Debug info:', debug);
-    console.log('Transactions data:', transactions);
-    console.log('Transactions data count:', transactionsData.length);
-    console.log('Sample transaction:', transactionsData[0]);
-    console.log('Doctor payments data:', doctorPayments);
-    console.log('Doctor payments data count:', doctorPayments?.data?.length || 0);
     
-    const filteredTransactions = transactionsData.filter((transaction: BillingTransaction) => {
+    const filteredTransactions = (transactionsData || []).filter((transaction: BillingTransaction) => {
+        if (!transaction) {
+            return false;
+        }
+        
         const patientName = transaction.patient ? 
-            `${transaction.patient.first_name} ${transaction.patient.last_name}`.toLowerCase() : '';
+            `${transaction.patient.first_name || ''} ${transaction.patient.last_name || ''}`.toLowerCase() : '';
         const search = searchTerm.toLowerCase();
         
         const matchesSearch = patientName.includes(search) || 
-                            transaction.transaction_id.toLowerCase().includes(search) ||
+                            (transaction.transaction_id || '').toLowerCase().includes(search) ||
                             (transaction.patient?.patient_no || '').toLowerCase().includes(search);
         
         const matchesStatus = statusFilter === 'all' || transaction.status === statusFilter;
         const matchesPaymentMethod = paymentMethodFilter === 'all' || transaction.payment_method === paymentMethodFilter;
-        const matchesDoctor = doctorFilter === 'all' || transaction.doctor?.id.toString() === doctorFilter;
+        const matchesDoctor = doctorFilter === 'all' || transaction.doctor?.id?.toString() === doctorFilter;
         
-        return matchesSearch && matchesStatus && matchesPaymentMethod && matchesDoctor;
+        const passes = matchesSearch && matchesStatus && matchesPaymentMethod && matchesDoctor;
+        
+        
+        return passes;
     });
+    
 
 
     const getStatusBadge = (status: keyof typeof statusConfig) => {
@@ -345,7 +339,7 @@ export default function BillingIndex({
     };
 
     // Quick Export Functions
-    const handleQuickExport = (type: 'transactions' | 'doctor-payments' | 'expenses' | 'all') => {
+    const handleQuickExport = (type: 'transactions' | 'doctor-payments' | 'all') => {
         const reportDateFrom = dateFrom || new Date().toISOString().split('T')[0];
         const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
         
@@ -364,30 +358,6 @@ export default function BillingIndex({
                         <div className="flex items-center gap-6">
                             <Heading title="Billing & Payments" description="Manage all clinic financial transactions" icon={CreditCard} />
                         </div>
-                        <div className="flex items-center gap-4">
-                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4 w-52 h-20 flex items-center overflow-hidden">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
-                                        <DollarSign className="h-6 w-6 text-black" />
-                                    </div>
-                                    <div>
-                                        <div className="text-3xl font-bold text-gray-900 whitespace-nowrap leading-tight">₱{summary.total_revenue.toLocaleString()}</div>
-                                        <div className="text-gray-600 text-sm font-medium whitespace-nowrap">Total Revenue</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4 w-52 h-20 flex items-center overflow-hidden">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
-                                        <TrendingUp className="h-6 w-6 text-black" />
-                                    </div>
-                                    <div>
-                                        <div className="text-3xl font-bold text-gray-900 whitespace-nowrap leading-tight">{summary.paid_transactions}</div>
-                                        <div className="text-gray-600 text-sm font-medium whitespace-nowrap">Paid Transactions</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -397,17 +367,15 @@ export default function BillingIndex({
                         <h3 className="font-semibold text-yellow-800">Debug Info:</h3>
                         <p>Transactions: {debug.transactions_count} (Total: {debug.transactions_total})</p>
                         <p>Doctor Payments: {debug.doctor_payments_count}</p>
-                        <p>Expenses: {debug.expenses_count}</p>
                     </div>
                 )}
 
                 {/* Main Content with Tabs */}
                 <Tabs defaultValue={defaultTab} className="space-y-6">
-                    <TabsList className="grid w-full grid-cols-5">
+                    <TabsList className="grid w-full grid-cols-4">
                         <TabsTrigger value="transactions">Transactions</TabsTrigger>
                         <TabsTrigger value="pending-appointments">Pending Appointments</TabsTrigger>
                         <TabsTrigger value="doctor-payments">Doctor Payments</TabsTrigger>
-                        <TabsTrigger value="expenses">Expenses</TabsTrigger>
                         <TabsTrigger value="reports">Reports</TabsTrigger>
                     </TabsList>
 
@@ -488,9 +456,6 @@ export default function BillingIndex({
                                         >
                                             <option value="all">All Payment Methods</option>
                                             <option value="cash">Cash</option>
-                                            <option value="card">Card</option>
-                                            <option value="bank_transfer">Bank Transfer</option>
-                                            <option value="check">Check</option>
                                             <option value="hmo">HMO</option>
                                         </select>
                                         <select
@@ -578,7 +543,7 @@ export default function BillingIndex({
                                                             )}
                                                         </TableCell>
                                                         <TableCell className="font-semibold">
-                                                            ₱{transaction.total_amount.toLocaleString()}
+                                                            ₱{(transaction.total_amount || 0).toLocaleString()}
                                                         </TableCell>
                                                         <TableCell>
                                                             {getPaymentMethodBadge(transaction.payment_method)}
@@ -692,7 +657,7 @@ export default function BillingIndex({
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {pendingAppointments.length === 0 ? (
+                                            {!pendingAppointments || pendingAppointments.length === 0 ? (
                                                 <TableRow>
                                                     <TableCell colSpan={7} className="text-center py-8">
                                                         <div className="flex flex-col items-center">
@@ -721,12 +686,14 @@ export default function BillingIndex({
                                                         </TableCell>
                                                         <TableCell className="text-sm text-gray-600">
                                                             <div>
-                                                                <div>{new Date(appointment.appointment_date).toLocaleDateString()}</div>
-                                                                <div className="text-gray-500">{appointment.appointment_time}</div>
+                                                                <div>{formatAppointmentDateShort(appointment.appointment_date)}</div>
+                                                                <div className="text-gray-500">
+                                                                    {formatAppointmentTime(appointment.appointment_time)}
+                                                                </div>
                                                             </div>
                                                         </TableCell>
                                                         <TableCell className="font-semibold">
-                                                            ₱{appointment.price.toLocaleString()}
+                                                            ₱{(appointment.price || 0).toLocaleString()}
                                                         </TableCell>
                                                         <TableCell>
                                                             <Badge variant="secondary">
@@ -846,7 +813,7 @@ export default function BillingIndex({
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {doctorPayments?.data?.length === 0 ? (
+                                            {!doctorPayments?.data || doctorPayments.data.length === 0 ? (
                                                 <TableRow>
                                                     <TableCell colSpan={9} className="text-center py-8">
                                                         <div className="flex flex-col items-center">
@@ -925,104 +892,12 @@ export default function BillingIndex({
                         </Card>
                     </TabsContent>
 
-                    {/* Expenses Tab */}
-                    <TabsContent value="expenses">
-                        <Card className="shadow-lg">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
-                                        <FileText className="h-6 w-6 text-black" />
-                                    </div>
-                                    <div>
-                                        <CardTitle className="text-lg font-semibold text-gray-900">Expenses</CardTitle>
-                                        <p className="text-sm text-gray-500 mt-1">Track clinic expenses and costs</p>
-                                    </div>
-                                </div>
-                                <Button asChild>
-                                    <Link href="/admin/billing/expenses/create">
-                                        <Plus className="mr-2 h-5 w-5" />
-                                        New Expense
-                                    </Link>
-                                </Button>
-                            </CardHeader>
-                            <CardContent className="p-6">
-                                {/* Expenses Table */}
-                                <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                    <Table>
-                                        <TableHeader className="bg-gray-50">
-                                            <TableRow className="hover:bg-gray-50">
-                                                <TableHead className="font-semibold text-gray-700">Description</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Category</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Amount</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Date</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Actions</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {expenses?.data?.length === 0 ? (
-                                                <TableRow>
-                                                    <TableCell colSpan={6} className="text-center py-8">
-                                                        <div className="flex flex-col items-center">
-                                                            <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                                                            <h3 className="mb-2 text-lg font-semibold text-gray-600">No expenses</h3>
-                                                            <p className="text-gray-500">Create your first expense record</p>
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ) : (
-                                                expenses?.data?.map((expense: any) => (
-                                                    <TableRow key={expense.id} className="hover:bg-gray-50">
-                                                        <TableCell className="font-medium">
-                                                            {expense.description}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge variant="outline">
-                                                                {expense.category?.name || 'General'}
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell className="font-semibold">
-                                                            ₱{expense.amount?.toLocaleString()}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {new Date(expense.expense_date).toLocaleDateString()}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge variant={expense.status === 'approved' ? 'default' : 'secondary'}>
-                                                                {expense.status}
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="flex gap-2">
-                                                                <Button asChild size="sm" variant="outline">
-                                                                    <Link href={`/admin/billing/expenses/${expense.id}`}>
-                                                                        <Eye className="mr-1 h-3 w-3" />
-                                                                        View
-                                                                    </Link>
-                                                                </Button>
-                                                                <Button asChild size="sm" variant="outline">
-                                                                    <Link href={`/admin/billing/expenses/${expense.id}/edit`}>
-                                                                        <Edit className="mr-1 h-3 w-3" />
-                                                                        Edit
-                                                                    </Link>
-                                                                </Button>
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
 
                     {/* Reports Tab */}
                     <TabsContent value="reports">
                         <div className="space-y-6">
                             {/* Summary Cards */}
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <Card className="shadow-lg">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
@@ -1039,21 +914,6 @@ export default function BillingIndex({
                                     </CardContent>
                                 </Card>
 
-                                <Card className="shadow-lg">
-                                    <CardContent className="p-6">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-sm font-medium text-gray-600">Total Expenses</p>
-                                                <p className="text-2xl font-bold text-red-600">
-                                                    ₱{summary.total_expenses?.toLocaleString() || '0'}
-                                                </p>
-                                            </div>
-                                            <div className="p-3 bg-red-100 rounded-full">
-                                                <FileText className="h-6 w-6 text-red-600" />
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
 
                                 <Card className="shadow-lg">
                                     <CardContent className="p-6">
@@ -1159,7 +1019,7 @@ export default function BillingIndex({
                                             Transaction: <span className="font-medium">{selectedTransaction.transaction_id}</span>
                                         </p>
                                         <p className="text-sm text-gray-600 mb-4">
-                                            Amount: <span className="font-medium">₱{selectedTransaction.total_amount.toLocaleString()}</span>
+                                            Amount: <span className="font-medium">₱{(selectedTransaction.total_amount || 0).toLocaleString()}</span>
                                         </p>
                                     </div>
                                     
@@ -1172,9 +1032,6 @@ export default function BillingIndex({
                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
                                         >
                                             <option value="cash">Cash</option>
-                                            <option value="card">Card</option>
-                                            <option value="bank_transfer">Bank Transfer</option>
-                                            <option value="check">Check</option>
                                             <option value="hmo">HMO</option>
                                         </select>
                                     </div>

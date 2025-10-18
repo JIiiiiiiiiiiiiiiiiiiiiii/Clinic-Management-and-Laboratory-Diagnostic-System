@@ -7,9 +7,13 @@ use App\Models\Appointment;
 use App\Models\BillingTransaction;
 use App\Models\AppointmentBillingLink;
 use App\Models\Patient;
+use App\Models\PendingAppointment;
 use App\Models\Visit;
 use App\Models\User;
+use App\Models\Staff;
 use App\Services\AppointmentCreationService;
+use App\Services\PatientService;
+use App\Services\AppointmentAutomationService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Validator;
@@ -29,10 +33,15 @@ class AppointmentController extends Controller
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('patient_name', 'like', "%{$search}%")
-                  ->orWhere('patient_id', 'like', "%{$search}%")
-                  ->orWhere('sequence_number', 'like', "%{$search}%")
-                  ->orWhere('specialist_name', 'like', "%{$search}%");
+                $q->where('id', 'like', "%{$search}%")
+                  ->orWhereHas('patient', function($patientQuery) use ($search) {
+                      $patientQuery->where('first_name', 'like', "%{$search}%")
+                                   ->orWhere('last_name', 'like', "%{$search}%")
+                                   ->orWhere('patient_no', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('specialist', function($specialistQuery) use ($search) {
+                      $specialistQuery->where('name', 'like', "%{$search}%");
+                  });
             });
         }
 
@@ -57,51 +66,65 @@ class AppointmentController extends Controller
             $query->where('specialist_id', $request->specialist);
         }
 
-        // Order by sequence_number first (ascending), then by appointment date and time
-        $appointments = $query->with('patient')
-                            ->orderBy('sequence_number', 'asc')
+        // Get all appointments from single source (appointments table only)
+        $appointments = $query->with(['patient', 'specialist'])
                             ->orderBy('appointment_date', 'asc')
                             ->orderBy('appointment_time', 'asc')
                             ->get();
+        
+        // Transform appointments to include proper field names for frontend
+        $transformedAppointments = $appointments->map(function($appointment) {
+            return [
+                'id' => $appointment->id,
+                'appointment_code' => 'A' . str_pad($appointment->id, 4, '0', STR_PAD_LEFT),
+                'patient_id' => $appointment->patient_id,
+                'patient_name' => $appointment->patient ? trim($appointment->patient->first_name . ' ' . $appointment->patient->last_name) : 'Unknown Patient',
+                'patient_id_display' => $appointment->patient ? $appointment->patient->patient_no : 'N/A',
+                'contact_number' => $appointment->patient ? $appointment->patient->mobile_no : 'N/A',
+                'specialist_id' => $appointment->specialist_id,
+                'specialist_name' => $appointment->specialist ? $appointment->specialist->name : 'Unknown Specialist',
+                'doctor' => $appointment->specialist ? $appointment->specialist->name : 'Unknown Specialist',
+                'appointment_type' => $appointment->appointment_type,
+                'specialist_type' => $appointment->specialist_type,
+                'appointment_date' => $appointment->appointment_date,
+                'appointment_time' => $appointment->appointment_time,
+                'duration' => $appointment->duration,
+                'price' => $appointment->price,
+                'additional_info' => $appointment->additional_info,
+                'source' => $appointment->source,
+                'status' => $appointment->status,
+                'admin_notes' => $appointment->admin_notes,
+                'created_at' => $appointment->created_at,
+                'updated_at' => $appointment->updated_at,
+            ];
+        });
+
+        // Use single source - no duplication
+        $allAppointments = $transformedAppointments;
 
         // Debug: Log appointments count and details
         \Log::info('Appointments found: ' . $appointments->count());
-        \Log::info('Appointments data:', $appointments->map(function($apt) {
-            return [
-                'id' => $apt->id,
-                'patient_id' => $apt->patient_id,
-                'patient_name' => $apt->patient_name,
-                'appointment_date' => $apt->appointment_date
-            ];
-        })->toArray());
+        \Log::info('Transformed appointments data:', $transformedAppointments->toArray());
 
         // Get next available patient ID with smart reset logic
         $nextPatientId = $this->getNextAvailablePatientId();
 
         // Get doctors and medtechs for the component
-        $doctors = \App\Models\User::where('role', 'doctor')
-            ->where(function($query) {
-                $query->where('is_active', true)
-                      ->orWhereNull('is_active');
-            })
-            ->select('id', 'name', 'specialization', 'employee_id')
+        $doctors = \App\Models\Staff::where('role', 'Doctor')
+            ->select('staff_id as id', 'name', 'specialization', 'staff_code as employee_id')
             ->get();
 
-        $medtechs = \App\Models\User::where('role', 'medtech')
-            ->where(function($query) {
-                $query->where('is_active', true)
-                      ->orWhereNull('is_active');
-            })
-            ->select('id', 'name', 'specialization', 'employee_id')
+        $medtechs = \App\Models\Staff::where('role', 'MedTech')
+            ->select('staff_id as id', 'name', 'specialization', 'staff_code as employee_id')
             ->get();
 
         return Inertia::render('admin/appointments/index', [
             'appointments' => [
-                'data' => $appointments,
+                'data' => $allAppointments,
                 'current_page' => 1,
                 'last_page' => 1,
-                'per_page' => $appointments->count(),
-                'total' => $appointments->count()
+                'per_page' => $allAppointments->count(),
+                'total' => $allAppointments->count()
             ],
             'filters' => $request->only(['search', 'status', 'date', 'specialist']),
             'nextPatientId' => $nextPatientId,
@@ -121,7 +144,7 @@ class AppointmentController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request, AppointmentCreationService $appointmentService)
+    public function store(Request $request, AppointmentAutomationService $automationService)
     {
         \Log::info('Admin\AppointmentController@store called', [
             'user_id' => auth()->id(),
@@ -130,20 +153,42 @@ class AppointmentController extends Controller
         ]);
         
         $validator = Validator::make($request->all(), [
-            'patient_name' => 'required|string|max:255',
+            // Patient fields
             'patient_id' => 'nullable|integer|exists:patients,id',
-            'contact_number' => 'nullable|string|max:20',
-            'appointment_type' => 'required|string|in:consultation,checkup,fecalysis,cbc,urinalysis,Follow-up',
-            'specialist_type' => 'required|string|in:doctor,medtech',
-            'specialist_name' => 'required|string|max:255',
-            'specialist_id' => 'required|string|max:50',
+            'last_name' => 'required|string|max:255',
+            'first_name' => 'required|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
+            'birthdate' => 'required|date',
+            'age' => 'required|integer|min:0',
+            'sex' => 'required|in:Male,Female',
+            'nationality' => 'nullable|string|max:50',
+            'civil_status' => 'nullable|string|max:50',
+            'address' => 'nullable|string',
+            'telephone_no' => 'nullable|string|max:20',
+            'mobile_no' => 'required|string|max:20',
+            'emergency_name' => 'nullable|string|max:100',
+            'emergency_relation' => 'nullable|string|max:50',
+            'insurance_company' => 'nullable|string|max:100',
+            'hmo_name' => 'nullable|string|max:100',
+            'hmo_id_no' => 'nullable|string|max:100',
+            'approval_code' => 'nullable|string|max:100',
+            'validity' => 'nullable|date',
+            'drug_allergies' => 'nullable|string',
+            'past_medical_history' => 'nullable|string',
+            'family_history' => 'nullable|string',
+            'social_history' => 'nullable|string',
+            'obgyn_history' => 'nullable|string',
+            
+            // Appointment fields
+            'appointment_type' => 'required|string',
+            'specialist_type' => 'required|in:Doctor,MedTech',
+            'specialist_id' => 'required|integer|exists:users,id',
             'appointment_date' => 'required|date',
             'appointment_time' => 'required|string',
-            'duration' => 'nullable|string|max:20',
-            'status' => 'nullable|string|in:Pending,Confirmed,Completed,Cancelled',
-            'notes' => 'nullable|string',
-            'special_requirements' => 'nullable|string',
+            'duration' => 'nullable|string|max:50',
             'price' => 'nullable|numeric|min:0',
+            'additional_info' => 'nullable|string',
+            'admin_notes' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -152,75 +197,70 @@ class AppointmentController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
-        // Format the time properly for time field
-        $time = $request->appointment_time;
-        if (strpos($time, ':') === false) {
-            // If time doesn't have colon, assume it's in HHMM format
-            $time = substr($time, 0, 2) . ':' . substr($time, 2, 2);
-        }
-        
-        // Ensure time is in HH:MM:SS format for database storage
-        if (strlen($time) === 5) {
-            $time .= ':00'; // Add seconds if not present
-        }
-
         try {
-            $appointmentData = [
-                'patient_name' => $request->patient_name,
-                'contact_number' => $request->contact_number,
-                'appointment_type' => $request->appointment_type,
-                'specialist_type' => $request->specialist_type,
-                'specialist_name' => $request->specialist_name,
-                'specialist_id' => $request->specialist_id,
-                'appointment_date' => $request->appointment_date,
-                'appointment_time' => $time,
-                'duration' => $request->duration ?? '30 min',
-                'status' => $request->status ?? 'Pending',
-                'notes' => $request->notes,
-                'special_requirements' => $request->special_requirements,
-                'appointment_source' => 'admin',
-                'billing_status' => 'pending',
+            DB::beginTransaction();
+
+            // Create or find patient
+            $patientData = [
+                'last_name' => $request->last_name,
+                'first_name' => $request->first_name,
+                'middle_name' => $request->middle_name,
+                'birthdate' => $request->birthdate,
+                'age' => $request->age,
+                'sex' => $request->sex,
+                'nationality' => $request->nationality,
+                'civil_status' => $request->civil_status,
+                'address' => $request->address,
+                'telephone_no' => $request->telephone_no,
+                'mobile_no' => $request->mobile_no,
+                'emergency_name' => $request->emergency_name,
+                'emergency_relation' => $request->emergency_relation,
+                'insurance_company' => $request->insurance_company,
+                'hmo_name' => $request->hmo_name,
+                'hmo_id_no' => $request->hmo_id_no,
+                'approval_code' => $request->approval_code,
+                'validity' => $request->validity,
+                'drug_allergies' => $request->drug_allergies,
+                'past_medical_history' => $request->past_medical_history,
+                'family_history' => $request->family_history,
+                'social_history' => $request->social_history,
+                'obgyn_history' => $request->obgyn_history,
             ];
 
-            // Calculate price
-            $tempAppointment = new Appointment($appointmentData);
-            $appointmentData['price'] = $tempAppointment->calculatePrice();
+            $patient = $automationService->createOrFindPatient($patientData);
 
-            // Create patient data if patient_id not provided
-            $patientData = null;
-            if (!$request->patient_id) {
-                $nameParts = explode(' ', $request->patient_name, 2);
-                $patientData = [
-                    'first_name' => $nameParts[0] ?? 'Unknown',
-                    'last_name' => $nameParts[1] ?? 'Unknown',
-                    'birthdate' => '1990-01-01', // Default birthdate
-                    'age' => 30, // Default age
-                    'sex' => 'male', // Default sex
-                    'civil_status' => 'single',
-                    'nationality' => 'Filipino',
-                    'present_address' => 'Not specified',
-                    'mobile_no' => $request->contact_number ?? 'Not specified',
-                    'informant_name' => 'Not specified',
-                    'relationship' => 'Self',
-                    'arrival_date' => now()->toDateString(),
-                    'arrival_time' => now()->toTimeString(),
-                    'attending_physician' => $request->specialist_name,
-                    'time_seen' => now()->toTimeString(),
-                ];
-            }
+            // Create appointment data
+            $appointmentData = [
+                'patient_id' => $patient->patient_id,
+                'specialist_id' => $request->specialist_id,
+                'appointment_type' => $request->appointment_type,
+                'specialist_type' => $request->specialist_type,
+                'appointment_date' => $request->appointment_date,
+                'appointment_time' => $request->appointment_time,
+                'duration' => $request->duration ?? '30 min',
+                'price' => $request->price,
+                'additional_info' => $request->additional_info,
+                'admin_notes' => $request->admin_notes,
+                'source' => 'Walk-in',
+                'status' => 'Confirmed',
+            ];
 
-            // Use the service to create appointment with proper relationships
-            $result = $appointmentService->createAppointmentWithPatient($appointmentData, $patientData);
+            // Create appointment directly
+            $appointment = Appointment::create($appointmentData);
+
+            DB::commit();
 
             \Log::info('Appointment created successfully', [
-                'appointment_id' => $result['appointment']->id,
-                'patient_id' => $result['patient']->id,
-                'visit_id' => $result['visit']->id ?? 'not created'
+                'appointment_id' => $appointment->id,
+                'patient_id' => $patient->patient_id,
+                'visit_created' => $appointment->visit ? 'yes' : 'no',
+                'billing_created' => $appointment->billingTransactions()->exists() ? 'yes' : 'no'
             ]);
 
             return redirect()->route('admin.appointments.index')
-                            ->with('success', 'Appointment created successfully! Patient, appointment, and visit records have been created.');
+                            ->with('success', 'Walk-in appointment created successfully! Patient, appointment, visit, and billing records have been created.');
         } catch (\Exception $e) {
+            DB::rollback();
             \Log::error('Failed to create appointment:', ['error' => $e->getMessage()]);
             return back()->withErrors(['error' => 'Failed to create appointment: ' . $e->getMessage()]);
         }
@@ -271,28 +311,28 @@ class AppointmentController extends Controller
      */
     private function getNextAvailablePatientId()
     {
-        // Get all existing patient IDs from appointments table only
-        // We don't need to check patients table since appointments are independent
-        $existingAppointmentIds = Appointment::where('patient_id', 'like', 'P%')
-            ->pluck('patient_id')
-            ->map(function($id) {
-                return (int) substr($id, 1);
+        // Get all existing patient IDs from patients table
+        $existingPatientIds = \App\Models\Patient::where('patient_no', 'like', 'P%')
+            ->get()
+            ->pluck('patient_no')
+            ->map(function($code) {
+                return (int) substr($code, 1);
             })->toArray();
         
         // If no IDs exist, start with P001
-        if (empty($existingAppointmentIds)) {
+        if (empty($existingPatientIds)) {
             return 'P001';
         }
         
         // Find the first missing ID starting from 1
         for ($i = 1; $i <= 999; $i++) {
-            if (!in_array($i, $existingAppointmentIds)) {
+            if (!in_array($i, $existingPatientIds)) {
                 return 'P' . str_pad($i, 3, '0', STR_PAD_LEFT);
             }
         }
         
         // If all IDs 1-999 are taken, find the next available
-        $maxId = max($existingAppointmentIds);
+        $maxId = max($existingPatientIds);
         return 'P' . str_pad($maxId + 1, 3, '0', STR_PAD_LEFT);
     }
 
@@ -301,8 +341,34 @@ class AppointmentController extends Controller
      */
     public function show(Appointment $appointment)
     {
+        // Format the appointment data for frontend display
+        $formattedAppointment = [
+            'id' => $appointment->id,
+            'patient_name' => $appointment->patient_name,
+            'patient_id' => $appointment->patient_id,
+            'contact_number' => $appointment->contact_number,
+            'appointment_type' => $appointment->appointment_type,
+            'price' => $appointment->price,
+            'specialist_type' => $appointment->specialist_type,
+            'specialist_name' => $appointment->specialist_name,
+            'specialist_id' => $appointment->specialist_id,
+            'appointment_date' => $appointment->appointment_date ? $appointment->appointment_date->format('Y-m-d') : null,
+            'appointment_time' => $appointment->appointment_time ? $appointment->appointment_time->format('H:i:s') : null,
+            'duration' => $appointment->duration,
+            'status' => $appointment->status,
+            'billing_status' => $appointment->billing_status,
+            'notes' => $appointment->notes,
+            'special_requirements' => $appointment->special_requirements,
+            'created_at' => $appointment->created_at,
+            'updated_at' => $appointment->updated_at,
+            'patient' => $appointment->patient,
+            'specialist' => $appointment->specialist,
+            'visits' => $appointment->visits,
+            'billingTransactions' => $appointment->billingTransactions
+        ];
+
         return Inertia::render('admin/appointments/show', [
-            'appointment' => $appointment
+            'appointment' => $formattedAppointment
         ]);
     }
 
@@ -412,10 +478,28 @@ class AppointmentController extends Controller
 
         $appointment->update([
             'status' => $request->status,
-            'confirmation_sent' => $request->status === 'Confirmed'
         ]);
 
         return back()->with('success', 'Appointment status updated successfully!');
+    }
+
+    /**
+     * Approve online appointment
+     */
+    public function approveAppointment(Request $request, Appointment $appointment, AppointmentAutomationService $automationService)
+    {
+        try {
+            DB::beginTransaction();
+
+            $appointment = $automationService->approveAppointment($appointment);
+
+            DB::commit();
+
+            return back()->with('success', 'Online appointment approved successfully! Visit and billing records have been created.');
+        } catch (\Exception $e) {
+            DB::rollback();
+            return back()->withErrors(['error' => 'Failed to approve appointment: ' . $e->getMessage()]);
+        }
     }
 
     /**
@@ -475,8 +559,10 @@ class AppointmentController extends Controller
                 'present_address' => 'required|string',
                 'telephone_no' => 'nullable|string|max:20',
                 'mobile_no' => 'required|string|max:20',
-                'informant_name' => 'required|string|max:255',
-                'relationship' => 'required|string|max:255',
+                'emergency_name' => 'nullable|string|max:255',
+                'emergency_relation' => 'nullable|string|max:255',
+                'informant_name' => 'nullable|string|max:255',
+                'relationship' => 'nullable|string|max:255',
                 'company_name' => 'nullable|string|max:255',
                 'hmo_name' => 'nullable|string|max:255',
                 'hmo_company_id_no' => 'nullable|string|max:255',
@@ -504,7 +590,7 @@ class AppointmentController extends Controller
             }
 
             // Get specialist info
-            $specialist = User::findOrFail($request->specialist_id);
+            $specialist = \App\Models\Staff::findOrFail($request->specialist_id);
             
             // Convert time format from "3:30 PM" to "15:30:00"
             $timeFormatted = Carbon::createFromFormat('g:i A', $request->appointment_time)->format('H:i:s');
@@ -522,8 +608,8 @@ class AppointmentController extends Controller
                 'present_address' => $request->present_address,
                 'telephone_no' => $request->telephone_no,
                 'mobile_no' => $request->mobile_no,
-                'informant_name' => $request->informant_name,
-                'relationship' => $request->relationship,
+                'emergency_name' => $request->emergency_name ?? $request->informant_name,
+                'emergency_relation' => $request->emergency_relation ?? $request->relationship,
                 'company_name' => $request->company_name,
                 'hmo_name' => $request->hmo_name,
                 'hmo_company_id_no' => $request->hmo_company_id_no,
@@ -537,38 +623,106 @@ class AppointmentController extends Controller
                 'obstetrics_gynecology_history' => $request->obstetrics_gynecology_history,
             ];
 
-            // Prepare appointment data
+            // Create patient directly
+            $patient = \App\Models\Patient::create($patientData);
+
+            // Create appointment data
             $appointmentData = [
-                'patient_name' => $request->first_name . ' ' . $request->last_name,
+                'patient_id' => $patient->patient_id,
+                'specialist_id' => $request->specialist_id,
                 'appointment_type' => $request->appointment_type,
                 'specialist_type' => $request->specialist_type,
-                'specialist_id' => $request->specialist_id,
-                'specialist_name' => $specialist->name,
                 'appointment_date' => $request->appointment_date,
                 'appointment_time' => $timeFormatted,
-                'status' => 'confirmed', // Walk-in appointments are immediately confirmed
-                'notes' => $request->notes,
-                'special_requirements' => $request->special_requirements,
-                'created_by' => auth()->id(),
-                'appointment_source' => 'walk_in',
+                'duration' => '30 min',
+                'price' => $this->calculatePrice($request->appointment_type),
+                'additional_info' => $request->notes,
+                'admin_notes' => $request->special_requirements,
+                'source' => 'Walk-in',
+                'status' => 'Confirmed',
             ];
 
-            // Use AppointmentCreationService instead of SynchronizedIdService to avoid duplicate visits
-            $appointmentService = app(\App\Services\AppointmentCreationService::class);
-            $result = $appointmentService->createAppointmentWithPatient($appointmentData, $patientData);
-            $patient = $result['patient'];
-            $appointment = $result['appointment'];
-            $visit = $result['visit'];
+            // Create appointment
+            $appointment = \App\Models\Appointment::create($appointmentData);
+
+            // Generate visit code before creation
+            $nextId = \App\Models\Visit::max('id') + 1;
+            $visitCode = 'V' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+
+            // Create visit automatically for walk-in appointments
+            // Format the visit date properly - combine appointment date and time
+            $appointmentDate = $appointment->appointment_date;
+            $appointmentTime = $appointment->appointment_time;
+            
+            // Handle different date/time formats
+            if (is_string($appointmentDate)) {
+                $appointmentDate = date('Y-m-d', strtotime($appointmentDate));
+            } else {
+                $appointmentDate = $appointmentDate->format('Y-m-d');
+            }
+            
+            if (is_string($appointmentTime)) {
+                $appointmentTime = date('H:i:s', strtotime($appointmentTime));
+            } else {
+                $appointmentTime = $appointmentTime->format('H:i:s');
+            }
+            
+            $visitDateTime = $appointmentDate . ' ' . $appointmentTime;
+            
+            $visit = \App\Models\Visit::create([
+                'appointment_id' => $appointment->id,
+                'patient_id' => $appointment->patient_id,
+                'visit_date_time_time' => $visitDateTime,
+                'visit_date_time' => $visitDateTime,
+                'purpose' => $appointment->appointment_type,
+                'attending_staff_id' => $appointment->specialist_id,
+                'status' => 'Ongoing',
+                'visit_code' => $visitCode,
+            ]);
+
+            // Create billing transaction for walk-in appointments
+            $billingTransaction = \App\Models\BillingTransaction::create([
+                'appointment_id' => $appointment->id,
+                'patient_id' => $appointment->patient_id,
+                'doctor_id' => $appointment->specialist_type === 'doctor' ? $appointment->specialist_id : null,
+                'medtech_id' => $appointment->specialist_type === 'medtech' ? $appointment->specialist_id : null,
+                'amount' => $appointment->price,
+                'status' => 'Pending',
+            ]);
 
             DB::commit();
 
+            \Log::info('Walk-in appointment created successfully', [
+                'appointment_id' => $appointment->id,
+                'patient_id' => $patient->patient_id,
+                'visit_id' => $visit->visit_id,
+                'transaction_id' => $billingTransaction->transaction_id
+            ]);
+
             return redirect()->route('admin.appointments.index')
-                ->with('success', 'Walk-in appointment created successfully for ' . $patient->first_name . ' ' . $patient->last_name);
+                ->with('success', 'Walk-in appointment created successfully for ' . $patient->first_name . ' ' . $patient->last_name . '. Visit and billing transaction have been created.');
 
         } catch (\Exception $e) {
             DB::rollback();
             return back()->with('error', 'Failed to create walk-in appointment: ' . $e->getMessage())->withInput();
         }
+    }
+
+    /**
+     * Calculate price based on appointment type
+     */
+    private function calculatePrice($appointmentType)
+    {
+        $prices = [
+            'consultation' => 500.00,
+            'checkup' => 300.00,
+            'fecalysis' => 150.00,
+            'cbc' => 200.00,
+            'urinalysis' => 100.00,
+            'Follow-up' => 400.00,
+        ];
+
+        return $prices[$appointmentType] ?? 300.00;
     }
 
 }

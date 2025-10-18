@@ -10,6 +10,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import Heading from '@/components/heading';
+import { formatAppointmentTime, formatAppointmentDateShort } from '@/utils/dateTime';
 import { 
     ArrowLeft, 
     Calendar,
@@ -111,8 +112,23 @@ export default function CreateFromAppointments({
             notes: notes,
         }, {
             onStart: () => console.log('Form submission started'),
-            onSuccess: (page) => console.log('Form submission successful:', page),
-            onError: (errors) => console.error('Form submission failed:', errors),
+            onSuccess: (page) => {
+                console.log('Form submission successful:', page);
+                // Check if we got redirected to billing index
+                if (page.url.includes('/admin/billing') && !page.url.includes('create-from-appointments')) {
+                    console.log('Redirected to billing index successfully');
+                } else {
+                    console.log('Still on create-from-appointments page');
+                }
+            },
+            onError: (errors) => {
+                console.error('Form submission failed:', errors);
+                if (errors.error) {
+                    alert('Error: ' + errors.error);
+                } else {
+                    alert('Error: Unknown error occurred');
+                }
+            },
             onFinish: () => console.log('Form submission finished')
         });
     };
@@ -143,8 +159,7 @@ export default function CreateFromAppointments({
                     <div className="lg:col-span-1">
                         <Card className="shadow-lg">
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Receipt className="h-5 w-5" />
+                                <CardTitle>
                                     Transaction Summary
                                 </CardTitle>
                             </CardHeader>
@@ -155,7 +170,7 @@ export default function CreateFromAppointments({
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-sm font-medium">Total Amount:</span>
-                                    <span className="text-lg font-bold text-green-600">₱{totalAmount.toLocaleString()}</span>
+                                    <span className="text-lg font-bold text-green-600">₱{Number(totalAmount || 0).toFixed(2)}</span>
                                 </div>
                                 
                                 {selectedAppointmentsData.length > 0 && (
@@ -168,7 +183,7 @@ export default function CreateFromAppointments({
                                                         <div className="text-sm font-medium">{appointment.patient_name}</div>
                                                         <div className="text-xs text-gray-500">{appointment.appointment_type}</div>
                                                     </div>
-                                                    <div className="text-sm font-semibold">₱{appointment.price.toLocaleString()}</div>
+                                                    <div className="text-sm font-semibold">₱{Number(appointment.price || 0).toFixed(2)}</div>
                                                 </div>
                                             ))}
                                         </div>
@@ -199,9 +214,6 @@ export default function CreateFromAppointments({
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="cash">Cash</SelectItem>
-                                                    <SelectItem value="card">Card</SelectItem>
-                                                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                                                    <SelectItem value="check">Check</SelectItem>
                                                     <SelectItem value="hmo">HMO</SelectItem>
                                                 </SelectContent>
                                             </Select>
@@ -293,18 +305,18 @@ export default function CreateFromAppointments({
                                                             <div className="text-sm text-gray-500">{appointment.patient_id}</div>
                                                         </div>
                                                         <div className="text-right">
-                                                            <div className="font-semibold">₱{appointment.price.toLocaleString()}</div>
+                                                            <div className="font-semibold">₱{Number(appointment.price || 0).toFixed(2)}</div>
                                                             <div className="text-sm text-gray-500">{appointment.appointment_type}</div>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
                                                         <div className="flex items-center gap-1">
                                                             <Calendar className="h-4 w-4" />
-                                                            {new Date(appointment.appointment_date).toLocaleDateString()}
+                                                            {formatAppointmentDateShort(appointment.appointment_date)}
                                                         </div>
                                                         <div className="flex items-center gap-1">
                                                             <Clock className="h-4 w-4" />
-                                                            {appointment.appointment_time}
+                                                            {formatAppointmentTime(appointment.appointment_time)}
                                                         </div>
                                                         <div className="flex items-center gap-1">
                                                             <User className="h-4 w-4" />

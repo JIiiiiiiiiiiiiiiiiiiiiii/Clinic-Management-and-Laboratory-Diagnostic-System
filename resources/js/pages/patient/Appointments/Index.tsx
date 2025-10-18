@@ -4,6 +4,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, Clock, User, ArrowLeft, Plus, CheckCircle, XCircle, AlertCircle, Eye, Edit, Trash2 } from 'lucide-react';
+import AppLayout from '@/layouts/app-layout';
+import { type BreadcrumbItem } from '@/types';
+
+const breadcrumbs: BreadcrumbItem[] = [
+    {
+        title: 'Patient Portal',
+        href: '/patient/dashboard',
+    },
+    {
+        title: 'My Appointments',
+        href: '/patient/appointments',
+    },
+];
 
 interface Appointment {
     id: number;
@@ -20,9 +33,10 @@ interface Appointment {
 
 interface PatientAppointmentsProps {
     appointments: Appointment[];
+    noPatientRecord?: boolean;
 }
 
-export default function PatientAppointments({ appointments = [] }: PatientAppointmentsProps) {
+export default function PatientAppointments({ appointments = [], noPatientRecord = false }: PatientAppointmentsProps) {
     const getStatusColor = (status: string) => {
         switch (status.toLowerCase()) {
             case 'confirmed':
@@ -71,37 +85,46 @@ export default function PatientAppointments({ appointments = [] }: PatientAppoin
     };
 
     return (
-        <>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="My Appointments" />
-            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-                <div className="container mx-auto px-4 py-8">
+            <div className="flex flex-1 flex-col gap-6 p-6">
+                <div className="@container/main flex flex-1 flex-col gap-6">
                     {/* Header */}
-                    <div className="mb-8">
-                        <Link href={route('patient.dashboard')} className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-4">
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Dashboard
-                        </Link>
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <h1 className="text-4xl font-bold text-gray-900 mb-4">My Appointments</h1>
-                                <p className="text-xl text-gray-600">
-                                    Manage your scheduled appointments with St. James Clinic.
-                                </p>
-                            </div>
-                            <Link href="/patient/register-and-book">
-                                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-4xl font-bold text-gray-900">My Appointments</h1>
+                            <p className="text-sm text-gray-600 mt-1">
+                                Manage your scheduled appointments with St. James Clinic.
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Button
+                                variant="outline"
+                                asChild
+                                className="hover:bg-gray-50"
+                            >
+                                <Link href="/patient/dashboard">
+                                    <ArrowLeft className="mr-2 h-4 w-4" />
+                                    Back to Dashboard
+                                </Link>
+                            </Button>
+                            <Button
+                                asChild
+                                className="bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                                <Link href="/patient/online-appointment">
                                     <Plus className="mr-2 h-4 w-4" />
                                     Book New Appointment
-                                </Button>
-                            </Link>
+                                </Link>
+                            </Button>
                         </div>
                     </div>
 
                     {/* Appointments List */}
                     {appointments.length > 0 ? (
-                        <div className="space-y-6">
-                            {appointments.map((appointment) => (
-                                <Card key={appointment.id} className="hover:shadow-lg transition-shadow">
+                        <div className="space-y-4">
+                            {appointments.map((appointment, index) => (
+                                <Card key={`appointment-${appointment.source || 'unknown'}-${appointment.id}-${index}`} className="hover:shadow-lg transition-shadow">
                                     <CardContent className="p-6">
                                         <div className="flex justify-between items-start mb-4">
                                             <div className="flex items-center space-x-3">
@@ -162,14 +185,14 @@ export default function PatientAppointments({ appointments = [] }: PatientAppoin
                                                 Booked on {new Date(appointment.created_at).toLocaleDateString()}
                                             </div>
                                             <div className="flex space-x-2">
-                                                <Link href={route('patient.appointments.show', appointment.id)}>
+                                                <Link href={route('patient.appointments.show', { appointment: appointment.id })}>
                                                     <Button variant="outline" size="sm" className="flex items-center">
                                                         <Eye className="h-4 w-4 mr-1" />
                                                         View
                                                     </Button>
                                                 </Link>
                                                 {appointment.status === 'pending' && (
-                                                    <Link href={route('patient.appointments.edit', appointment.id)}>
+                                                    <Link href={route('patient.appointments.edit', { appointment: appointment.id })}>
                                                         <Button variant="outline" size="sm" className="flex items-center">
                                                             <Edit className="h-4 w-4 mr-1" />
                                                             Edit
@@ -204,22 +227,39 @@ export default function PatientAppointments({ appointments = [] }: PatientAppoin
                                 <div className="bg-blue-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
                                     <Calendar className="h-10 w-10 text-blue-600" />
                                 </div>
-                                <h3 className="text-2xl font-semibold mb-4">No Appointments Yet</h3>
-                                <p className="text-gray-600 mb-8 max-w-md mx-auto">
-                                    You haven't booked any appointments yet. Book your first appointment to get started with St. James Clinic.
-                                </p>
-                                <Link href={route('patient.register.and.book')}>
-                                    <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                                        <Plus className="mr-2 h-4 w-4" />
-                                        Book Your First Appointment
-                                    </Button>
-                                </Link>
+                                {noPatientRecord ? (
+                                    <>
+                                        <h3 className="text-2xl font-semibold mb-4">No Patient Record Found</h3>
+                                        <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                                            You don't have a patient record yet. Create your first appointment to get started with St. James Clinic.
+                                        </p>
+                                        <Link href="/patient/online-appointment">
+                                            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                                                <Plus className="mr-2 h-4 w-4" />
+                                                Create Your First Appointment
+                                            </Button>
+                                        </Link>
+                                    </>
+                                ) : (
+                                    <>
+                                        <h3 className="text-2xl font-semibold mb-4">No Appointments Yet</h3>
+                                        <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                                            You haven't booked any appointments yet. Book your first appointment to get started with St. James Clinic.
+                                        </p>
+                                        <Link href="/patient/online-appointment">
+                                            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                                                <Plus className="mr-2 h-4 w-4" />
+                                                Book Your First Appointment
+                                            </Button>
+                                        </Link>
+                                    </>
+                                )}
                             </CardContent>
                         </Card>
                     )}
 
                     {/* Quick Actions */}
-                    <div className="mt-12 grid md:grid-cols-3 gap-6">
+                    <div className="mt-8 grid md:grid-cols-3 gap-6">
                         <Card className="text-center p-6">
                             <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <Calendar className="h-8 w-8 text-blue-600" />
@@ -228,7 +268,7 @@ export default function PatientAppointments({ appointments = [] }: PatientAppoin
                             <p className="text-gray-600 mb-4">
                                 Schedule a new appointment with our medical professionals.
                             </p>
-                            <Link href={route('patient.register.and.book')}>
+                            <Link href="/patient/online-appointment">
                                 <Button className="w-full">Book Now</Button>
                             </Link>
                         </Card>
@@ -261,6 +301,6 @@ export default function PatientAppointments({ appointments = [] }: PatientAppoin
                     </div>
                 </div>
             </div>
-        </>
+        </AppLayout>
     );
 }

@@ -41,21 +41,35 @@ export default function SpecialistIndex({ doctors, nurses, medtechs }: {
     
     // Filter by role and search term
     const filteredSpecialists = allSpecialists.filter(specialist => {
-        const matchesRole = selectedRole === 'all' || specialist.role === selectedRole;
+        const roleMapping = {
+            'doctor': 'Doctor',
+            'nurse': 'Nurse', 
+            'medtech': 'MedTech'
+        };
+        const matchesRole = selectedRole === 'all' || specialist.role === roleMapping[selectedRole] || specialist.role === selectedRole;
         const matchesSearch = specialist.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            specialist.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (specialist.email && specialist.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
                             (specialist.specialization && specialist.specialization.toLowerCase().includes(searchTerm.toLowerCase()));
         return matchesRole && matchesSearch;
     });
 
     const handleDelete = (specialistId: number, role: string) => {
         if (confirm('Are you sure you want to delete this specialist?')) {
-            router.delete(`/admin/specialists/${role}s/${specialistId}`);
+            const roleMapping = {
+                'Doctor': 'doctors',
+                'Nurse': 'nurses',
+                'MedTech': 'medtechs'
+            };
+            const rolePath = roleMapping[role] || `${role.toLowerCase()}s`;
+            router.delete(`/admin/specialists/${rolePath}/${specialistId}`);
         }
     };
 
     const getRoleDisplayName = (role: string) => {
         switch (role) {
+            case 'Doctor': return 'Doctor';
+            case 'Nurse': return 'Nurse';
+            case 'MedTech': return 'Med Tech';
             case 'doctor': return 'Doctor';
             case 'nurse': return 'Nurse';
             case 'medtech': return 'Med Tech';
@@ -207,7 +221,7 @@ export default function SpecialistIndex({ doctors, nurses, medtechs }: {
                                         <TableHead className="text-black font-semibold">Role</TableHead>
                                         <TableHead className="text-black font-semibold">Email</TableHead>
                                         <TableHead className="text-black font-semibold">Specialization</TableHead>
-                                        <TableHead className="text-black font-semibold">License Number</TableHead>
+                                        <TableHead className="text-black font-semibold">Contact</TableHead>
                                         <TableHead className="text-black font-semibold">Status</TableHead>
                                         <TableHead className="text-black font-semibold">Actions</TableHead>
                                     </TableRow>
@@ -235,19 +249,19 @@ export default function SpecialistIndex({ doctors, nurses, medtechs }: {
                                                     {specialist.specialization || 'N/A'}
                                                 </TableCell>
                                                 <TableCell className="text-black">
-                                                    {specialist.license_number || 'N/A'}
+                                                    {specialist.contact || 'N/A'}
                                                 </TableCell>
                                                 <TableCell>
                                                     <Badge
-                                                        variant={specialist.is_active ? 'default' : 'secondary'}
-                                                        className={specialist.is_active ? 'bg-gray-100 text-black' : 'bg-gray-100 text-gray-800'}
+                                                        variant={specialist.status === 'Active' ? 'default' : 'secondary'}
+                                                        className={specialist.status === 'Active' ? 'bg-gray-100 text-black' : 'bg-gray-100 text-gray-800'}
                                                     >
-                                                        {specialist.is_active ? 'Active' : 'Inactive'}
+                                                        {specialist.status}
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex items-center gap-2">
-                                                        <Link href={`/admin/specialists/${specialist.role}s/${specialist.id}/edit`}>
+                                                        <Link href={`/admin/specialists/${specialist.role === 'Doctor' ? 'doctors' : specialist.role === 'Nurse' ? 'nurses' : 'medtechs'}/${specialist.id}/edit`}>
                                                             <Button
                                                                 variant="outline"
                                                                 size="sm"

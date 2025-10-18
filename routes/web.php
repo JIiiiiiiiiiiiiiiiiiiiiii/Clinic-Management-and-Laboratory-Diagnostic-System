@@ -23,11 +23,30 @@ Route::get('/', function () {
     }
 })->name('home');
 
+// API endpoints (using web routes for proper session handling)
+Route::middleware(['auth:session'])->post('/api/appointments/online', [App\Http\Controllers\Api\OnlineAppointmentController::class, 'store']);
+
+// Admin Appointment Management API
+Route::middleware(['auth:session'])->prefix('api/admin/appointments')->group(function () {
+    Route::get('/pending', [App\Http\Controllers\Api\AdminAppointmentController::class, 'pending']);
+    Route::post('/{appointment}/approve', [App\Http\Controllers\Api\AdminAppointmentController::class, 'approve']);
+    Route::post('/{appointment}/reject', [App\Http\Controllers\Api\AdminAppointmentController::class, 'reject']);
+});
+
+// Billing API
+Route::middleware(['auth:session'])->prefix('api/billing')->group(function () {
+    Route::get('/pending', [App\Http\Controllers\Api\BillingController::class, 'pending']);
+    Route::post('/{transaction}/mark-paid', [App\Http\Controllers\Api\BillingController::class, 'markPaid']);
+});
+
 // Load split route files
 require __DIR__ . '/admin.php';
 require __DIR__ . '/patient.php';
 require __DIR__ . '/hospital.php';
 require __DIR__.'/settings.php';
+
+// Load complete API routes
+require __DIR__ . '/complete-api.php';
 require __DIR__.'/auth.php';
 // require __DIR__.'/simple-auth.php'; // Removed - using main auth system
 

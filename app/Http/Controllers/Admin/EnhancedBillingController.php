@@ -55,7 +55,7 @@ class EnhancedBillingController extends Controller
 
     public function getRecentTransactions(): array
     {
-        return BillingTransaction::with(['patient', 'doctor', 'items'])
+        return BillingTransaction::with(['patient', 'doctor', 'appointmentLinks'])
             ->latest()
             ->limit(10)
             ->get()
@@ -69,7 +69,7 @@ class EnhancedBillingController extends Controller
                     'payment_method' => $transaction->payment_method,
                     'status' => $transaction->status,
                     'transaction_date' => $transaction->transaction_date,
-                    'items_count' => $transaction->items->count(),
+                    'items_count' => $transaction->appointmentLinks->count(),
                 ];
             });
     }
@@ -258,7 +258,7 @@ class EnhancedBillingController extends Controller
             $query->where('status', $request->status);
         }
 
-        $transactions = $query->with(['patient', 'doctor', 'items'])
+        $transactions = $query->with(['patient', 'doctor', 'appointmentLinks'])
             ->orderBy('transaction_date', 'desc')
             ->paginate(20);
 

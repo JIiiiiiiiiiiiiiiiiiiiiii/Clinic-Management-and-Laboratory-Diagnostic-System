@@ -4,18 +4,22 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class BillingTransaction extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
+    
+    protected $primaryKey = 'id';
 
     protected $fillable = [
         'transaction_id',
+        'transaction_code',
+        'appointment_id',
         'patient_id',
         'doctor_id',
         'payment_type',
         'total_amount',
+        'amount',
         'discount_amount',
         'discount_percentage',
         'hmo_provider',
@@ -35,6 +39,7 @@ class BillingTransaction extends Model
 
     protected $casts = [
         'total_amount' => 'decimal:2',
+        'amount' => 'decimal:2',
         'discount_amount' => 'decimal:2',
         'discount_percentage' => 'decimal:2',
         'transaction_date' => 'datetime',
@@ -46,72 +51,44 @@ class BillingTransaction extends Model
     // Relationships
     public function patient()
     {
-        return $this->belongsTo(Patient::class);
+        return $this->belongsTo(Patient::class, 'patient_id', 'id');
     }
 
     public function doctor()
     {
-        return $this->belongsTo(User::class, 'doctor_id');
-    }
-
-    public function createdBy()
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
-    public function updatedBy()
-    {
-        return $this->belongsTo(User::class, 'updated_by');
-    }
-
-    public function items()
-    {
-        return $this->hasMany(BillingTransactionItem::class);
+        return $this->belongsTo(\App\Models\Specialist::class, 'doctor_id', 'specialist_id');
     }
 
     public function appointmentLinks()
     {
-        return $this->hasMany(AppointmentBillingLink::class);
+        return $this->hasMany(\App\Models\AppointmentBillingLink::class, 'billing_transaction_id', 'id');
     }
 
     public function appointments()
     {
-        return $this->belongsToMany(
-            Appointment::class,
-            'appointment_billing_links',
+        return $this->hasManyThrough(
+            \App\Models\Appointment::class,
+            \App\Models\AppointmentBillingLink::class,
             'billing_transaction_id',
+            'id',
+            'id',
             'appointment_id'
         );
     }
 
-    public function doctorPaymentLinks()
+    public function items()
     {
-        return $this->hasMany(DoctorPaymentBillingLink::class);
+        return $this->hasMany(\App\Models\BillingTransactionItem::class, 'billing_transaction_id', 'id');
     }
 
-    public function doctorPayments()
+    public function createdBy()
     {
-        return $this->belongsToMany(
-            DoctorPayment::class,
-            'doctor_payment_billing_links',
-            'billing_transaction_id',
-            'doctor_payment_id'
-        );
+        return $this->belongsTo(\App\Models\User::class, 'created_by', 'id');
     }
 
-    // Get patient information from linked appointments
-    public function getPatientFromAppointments()
+    public function updatedBy()
     {
-        $appointment = $this->appointments()->first();
-        if ($appointment) {
-            return (object) [
-                'id' => 0, // No actual patient record
-                'first_name' => explode(' ', $appointment->patient_name)[0] ?? '',
-                'last_name' => explode(' ', $appointment->patient_name, 2)[1] ?? '',
-                'patient_no' => $appointment->patient_id,
-            ];
-        }
-        return null;
+        return $this->belongsTo(\App\Models\User::class, 'updated_by', 'id');
     }
 
     // Scopes
@@ -125,51 +102,7 @@ class BillingTransaction extends Model
         return $query->where('payment_method', $method);
     }
 
-    public function scopeByDateRange($query, $startDate, $endDate)
-    {
-        return $query->whereBetween('transaction_date', [$startDate, $endDate]);
-    }
-
-    public function scopeByDoctor($query, $doctorId)
-    {
-        return $query->where('doctor_id', $doctorId);
-    }
-
-    public function scopeByHmoProvider($query, $provider)
-    {
-        return $query->where('hmo_provider', $provider);
-    }
-
-    // Accessors
-    public function getNetAmountAttribute()
-    {
-        return $this->total_amount - $this->discount_amount;
-    }
-
-    public function getFormattedAmountAttribute()
-    {
-        return '₱' . number_format($this->total_amount, 2);
-    }
-
-    public function getFormattedNetAmountAttribute()
-    {
-        return '₱' . number_format($this->net_amount, 2);
-    }
-
-    // Methods
-    public function calculateDiscount()
-    {
-        if ($this->discount_percentage) {
-            $this->discount_amount = ($this->total_amount * $this->discount_percentage) / 100;
-        }
-        return $this;
-    }
-
-    public function isOverdue()
-    {
-        return $this->status === 'pending' && $this->due_date < now()->toDateString();
-    }
-
+    // Business logic methods
     public function canBeEdited()
     {
         return in_array($this->status, ['pending', 'draft']);
@@ -180,8 +113,80 @@ class BillingTransaction extends Model
         return in_array($this->status, ['pending', 'draft']);
     }
 
-    public function visit()
+    public function canBePaid()
     {
-        return $this->hasOne(Visit::class);
+        return $this->status === 'pending';
+    }
+
+    // Helper methods for getting related data
+    public function getPatientInfo()
+    {
+        if ($this->patient) {
+            return $this->patient;
+        }
+        
+        // Try to get patient from appointment
+        $appointment = $this->appointments()->first();
+        if ($appointment && $appointment->patient) {
+            return $appointment->patient;
+        }
+        
+        return null;
+    }
+
+    public function getDoctorInfo()
+    {
+        if ($this->doctor) {
+            return $this->doctor;
+        }
+        
+        // Try to get doctor from appointment
+        $appointment = $this->appointments()->first();
+        if ($appointment && $appointment->specialist) {
+            return $appointment->specialist;
+        }
+        
+        return null;
+    }
+
+    public function scopeByDateRange($query, $startDate, $endDate)
+    {
+        return $query->whereBetween('transaction_date', [$startDate, $endDate]);
+    }
+
+    // Methods
+    public function markAsPaid($paymentMethod = 'Cash', $referenceNo = null)
+    {
+        $this->update([
+            'status' => 'Paid',
+            'payment_method' => $paymentMethod,
+            'reference_no' => $referenceNo,
+        ]);
+
+        // Mark appointment and visit as completed
+        if ($this->appointment) {
+            $this->appointment->update(['status' => 'Completed']);
+            if ($this->appointment->visit) {
+                $this->appointment->visit->update(['status' => 'Completed']);
+            }
+        }
+    }
+
+    public function markAsCancelled()
+    {
+        $this->update(['status' => 'Cancelled']);
+    }
+
+    // Boot method to generate transaction code
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($transaction) {
+            if (empty($transaction->transaction_id)) {
+                $nextId = static::max('id') + 1;
+                $transaction->transaction_id = 'TXN-' . str_pad($nextId, 6, '0', STR_PAD_LEFT);
+            }
+        });
     }
 }
