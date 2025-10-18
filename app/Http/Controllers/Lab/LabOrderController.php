@@ -14,7 +14,7 @@ class LabOrderController extends Controller
 {
     public function allOrders()
     {
-        $orders = LabOrder::with(['patient', 'labTests'])
+        $orders = LabOrder::with(['patient', 'labTests', 'visit'])
             ->latest()
             ->get();
 
@@ -61,8 +61,13 @@ class LabOrderController extends Controller
 
     public function index(Request $request, Patient $patient)
     {
-        $orders = LabOrder::with(['labTests'])->where('patient_id', $patient->id)->latest()->get();
+        $orders = LabOrder::with(['labTests', 'visit'])->where('patient_id', $patient->id)->latest()->get();
         $labTests = LabTest::where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'is_active']);
+        
+        // Get available visits for this patient
+        $availableVisits = \App\Models\Visit::where('patient_id', $patient->id)
+            ->orderBy('visit_date_time_time', 'desc')
+            ->get(['id', 'visit_code', 'visit_date_time_time', 'status']);
 
         $normalizedPatientOrders = $orders->map(function ($o) {
             $o->setRelation('lab_tests', $o->labTests);
@@ -74,6 +79,7 @@ class LabOrderController extends Controller
             'patient' => $patient,
             'orders' => $normalizedPatientOrders,
             'labTests' => $labTests,
+            'availableVisits' => $availableVisits,
             'patient_visit_id' => $request->integer('patient_visit_id') ?: null,
         ]);
     }
@@ -85,7 +91,7 @@ class LabOrderController extends Controller
                 'lab_test_ids' => ['required', 'array', 'min:1'],
                 'lab_test_ids.*' => ['exists:lab_tests,id'],
                 'notes' => ['nullable', 'string'],
-                'patient_visit_id' => ['nullable', 'exists:patient_visits,id'],
+                'patient_visit_id' => ['nullable', 'exists:visits,id'],
             ]);
 
             $order = LabOrder::create([
@@ -115,6 +121,7 @@ class LabOrderController extends Controller
         $order->load([
             'patient', 
             'labTests', 
+            'visit',
             'results.test', 
             'results.values',
             'orderedBy'

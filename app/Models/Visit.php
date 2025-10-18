@@ -87,6 +87,11 @@ class Visit extends Model
         );
     }
 
+    public function labOrders()
+    {
+        return $this->hasMany(LabOrder::class, 'patient_visit_id');
+    }
+
     // SYSTEM-WIDE: Scopes for proper date handling
     public function scopeOrderByVisitDate($query, $direction = "desc")
     {

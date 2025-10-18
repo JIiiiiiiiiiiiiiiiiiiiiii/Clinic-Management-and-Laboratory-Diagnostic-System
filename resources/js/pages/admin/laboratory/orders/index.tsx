@@ -18,12 +18,19 @@ type Order = {
     created_at: string;
     updated_at: string;
     notes?: string;
+    patient_visit_id?: number | null;
     patient: {
         id: number;
         first_name: string;
         last_name: string;
         age: number;
         sex: string;
+    } | null;
+    visit?: {
+        id: number;
+        visit_code: string;
+        visit_date_time_time: string;
+        status: string;
     } | null;
     lab_tests: Array<{
         id: number;
@@ -195,6 +202,7 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                             </div>
                                         </TableHead>
                                         <TableHead className="font-semibold text-gray-700">Patient</TableHead>
+                                        <TableHead className="font-semibold text-gray-700">Visit</TableHead>
                                         <TableHead className="font-semibold text-gray-700">Tests Ordered</TableHead>
                                         <TableHead className="font-semibold text-gray-700">Status</TableHead>
                                         <TableHead className="font-semibold text-gray-700">Ordered</TableHead>
@@ -204,7 +212,7 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                 <TableBody>
                                     {filteredOrders.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="py-8 text-center">
+                                            <TableCell colSpan={7} className="py-8 text-center">
                                                 <div className="flex flex-col items-center">
                                                     <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
                                                     <h3 className="mb-2 text-lg font-semibold text-gray-600">
@@ -238,6 +246,20 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                                             {order.patient ? `${order.patient.age} years, ${order.patient.sex}` : 'Unknown patient'}
                                                         </div>
                                                     </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {order.visit ? (
+                                                        <div>
+                                                            <div className="font-medium text-sm">
+                                                                {order.visit.visit_code}
+                                                            </div>
+                                                            <div className="text-xs text-gray-500">
+                                                                {new Date(order.visit.visit_date_time_time).toLocaleDateString()}
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-gray-400 text-sm">No visit linked</span>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-wrap gap-1">
