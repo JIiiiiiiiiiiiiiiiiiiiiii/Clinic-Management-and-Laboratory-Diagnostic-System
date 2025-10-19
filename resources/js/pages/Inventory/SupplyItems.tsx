@@ -223,7 +223,10 @@ export default function SupplyItems({
                                                         <TableCell className="text-sm text-black">{item.category}</TableCell>
                                                         <TableCell className="text-sm text-black">{item.stock} {item.unit}</TableCell>
                                                         <TableCell>
-                                                            <Badge variant={item.status === 'Low Stock' ? 'destructive' : 'default'}>
+                                                            <Badge 
+                                                                variant={item.status === 'Out of Stock' ? 'destructive' : 'default'}
+                                                                className={item.status === 'Low Stock' ? 'bg-orange-500 text-white hover:bg-orange-600' : ''}
+                                                            >
                                                                 {item.status}
                                                             </Badge>
                                                         </TableCell>
@@ -301,7 +304,10 @@ export default function SupplyItems({
                                                         <TableCell className="text-sm text-black">{item.category}</TableCell>
                                                         <TableCell className="text-sm text-black">{item.stock} {item.unit}</TableCell>
                                                         <TableCell>
-                                                            <Badge variant={item.status === 'Low Stock' ? 'destructive' : 'default'}>
+                                                            <Badge 
+                                                                variant={item.status === 'Out of Stock' ? 'destructive' : 'default'}
+                                                                className={item.status === 'Low Stock' ? 'bg-orange-500 text-white hover:bg-orange-600' : ''}
+                                                            >
                                                                 {item.status}
                                                             </Badge>
                                                         </TableCell>

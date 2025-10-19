@@ -14,16 +14,9 @@ class InventoryReportService
     {
         $dateRange = $this->getDateRange($filters);
         
-        // Get items with consumed/rejected data
-        $items = InventoryItem::with('movements')
-            ->where(function($query) use ($dateRange) {
-                if ($dateRange['start'] && $dateRange['end']) {
-                    $query->whereHas('movements', function($q) use ($dateRange) {
-                        $q->whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
-                    });
-                }
-            })
-            ->get();
+        // Get all inventory items (not filtered by date range for this report)
+        // This report shows current consumed/rejected totals, not movements within a date range
+        $items = InventoryItem::with('movements')->get();
 
         // Calculate summary data
         $summary = [
@@ -41,12 +34,14 @@ class InventoryReportService
                 'total_consumed' => $items->where('assigned_to', 'Doctor & Nurse')->sum('consumed'),
                 'total_rejected' => $items->where('assigned_to', 'Doctor & Nurse')->sum('rejected'),
                 'low_stock' => $items->where('assigned_to', 'Doctor & Nurse')->where('status', 'Low Stock')->count(),
+                'out_of_stock' => $items->where('assigned_to', 'Doctor & Nurse')->where('status', 'Out of Stock')->count(),
             ],
             'med_tech' => [
                 'total_items' => $items->where('assigned_to', 'Med Tech')->count(),
                 'total_consumed' => $items->where('assigned_to', 'Med Tech')->sum('consumed'),
                 'total_rejected' => $items->where('assigned_to', 'Med Tech')->sum('rejected'),
                 'low_stock' => $items->where('assigned_to', 'Med Tech')->where('status', 'Low Stock')->count(),
+                'out_of_stock' => $items->where('assigned_to', 'Med Tech')->where('status', 'Out of Stock')->count(),
             ],
         ];
 
@@ -120,95 +115,6 @@ class InventoryReportService
         ];
     }
 
-    public function generateStockLevelsReport($filters = [])
-    {
-        $items = InventoryItem::all();
-
-        $summary = [
-            'total_items' => $items->count(),
-            'in_stock' => $items->where('status', 'In Stock')->count(),
-            'low_stock' => $items->where('status', 'Low Stock')->count(),
-            'out_of_stock' => $items->where('status', 'Out of Stock')->count(),
-            'total_value' => $items->sum(function($item) {
-                return $item->stock * ($item->unit_cost ?? 0);
-            }),
-        ];
-
-        // Category breakdown
-        $categoryStats = $items->groupBy('category')->map(function($categoryItems) {
-            return [
-                'total_items' => $categoryItems->count(),
-                'in_stock' => $categoryItems->where('status', 'In Stock')->count(),
-                'low_stock' => $categoryItems->where('status', 'Low Stock')->count(),
-                'out_of_stock' => $categoryItems->where('status', 'Out of Stock')->count(),
-                'total_value' => $categoryItems->sum(function($item) {
-                    return $item->stock * ($item->unit_cost ?? 0);
-                }),
-            ];
-        });
-
-        // Items needing restock
-        $needsRestock = $items->where('status', 'Low Stock')
-            ->sortBy('stock')
-            ->values();
-
-        return [
-            'summary' => $summary,
-            'category_stats' => $categoryStats,
-            'needs_restock' => $needsRestock,
-            'all_items' => $items,
-        ];
-    }
-
-    public function generateDailyConsumptionReport($filters = [])
-    {
-        $dateRange = $this->getDateRange($filters);
-        
-        // Get daily consumption data
-        $dailyData = DB::table('inventory_movements')
-            ->where('movement_type', 'OUT')
-            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
-            ->selectRaw('DATE(created_at) as date, SUM(quantity) as total_consumed')
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get();
-
-        // Get consumption by item
-        $itemConsumption = DB::table('inventory_movements')
-            ->join('inventory_items', 'inventory_movements.inventory_id', '=', 'inventory_items.id')
-            ->where('inventory_movements.movement_type', 'OUT')
-            ->whereBetween('inventory_movements.created_at', [$dateRange['start'], $dateRange['end']])
-            ->selectRaw('inventory_items.item_name, inventory_items.category, SUM(inventory_movements.quantity) as total_consumed')
-            ->groupBy('inventory_items.id', 'inventory_items.item_name', 'inventory_items.category')
-            ->orderByDesc('total_consumed')
-            ->get();
-
-        return [
-            'daily_data' => $dailyData,
-            'item_consumption' => $itemConsumption,
-            'date_range' => $dateRange,
-        ];
-    }
-
-    public function generateUsageByLocationReport($filters = [])
-    {
-        $dateRange = $this->getDateRange($filters);
-        
-        // Get usage by location (assigned_to)
-        $locationUsage = DB::table('inventory_movements')
-            ->join('inventory_items', 'inventory_movements.inventory_id', '=', 'inventory_items.id')
-            ->where('inventory_movements.movement_type', 'OUT')
-            ->whereBetween('inventory_movements.created_at', [$dateRange['start'], $dateRange['end']])
-            ->selectRaw('inventory_items.assigned_to as location, SUM(inventory_movements.quantity) as total_used')
-            ->groupBy('inventory_items.assigned_to')
-            ->orderByDesc('total_used')
-            ->get();
-
-        return [
-            'location_usage' => $locationUsage,
-            'date_range' => $dateRange,
-        ];
-    }
 
     public function saveReport($reportType, $data, $filters, $userId)
     {
@@ -302,11 +208,94 @@ class InventoryReportService
             'stock_levels' => 'Stock Levels',
             'daily_consumption' => 'Daily Consumption',
             'usage_by_location' => 'Usage by Location',
+            'supply_items_by_department' => 'Supply Items by Department',
         ];
 
         $period = $filters['period'] ?? 'custom';
         $date = Carbon::now()->format('Y-m-d');
 
         return $typeNames[$reportType] . " - {$period} - {$date}";
+    }
+
+    public function generateSupplyItemsByDepartmentReport($filters = [])
+    {
+        $dateRange = $this->getDateRange($filters);
+        
+        // Get all inventory items
+        $items = InventoryItem::with('movements')
+            ->when(isset($filters['department']) && $filters['department'] !== 'all', function($query) use ($filters) {
+                $query->where('assigned_to', $filters['department']);
+            })
+            ->get();
+
+        // Calculate summary data
+        $summary = [
+            'total_items' => $items->count(),
+            'total_departments' => 2,
+            'low_stock_items' => $items->where('status', 'Low Stock')->count(),
+            'out_of_stock_items' => $items->where('status', 'Out of Stock')->count(),
+            'total_consumed' => $items->sum('consumed'),
+            'total_rejected' => $items->sum('rejected'),
+        ];
+
+        // Department breakdown
+        $departmentStats = [
+            'doctor_nurse' => [
+                'total_items' => $items->where('assigned_to', 'Doctor & Nurse')->count(),
+                'total_consumed' => $items->where('assigned_to', 'Doctor & Nurse')->sum('consumed'),
+                'total_rejected' => $items->where('assigned_to', 'Doctor & Nurse')->sum('rejected'),
+                'low_stock' => $items->where('assigned_to', 'Doctor & Nurse')->where('status', 'Low Stock')->count(),
+                'out_of_stock' => $items->where('assigned_to', 'Doctor & Nurse')->where('status', 'Out of Stock')->count(),
+                'items' => $items->where('assigned_to', 'Doctor & Nurse')->map(function($item) {
+                    return [
+                        'item_name' => $item->item_name,
+                        'category' => $item->category,
+                        'assigned_to' => $item->assigned_to,
+                        'stock' => $item->stock,
+                        'consumed' => $item->consumed,
+                        'rejected' => $item->rejected,
+                        'status' => $item->status,
+                    ];
+                })->values()->toArray(),
+            ],
+            'med_tech' => [
+                'total_items' => $items->where('assigned_to', 'Med Tech')->count(),
+                'total_consumed' => $items->where('assigned_to', 'Med Tech')->sum('consumed'),
+                'total_rejected' => $items->where('assigned_to', 'Med Tech')->sum('rejected'),
+                'low_stock' => $items->where('assigned_to', 'Med Tech')->where('status', 'Low Stock')->count(),
+                'out_of_stock' => $items->where('assigned_to', 'Med Tech')->where('status', 'Out of Stock')->count(),
+                'items' => $items->where('assigned_to', 'Med Tech')->map(function($item) {
+                    return [
+                        'item_name' => $item->item_name,
+                        'category' => $item->category,
+                        'assigned_to' => $item->assigned_to,
+                        'stock' => $item->stock,
+                        'consumed' => $item->consumed,
+                        'rejected' => $item->rejected,
+                        'status' => $item->status,
+                    ];
+                })->values()->toArray(),
+            ],
+        ];
+
+        // All items for the table
+        $allItems = $items->map(function($item) {
+            return [
+                'item_name' => $item->item_name,
+                'category' => $item->category,
+                'assigned_to' => $item->assigned_to,
+                'stock' => $item->stock,
+                'consumed' => $item->consumed,
+                'rejected' => $item->rejected,
+                'status' => $item->status,
+            ];
+        })->values()->toArray();
+
+        return [
+            'summary' => $summary,
+            'department_stats' => $departmentStats,
+            'all_items' => $allItems,
+            'date_range' => $dateRange,
+        ];
     }
 }

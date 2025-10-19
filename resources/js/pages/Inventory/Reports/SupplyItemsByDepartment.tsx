@@ -28,17 +28,20 @@ import {
     Plus,
     Eye,
     Trash2,
-    Save
+    Save,
+    Building2,
+    Database
 } from 'lucide-react';
 import { useState } from 'react';
 
-type UsedRejectedData = {
+type SupplyItemsData = {
     summary: {
         total_items: number;
-        total_consumed: number;
-        total_rejected: number;
+        total_departments: number;
         low_stock_items: number;
         out_of_stock_items: number;
+        total_consumed: number;
+        total_rejected: number;
     };
     department_stats: {
         doctor_nurse: {
@@ -46,17 +49,19 @@ type UsedRejectedData = {
             total_consumed: number;
             total_rejected: number;
             low_stock: number;
+            out_of_stock: number;
+            items: any[];
         };
         med_tech: {
             total_items: number;
             total_consumed: number;
             total_rejected: number;
             low_stock: number;
+            out_of_stock: number;
+            items: any[];
         };
     };
-    top_consumed_items: any[];
-    top_rejected_items: any[];
-    consumption_trends: any[];
+    all_items: any[];
     date_range: {
         start: string;
         end: string;
@@ -64,8 +69,8 @@ type UsedRejectedData = {
     };
 };
 
-interface UsedRejectedReportProps {
-    data: UsedRejectedData;
+interface SupplyItemsByDepartmentProps {
+    data: SupplyItemsData;
     filters: {
         period?: string;
         start_date?: string;
@@ -85,16 +90,16 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/admin/inventory/reports',
     },
     {
-        title: 'Used/Rejected Supplies',
-        href: '/admin/inventory/reports/used-rejected',
+        title: 'Supply Items by Department',
+        href: '/admin/inventory/reports/supply-items-by-department',
     },
 ];
 
-export default function UsedRejectedReport({
+export default function SupplyItemsByDepartmentReport({
     data,
     filters,
     report_id,
-}: UsedRejectedReportProps) {
+}: SupplyItemsByDepartmentProps) {
     const [selectedFormat, setSelectedFormat] = useState('pdf');
     const [saveReport, setSaveReport] = useState(false);
 
@@ -107,7 +112,7 @@ export default function UsedRejectedReport({
         if (filters.end_date) params.append('end_date', filters.end_date);
         if (filters.department) params.append('department', filters.department);
         
-        const exportUrl = `/admin/inventory/reports/used-rejected/export?${params.toString()}`;
+        const exportUrl = `/admin/inventory/reports/supply-items-by-department/export?${params.toString()}`;
         window.open(exportUrl, '_blank');
     };
 
@@ -119,20 +124,20 @@ export default function UsedRejectedReport({
         if (filters.department) params.append('department', filters.department);
         if (saveReport) params.append('save_report', '1');
 
-        router.visit(`/admin/inventory/reports/used-rejected?${params.toString()}`);
+        router.visit(`/admin/inventory/reports/supply-items-by-department?${params.toString()}`);
     };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Used/Rejected Supplies Report" />
+            <Head title="Supply Items by Department Report" />
             <div className="min-h-screen bg-white p-6">
                 {/* Header Section */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-6">
                             <div>
-                                <h1 className="text-4xl font-semibold text-black mb-4">Used/Rejected Supplies Report</h1>
-                                <p className="text-sm text-black mt-1">Track consumption and rejection patterns</p>
+                                <h1 className="text-4xl font-semibold text-black mb-4">Supply Items by Department Report</h1>
+                                <p className="text-sm text-black mt-1">Comprehensive inventory analysis by department</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-4">
@@ -226,8 +231,8 @@ export default function UsedRejectedReport({
                 {/* Main content */}
                 <div className="w-full">
                     <PatientInfoCard
-                        title="Used/Rejected Supplies Report"
-                        icon={<AlertTriangle className="h-5 w-5 text-black" />}
+                        title="Supply Items by Department Report"
+                        icon={<Building2 className="h-5 w-5 text-black" />}
                     >
                         {/* Export Actions */}
                         <div className="mb-6 flex justify-end">
@@ -239,6 +244,7 @@ export default function UsedRejectedReport({
                                     <SelectContent>
                                         <SelectItem value="pdf">PDF</SelectItem>
                                         <SelectItem value="excel">Excel</SelectItem>
+                                        <SelectItem value="csv">CSV</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <Button 
@@ -250,6 +256,7 @@ export default function UsedRejectedReport({
                                 </Button>
                             </div>
                         </div>
+
                         {/* Report Info */}
                         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                             <div className="flex items-center gap-2 mb-2">
@@ -259,7 +266,7 @@ export default function UsedRejectedReport({
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                                 <div>
                                     <span className="font-medium text-blue-800">Report Type:</span>
-                                    <span className="ml-2 text-blue-700">Used/Rejected Supplies Report</span>
+                                    <span className="ml-2 text-blue-700">Supply Items by Department Report</span>
                                 </div>
                                 <div>
                                     <span className="font-medium text-blue-800">Date Range:</span>
@@ -273,7 +280,7 @@ export default function UsedRejectedReport({
                         </div>
 
                         {/* Summary Statistics */}
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                             <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
                                 <div className="flex items-center gap-2 mb-2">
                                     <Package className="h-4 w-4 text-black" />
@@ -283,17 +290,10 @@ export default function UsedRejectedReport({
                             </div>
                             <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <TrendingDown className="h-4 w-4 text-green-600" />
-                                    <span className="text-sm font-medium text-gray-800">Total Consumed</span>
+                                    <Building2 className="h-4 w-4 text-blue-600" />
+                                    <span className="text-sm font-medium text-gray-800">Departments</span>
                                 </div>
-                                <div className="text-2xl font-bold text-green-600">{data.summary.total_consumed}</div>
-                            </div>
-                            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <AlertTriangle className="h-4 w-4 text-red-600" />
-                                    <span className="text-sm font-medium text-gray-800">Total Rejected</span>
-                                </div>
-                                <div className="text-2xl font-bold text-red-600">{data.summary.total_rejected}</div>
+                                <div className="text-2xl font-bold text-blue-600">{data.summary.total_departments}</div>
                             </div>
                             <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
                                 <div className="flex items-center gap-2 mb-2">
@@ -327,14 +327,6 @@ export default function UsedRejectedReport({
                                             <span className="font-semibold">{data.department_stats.doctor_nurse.total_items}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-sm text-gray-600">Consumed:</span>
-                                            <span className="font-semibold text-green-600">{data.department_stats.doctor_nurse.total_consumed}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-sm text-gray-600">Rejected:</span>
-                                            <span className="font-semibold text-red-600">{data.department_stats.doctor_nurse.total_rejected}</span>
-                                        </div>
-                                        <div className="flex justify-between">
                                             <span className="text-sm text-gray-600">Low Stock:</span>
                                             <span className="font-semibold text-yellow-600">{data.department_stats.doctor_nurse.low_stock}</span>
                                         </div>
@@ -360,14 +352,6 @@ export default function UsedRejectedReport({
                                             <span className="font-semibold">{data.department_stats.med_tech.total_items}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-sm text-gray-600">Consumed:</span>
-                                            <span className="font-semibold text-green-600">{data.department_stats.med_tech.total_consumed}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-sm text-gray-600">Rejected:</span>
-                                            <span className="font-semibold text-red-600">{data.department_stats.med_tech.total_rejected}</span>
-                                        </div>
-                                        <div className="flex justify-between">
                                             <span className="text-sm text-gray-600">Low Stock:</span>
                                             <span className="font-semibold text-yellow-600">{data.department_stats.med_tech.low_stock}</span>
                                         </div>
@@ -380,9 +364,9 @@ export default function UsedRejectedReport({
                             </Card>
                         </div>
 
-                        {/* Top Consumed Items */}
+                        {/* All Supply Items */}
                         <div className="mb-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Consumed Items</h3>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">All Supply Items by Department</h3>
                             <div className="overflow-x-auto rounded-xl border border-gray-200">
                                 <Table>
                                     <TableHeader className="bg-gray-50">
@@ -391,64 +375,16 @@ export default function UsedRejectedReport({
                                             <TableHead className="font-semibold text-black">Category</TableHead>
                                             <TableHead className="font-semibold text-black">Department</TableHead>
                                             <TableHead className="font-semibold text-black">Current Stock</TableHead>
-                                            <TableHead className="font-semibold text-black">Consumed</TableHead>
                                             <TableHead className="font-semibold text-black">Status</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {data.top_consumed_items.map((item, index) => (
+                                        {data.all_items.map((item, index) => (
                                             <TableRow key={index}>
                                                 <TableCell className="font-medium">{item.item_name}</TableCell>
                                                 <TableCell>{item.category}</TableCell>
                                                 <TableCell>{item.assigned_to}</TableCell>
                                                 <TableCell>{item.stock}</TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline" className="text-green-600">
-                                                        {item.consumed}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge 
-                                                        variant={item.status === 'Out of Stock' ? 'destructive' : 'default'}
-                                                        className={item.status === 'Low Stock' ? 'bg-orange-500 text-white hover:bg-orange-600' : ''}
-                                                    >
-                                                        {item.status}
-                                                    </Badge>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </div>
-
-                        {/* Top Rejected Items */}
-                        <div className="mb-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Rejected Items</h3>
-                            <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                <Table>
-                                    <TableHeader className="bg-gray-50">
-                                        <TableRow>
-                                            <TableHead className="font-semibold text-black">Item Name</TableHead>
-                                            <TableHead className="font-semibold text-black">Category</TableHead>
-                                            <TableHead className="font-semibold text-black">Department</TableHead>
-                                            <TableHead className="font-semibold text-black">Current Stock</TableHead>
-                                            <TableHead className="font-semibold text-black">Rejected</TableHead>
-                                            <TableHead className="font-semibold text-black">Status</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {data.top_rejected_items.map((item, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell className="font-medium">{item.item_name}</TableCell>
-                                                <TableCell>{item.category}</TableCell>
-                                                <TableCell>{item.assigned_to}</TableCell>
-                                                <TableCell>{item.stock}</TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline" className="text-red-600">
-                                                        {item.rejected}
-                                                    </Badge>
-                                                </TableCell>
                                                 <TableCell>
                                                     <Badge 
                                                         variant={item.status === 'Out of Stock' ? 'destructive' : 'default'}

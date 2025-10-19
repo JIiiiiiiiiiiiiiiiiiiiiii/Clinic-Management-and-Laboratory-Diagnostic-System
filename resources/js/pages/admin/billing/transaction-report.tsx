@@ -1,317 +1,498 @@
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DataTable } from '@/components/ui/data-table';
+import { DataTableColumnHeader } from '@/components/ui/data-table';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router } from '@inertiajs/react';
-import Heading from '@/components/heading';
-import { 
-    ArrowLeft, 
-    TrendingUp,
-    DollarSign,
-    BarChart3,
-    PieChart,
-    Download,
-    Calendar,
-    Filter,
-    FileText,
-    Users,
-    CreditCard,
-    Clock,
-    CalendarDays,
-    CalendarRange
-} from 'lucide-react';
+import { Head } from '@inertiajs/react';
+import { ColumnDef } from '@tanstack/react-table';
+import { format as formatDate } from 'date-fns';
+import { Calendar as CalendarIcon, DollarSign, Download, FileText, MoreHorizontal, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
+import type { DateRange } from 'react-day-picker';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Billing', href: '/admin/billing' },
-    { title: 'Transaction Report', href: '/admin/billing/transaction-report' },
+interface Transaction {
+    id: number;
+    patient_name: string;
+    doctor_name: string;
+    total_amount: number;
+    payment_method: string;
+    transaction_date: string;
+    status: string;
+}
+
+interface Summary {
+    total_revenue: number;
+    total_transactions: number;
+    average_transaction: number;
+    date_from: string;
+    date_to: string;
+}
+
+interface TransactionReportProps {
+    transactions: {
+        data: Transaction[];
+        current_page: number;
+        last_page: number;
+        per_page: number;
+        total: number;
+    };
+    summary: Summary;
+    filterOptions?: {
+        doctors: Array<{ id: number; name: string }>;
+        departments: string[];
+        statuses: string[];
+        payment_methods: string[];
+        hmo_providers: string[];
+    };
+    metadata?: {
+        generated_at: string;
+        generated_by: string;
+        generated_by_role: string;
+        system_version: string;
+    };
+}
+
+const breadcrumbs = [
+    { label: 'Dashboard', href: '/admin/dashboard' },
+    { label: 'Billing', href: '/admin/billing' },
+    { label: 'Transaction Report', href: '/admin/billing/transaction-report' },
 ];
 
-export default function TransactionReport() {
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
-    const [activeTab, setActiveTab] = useState('daily');
+// Column definitions for the transactions data table
+const columns: ColumnDef<Transaction>[] = [
+    {
+        accessorKey: 'id',
+        header: ({ column }) => (
+            <div className="flex justify-center items-center w-full">
+                <span className="font-medium">Transaction ID</span>
+            </div>
+        ),
+        cell: ({ row }) => (
+            <div className="flex justify-center items-center w-full">
+                <span className="font-medium">#{row.getValue('id')}</span>
+            </div>
+        ),
+    },
+    {
+        accessorKey: 'patient_name',
+        header: ({ column }) => (
+            <div className="flex justify-center items-center w-full">
+                <span className="font-medium">Patient Name</span>
+            </div>
+        ),
+        cell: ({ row }) => (
+            <div className="flex justify-center items-center w-full">
+                <span className="font-medium">{row.getValue('patient_name')}</span>
+            </div>
+        ),
+    },
+    {
+        accessorKey: 'doctor_name',
+        header: ({ column }) => (
+            <div className="flex justify-center items-center w-full">
+                <span className="font-medium">Doctor</span>
+            </div>
+        ),
+        cell: ({ row }) => (
+            <div className="flex justify-center items-center w-full">
+                <span>{row.getValue('doctor_name')}</span>
+            </div>
+        ),
+    },
+    {
+        accessorKey: 'total_amount',
+        header: ({ column }) => (
+            <div className="flex justify-center items-center w-full">
+                <span className="font-medium">Amount</span>
+            </div>
+        ),
+        cell: ({ row }) => {
+            const amount = parseFloat(row.getValue('total_amount') || '0');
+            const formatted = new Intl.NumberFormat('en-PH', {
+                style: 'currency',
+                currency: 'PHP',
+            }).format(amount);
+            return (
+                <div className="flex justify-center items-center w-full">
+                    <span className="font-medium">{formatted}</span>
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: 'payment_method',
+        header: ({ column }) => (
+            <div className="flex justify-center items-center w-full">
+                <span className="font-medium">Payment Method</span>
+            </div>
+        ),
+        cell: ({ row }) => (
+            <div className="flex justify-center items-center w-full">
+                <span>{row.getValue('payment_method')}</span>
+            </div>
+        ),
+    },
+    {
+        accessorKey: 'transaction_date',
+        header: ({ column }) => (
+            <div className="flex justify-center items-center w-full">
+                <span className="font-medium">Date</span>
+            </div>
+        ),
+        cell: ({ row }) => {
+            const date = new Date(row.getValue('transaction_date'));
+            return (
+                <div className="flex justify-center items-center w-full">
+                    <span>{date.toLocaleDateString()}</span>
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: 'status',
+        header: ({ column }) => (
+            <div className="flex justify-center items-center w-full">
+                <span className="font-medium">Status</span>
+            </div>
+        ),
+        cell: ({ row }) => {
+            const status = row.getValue('status') as string;
+            return (
+                <div className="flex justify-center items-center w-full">
+                    <Badge variant={status === 'completed' ? 'default' : 'secondary'}>{status}</Badge>
+                </div>
+            );
+        },
+    },
+    {
+        id: 'actions',
+        enableHiding: false,
+        cell: ({ row }) => {
+            const transaction = row.original;
 
-    const handleDailyReport = () => {
-        router.get('/admin/billing/billing-reports/daily', {
-            date: selectedDate,
-        });
+            return (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => navigator.clipboard.writeText(transaction.id.toString())}>
+                            Copy transaction ID
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem>View details</DropdownMenuItem>
+                        <DropdownMenuItem>Edit transaction</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            );
+        },
+    },
+];
+
+export default function TransactionReport({ transactions, summary, filterOptions, metadata }: TransactionReportProps) {
+    // Safety check for transactions data
+    const transactionsData = transactions?.data || [];
+    
+    // Safety check for summary with default values
+    const safeSummary = summary || {
+        total_revenue: 0,
+        total_transactions: 0,
+        average_transaction: 0,
+        date_from: '',
+        date_to: ''
     };
+    
+    // Debug logging
+    console.log('Transaction Report Props:', {
+        transactions: transactions,
+        summary: summary,
+        filterOptions: filterOptions
+    });
+    
+    // Additional safety check for the DataTable
+    if (!Array.isArray(transactionsData)) {
+        console.warn('Transactions data is not an array:', transactionsData);
+    }
+    
+    const [search, setSearch] = useState('');
+    const [isExporting, setIsExporting] = useState(false);
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({
+        from: new Date(new Date().getFullYear(), new Date().getMonth(), 1), // First day of current month
+        to: new Date(), // Today
+    });
+    const [activeFilter, setActiveFilter] = useState('monthly');
 
-    const handleMonthlyReport = () => {
-        router.get('/admin/billing/billing-reports/monthly', {
-            month: selectedMonth,
-        });
-    };
+    const handleExport = async (format: 'excel' | 'pdf' | 'csv') => {
+        try {
+            setIsExporting(true);
+            const params = new URLSearchParams({
+                format,
+            });
 
-    const handleYearlyReport = () => {
-        router.get('/admin/billing/billing-reports/yearly', {
-            year: selectedYear,
-        });
-    };
+            // Add date range parameters if selected
+            if (dateRange?.from) {
+                params.append('date_from', formatDate(dateRange.from, 'yyyy-MM-dd'));
+            }
+            if (dateRange?.to) {
+                params.append('date_to', formatDate(dateRange.to, 'yyyy-MM-dd'));
+            }
 
-    const handleExport = (reportType: string, format: string) => {
-        const params: any = { format };
-        
-        if (reportType === 'daily') {
-            params.date = selectedDate;
-        } else if (reportType === 'monthly') {
-            params.month = selectedMonth;
-        } else if (reportType === 'yearly') {
-            params.year = selectedYear;
+            window.location.href = `/admin/billing/transaction-report/export?${params.toString()}`;
+
+            setTimeout(() => {
+                setIsExporting(false);
+            }, 2000);
+        } catch (error) {
+            console.error('Export failed:', error);
+            setIsExporting(false);
         }
+    };
 
-        // Build the export URL with parameters
-        const baseUrl = `/admin/billing/billing-reports/${reportType}/export`;
-        const queryString = new URLSearchParams(params).toString();
-        const exportUrl = `${baseUrl}?${queryString}`;
-        
-        // Open the export URL in a new window/tab to trigger download
-        window.open(exportUrl, '_blank');
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('en-PH', {
+            style: 'currency',
+            currency: 'PHP',
+        }).format(amount);
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={breadcrumbs as any}>
             <Head title="Transaction Report" />
             <div className="min-h-screen bg-white p-6">
-                {/* Header Section */}
+                <div className="mx-auto max-w-7xl">
+                    {/* Header */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-6">
-                            <Button asChild variant="outline" className="h-12 w-12">
-                                <Link href="/admin/billing">
-                                    <ArrowLeft className="h-5 w-5" />
-                                </Link>
+                            <div>
+                                <h1 className="mb-4 text-4xl font-semibold text-black">Transaction Report</h1>
+                                <p className="mt-1 text-sm text-black">All billing transactions and payment records</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button onClick={() => handleExport('excel')} disabled={isExporting} variant="outline">
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Export Excel
+                                </Button>
+                                <Button onClick={() => handleExport('pdf')} disabled={isExporting} variant="outline">
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Export PDF
                             </Button>
-                            <Heading 
-                                title="Transaction Report" 
-                                description="Comprehensive financial reports for billing transactions" 
-                                icon={BarChart3} 
-                            />
                         </div>
                     </div>
                 </div>
 
-                {/* Report Type Tabs */}
-                <Card className="mb-6 rounded-xl border border-gray-200 bg-white shadow-sm">
-                    <CardContent className="p-6">
-                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                            <TabsList className="grid w-full grid-cols-3">
-                                <TabsTrigger value="daily" className="flex items-center gap-2">
-                                    <Calendar className="h-4 w-4" />
-                                    Daily Report
-                                </TabsTrigger>
-                                <TabsTrigger value="monthly" className="flex items-center gap-2">
-                                    <CalendarDays className="h-4 w-4" />
-                                    Monthly Report
-                                </TabsTrigger>
-                                <TabsTrigger value="yearly" className="flex items-center gap-2">
-                                    <CalendarRange className="h-4 w-4" />
-                                    Yearly Report
-                                </TabsTrigger>
-                            </TabsList>
-
-                            {/* Daily Report Tab */}
-                            <TabsContent value="daily" className="mt-6">
-                                <div className="space-y-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="space-y-2">
-                                            <Label className="text-sm font-medium text-gray-700">Select Date</Label>
-                                            <Input
-                                                type="date"
-                                                value={selectedDate}
-                                                onChange={(e) => setSelectedDate(e.target.value)}
-                                                className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl"
-                                            />
-                                        </div>
-                                        <Button onClick={handleDailyReport} className="h-12 px-6">
-                                            <Calendar className="mr-2 h-4 w-4" />
-                                            Generate Daily Report
-                                        </Button>
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-4">
-                                        <Button 
-                                            variant="outline"
-                                            onClick={() => handleExport('daily', 'excel')}
-                                            className="h-12"
-                                        >
-                                            <Download className="mr-2 h-4 w-4" />
-                                            Export Excel
-                                        </Button>
-                                        <Button 
-                                            variant="outline"
-                                            onClick={() => handleExport('daily', 'pdf')}
-                                            className="h-12"
-                                        >
-                                            <Download className="mr-2 h-4 w-4" />
-                                            Export PDF
-                                        </Button>
-                                        <Button 
-                                            variant="outline"
-                                            onClick={() => handleExport('daily', 'word')}
-                                            className="h-12"
-                                        >
-                                            <Download className="mr-2 h-4 w-4" />
-                                            Export Word
-                                        </Button>
-                                    </div>
-                                </div>
-                            </TabsContent>
-
-                            {/* Monthly Report Tab */}
-                            <TabsContent value="monthly" className="mt-6">
-                                <div className="space-y-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="space-y-2">
-                                            <Label className="text-sm font-medium text-gray-700">Select Month</Label>
-                                            <Input
-                                                type="month"
-                                                value={selectedMonth}
-                                                onChange={(e) => setSelectedMonth(e.target.value)}
-                                                className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl"
-                                            />
-                                        </div>
-                                        <Button onClick={handleMonthlyReport} className="h-12 px-6">
-                                            <CalendarDays className="mr-2 h-4 w-4" />
-                                            Generate Monthly Report
-                                        </Button>
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-4">
-                                        <Button 
-                                            variant="outline"
-                                            onClick={() => handleExport('monthly', 'excel')}
-                                            className="h-12"
-                                        >
-                                            <Download className="mr-2 h-4 w-4" />
-                                            Export Excel
-                                        </Button>
-                                        <Button 
-                                            variant="outline"
-                                            onClick={() => handleExport('monthly', 'pdf')}
-                                            className="h-12"
-                                        >
-                                            <Download className="mr-2 h-4 w-4" />
-                                            Export PDF
-                                        </Button>
-                                        <Button 
-                                            variant="outline"
-                                            onClick={() => handleExport('monthly', 'word')}
-                                            className="h-12"
-                                        >
-                                            <Download className="mr-2 h-4 w-4" />
-                                            Export Word
-                                        </Button>
-                                    </div>
-                                </div>
-                            </TabsContent>
-
-                            {/* Yearly Report Tab */}
-                            <TabsContent value="yearly" className="mt-6">
-                                <div className="space-y-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="space-y-2">
-                                            <Label className="text-sm font-medium text-gray-700">Select Year</Label>
-                                            <Select value={selectedYear} onValueChange={setSelectedYear}>
-                                                <SelectTrigger className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {Array.from({ length: 10 }, (_, i) => {
-                                                        const year = new Date().getFullYear() - i;
-                                                        return (
-                                                            <SelectItem key={year} value={year.toString()}>
-                                                                {year}
-                                                            </SelectItem>
-                                                        );
-                                                    })}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <Button onClick={handleYearlyReport} className="h-12 px-6">
-                                            <CalendarRange className="mr-2 h-4 w-4" />
-                                            Generate Yearly Report
-                                        </Button>
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-4">
-                                        <Button 
-                                            variant="outline"
-                                            onClick={() => handleExport('yearly', 'excel')}
-                                            className="h-12"
-                                        >
-                                            <Download className="mr-2 h-4 w-4" />
-                                            Export Excel
-                                        </Button>
-                                        <Button 
-                                            variant="outline"
-                                            onClick={() => handleExport('yearly', 'pdf')}
-                                            className="h-12"
-                                        >
-                                            <Download className="mr-2 h-4 w-4" />
-                                            Export PDF
-                                        </Button>
-                                        <Button 
-                                            variant="outline"
-                                            onClick={() => handleExport('yearly', 'word')}
-                                            className="h-12"
-                                        >
-                                            <Download className="mr-2 h-4 w-4" />
-                                            Export Word
-                                        </Button>
-                                    </div>
-                                </div>
-                            </TabsContent>
-                        </Tabs>
-                    </CardContent>
-                </Card>
-
-                {/* Report Information */}
-                <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-3 text-lg font-semibold text-gray-900">
-                            <FileText className="h-5 w-5 text-black" />
-                            Report Information
+                    {/* Filter Section */}
+                    <div className="mb-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <CalendarIcon className="h-5 w-5" />
+                                    Report Filters
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="text-center">
-                                <div className="p-3 bg-blue-100 rounded-lg w-fit mx-auto mb-3">
-                                    <Calendar className="h-6 w-6 text-blue-600" />
+                            <CardContent>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        <div>
+                                        <label className="text-sm font-medium text-gray-700 mb-2 block">Period</label>
+                                        <Select 
+                                            value={activeFilter} 
+                                            onValueChange={(value) => {
+                                                setActiveFilter(value);
+                                                const today = new Date();
+                                                
+                                                switch (value) {
+                                                    case 'daily':
+                                                        setDateRange({
+                                                            from: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+                                                            to: new Date(today.getFullYear(), today.getMonth(), today.getDate())
+                                                        });
+                                                        break;
+                                                    case 'monthly':
+                                                        setDateRange({
+                                                            from: new Date(today.getFullYear(), today.getMonth(), 1),
+                                                            to: new Date(today.getFullYear(), today.getMonth() + 1, 0)
+                                                        });
+                                                        break;
+                                                    case 'yearly':
+                                                        setDateRange({
+                                                            from: new Date(today.getFullYear(), 0, 1),
+                                                            to: new Date(today.getFullYear(), 11, 31)
+                                                        });
+                                                        break;
+                                                    case 'custom':
+                                                        // Keep current date range
+                                                        break;
+                                                }
+                                            }}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select period" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="daily">Daily</SelectItem>
+                                                <SelectItem value="monthly">Monthly</SelectItem>
+                                                <SelectItem value="yearly">Yearly</SelectItem>
+                                                <SelectItem value="custom">Custom Range</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    
+                                        <div>
+                                        <label className="text-sm font-medium text-gray-700 mb-2 block">From Date</label>
+                                            <Input
+                                                type="date"
+                                            value={dateRange?.from ? formatDate(dateRange.from, 'yyyy-MM-dd') : ''}
+                                            onChange={(e) => {
+                                                const newDate = e.target.value ? new Date(e.target.value) : undefined;
+                                                setDateRange(prev => ({
+                                                    from: newDate,
+                                                    to: prev?.to
+                                                }));
+                                            }}
+                                        />
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="text-sm font-medium text-gray-700 mb-2 block">To Date</label>
+                                            <Input
+                                            type="date"
+                                            value={dateRange?.to ? formatDate(dateRange.to, 'yyyy-MM-dd') : ''}
+                                            onChange={(e) => {
+                                                const newDate = e.target.value ? new Date(e.target.value) : undefined;
+                                                setDateRange(prev => ({
+                                                    from: prev?.from,
+                                                    to: newDate
+                                                }));
+                                            }}
+                                        />
+                                    </div>
+                                    
+                                    <div className="flex items-end gap-2">
+                                        <Button 
+                                            onClick={() => {
+                                                // Reload page with new date range
+                                                const params = new URLSearchParams();
+                                                if (dateRange?.from) {
+                                                    params.append('date_from', formatDate(dateRange.from, 'yyyy-MM-dd'));
+                                                }
+                                                if (dateRange?.to) {
+                                                    params.append('date_to', formatDate(dateRange.to, 'yyyy-MM-dd'));
+                                                }
+                                                window.location.href = `/admin/billing/transaction-report?${params.toString()}`;
+                                            }}
+                                            className="bg-blue-600 hover:bg-blue-700"
+                                        >
+                                            Apply Filter
+                                        </Button>
+                                        
+                                        <Button 
+                                            onClick={() => {
+                                                setActiveFilter('monthly');
+                                                setDateRange({
+                                                    from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+                                                    to: new Date()
+                                                });
+                                                window.location.href = '/admin/billing/transaction-report';
+                                            }}
+                                            variant="outline"
+                                        >
+                                            Reset
+                                        </Button>
+                                    </div>
                                 </div>
-                                <h3 className="font-semibold text-gray-900 mb-2">Daily Report</h3>
-                                <p className="text-sm text-gray-600">
-                                    View all transactions for a specific date including billing, payments, and expenses.
-                                </p>
-                            </div>
-                            <div className="text-center">
-                                <div className="p-3 bg-green-100 rounded-lg w-fit mx-auto mb-3">
-                                    <CalendarDays className="h-6 w-6 text-green-600" />
+                                
+                                {/* Current Filter Status */}
+                                <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
+                                    <span className="font-medium">Current View:</span>
+                                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                        {activeFilter === 'daily' && 'Today'}
+                                        {activeFilter === 'monthly' && 'This Month'}
+                                        {activeFilter === 'yearly' && 'This Year'}
+                                        {activeFilter === 'custom' && 'Custom Range'}
+                                    </Badge>
+                                    {dateRange?.from && dateRange?.to && (
+                                        <span className="text-gray-500">
+                                            ({formatDate(dateRange.from, 'MMM dd, yyyy')} - {formatDate(dateRange.to, 'MMM dd, yyyy')})
+                                        </span>
+                                    )}
                                 </div>
-                                <h3 className="font-semibold text-gray-900 mb-2">Monthly Report</h3>
-                                <p className="text-sm text-gray-600">
-                                    Comprehensive monthly financial summary with trends and analytics.
-                                </p>
-                            </div>
-                            <div className="text-center">
-                                <div className="p-3 bg-purple-100 rounded-lg w-fit mx-auto mb-3">
-                                    <CalendarRange className="h-6 w-6 text-purple-600" />
+                            </CardContent>
+                        </Card>
+                    </div>
+
+
+                    {/* All Transactions Data Table */}
+                    <Card className="rounded-xl border-0 bg-white shadow-lg">
+                        <CardHeader className="border-b border-gray-200 bg-white">
+                            <CardTitle className="flex items-center gap-3 text-lg font-semibold text-black">
+                                <FileText className="h-5 w-5 text-black" />
+                                All Transactions
+                            </CardTitle>
+                            <p className="text-sm text-gray-600">Complete list of all billing transactions</p>
+                        </CardHeader>
+                        <CardContent className="p-6">
+                            {(!transactionsData || transactionsData.length === 0) ? (
+                                <div className="text-center py-8">
+                                    <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                    <h3 className="mb-2 text-lg font-semibold text-gray-600">No Transactions Found</h3>
+                                    <p className="text-gray-500 mb-4">No transaction data available for the selected period.</p>
+                                    <Button 
+                                        onClick={() => window.location.reload()} 
+                                        variant="outline"
+                                        className="mr-2"
+                                    >
+                                        Refresh Data
+                                    </Button>
                                 </div>
-                                <h3 className="font-semibold text-gray-900 mb-2">Yearly Report</h3>
-                                <p className="text-sm text-gray-600">
-                                    Annual financial overview with year-over-year comparisons and insights.
+                            ) : (
+                                <DataTable 
+                                    columns={columns} 
+                                    data={Array.isArray(transactionsData) ? transactionsData : []} 
+                                    searchKey="patient_name" 
+                                    searchPlaceholder="Search patients..." 
+                                />
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Footer with Metadata */}
+                    <Card className="mt-8">
+                        <CardContent className="pt-6">
+                            <div className="flex items-center justify-between text-sm text-gray-600">
+                                <div>
+                                    <p>
+                                        <strong>Generated:</strong> {metadata?.generated_at || new Date().toLocaleString()}
+                                    </p>
+                                    <p>
+                                        <strong>Generated By:</strong> {metadata?.generated_by || 'System'} ({metadata?.generated_by_role || 'User'})
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p>
+                                        <strong>System Version:</strong> {metadata?.system_version || '1.0.0'}
+                                    </p>
+                                    <p>
+                                        <strong>Clinic:</strong> St. James Clinic Management System
                                 </p>
                             </div>
                         </div>
                     </CardContent>
                 </Card>
+                </div>
             </div>
         </AppLayout>
     );
