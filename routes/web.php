@@ -11,9 +11,11 @@ Route::get('/', function () {
         // User is logged in, redirect to appropriate dashboard
         $user = Auth::user();
         $mappedRole = $user->getMappedRole();
-        
+
         if ($mappedRole === 'patient') {
             return redirect()->route('patient.dashboard.simple');
+        } elseif (in_array($mappedRole, ['hospital_admin', 'hospital_staff'])) {
+            return redirect()->route('hospital.dashboard');
         } else {
             return redirect()->route('admin.dashboard');
         }
@@ -61,9 +63,11 @@ Route::get('/dashboard', function () {
     // Get user role and redirect accordingly
     $user = Auth::user();
     $mappedRole = $user->getMappedRole();
-    
+
     if ($mappedRole === 'patient') {
         return redirect()->route('patient.dashboard.simple');
+    } elseif (in_array($mappedRole, ['hospital_admin', 'hospital_staff'])) {
+        return redirect()->route('hospital.dashboard');
     } else {
         return redirect()->route('admin.dashboard');
     }
@@ -78,7 +82,7 @@ Route::get('/patients', function () {
     // Get user role and redirect accordingly
     $user = Auth::user();
     $mappedRole = $user->getMappedRole();
-    
+
     if ($mappedRole === 'hospital_admin') {
         return redirect()->route('hospital.patients.index');
     } else {
