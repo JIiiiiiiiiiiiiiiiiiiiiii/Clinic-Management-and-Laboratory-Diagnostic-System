@@ -39,6 +39,11 @@ class LabOrder extends Model
             ->withPivot('results', 'verified_by', 'verified_at')
             ->withTimestamps();
     }
+
+    public function visit()
+    {
+        return $this->belongsTo(Visit::class, 'patient_visit_id');
+    }
 }
 
 

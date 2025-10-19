@@ -124,3 +124,6 @@ The appointment details page should now display:
 - **Appointment Time**: `2:00 PM` (instead of "Invalid time")
 - **Date**: `October 29, 2025` (working correctly)
 - **Appointment Date**: `10/29/2025` (working correctly)
+
+
+
