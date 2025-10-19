@@ -13,7 +13,8 @@ class InventoryController extends Controller
     {
         // Use fresh database queries to ensure latest values
         $totalSupplies = InventoryItem::count();
-        $lowStockItems = InventoryItem::lowStock()->count();
+        $lowStockItems = InventoryItem::where('status', 'Low Stock')->count();
+        $outOfStockItems = InventoryItem::where('status', 'Out of Stock')->count();
         $totalConsumed = InventoryItem::sum('consumed');
         $totalRejected = InventoryItem::sum('rejected');
 
@@ -24,6 +25,7 @@ class InventoryController extends Controller
         \Log::info('Inventory Index Stats:', [
             'totalSupplies' => $totalSupplies,
             'lowStockItems' => $lowStockItems,
+            'outOfStockItems' => $outOfStockItems,
             'totalConsumed' => $totalConsumed,
             'totalRejected' => $totalRejected,
         ]);
@@ -32,6 +34,7 @@ class InventoryController extends Controller
             'stats' => [
                 'totalSupplies' => $totalSupplies,
                 'lowStockItems' => $lowStockItems,
+                'outOfStockItems' => $outOfStockItems,
                 'totalConsumed' => $totalConsumed,
                 'totalRejected' => $totalRejected,
             ],
@@ -142,10 +145,12 @@ class InventoryController extends Controller
         $consumedTotal = InventoryItem::byAssignedTo('Doctor & Nurse')->sum('consumed');
         $rejectedTotal = InventoryItem::byAssignedTo('Doctor & Nurse')->sum('rejected');
         $lowStockCount = InventoryItem::byAssignedTo('Doctor & Nurse')->where('status', 'Low Stock')->count();
+        $outOfStockCount = InventoryItem::byAssignedTo('Doctor & Nurse')->where('status', 'Out of Stock')->count();
         
         $stats = [
             'totalItems' => $items->count(),
             'lowStock' => $lowStockCount,
+            'outOfStock' => $outOfStockCount,
             'consumedItems' => $consumedTotal,
             'rejectedItems' => $rejectedTotal,
         ];
@@ -178,10 +183,12 @@ class InventoryController extends Controller
         $consumedTotal = InventoryItem::byAssignedTo('Med Tech')->sum('consumed');
         $rejectedTotal = InventoryItem::byAssignedTo('Med Tech')->sum('rejected');
         $lowStockCount = InventoryItem::byAssignedTo('Med Tech')->where('status', 'Low Stock')->count();
+        $outOfStockCount = InventoryItem::byAssignedTo('Med Tech')->where('status', 'Out of Stock')->count();
         
         $stats = [
             'totalItems' => $items->count(),
             'lowStock' => $lowStockCount,
+            'outOfStock' => $outOfStockCount,
             'consumedItems' => $consumedTotal,
             'rejectedItems' => $rejectedTotal,
         ];
@@ -213,7 +220,7 @@ class InventoryController extends Controller
         
         // Calculate combined stats
         $totalItems = InventoryItem::count();
-        $lowStockItems = InventoryItem::lowStock()->count();
+        $lowStockItems = InventoryItem::whereIn('status', ['Low Stock', 'Out of Stock'])->count();
         $totalConsumed = InventoryItem::sum('consumed');
         $totalRejected = InventoryItem::sum('rejected');
 
@@ -360,7 +367,7 @@ class InventoryController extends Controller
             $totalItems = $itemsQuery->count(); // Total items in inventory
             $totalConsumed = $movements->where('movement_type', 'OUT')->sum('quantity'); // Items consumed in date range
             $totalRejected = $movements->where('movement_type', 'OUT')->sum('quantity'); // Items rejected in date range
-            $lowStockItems = $itemsQuery->clone()->lowStock()->count(); // Current low stock items
+            $lowStockItems = $itemsQuery->clone()->where('status', 'Low Stock')->count(); // Current low stock items
             
             \Log::info('Consumed/Rejected Report Data:', [
                 'calculated_totalItems' => $totalItems,
@@ -411,14 +418,14 @@ class InventoryController extends Controller
                 'totalItems' => $doctorNurseQuery->count(),
                 'totalConsumed' => $doctorNurseMovements->where('movement_type', 'OUT')->sum('quantity'),
                 'totalRejected' => $doctorNurseMovements->where('movement_type', 'OUT')->sum('quantity'),
-                'lowStock' => $doctorNurseQuery->clone()->lowStock()->count(),
+                'lowStock' => $doctorNurseQuery->clone()->where('status', 'Low Stock')->count(),
             ];
 
             $medTechStats = [
                 'totalItems' => $medTechQuery->count(),
                 'totalConsumed' => $medTechMovements->where('movement_type', 'OUT')->sum('quantity'),
                 'totalRejected' => $medTechMovements->where('movement_type', 'OUT')->sum('quantity'),
-                'lowStock' => $medTechQuery->clone()->lowStock()->count(),
+                'lowStock' => $medTechQuery->clone()->where('status', 'Low Stock')->count(),
             ];
         }
 

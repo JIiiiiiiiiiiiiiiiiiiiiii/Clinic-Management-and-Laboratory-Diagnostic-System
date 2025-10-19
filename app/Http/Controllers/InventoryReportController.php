@@ -19,24 +19,7 @@ class InventoryReportController extends Controller
 
     public function index()
     {
-        try {
-            $reports = InventoryReport::with('creator')
-                ->orderBy('created_at', 'desc')
-                ->paginate(10);
-
-            return Inertia::render('Inventory/Reports', [
-                'reports' => $reports,
-            ]);
-        } catch (\Exception $e) {
-            // Fallback if there are no reports yet
-            return Inertia::render('Inventory/Reports', [
-                'reports' => [
-                    'data' => [],
-                    'links' => [],
-                    'meta' => []
-                ],
-            ]);
-        }
+        return Inertia::render('Inventory/Reports');
     }
 
     public function usedRejectedReport(Request $request)
@@ -96,98 +79,6 @@ class InventoryReportController extends Controller
         }
     }
 
-    public function stockLevelsReport(Request $request)
-    {
-        try {
-            $filters = $request->only(['category', 'status']);
-            $data = $this->reportService->generateStockLevelsReport($filters);
-            
-            // Save report if requested
-            if ($request->has('save_report')) {
-                $report = $this->reportService->saveReport('stock_levels', $data, $filters, auth()->id());
-                $data['report_id'] = $report->id;
-            }
-
-            return Inertia::render('Inventory/Reports/StockLevels', [
-                'data' => $data,
-                'filters' => $filters,
-            ]);
-        } catch (\Exception $e) {
-            // Fallback with empty data
-            return Inertia::render('Inventory/Reports/StockLevels', [
-                'data' => [
-                    'summary' => [
-                        'total_items' => 0,
-                        'in_stock' => 0,
-                        'low_stock' => 0,
-                        'out_of_stock' => 0,
-                        'total_value' => 0,
-                    ],
-                    'category_stats' => [],
-                    'needs_restock' => [],
-                    'all_items' => [],
-                ],
-                'filters' => $filters,
-            ]);
-        }
-    }
-
-    public function dailyConsumptionReport(Request $request)
-    {
-        try {
-            $filters = $request->only(['period', 'start_date', 'end_date', 'item_id']);
-            $data = $this->reportService->generateDailyConsumptionReport($filters);
-            
-            // Save report if requested
-            if ($request->has('save_report')) {
-                $report = $this->reportService->saveReport('daily_consumption', $data, $filters, auth()->id());
-                $data['report_id'] = $report->id;
-            }
-
-            return Inertia::render('Inventory/Reports/DailyConsumption', [
-                'data' => $data,
-                'filters' => $filters,
-            ]);
-        } catch (\Exception $e) {
-            // Fallback with empty data
-            return Inertia::render('Inventory/Reports/DailyConsumption', [
-                'data' => [
-                    'daily_data' => [],
-                    'item_consumption' => [],
-                    'date_range' => ['start' => null, 'end' => null, 'label' => 'No data'],
-                ],
-                'filters' => $filters,
-            ]);
-        }
-    }
-
-    public function usageByLocationReport(Request $request)
-    {
-        try {
-            $filters = $request->only(['period', 'start_date', 'end_date', 'location']);
-            $data = $this->reportService->generateUsageByLocationReport($filters);
-            
-            // Save report if requested
-            if ($request->has('save_report')) {
-                $report = $this->reportService->saveReport('usage_by_location', $data, $filters, auth()->id());
-                $data['report_id'] = $report->id;
-            }
-
-            return Inertia::render('Inventory/Reports/UsageByLocation', [
-                'data' => $data,
-                'filters' => $filters,
-            ]);
-        } catch (\Exception $e) {
-            // Fallback with empty data
-            return Inertia::render('Inventory/Reports/UsageByLocation', [
-                'data' => [
-                    'location_usage' => [],
-                    'date_range' => ['start' => null, 'end' => null, 'label' => 'No data'],
-                ],
-                'filters' => $filters,
-            ]);
-        }
-    }
 
     public function exportReport(Request $request, $reportId)
     {
@@ -290,44 +181,6 @@ class InventoryReportController extends Controller
         }
     }
 
-    public function exportStockLevels(Request $request)
-    {
-        $filters = $request->only(['category', 'status']);
-        $data = $this->reportService->generateStockLevelsReport($filters);
-        $format = $request->get('format', 'pdf');
-
-        if ($format === 'pdf') {
-            return $this->exportToPdf('Stock Levels Report', $data);
-        } else {
-            return $this->exportToExcel('Stock Levels Report', $data);
-        }
-    }
-
-    public function exportDailyConsumption(Request $request)
-    {
-        $filters = $request->only(['period', 'start_date', 'end_date', 'item_id']);
-        $data = $this->reportService->generateDailyConsumptionReport($filters);
-        $format = $request->get('format', 'pdf');
-
-        if ($format === 'pdf') {
-            return $this->exportToPdf('Daily Consumption Report', $data);
-        } else {
-            return $this->exportToExcel('Daily Consumption Report', $data);
-        }
-    }
-
-    public function exportUsageByLocation(Request $request)
-    {
-        $filters = $request->only(['period', 'start_date', 'end_date', 'location']);
-        $data = $this->reportService->generateUsageByLocationReport($filters);
-        $format = $request->get('format', 'pdf');
-
-        if ($format === 'pdf') {
-            return $this->exportToPdf('Usage by Location Report', $data);
-        } else {
-            return $this->exportToExcel('Usage by Location Report', $data);
-        }
-    }
 
     private function exportToPdf($title, $data)
     {
@@ -349,6 +202,84 @@ class InventoryReportController extends Controller
         
         $filename = strtolower(str_replace([' ', '/', '\\'], ['-', '-', '-'], $title)) . '.xlsx';
         return \Maatwebsite\Excel\Facades\Excel::download($export, $filename);
+    }
+
+    public function supplyItemsByDepartmentReport(Request $request)
+    {
+        try {
+            $filters = $request->only(['period', 'start_date', 'end_date', 'department']);
+            $data = $this->reportService->generateSupplyItemsByDepartmentReport($filters);
+            
+            // Save report if requested
+            if ($request->has('save_report')) {
+                $report = $this->reportService->saveReport('supply_items_by_department', $data, $filters, auth()->id());
+                $data['report_id'] = $report->id;
+            }
+
+            return Inertia::render('Inventory/Reports/SupplyItemsByDepartment', [
+                'data' => $data,
+                'filters' => $filters,
+            ]);
+        } catch (\Exception $e) {
+            // Fallback with empty data
+            return Inertia::render('Inventory/Reports/SupplyItemsByDepartment', [
+                'data' => [
+                    'summary' => [
+                        'total_items' => 0,
+                        'total_departments' => 2,
+                        'low_stock_items' => 0,
+                        'out_of_stock_items' => 0,
+                        'total_consumed' => 0,
+                        'total_rejected' => 0,
+                    ],
+                    'department_stats' => [
+                        'doctor_nurse' => [
+                            'total_items' => 0,
+                            'total_consumed' => 0,
+                            'total_rejected' => 0,
+                            'low_stock' => 0,
+                            'out_of_stock' => 0,
+                            'items' => [],
+                        ],
+                        'med_tech' => [
+                            'total_items' => 0,
+                            'total_consumed' => 0,
+                            'total_rejected' => 0,
+                            'low_stock' => 0,
+                            'out_of_stock' => 0,
+                            'items' => [],
+                        ],
+                    ],
+                    'all_items' => [],
+                    'date_range' => ['start' => null, 'end' => null, 'label' => 'No data'],
+                ],
+                'filters' => $filters,
+            ]);
+        }
+    }
+
+    public function exportSupplyItemsByDepartment(Request $request)
+    {
+        $filters = $request->only(['period', 'start_date', 'end_date', 'department']);
+        $data = $this->reportService->generateSupplyItemsByDepartmentReport($filters);
+        
+        $format = $request->get('format', 'pdf');
+        $title = 'Supply Items by Department Report';
+        
+        if ($format === 'excel') {
+            $export = new \App\Exports\SupplyItemsByDepartmentExport($data);
+            $filename = strtolower(str_replace([' ', '/', '\\'], ['-', '-', '-'], $title)) . '.xlsx';
+            return \Maatwebsite\Excel\Facades\Excel::download($export, $filename);
+        } elseif ($format === 'csv') {
+            $export = new \App\Exports\SupplyItemsByDepartmentExport($data);
+            $filename = strtolower(str_replace([' ', '/', '\\'], ['-', '-', '-'], $title)) . '.csv';
+            return \Maatwebsite\Excel\Facades\Excel::download($export, $filename, \Maatwebsite\Excel\Excel::CSV);
+        } else {
+            // PDF export
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.supply-items-by-department', compact('data', 'title'));
+            $filename = strtolower(str_replace([' ', '/', '\\'], ['-', '-', '-'], $title)) . '.pdf';
+            return $pdf->download($filename);
+        }
     }
 
     public function destroy($id)

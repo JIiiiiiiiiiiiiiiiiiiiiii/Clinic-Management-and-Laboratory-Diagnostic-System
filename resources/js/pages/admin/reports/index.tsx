@@ -118,24 +118,11 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
             description: 'Lab orders, test results, and diagnostic analytics',
             icon: FlaskConical,
             color: 'bg-gradient-to-r from-purple-500 to-pink-500',
-            href: '/admin/reports/laboratory',
+            href: '/admin/laboratory-reports',
             stats: {
                 total: summary?.total_lab_orders || 0,
                 pending: Math.floor((summary?.total_lab_orders || 0) * 0.2),
                 completed: Math.floor((summary?.total_lab_orders || 0) * 0.8),
-            },
-        },
-        {
-            id: 'appointments',
-            title: 'Consultation/Appointment Reports',
-            description: 'Appointment scheduling, doctor availability, and consultation analytics',
-            icon: Calendar,
-            color: 'bg-gradient-to-r from-green-500 to-emerald-500',
-            href: '/admin/reports/appointments',
-            stats: {
-                total: summary?.total_appointments || 0,
-                scheduled: Math.floor((summary?.total_appointments || 0) * 0.7),
-                completed: Math.floor((summary?.total_appointments || 0) * 0.3),
             },
         },
         {
@@ -144,7 +131,7 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
             description: 'Stock levels, supply usage, and inventory management',
             icon: Package,
             color: 'bg-gradient-to-r from-orange-500 to-red-500',
-            href: '/admin/reports/inventory',
+            href: '/admin/inventory/reports',
             stats: {
                 total: summary?.total_products || 0,
                 low_stock: Math.floor((summary?.total_products || 0) * 0.1),
@@ -165,16 +152,16 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
             },
         },
         {
-            id: 'summary',
-            title: 'General Summary / Combined Report',
-            description: 'Comprehensive overview of all clinic operations and KPIs',
-            icon: TrendingUp,
-            color: 'bg-gradient-to-r from-indigo-500 to-purple-600',
-            href: '/admin/reports/analytics',
+            id: 'transaction',
+            title: 'Transaction Reports',
+            description: 'Detailed transaction analysis and billing reports',
+            icon: FileText,
+            color: 'bg-gradient-to-r from-blue-600 to-indigo-600',
+            href: '/admin/billing/transaction-report',
             stats: {
-                total_patients: summary?.total_patients || 0,
-                total_revenue: summary?.total_revenue || 0,
-                total_appointments: summary?.total_appointments || 0,
+                transactions: summary?.total_transactions || 0,
+                payments: summary?.total_payments || 0,
+                pending: summary?.pending_transactions || 0,
             },
         },
     ];
@@ -616,16 +603,22 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
                         </TabsContent>
 
                         <TabsContent value="reports" className="space-y-6">
+                            {/* Header for Report Modules */}
+                            <div className="text-center">
+                                <h2 className="text-2xl font-bold text-gray-900 mb-2">Report Modules</h2>
+                                <p className="text-gray-600">Access all clinic reports from a centralized location</p>
+                            </div>
+                            
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                                 {reportSections.map((section) => (
-                                    <Card key={section.id} className="relative overflow-hidden transition-shadow hover:shadow-lg">
+                                    <Card key={section.id} className="relative overflow-hidden transition-all duration-200 hover:shadow-xl hover:scale-105">
                                         <div className={`absolute inset-0 ${section.color} opacity-10`} />
                                         <CardHeader className="relative">
                                             <CardTitle className="flex items-center gap-2">
-                                                <section.icon className="h-5 w-5" />
+                                                <section.icon className="h-6 w-6" />
                                                 {section.title}
                             </CardTitle>
-                                            <CardDescription>{section.description}</CardDescription>
+                                            <CardDescription className="text-sm">{section.description}</CardDescription>
                         </CardHeader>
                                         <CardContent className="relative">
                                             <div className="mb-4 grid grid-cols-2 gap-4">
@@ -639,7 +632,7 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
                                                 ))}
                                             </div>
                                             <div className="flex gap-2">
-                                                <Button asChild className="flex-1">
+                                                <Button asChild className="flex-1 bg-green-600 hover:bg-green-700">
                                                     <a href={section.href}>View Report</a>
                                                 </Button>
                                                 <Button variant="outline" size="sm" onClick={() => handleExport('pdf', section.id)}>
@@ -650,33 +643,10 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
                                     </Card>
                                 ))}
                                 </div>
+                                
                         </TabsContent>
                     </Tabs>
 
-                    {/* Footer */}
-                    <Card className="mt-8">
-                        <CardContent className="pt-6">
-                            <div className="flex items-center justify-between text-sm text-gray-600">
-                                <div>
-                                    <p>
-                                        <strong>Generated:</strong> {metadata?.generated_at || new Date().toLocaleString()}
-                                    </p>
-                                    <p>
-                                        <strong>Generated By:</strong> {metadata?.generated_by || user?.name || 'System'} (
-                                        {metadata?.generated_by_role || user?.role || 'User'})
-                                    </p>
-                                </div>
-                                <div className="text-right">
-                                    <p>
-                                        <strong>System Version:</strong> {metadata?.system_version || '1.0.0'}
-                                    </p>
-                                    <p>
-                                        <strong>Clinic:</strong> St. James Clinic Management System
-                                    </p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
                 </div>
             </div>
         </AppLayout>

@@ -156,9 +156,7 @@ Route::prefix('admin')
             Route::post('/create-from-appointments', [App\Http\Controllers\Admin\BillingController::class, 'storeFromAppointments'])->name('store-from-appointments');
             
             // Transaction Report (MUST come before parameterized routes)
-            Route::get('/transaction-report', function () {
-                return Inertia::render('admin/billing/transaction-report');
-            })->name('transaction-report');
+            Route::get('/transaction-report', [App\Http\Controllers\Admin\BillingReportController::class, 'transactionReport'])->name('transaction-report');
             
             // Daily Report (MUST come before parameterized routes)
             Route::get('/daily-report', [App\Http\Controllers\Admin\BillingReportController::class, 'dailyReport'])->name('daily-report');
@@ -217,6 +215,11 @@ Route::prefix('admin')
             });
 
             
+        });
+
+        // Test route for billing reports
+        Route::get('/test-billing-reports', function () {
+            return 'Test billing reports route is working!';
         });
 
         // Appointments Routes - Doctor and admin only
@@ -347,6 +350,9 @@ Route::prefix('admin')
             
             // Report categories
             Route::get('/financial', [App\Http\Controllers\Admin\ReportsController::class, 'financial'])->name('financial');
+            Route::post('/financial/sync', [App\Http\Controllers\Admin\ReportsController::class, 'syncFinancialOverview'])->name('financial.sync');
+            Route::get('/financial/debug', [App\Http\Controllers\Admin\ReportsController::class, 'debugFinancialOverview'])->name('financial.debug');
+            Route::get('/financial/test', [App\Http\Controllers\Admin\ReportsController::class, 'testFinancialOverview'])->name('financial.test');
             Route::get('/patients', [App\Http\Controllers\Admin\ReportsController::class, 'patients'])->name('patients');
             Route::get('/laboratory', [App\Http\Controllers\LaboratoryReportController::class, 'index'])->name('laboratory');
             Route::get('/inventory', [App\Http\Controllers\Admin\ReportsController::class, 'inventory'])->name('inventory');
@@ -488,12 +494,8 @@ Route::prefix('admin')
             Route::get('/reports/used-rejected/export', [App\Http\Controllers\InventoryReportController::class, 'exportUsedRejected'])->name('reports.used-rejected.export');
             Route::get('/reports/in-out-supplies', [App\Http\Controllers\InventoryReportController::class, 'inOutSuppliesReport'])->name('reports.in-out-supplies');
             Route::get('/reports/in-out-supplies/export', [App\Http\Controllers\InventoryReportController::class, 'exportInOutSupplies'])->name('reports.in-out-supplies.export');
-            Route::get('/reports/stock-levels', [App\Http\Controllers\InventoryReportController::class, 'stockLevelsReport'])->name('reports.stock-levels');
-            Route::get('/reports/stock-levels/export', [App\Http\Controllers\InventoryReportController::class, 'exportStockLevels'])->name('reports.stock-levels.export');
-            Route::get('/reports/daily-consumption', [App\Http\Controllers\InventoryReportController::class, 'dailyConsumptionReport'])->name('reports.daily-consumption');
-            Route::get('/reports/daily-consumption/export', [App\Http\Controllers\InventoryReportController::class, 'exportDailyConsumption'])->name('reports.daily-consumption.export');
-            Route::get('/reports/usage-by-location', [App\Http\Controllers\InventoryReportController::class, 'usageByLocationReport'])->name('reports.usage-by-location');
-            Route::get('/reports/usage-by-location/export', [App\Http\Controllers\InventoryReportController::class, 'exportUsageByLocation'])->name('reports.usage-by-location.export');
+            Route::get('/reports/supply-items-by-department', [App\Http\Controllers\InventoryReportController::class, 'supplyItemsByDepartmentReport'])->name('reports.supply-items-by-department');
+            Route::get('/reports/supply-items-by-department/export', [App\Http\Controllers\InventoryReportController::class, 'exportSupplyItemsByDepartment'])->name('reports.supply-items-by-department.export');
             Route::get('/reports/{id}/export', [App\Http\Controllers\InventoryReportController::class, 'exportReport'])->name('reports.individual.export');
             Route::get('/reports/export-all', [App\Http\Controllers\InventoryReportController::class, 'exportAllReports'])->name('reports.export-all');
             Route::delete('/reports/{id}', [App\Http\Controllers\InventoryReportController::class, 'destroy'])->name('reports.destroy');
