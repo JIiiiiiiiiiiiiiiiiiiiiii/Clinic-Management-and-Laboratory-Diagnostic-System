@@ -1,7 +1,8 @@
+import ExportDropdown from '@/components/hospital/ExportDropdown';
+import PageHeader from '@/components/hospital/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { ChevronDown, DollarSign, Download, FileText, Filter, Minus, Package, Search, TrendingDown, TrendingUp, User } from 'lucide-react';
+import { DollarSign, Filter, Minus, Package, Search, TrendingDown, TrendingUp, User } from 'lucide-react';
 import { useState } from 'react';
 import { route } from 'ziggy-js';
 
@@ -210,51 +211,27 @@ export default function HospitalInventoryReports({ user, transactions, stats, da
         return <Badge variant={variants[type.toLowerCase() as keyof typeof variants] || 'outline'}>{type}</Badge>;
     };
 
-    // Export dropdown component
-    const ExportDropdown = ({ label = 'Export' }: { label?: string }) => (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2">
-                    <Download className="h-4 w-4" />
-                    {label}
-                    <ChevronDown className="h-4 w-4" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => exportReportWithFormat('csv')}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Export as CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportReportWithFormat('pdf')}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Export as PDF
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportReportWithFormat('excel')}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Export as Excel
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    );
+    const renderExport = () => <ExportDropdown onSelect={(fmt) => exportReportWithFormat(fmt)} />;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Inventory Reports - Hospital" />
 
-            <div className="space-y-6">
+            <div className="space-y-6 px-4 md:px-6">
                 {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Inventory Reports</h1>
-                        <p className="text-muted-foreground">Supply and inventory management analytics for {dateRange.label}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <ExportDropdown />
-                        <Button asChild>
-                            <Link href={route('hospital.reports.index')}>Back to Dashboard</Link>
-                        </Button>
-                    </div>
-                </div>
+                <PageHeader
+                    title="Inventory Reports"
+                    description={`Supply and inventory management analytics for ${dateRange.label}`}
+                    badgeText={dateRange.label}
+                    trailing={
+                        <div className="flex items-center gap-2">
+                            {renderExport()}
+                            <Button asChild>
+                                <Link href={route('hospital.reports.index')}>Back to Dashboard</Link>
+                            </Button>
+                        </div>
+                    }
+                />
 
                 {/* Statistics Cards */}
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-3">

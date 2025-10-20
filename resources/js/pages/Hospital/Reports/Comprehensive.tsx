@@ -296,7 +296,7 @@ export default function ComprehensiveHospitalReports({ user, summary, recentPati
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Comprehensive Hospital Reports - Saint James Hospital" />
 
-            <div className="space-y-6">
+            <div className="space-y-6 px-4 md:px-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
