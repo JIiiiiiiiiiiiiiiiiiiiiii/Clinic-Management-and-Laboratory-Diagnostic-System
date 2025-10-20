@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class Patient extends Model
 {
     use HasFactory;
-    
+
     protected $primaryKey = 'id';
 
     protected $fillable = [
@@ -100,6 +100,11 @@ class Patient extends Model
         return $this->belongsTo(User::class, 'user_id', 'id');
     }
 
+    public function transfers()
+    {
+        return $this->hasMany(PatientTransfer::class, 'patient_id', 'id');
+    }
+
     // Scopes
     public function scopeBySex($query, $sex)
     {
@@ -128,13 +133,13 @@ class Patient extends Model
                 $nextId = static::max('id') + 1;
                 $patient->patient_no = 'P' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
             }
-            
+
             // Ensure present_address is set - use address if present_address is empty
             if (empty($patient->present_address) && !empty($patient->address)) {
                 $patient->present_address = $patient->address;
             }
         });
-        
+
         static::updating(function ($patient) {
             // Ensure present_address is set - use address if present_address is empty
             if (empty($patient->present_address) && !empty($patient->address)) {

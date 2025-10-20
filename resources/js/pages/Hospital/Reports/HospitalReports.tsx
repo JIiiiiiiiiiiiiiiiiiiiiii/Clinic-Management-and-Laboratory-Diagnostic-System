@@ -9,7 +9,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { Activity, Calendar, ChevronDown, CreditCard, Download, FileText, Filter, TrendingUp, Users } from 'lucide-react';
+import {
+    Activity,
+    ArrowRightLeft,
+    Calendar,
+    ChevronDown,
+    DollarSign,
+    Download,
+    FileText,
+    Filter,
+    Hospital,
+    Stethoscope,
+    TrendingUp,
+    Users,
+} from 'lucide-react';
 import { useState } from 'react';
 import { route } from 'ziggy-js';
 
@@ -20,12 +33,17 @@ interface SummaryStats {
     total_revenue: number;
     completed_appointments: number;
     pending_appointments: number;
+    active_patients: number;
+    transferred_patients: number;
+    lab_orders: number;
+    inventory_items: number;
 }
 
 interface ChartData {
     patientTrends: Record<string, number>;
     appointmentTrends: Record<string, number>;
     revenueTrends: Record<string, number>;
+    transferTrends: Record<string, number>;
 }
 
 interface RecentActivity {
@@ -50,14 +68,14 @@ interface Props {
     dateRange: DateRange;
 }
 
-export default function HospitalReportsIndex({ user, summary, chartData, recentActivities, dateRange }: Props) {
+export default function HospitalReports({ user, summary, chartData, recentActivities, dateRange }: Props) {
     const [selectedPeriod, setSelectedPeriod] = useState(dateRange.period);
     const [customStartDate, setCustomStartDate] = useState('');
     const [customEndDate, setCustomEndDate] = useState('');
 
     const breadcrumbs: BreadcrumbItem[] = [
-        { label: 'Hospital Dashboard', href: route('hospital.dashboard') },
-        { label: 'Reports', href: route('hospital.reports.index') },
+        { title: 'Hospital Dashboard', href: route('hospital.dashboard') },
+        { title: 'Hospital Reports', href: route('hospital.reports.index') },
     ];
 
     const handlePeriodChange = (period: string) => {
@@ -85,70 +103,6 @@ export default function HospitalReportsIndex({ user, summary, chartData, recentA
                     replace: true,
                 },
             );
-        }
-    };
-
-    const exportReport = async (type: string) => {
-        try {
-            const params = new URLSearchParams({
-                period: selectedPeriod,
-                ...(customStartDate && customEndDate
-                    ? {
-                          start_date: customStartDate,
-                          end_date: customEndDate,
-                      }
-                    : {}),
-            });
-
-            // Use direct URL construction to avoid route helper issues
-            const exportUrl = `/hospital/reports/export/${type}?${params.toString()}`;
-            console.log('Export URL:', exportUrl);
-
-            // Use fetch with credentials to maintain authentication
-            const response = await fetch(exportUrl, {
-                method: 'GET',
-                credentials: 'same-origin', // This is crucial for maintaining authentication
-                headers: {
-                    Accept: 'text/csv,application/csv',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error(`Export failed: ${response.status} ${response.statusText}`);
-            }
-
-            // Check if we got HTML instead of CSV (authentication issue)
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('text/html')) {
-                throw new Error('Authentication failed - got HTML instead of CSV. Please refresh the page and try again.');
-            }
-
-            // Get the filename from the response headers
-            const contentDisposition = response.headers.get('Content-Disposition');
-            const filename = contentDisposition
-                ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-                : `${type}_report_${new Date().toISOString().split('T')[0]}.csv`;
-
-            // Create blob and download
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = filename;
-            link.style.display = 'none';
-
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            // Clean up the object URL
-            window.URL.revokeObjectURL(url);
-
-            console.log('Export completed successfully');
-        } catch (error) {
-            console.error('Export failed:', error);
-            alert('Export failed: ' + error.message);
         }
     };
 
@@ -194,7 +148,7 @@ export default function HospitalReportsIndex({ user, summary, chartData, recentA
             // Use fetch with credentials to maintain authentication
             const response = await fetch(exportUrl, {
                 method: 'GET',
-                credentials: 'same-origin',
+                credentials: 'same-origin', // This is crucial for maintaining authentication
                 headers: {
                     Accept: acceptHeader,
                     'X-Requested-With': 'XMLHttpRequest',
@@ -237,54 +191,6 @@ export default function HospitalReportsIndex({ user, summary, chartData, recentA
         }
     };
 
-    // Simple test export function
-    const testExport = async () => {
-        try {
-            const testUrl = '/hospital/reports/export/patients';
-            console.log('Test export URL:', testUrl);
-
-            // Use fetch with credentials to maintain authentication
-            const response = await fetch(testUrl, {
-                method: 'GET',
-                credentials: 'same-origin',
-                headers: {
-                    Accept: 'text/csv,application/csv',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error(`Test export failed: ${response.status} ${response.statusText}`);
-            }
-
-            // Check if we got HTML instead of CSV (authentication issue)
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('text/html')) {
-                throw new Error('Authentication failed - got HTML instead of CSV. Please refresh the page and try again.');
-            }
-
-            // Create blob and download
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'test_patients_export.csv';
-            link.style.display = 'none';
-
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            // Clean up the object URL
-            window.URL.revokeObjectURL(url);
-
-            console.log('Test export completed successfully');
-        } catch (error) {
-            console.error('Test export failed:', error);
-            alert('Test export failed: ' + error.message);
-        }
-    };
-
     // Export dropdown component
     const ExportDropdown = ({ type, label = 'Export' }: { type: string; label?: string }) => (
         <DropdownMenu>
@@ -314,18 +220,22 @@ export default function HospitalReportsIndex({ user, summary, chartData, recentA
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Hospital Reports Dashboard" />
+            <Head title="Hospital Reports - Saint James Hospital" />
 
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">Hospital Reports</h1>
-                        <p className="text-muted-foreground">Comprehensive analytics and reporting for St. James Hospital</p>
+                        <p className="text-muted-foreground">Comprehensive analytics and reporting for Saint James Hospital</p>
                     </div>
                     <div className="flex items-center gap-2">
                         <Badge variant="outline" className="text-sm">
                             {dateRange.label}
+                        </Badge>
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                            <Hospital className="mr-1 h-3 w-3" />
+                            Hospital Interface
                         </Badge>
                     </div>
                 </div>
@@ -385,7 +295,7 @@ export default function HospitalReportsIndex({ user, summary, chartData, recentA
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">{summary.total_patients.toLocaleString()}</div>
-                            <p className="text-xs text-muted-foreground">Registered in selected period</p>
+                            <p className="text-xs text-muted-foreground">{summary.active_patients} active patients</p>
                         </CardContent>
                     </Card>
 
@@ -404,17 +314,6 @@ export default function HospitalReportsIndex({ user, summary, chartData, recentA
 
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Transactions</CardTitle>
-                            <CreditCard className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{summary.total_transactions.toLocaleString()}</div>
-                            <p className="text-xs text-muted-foreground">Financial transactions processed</p>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
                             <TrendingUp className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
@@ -423,16 +322,28 @@ export default function HospitalReportsIndex({ user, summary, chartData, recentA
                             <p className="text-xs text-muted-foreground">Revenue generated in period</p>
                         </CardContent>
                     </Card>
+
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Patient Transfers</CardTitle>
+                            <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{summary.transferred_patients.toLocaleString()}</div>
+                            <p className="text-xs text-muted-foreground">Transferred to clinic</p>
+                        </CardContent>
+                    </Card>
                 </div>
 
                 {/* Report Types */}
                 <Tabs defaultValue="overview" className="space-y-4">
-                    <TabsList>
+                    <TabsList className="grid w-full grid-cols-6">
                         <TabsTrigger value="overview">Overview</TabsTrigger>
-                        <TabsTrigger value="patients">Patient Reports</TabsTrigger>
-                        <TabsTrigger value="appointments">Appointment Reports</TabsTrigger>
-                        <TabsTrigger value="transactions">Transaction Reports</TabsTrigger>
-                        <TabsTrigger value="inventory">Inventory Reports</TabsTrigger>
+                        <TabsTrigger value="patients">Patients</TabsTrigger>
+                        <TabsTrigger value="appointments">Appointments</TabsTrigger>
+                        <TabsTrigger value="transfers">Transfers</TabsTrigger>
+                        <TabsTrigger value="operations">Operations</TabsTrigger>
+                        <TabsTrigger value="financial">Financial</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="overview" className="space-y-4">
@@ -448,7 +359,7 @@ export default function HospitalReportsIndex({ user, summary, chartData, recentA
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-4">
-                                        {recentActivities.slice(0, 5).map((activity, index) => (
+                                        {recentActivities.slice(0, 8).map((activity, index) => (
                                             <div key={index} className="flex items-center space-x-3">
                                                 <div className="h-2 w-2 rounded-full bg-blue-500" />
                                                 <div className="flex-1">
@@ -484,29 +395,16 @@ export default function HospitalReportsIndex({ user, summary, chartData, recentA
                                             <ExportDropdown type="appointments" />
                                         </div>
 
-                                        {/* Transactions Export */}
+                                        {/* Transfers Export */}
                                         <div className="space-y-2">
-                                            <h4 className="text-sm font-medium">Transactions Report</h4>
+                                            <h4 className="text-sm font-medium">Transfers Report</h4>
+                                            <ExportDropdown type="transfers" />
+                                        </div>
+
+                                        {/* Financial Export */}
+                                        <div className="space-y-2">
+                                            <h4 className="text-sm font-medium">Financial Report</h4>
                                             <ExportDropdown type="transactions" />
-                                        </div>
-
-                                        {/* Inventory Export */}
-                                        <div className="space-y-2">
-                                            <h4 className="text-sm font-medium">Inventory Report</h4>
-                                            <ExportDropdown type="inventory" />
-                                        </div>
-
-                                        {/* Test Export */}
-                                        <div className="space-y-2">
-                                            <h4 className="text-sm font-medium">Test Export</h4>
-                                            <Button
-                                                variant="default"
-                                                onClick={testExport}
-                                                className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-                                            >
-                                                <Download className="h-4 w-4" />
-                                                Test CSV Export
-                                            </Button>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -517,7 +415,10 @@ export default function HospitalReportsIndex({ user, summary, chartData, recentA
                     <TabsContent value="patients">
                         <Card>
                             <CardHeader>
-                                <CardTitle>Patient Reports</CardTitle>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Users className="h-5 w-5" />
+                                    Patient Reports
+                                </CardTitle>
                                 <CardDescription>Comprehensive patient analytics and data</CardDescription>
                             </CardHeader>
                             <CardContent>
@@ -539,7 +440,10 @@ export default function HospitalReportsIndex({ user, summary, chartData, recentA
                     <TabsContent value="appointments">
                         <Card>
                             <CardHeader>
-                                <CardTitle>Appointment Reports</CardTitle>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Calendar className="h-5 w-5" />
+                                    Appointment Reports
+                                </CardTitle>
                                 <CardDescription>Appointment scheduling and management analytics</CardDescription>
                             </CardHeader>
                             <CardContent>
@@ -558,10 +462,61 @@ export default function HospitalReportsIndex({ user, summary, chartData, recentA
                         </Card>
                     </TabsContent>
 
-                    <TabsContent value="transactions">
+                    <TabsContent value="transfers">
                         <Card>
                             <CardHeader>
-                                <CardTitle>Transaction Reports</CardTitle>
+                                <CardTitle className="flex items-center gap-2">
+                                    <ArrowRightLeft className="h-5 w-5" />
+                                    Transfer Reports
+                                </CardTitle>
+                                <CardDescription>Patient transfer and referral analytics</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-sm text-muted-foreground">View patient transfer patterns between hospital and clinic</p>
+                                    <div className="flex gap-2">
+                                        <Button asChild>
+                                            <Link href={route('hospital.reports.transfers')}>View Transfer Reports</Link>
+                                        </Button>
+                                        <ExportDropdown type="transfers" label="Export" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="operations">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Stethoscope className="h-5 w-5" />
+                                    Operations Reports
+                                </CardTitle>
+                                <CardDescription>Hospital operations and clinical activities</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-sm text-muted-foreground">View laboratory orders, inventory, and operational metrics</p>
+                                    <div className="flex gap-2">
+                                        <Button asChild>
+                                            <Link href={route('hospital.reports.laboratory')}>View Lab Reports</Link>
+                                        </Button>
+                                        <Button asChild variant="outline">
+                                            <Link href={route('hospital.reports.inventory')}>View Inventory</Link>
+                                        </Button>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="financial">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <DollarSign className="h-5 w-5" />
+                                    Financial Reports
+                                </CardTitle>
                                 <CardDescription>Financial transactions and revenue analytics</CardDescription>
                             </CardHeader>
                             <CardContent>
@@ -569,29 +524,9 @@ export default function HospitalReportsIndex({ user, summary, chartData, recentA
                                     <p className="text-sm text-muted-foreground">View transaction history, payment methods, and revenue trends</p>
                                     <div className="flex gap-2">
                                         <Button asChild>
-                                            <Link href={route('hospital.reports.transactions')}>View Transaction Reports</Link>
+                                            <Link href={route('hospital.reports.billing')}>View Financial Reports</Link>
                                         </Button>
                                         <ExportDropdown type="transactions" label="Export" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-
-                    <TabsContent value="inventory">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Inventory Reports</CardTitle>
-                                <CardDescription>Supply and inventory management analytics</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm text-muted-foreground">View inventory levels, transaction history, and supply trends</p>
-                                    <div className="flex gap-2">
-                                        <Button asChild>
-                                            <Link href={route('hospital.reports.inventory')}>View Inventory Reports</Link>
-                                        </Button>
-                                        <ExportDropdown type="inventory" label="Export" />
                                     </div>
                                 </div>
                             </CardContent>

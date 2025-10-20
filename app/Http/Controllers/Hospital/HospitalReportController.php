@@ -21,6 +21,15 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\Hospital\PatientsExport;
+use App\Exports\Hospital\AppointmentsExport;
+use App\Exports\Hospital\TransfersExport;
+use App\Exports\Hospital\TransactionsExport;
+use App\Exports\Hospital\InventoryExport;
+use App\Exports\Hospital\LaboratoryExport;
+use App\Exports\Hospital\AllReportsExport;
 
 class HospitalReportController extends Controller
 {
@@ -63,14 +72,14 @@ class HospitalReportController extends Controller
     {
         $dateRange = $this->getDateRange($request);
         $filters = $request->only(['sex', 'age_group', 'civil_status', 'search']);
-        
+
         $query = Patient::whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
-        
+
         // Apply filters
         if (!empty($filters['sex'])) {
             $query->where('sex', $filters['sex']);
         }
-        
+
         if (!empty($filters['age_group'])) {
             switch ($filters['age_group']) {
                 case 'under_18':
@@ -90,11 +99,11 @@ class HospitalReportController extends Controller
                     break;
             }
         }
-        
+
         if (!empty($filters['civil_status'])) {
             $query->where('civil_status', $filters['civil_status']);
         }
-        
+
         if (!empty($filters['search'])) {
             $query->where(function($q) use ($filters) {
                 $q->where('full_name', 'like', '%' . $filters['search'] . '%')
@@ -102,10 +111,10 @@ class HospitalReportController extends Controller
                   ->orWhere('mobile_no', 'like', '%' . $filters['search'] . '%');
             });
         }
-        
+
         $patients = $query->orderBy('created_at', 'desc')->paginate(20);
         $stats = $this->getPatientStatistics($dateRange);
-        
+
         return Inertia::render('Hospital/Reports/PatientsSimple', [
             'user' => $request->user(),
             'patients' => $patients,
@@ -128,7 +137,7 @@ class HospitalReportController extends Controller
         // Determine if this is an admin route
         $isAdminRoute = $request->route()->getName() && str_starts_with($request->route()->getName(), 'admin.');
         $componentPath = $isAdminRoute ? 'admin/reports/AppointmentsSimple' : 'Hospital/Reports/AppointmentsSimple';
-        
+
         // Simple appointment reports with minimal data
         return Inertia::render($componentPath, [
             'user' => $request->user(),
@@ -156,29 +165,48 @@ class HospitalReportController extends Controller
      */
     public function transactions(Request $request): Response
     {
-        // Determine if this is an admin route
-        $isAdminRoute = $request->route()->getName() && str_starts_with($request->route()->getName(), 'admin.');
-        $componentPath = $isAdminRoute ? 'admin/reports/BillingSimple' : 'Hospital/Reports/TransactionsSimple';
-        
-        // Simple transaction reports with minimal data
-        return Inertia::render($componentPath, [
+        $dateRange = $this->getDateRange($request);
+
+        // Get transactions with pagination
+        $transactions = BillingTransaction::with(['patient'])
+            ->whereBetween('transaction_date', [$dateRange['start'], $dateRange['end']])
+            ->orderBy('transaction_date', 'desc')
+            ->paginate(20)
+            ->through(function($transaction) {
+                return [
+                    'id' => $transaction->id,
+                    'patient_name' => $transaction->patient ? $transaction->patient->first_name . ' ' . $transaction->patient->last_name : 'Unknown',
+                    'transaction_type' => $transaction->transaction_type ?? 'Payment',
+                    'amount' => $transaction->total_amount,
+                    'payment_type' => $transaction->payment_type ?? 'Cash',
+                    'status' => $transaction->status,
+                    'transaction_date' => $transaction->transaction_date,
+                    'created_by' => $transaction->createdBy?->name,
+                ];
+            });
+
+        // Get statistics
+        $stats = [
+            'total_transactions' => BillingTransaction::whereBetween('transaction_date', [$dateRange['start'], $dateRange['end']])->count(),
+            'total_revenue' => BillingTransaction::whereBetween('transaction_date', [$dateRange['start'], $dateRange['end']])
+                ->where('status', 'completed')->sum('total_amount'),
+            'pending_payments' => BillingTransaction::whereBetween('transaction_date', [$dateRange['start'], $dateRange['end']])
+                ->where('status', 'pending')->count(),
+            'completed_payments' => BillingTransaction::whereBetween('transaction_date', [$dateRange['start'], $dateRange['end']])
+                ->where('status', 'completed')->count(),
+        ];
+
+        return Inertia::render('Hospital/Reports/TransactionsSimple', [
             'user' => $request->user(),
-            'transactions' => [
-                'data' => [],
-                'links' => [],
-                'meta' => []
-            ],
-            'stats' => [
-                'total_transactions' => 0,
-                'total_revenue' => 0,
-                'pending_payments' => 0,
-                'completed_payments' => 0
-            ],
+            'transactions' => $transactions,
+            'stats' => $stats,
             'dateRange' => [
-                'start' => now()->startOfMonth()->toDateString(),
-                'end' => now()->endOfMonth()->toDateString()
+                'start' => $dateRange['start']->toDateString(),
+                'end' => $dateRange['end']->toDateString(),
+                'period' => $dateRange['period'],
+                'label' => $dateRange['label']
             ],
-            'filters' => []
+            'filters' => $request->only(['status', 'payment_type'])
         ]);
     }
 
@@ -187,8 +215,50 @@ class HospitalReportController extends Controller
      */
     public function inventory(Request $request): Response
     {
-        // Redirect to the new inventory reports page
-        return redirect()->route('admin.inventory.reports');
+        $dateRange = $this->getDateRange($request);
+
+        // Get inventory statistics
+        $stats = [
+            'total_items' => Inventory::count(),
+            'low_stock_items' => DB::table('supply_stock_levels')
+                ->where('current_stock', '<=', 10)
+                ->count(),
+            'out_of_stock_items' => DB::table('supply_stock_levels')
+                ->where('current_stock', 0)
+                ->count(),
+            'total_value' => DB::table('supply_stock_levels')
+                ->sum('total_value'),
+        ];
+
+        // Get inventory transactions
+        $transactions = InventoryTransaction::with(['supply'])
+            ->whereBetween('transaction_date', [$dateRange['start'], $dateRange['end']])
+            ->orderBy('transaction_date', 'desc')
+            ->paginate(20)
+            ->through(function($transaction) {
+                return [
+                    'id' => $transaction->id,
+                    'supply_name' => $transaction->supply?->name || 'Unknown',
+                    'type' => $transaction->type,
+                    'quantity' => $transaction->quantity,
+                    'unit_cost' => $transaction->unit_cost,
+                    'total_cost' => $transaction->total_cost,
+                    'transaction_date' => $transaction->transaction_date,
+                ];
+            });
+
+        return Inertia::render('Hospital/Reports/InventorySimple', [
+            'user' => $request->user(),
+            'stats' => $stats,
+            'transactions' => $transactions,
+            'dateRange' => [
+                'start' => $dateRange['start']->toDateString(),
+                'end' => $dateRange['end']->toDateString(),
+                'period' => $dateRange['period'],
+                'label' => $dateRange['label']
+            ],
+            'filters' => $request->only(['type', 'supply_id'])
+        ]);
     }
 
     /**
@@ -196,25 +266,47 @@ class HospitalReportController extends Controller
      */
     public function transfers(Request $request): Response
     {
-        // Simple transfer reports with minimal data
+        $dateRange = $this->getDateRange($request);
+
+        // Get transfers with pagination
+        $transfers = PatientTransfer::with(['patient', 'transferredBy'])
+            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+            ->orderBy('created_at', 'desc')
+            ->paginate(20)
+            ->through(function($transfer) {
+                return [
+                    'id' => $transfer->id,
+                    'patient_name' => $transfer->patient ? $transfer->patient->first_name . ' ' . $transfer->patient->last_name : 'Unknown',
+                    'transfer_reason' => $transfer->transfer_reason,
+                    'priority' => $transfer->priority,
+                    'status' => $transfer->status,
+                    'created_at' => $transfer->created_at,
+                    'transferred_by' => $transfer->transferredBy ? $transfer->transferredBy->name : 'Unknown',
+                ];
+            });
+
+        // Get statistics
+        $stats = [
+            'total_transfers' => PatientTransfer::whereBetween('created_at', [$dateRange['start'], $dateRange['end']])->count(),
+            'completed_transfers' => PatientTransfer::whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+                ->where('status', 'completed')->count(),
+            'pending_transfers' => PatientTransfer::whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+                ->where('status', 'pending')->count(),
+            'cancelled_transfers' => PatientTransfer::whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+                ->where('status', 'cancelled')->count(),
+        ];
+
         return Inertia::render('Hospital/Reports/TransfersSimple', [
             'user' => $request->user(),
-            'transfers' => [
-                'data' => [],
-                'links' => [],
-                'meta' => []
-            ],
-            'stats' => [
-                'total_transfers' => 0,
-                'completed_transfers' => 0,
-                'pending_transfers' => 0,
-                'cancelled_transfers' => 0
-            ],
+            'transfers' => $transfers,
+            'stats' => $stats,
             'dateRange' => [
-                'start' => now()->startOfMonth()->toDateString(),
-                'end' => now()->endOfMonth()->toDateString()
+                'start' => $dateRange['start']->toDateString(),
+                'end' => $dateRange['end']->toDateString(),
+                'period' => $dateRange['period'],
+                'label' => $dateRange['label']
             ],
-            'filters' => []
+            'filters' => $request->only(['status', 'priority'])
         ]);
     }
 
@@ -225,20 +317,20 @@ class HospitalReportController extends Controller
     {
         $dateRange = $this->getDateRange($request);
         $filters = $request->only(['test_type', 'status', 'search']);
-        
+
         $query = LabOrder::whereBetween('lab_orders.created_at', [$dateRange['start'], $dateRange['end']]);
-        
+
         // Apply filters
         if (!empty($filters['test_type'])) {
             $query->whereHas('labTests', function($q) use ($filters) {
                 $q->where('name', 'like', '%' . $filters['test_type'] . '%');
             });
         }
-        
+
         if (!empty($filters['status'])) {
             $query->where('lab_orders.status', $filters['status']);
         }
-        
+
         if (!empty($filters['search'])) {
             $query->where(function($q) use ($filters) {
                 $q->where('lab_orders.id', 'like', '%' . $filters['search'] . '%')
@@ -247,14 +339,14 @@ class HospitalReportController extends Controller
                   });
             });
         }
-        
+
         $labOrders = $query->with(['patient', 'labTests', 'results'])->orderBy('created_at', 'desc')->paginate(20);
         $stats = $this->getLaboratoryStatistics($dateRange);
-        
+
         // Determine if this is an admin route
         $isAdminRoute = $request->route()->getName() && str_starts_with($request->route()->getName(), 'admin.');
         $componentPath = $isAdminRoute ? 'admin/reports/LaboratorySimple' : 'Hospital/Reports/LaboratorySimple';
-        
+
         return Inertia::render($componentPath, [
             'user' => $request->user(),
             'labOrders' => $labOrders,
@@ -276,18 +368,18 @@ class HospitalReportController extends Controller
     {
         $dateRange = $this->getDateRange($request);
         $filters = $request->only(['specialist_type', 'status', 'search']);
-        
+
         $query = PatientReferral::whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
-        
+
         // Apply filters
         if (!empty($filters['specialist_type'])) {
             $query->where('specialist_type', $filters['specialist_type']);
         }
-        
+
         if (!empty($filters['status'])) {
             $query->where('lab_orders.status', $filters['status']);
         }
-        
+
         if (!empty($filters['search'])) {
             $query->where(function($q) use ($filters) {
                 $q->where('referral_reason', 'like', '%' . $filters['search'] . '%')
@@ -296,14 +388,14 @@ class HospitalReportController extends Controller
                   });
             });
         }
-        
+
         $referrals = $query->with(['patient', 'referredBy', 'approvedBy'])->orderBy('created_at', 'desc')->paginate(20);
         $stats = $this->getSpecialistManagementStatistics($dateRange);
-        
+
         // Determine if this is an admin route
         $isAdminRoute = $request->route()->getName() && str_starts_with($request->route()->getName(), 'admin.');
         $componentPath = $isAdminRoute ? 'admin/reports/SpecialistManagementSimple' : 'Hospital/Reports/SpecialistManagementSimple';
-        
+
         return Inertia::render($componentPath, [
             'user' => $request->user(),
             'referrals' => $referrals,
@@ -325,7 +417,7 @@ class HospitalReportController extends Controller
     {
         $dateRange = $this->getDateRange($request);
         $stats = $this->getClinicOperationsStatistics($dateRange);
-        
+
         return Inertia::render('Hospital/Reports/ClinicOperationsSimple', [
             'user' => $request->user(),
             'stats' => $stats,
@@ -343,28 +435,45 @@ class HospitalReportController extends Controller
      */
     public function export(Request $request, string $type)
     {
+        // Debug logging
+        \Log::info('Hospital export requested', [
+            'type' => $type,
+            'user_id' => auth()->id(),
+            'request_params' => $request->all()
+        ]);
+
         $dateRange = $this->getDateRange($request);
-        
-        switch ($type) {
-            case 'all':
-                return $this->exportAll($dateRange);
-            case 'patients':
-                return $this->exportPatients($dateRange);
-            case 'laboratory':
-                return $this->exportLaboratory($dateRange);
-            case 'inventory':
-                return $this->exportInventory($dateRange);
-            case 'appointments':
-                return $this->exportAppointments($dateRange);
-            case 'specialist_management':
-                return $this->exportSpecialistManagement($dateRange);
-            case 'billing':
-            case 'transactions':
-                return $this->exportTransactions($dateRange);
-            case 'transfers':
-                return $this->exportTransfers($dateRange);
-            default:
-                return response()->json(['message' => 'Invalid export type'], 400);
+
+        try {
+            switch ($type) {
+                case 'all':
+                    return $this->exportAll($dateRange);
+                case 'patients':
+                    return $this->exportPatients($dateRange);
+                case 'laboratory':
+                    return $this->exportLaboratory($dateRange);
+                case 'inventory':
+                    return $this->exportInventory($dateRange);
+                case 'appointments':
+                    return $this->exportAppointments($dateRange);
+                case 'specialist_management':
+                    return $this->exportSpecialistManagement($dateRange);
+                case 'billing':
+                case 'transactions':
+                    return $this->exportTransactions($dateRange);
+                case 'transfers':
+                    return $this->exportTransfers($dateRange);
+                default:
+                    \Log::error('Invalid export type requested', ['type' => $type]);
+                    return response()->json(['message' => 'Invalid export type'], 400);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Export failed', [
+                'type' => $type,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['message' => 'Export failed: ' . $e->getMessage()], 500);
         }
     }
 
@@ -376,7 +485,7 @@ class HospitalReportController extends Controller
         $period = $request->get('period', 'monthly');
         $start = $request->get('start_date');
         $end = $request->get('end_date');
-        
+
         if ($start && $end) {
             return [
                 'start' => Carbon::parse($start)->startOfDay(),
@@ -385,9 +494,9 @@ class HospitalReportController extends Controller
                 'label' => 'Custom Range'
             ];
         }
-        
+
         $now = Carbon::now();
-        
+
         switch ($period) {
             case 'daily':
                 return [
@@ -459,7 +568,7 @@ class HospitalReportController extends Controller
     private function getPatientStatistics(array $dateRange): array
     {
         $patients = Patient::whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
-        
+
         return [
             'total' => $patients->count(),
             'by_sex' => $patients->select('sex', DB::raw('count(*) as count'))
@@ -467,7 +576,7 @@ class HospitalReportController extends Controller
                 ->get()
                 ->pluck('count', 'sex'),
             'by_age_group' => $patients->selectRaw('
-                CASE 
+                CASE
                     WHEN age < 18 THEN "Under 18"
                     WHEN age BETWEEN 18 AND 30 THEN "18-30"
                     WHEN age BETWEEN 31 AND 50 THEN "31-50"
@@ -485,7 +594,7 @@ class HospitalReportController extends Controller
     private function getAppointmentStatistics(array $dateRange): array
     {
         $appointments = Appointment::whereBetween('appointment_date', [$dateRange['start'], $dateRange['end']]);
-        
+
         return [
             'total' => $appointments->count(),
             'by_status' => $appointments->select('status', DB::raw('count(*) as count'))
@@ -506,7 +615,7 @@ class HospitalReportController extends Controller
     private function getTransactionStatistics(array $dateRange): array
     {
         $transactions = BillingTransaction::whereBetween('transaction_date', [$dateRange['start'], $dateRange['end']]);
-        
+
         return [
             'total' => $transactions->count(),
             'total_amount' => $transactions->sum('total_amount'),
@@ -527,7 +636,7 @@ class HospitalReportController extends Controller
     private function getInventoryStatistics(array $dateRange): array
     {
         $transactions = InventoryTransaction::whereBetween('transaction_date', [$dateRange['start'], $dateRange['end']]);
-        
+
         return [
             'total_transactions' => $transactions->count(),
             'by_type' => $transactions->select('type', DB::raw('count(*) as count'))
@@ -543,24 +652,37 @@ class HospitalReportController extends Controller
      */
     private function exportPatients(array $dateRange)
     {
+        \Log::info('Starting exportPatients', [
+            'dateRange' => $dateRange,
+            'start' => $dateRange['start']->format('Y-m-d H:i:s'),
+            'end' => $dateRange['end']->format('Y-m-d H:i:s')
+        ]);
+
         $patients = Patient::whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->orderBy('created_at', 'desc')
             ->get();
 
+        \Log::info('Patients found for export', [
+            'count' => $patients->count(),
+            'patients' => $patients->pluck('patient_no', 'id')->toArray()
+        ]);
+
         $filename = 'patients_report_' . now()->format('Y_m_d_H_i_s') . '.csv';
-        
+
         $headers = [
             'Content-Type' => 'text/csv',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ];
 
         $callback = function() use ($patients) {
+            \Log::info('CSV callback started', ['patient_count' => $patients->count()]);
+
             $file = fopen('php://output', 'w');
-            
+
             // CSV headers
             fputcsv($file, [
-                'Patient No', 'Full Name', 'Birthdate', 'Age', 'Sex', 
-                'Mobile No', 'Address', 'Occupation', 'Civil Status', 
+                'Patient No', 'Full Name', 'Birthdate', 'Age', 'Sex',
+                'Mobile No', 'Address', 'Occupation', 'Civil Status',
                 'Registration Date'
             ]);
 
@@ -580,8 +702,10 @@ class HospitalReportController extends Controller
             }
 
             fclose($file);
+            \Log::info('CSV callback completed');
         };
 
+        \Log::info('Returning stream response', ['filename' => $filename]);
         return response()->stream($callback, 200, $headers);
     }
 
@@ -595,7 +719,7 @@ class HospitalReportController extends Controller
             ->get();
 
         $filename = 'appointments_report_' . now()->format('Y_m_d_H_i_s') . '.csv';
-        
+
         $headers = [
             'Content-Type' => 'text/csv',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
@@ -603,11 +727,11 @@ class HospitalReportController extends Controller
 
         $callback = function() use ($appointments) {
             $file = fopen('php://output', 'w');
-            
+
             // CSV headers
             fputcsv($file, [
-                'Patient Name', 'Appointment Date', 'Appointment Time', 
-                'Specialist Name', 'Specialist Type', 'Appointment Type', 
+                'Patient Name', 'Appointment Date', 'Appointment Time',
+                'Specialist Name', 'Specialist Type', 'Appointment Type',
                 'Status', 'Price'
             ]);
 
@@ -641,7 +765,7 @@ class HospitalReportController extends Controller
             ->get();
 
         $filename = 'transactions_report_' . now()->format('Y_m_d_H_i_s') . '.csv';
-        
+
         $headers = [
             'Content-Type' => 'text/csv',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
@@ -649,10 +773,10 @@ class HospitalReportController extends Controller
 
         $callback = function() use ($transactions) {
             $file = fopen('php://output', 'w');
-            
+
             // CSV headers
             fputcsv($file, [
-                'Transaction ID', 'Patient Name', 'Doctor Name', 
+                'Transaction ID', 'Patient Name', 'Doctor Name',
                 'Payment Type', 'Total Amount', 'Status', 'Transaction Date'
             ]);
 
@@ -685,7 +809,7 @@ class HospitalReportController extends Controller
             ->get();
 
         $filename = 'inventory_report_' . now()->format('Y_m_d_H_i_s') . '.csv';
-        
+
         $headers = [
             'Content-Type' => 'text/csv',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
@@ -693,10 +817,10 @@ class HospitalReportController extends Controller
 
         $callback = function() use ($transactions) {
             $file = fopen('php://output', 'w');
-            
+
             // CSV headers
             fputcsv($file, [
-                'Product Name', 'Transaction Type', 'Quantity', 
+                'Product Name', 'Transaction Type', 'Quantity',
                 'Unit Cost', 'Total Cost', 'Transaction Date', 'User'
             ]);
 
@@ -821,7 +945,7 @@ class HospitalReportController extends Controller
     private function getTransferStatistics(array $dateRange): array
     {
         $transfers = PatientTransfer::whereBetween('transfer_date', [$dateRange['start'], $dateRange['end']]);
-        
+
         return [
             'total' => $transfers->count(),
             'by_status' => $transfers->select('status', DB::raw('count(*) as count'))
@@ -829,7 +953,7 @@ class HospitalReportController extends Controller
                 ->get()
                 ->pluck('count', 'status'),
             'by_direction' => $transfers->selectRaw('
-                CASE 
+                CASE
                     WHEN from_clinic_id IS NULL THEN "To Clinic"
                     WHEN to_clinic_id IS NULL THEN "From Clinic"
                     ELSE "Between Clinics"
@@ -845,7 +969,7 @@ class HospitalReportController extends Controller
     private function getLaboratoryStatistics(array $dateRange): array
     {
         $labOrders = LabOrder::whereBetween('lab_orders.created_at', [$dateRange['start'], $dateRange['end']]);
-        
+
         return [
             'total_orders' => $labOrders->count(),
             'completed_orders' => $labOrders->where('lab_orders.status', 'completed')->count(),
@@ -867,7 +991,7 @@ class HospitalReportController extends Controller
     private function getSpecialistManagementStatistics(array $dateRange): array
     {
         $referrals = PatientReferral::whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
-        
+
         return [
             'total_referrals' => $referrals->count(),
             'approved_referrals' => $referrals->where('status', 'approved')->count(),
@@ -916,7 +1040,7 @@ class HospitalReportController extends Controller
             ->get();
 
         $filename = 'laboratory_report_' . now()->format('Y_m_d_H_i_s') . '.csv';
-        
+
         $headers = [
             'Content-Type' => 'text/csv',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
@@ -924,17 +1048,17 @@ class HospitalReportController extends Controller
 
         $callback = function() use ($labOrders) {
             $file = fopen('php://output', 'w');
-            
+
             // CSV headers
             fputcsv($file, [
-                'Order Number', 'Patient Name', 'Patient No', 'Test Name', 
+                'Order Number', 'Patient Name', 'Patient No', 'Test Name',
                 'Test Type', 'Status', 'Created Date', 'Completed Date', 'Results'
             ]);
 
             foreach ($labOrders as $order) {
-                $results = $order->labResults ? 
+                $results = $order->labResults ?
                     $order->labResults->pluck('result_value')->join(', ') : 'N/A';
-                    
+
                 fputcsv($file, [
                     $order->order_number,
                     $order->patient?->full_name ?? 'N/A',
@@ -965,7 +1089,7 @@ class HospitalReportController extends Controller
             ->get();
 
         $filename = 'specialist_management_report_' . now()->format('Y_m_d_H_i_s') . '.csv';
-        
+
         $headers = [
             'Content-Type' => 'text/csv',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
@@ -973,11 +1097,11 @@ class HospitalReportController extends Controller
 
         $callback = function() use ($referrals) {
             $file = fopen('php://output', 'w');
-            
+
             // CSV headers
             fputcsv($file, [
-                'Patient Name', 'Patient No', 'Specialist Type', 'Priority', 
-                'Status', 'Referral Reason', 'Referred By', 'Approved By', 
+                'Patient Name', 'Patient No', 'Specialist Type', 'Priority',
+                'Status', 'Referral Reason', 'Referred By', 'Approved By',
                 'Created Date', 'Approved Date'
             ]);
 
@@ -1013,7 +1137,7 @@ class HospitalReportController extends Controller
             ->get();
 
         $filename = 'transfers_report_' . now()->format('Y_m_d_H_i_s') . '.csv';
-        
+
         $headers = [
             'Content-Type' => 'text/csv',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
@@ -1021,10 +1145,10 @@ class HospitalReportController extends Controller
 
         $callback = function() use ($transfers) {
             $file = fopen('php://output', 'w');
-            
+
             // CSV headers
             fputcsv($file, [
-                'Patient Name', 'From Clinic', 'To Clinic', 'Transfer Date', 
+                'Patient Name', 'From Clinic', 'To Clinic', 'Transfer Date',
                 'Status', 'Reason', 'Notes'
             ]);
 
@@ -1052,7 +1176,7 @@ class HospitalReportController extends Controller
     private function exportAll(array $dateRange)
     {
         $filename = 'comprehensive_report_' . now()->format('Y_m_d_H_i_s') . '.csv';
-        
+
         $headers = [
             'Content-Type' => 'text/csv',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
@@ -1060,20 +1184,20 @@ class HospitalReportController extends Controller
 
         $callback = function() use ($dateRange) {
             $file = fopen('php://output', 'w');
-            
+
             // Get all data
             $patients = Patient::whereBetween('created_at', [$dateRange['start'], $dateRange['end']])->get();
             $appointments = Appointment::whereBetween('appointment_date', [$dateRange['start'], $dateRange['end']])->get();
             $transactions = BillingTransaction::whereBetween('transaction_date', [$dateRange['start'], $dateRange['end']])->get();
             $labOrders = LabOrder::whereBetween('created_at', [$dateRange['start'], $dateRange['end']])->get();
             $transfers = PatientTransfer::whereBetween('transfer_date', [$dateRange['start'], $dateRange['end']])->get();
-            
+
             // Write comprehensive report
             fputcsv($file, ['COMPREHENSIVE HOSPITAL REPORT']);
             fputcsv($file, ['Generated on: ' . now()->format('Y-m-d H:i:s')]);
             fputcsv($file, ['Date Range: ' . $dateRange['start']->format('Y-m-d') . ' to ' . $dateRange['end']->format('Y-m-d')]);
             fputcsv($file, []);
-            
+
             // Summary
             fputcsv($file, ['SUMMARY']);
             fputcsv($file, ['Total Patients', $patients->count()]);
@@ -1082,7 +1206,7 @@ class HospitalReportController extends Controller
             fputcsv($file, ['Total Lab Orders', $labOrders->count()]);
             fputcsv($file, ['Total Transfers', $transfers->count()]);
             fputcsv($file, []);
-            
+
             // Patients data
             fputcsv($file, ['PATIENTS DATA']);
             fputcsv($file, ['Patient ID', 'Name', 'Age', 'Sex', 'Phone', 'Created Date']);
@@ -1092,12 +1216,12 @@ class HospitalReportController extends Controller
                     $patient->first_name . ' ' . $patient->last_name,
                     $patient->age,
                     $patient->sex,
-                    $patient->phone,
+                    $patient->mobile_no,
                     $patient->created_at->format('Y-m-d H:i:s')
                 ]);
             }
             fputcsv($file, []);
-            
+
             // Appointments data
             fputcsv($file, ['APPOINTMENTS DATA']);
             fputcsv($file, ['Appointment ID', 'Patient Name', 'Specialist', 'Date', 'Status']);
@@ -1111,7 +1235,7 @@ class HospitalReportController extends Controller
                 ]);
             }
             fputcsv($file, []);
-            
+
             // Transactions data
             fputcsv($file, ['TRANSACTIONS DATA']);
             fputcsv($file, ['Transaction ID', 'Patient', 'Amount', 'Payment Method', 'Status', 'Date']);
@@ -1126,7 +1250,7 @@ class HospitalReportController extends Controller
                 ]);
             }
             fputcsv($file, []);
-            
+
             // Lab orders data
             fputcsv($file, ['LAB ORDERS DATA']);
             fputcsv($file, ['Order ID', 'Patient', 'Status', 'Created Date']);
@@ -1139,7 +1263,7 @@ class HospitalReportController extends Controller
                 ]);
             }
             fputcsv($file, []);
-            
+
             // Transfers data
             fputcsv($file, ['TRANSFERS DATA']);
             fputcsv($file, ['Transfer ID', 'Patient', 'From', 'To', 'Date', 'Status']);
@@ -1158,5 +1282,149 @@ class HospitalReportController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Export report as PDF
+     */
+    public function exportPdf(Request $request, string $type)
+    {
+        \Log::info('Hospital PDF export requested', [
+            'type' => $type,
+            'user_id' => auth()->id(),
+            'request_params' => $request->all()
+        ]);
+
+        $dateRange = $this->getDateRange($request);
+
+        try {
+            $data = $this->getReportData($type, $dateRange);
+            $filename = $this->getFilename($type, 'pdf');
+
+            $pdf = Pdf::loadView('hospital.reports.pdf.' . $type, [
+                'data' => $data,
+                'dateRange' => $dateRange,
+                'title' => $this->getReportTitle($type)
+            ]);
+
+            return $pdf->download($filename);
+        } catch (\Exception $e) {
+            \Log::error('PDF export failed', [
+                'type' => $type,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['message' => 'PDF export failed: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Export report as Excel/Spreadsheet
+     */
+    public function exportExcel(Request $request, string $type)
+    {
+        \Log::info('Hospital Excel export requested', [
+            'type' => $type,
+            'user_id' => auth()->id(),
+            'request_params' => $request->all()
+        ]);
+
+        $dateRange = $this->getDateRange($request);
+
+        try {
+            $filename = $this->getFilename($type, 'xlsx');
+
+            switch ($type) {
+                case 'all':
+                    return Excel::download(new AllReportsExport($dateRange), $filename);
+                case 'patients':
+                    return Excel::download(new PatientsExport($dateRange), $filename);
+                case 'appointments':
+                    return Excel::download(new AppointmentsExport($dateRange), $filename);
+                case 'transfers':
+                    return Excel::download(new TransfersExport($dateRange), $filename);
+                case 'transactions':
+                case 'billing':
+                    return Excel::download(new TransactionsExport($dateRange), $filename);
+                case 'inventory':
+                    return Excel::download(new InventoryExport($dateRange), $filename);
+                case 'laboratory':
+                    return Excel::download(new LaboratoryExport($dateRange), $filename);
+                default:
+                    \Log::error('Invalid Excel export type requested', ['type' => $type]);
+                    return response()->json(['message' => 'Invalid export type'], 400);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Excel export failed', [
+                'type' => $type,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['message' => 'Excel export failed: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get report data for PDF generation
+     */
+    private function getReportData(string $type, array $dateRange)
+    {
+        switch ($type) {
+            case 'patients':
+                return Patient::with(['appointments', 'transfers'])
+                    ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+                    ->get();
+            case 'appointments':
+                return Appointment::with(['patient', 'doctor'])
+                    ->whereBetween('appointment_date', [$dateRange['start'], $dateRange['end']])
+                    ->get();
+            case 'transfers':
+                return PatientTransfer::with(['patient', 'fromClinic', 'toClinic'])
+                    ->whereBetween('transfer_date', [$dateRange['start'], $dateRange['end']])
+                    ->get();
+            case 'transactions':
+            case 'billing':
+                return BillingTransaction::with(['patient', 'appointment'])
+                    ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+                    ->get();
+            case 'inventory':
+                return Inventory::with(['transactions'])
+                    ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+                    ->get();
+            case 'laboratory':
+                return LabOrder::with(['patient', 'labResults'])
+                    ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+                    ->get();
+            default:
+                return [];
+        }
+    }
+
+    /**
+     * Get filename for export
+     */
+    private function getFilename(string $type, string $extension): string
+    {
+        $timestamp = now()->format('Y_m_d_H_i_s');
+        return "{$type}_report_{$timestamp}.{$extension}";
+    }
+
+    /**
+     * Get report title
+     */
+    private function getReportTitle(string $type): string
+    {
+        $titles = [
+            'patients' => 'Patient Report',
+            'appointments' => 'Appointment Report',
+            'transfers' => 'Transfer Report',
+            'transactions' => 'Transaction Report',
+            'billing' => 'Billing Report',
+            'inventory' => 'Inventory Report',
+            'laboratory' => 'Laboratory Report',
+            'all' => 'Comprehensive Report'
+        ];
+
+        return $titles[$type] ?? ucfirst($type) . ' Report';
     }
 }
