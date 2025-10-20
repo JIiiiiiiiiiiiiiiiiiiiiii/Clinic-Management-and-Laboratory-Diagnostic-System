@@ -21,6 +21,15 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\Hospital\PatientsExport;
+use App\Exports\Hospital\AppointmentsExport;
+use App\Exports\Hospital\TransfersExport;
+use App\Exports\Hospital\TransactionsExport;
+use App\Exports\Hospital\InventoryExport;
+use App\Exports\Hospital\LaboratoryExport;
+use App\Exports\Hospital\AllReportsExport;
 
 class HospitalReportController extends Controller
 {
@@ -1273,5 +1282,149 @@ class HospitalReportController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Export report as PDF
+     */
+    public function exportPdf(Request $request, string $type)
+    {
+        \Log::info('Hospital PDF export requested', [
+            'type' => $type,
+            'user_id' => auth()->id(),
+            'request_params' => $request->all()
+        ]);
+
+        $dateRange = $this->getDateRange($request);
+
+        try {
+            $data = $this->getReportData($type, $dateRange);
+            $filename = $this->getFilename($type, 'pdf');
+
+            $pdf = Pdf::loadView('hospital.reports.pdf.' . $type, [
+                'data' => $data,
+                'dateRange' => $dateRange,
+                'title' => $this->getReportTitle($type)
+            ]);
+
+            return $pdf->download($filename);
+        } catch (\Exception $e) {
+            \Log::error('PDF export failed', [
+                'type' => $type,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['message' => 'PDF export failed: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Export report as Excel/Spreadsheet
+     */
+    public function exportExcel(Request $request, string $type)
+    {
+        \Log::info('Hospital Excel export requested', [
+            'type' => $type,
+            'user_id' => auth()->id(),
+            'request_params' => $request->all()
+        ]);
+
+        $dateRange = $this->getDateRange($request);
+
+        try {
+            $filename = $this->getFilename($type, 'xlsx');
+
+            switch ($type) {
+                case 'all':
+                    return Excel::download(new AllReportsExport($dateRange), $filename);
+                case 'patients':
+                    return Excel::download(new PatientsExport($dateRange), $filename);
+                case 'appointments':
+                    return Excel::download(new AppointmentsExport($dateRange), $filename);
+                case 'transfers':
+                    return Excel::download(new TransfersExport($dateRange), $filename);
+                case 'transactions':
+                case 'billing':
+                    return Excel::download(new TransactionsExport($dateRange), $filename);
+                case 'inventory':
+                    return Excel::download(new InventoryExport($dateRange), $filename);
+                case 'laboratory':
+                    return Excel::download(new LaboratoryExport($dateRange), $filename);
+                default:
+                    \Log::error('Invalid Excel export type requested', ['type' => $type]);
+                    return response()->json(['message' => 'Invalid export type'], 400);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Excel export failed', [
+                'type' => $type,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['message' => 'Excel export failed: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get report data for PDF generation
+     */
+    private function getReportData(string $type, array $dateRange)
+    {
+        switch ($type) {
+            case 'patients':
+                return Patient::with(['appointments', 'transfers'])
+                    ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+                    ->get();
+            case 'appointments':
+                return Appointment::with(['patient', 'doctor'])
+                    ->whereBetween('appointment_date', [$dateRange['start'], $dateRange['end']])
+                    ->get();
+            case 'transfers':
+                return PatientTransfer::with(['patient', 'fromClinic', 'toClinic'])
+                    ->whereBetween('transfer_date', [$dateRange['start'], $dateRange['end']])
+                    ->get();
+            case 'transactions':
+            case 'billing':
+                return BillingTransaction::with(['patient', 'appointment'])
+                    ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+                    ->get();
+            case 'inventory':
+                return Inventory::with(['transactions'])
+                    ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+                    ->get();
+            case 'laboratory':
+                return LabOrder::with(['patient', 'labResults'])
+                    ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+                    ->get();
+            default:
+                return [];
+        }
+    }
+
+    /**
+     * Get filename for export
+     */
+    private function getFilename(string $type, string $extension): string
+    {
+        $timestamp = now()->format('Y_m_d_H_i_s');
+        return "{$type}_report_{$timestamp}.{$extension}";
+    }
+
+    /**
+     * Get report title
+     */
+    private function getReportTitle(string $type): string
+    {
+        $titles = [
+            'patients' => 'Patient Report',
+            'appointments' => 'Appointment Report',
+            'transfers' => 'Transfer Report',
+            'transactions' => 'Transaction Report',
+            'billing' => 'Billing Report',
+            'inventory' => 'Inventory Report',
+            'laboratory' => 'Laboratory Report',
+            'all' => 'Comprehensive Report'
+        ];
+
+        return $titles[$type] ?? ucfirst($type) . ' Report';
     }
 }

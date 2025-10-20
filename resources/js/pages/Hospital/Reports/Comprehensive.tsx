@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,10 +14,12 @@ import {
     ArrowRightLeft,
     Calendar,
     CheckCircle,
+    ChevronDown,
     Clock,
     CreditCard,
     DollarSign,
     Download,
+    FileText,
     Filter,
     Hospital,
     Package,
@@ -134,24 +137,89 @@ export default function ComprehensiveHospitalReports({ user, summary, recentPati
         }
     };
 
-    const exportReport = (type: string) => {
-        const params = new URLSearchParams({
-            period: selectedPeriod,
-            ...(customStartDate && customEndDate
-                ? {
-                      start_date: customStartDate,
-                      end_date: customEndDate,
-                  }
-                : {}),
-        });
+    // Export function with format selection
+    const exportReportWithFormat = async (type: string, format: 'csv' | 'pdf' | 'excel') => {
+        try {
+            const params = new URLSearchParams({
+                period: selectedPeriod,
+                ...(customStartDate && customEndDate
+                    ? {
+                          start_date: customStartDate,
+                          end_date: customEndDate,
+                      }
+                    : {}),
+            });
 
-        // Create a temporary link element to trigger download
-        const link = document.createElement('a');
-        link.href = route('hospital.reports.export', type) + '?' + params.toString();
-        link.download = `${type}_report_${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+            let exportUrl: string;
+            let filename: string;
+            let acceptHeader: string;
+
+            switch (format) {
+                case 'csv':
+                    exportUrl = `/hospital/reports/export/${type}?${params.toString()}`;
+                    filename = `${type}_report_${new Date().toISOString().split('T')[0]}.csv`;
+                    acceptHeader = 'text/csv,application/csv';
+                    break;
+                case 'pdf':
+                    exportUrl = `/hospital/reports/export-pdf/${type}?${params.toString()}`;
+                    filename = `${type}_report_${new Date().toISOString().split('T')[0]}.pdf`;
+                    acceptHeader = 'application/pdf';
+                    break;
+                case 'excel':
+                    exportUrl = `/hospital/reports/export-excel/${type}?${params.toString()}`;
+                    filename = `${type}_report_${new Date().toISOString().split('T')[0]}.xlsx`;
+                    acceptHeader = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                    break;
+                default:
+                    throw new Error('Invalid export format');
+            }
+
+            console.log('Export URL:', exportUrl);
+
+            // Use fetch with credentials to maintain authentication
+            const response = await fetch(exportUrl, {
+                method: 'GET',
+                credentials: 'same-origin', // This is crucial for maintaining authentication
+                headers: {
+                    Accept: acceptHeader,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`Export failed: ${response.status} ${response.statusText}`);
+            }
+
+            // Check if we got HTML instead of expected format (authentication issue)
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('text/html')) {
+                throw new Error('Authentication failed - got HTML instead of file. Please refresh the page and try again.');
+            }
+
+            // Get the filename from the response headers
+            const contentDisposition = response.headers.get('Content-Disposition');
+            const finalFilename = contentDisposition ? contentDisposition.split('filename=')[1]?.replace(/"/g, '') : filename;
+
+            // Create blob and download
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = finalFilename;
+            link.style.display = 'none';
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // Clean up the object URL
+            window.URL.revokeObjectURL(url);
+
+            console.log('Export completed successfully');
+        } catch (error) {
+            console.error('Export failed:', error);
+            alert('Export failed: ' + (error instanceof Error ? error.message : String(error)));
+        }
     };
 
     const getStatusIcon = (status: string) => {
@@ -196,6 +264,33 @@ export default function ComprehensiveHospitalReports({ user, summary, recentPati
                 return 'bg-gray-100 text-gray-800';
         }
     };
+
+    // Export dropdown component
+    const ExportDropdown = ({ type, label = 'Export' }: { type: string; label?: string }) => (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2">
+                    <Download className="h-4 w-4" />
+                    {label}
+                    <ChevronDown className="h-4 w-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => exportReportWithFormat(type, 'csv')}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportReportWithFormat(type, 'pdf')}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Export as PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportReportWithFormat(type, 'excel')}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Export as Excel
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -504,10 +599,7 @@ export default function ComprehensiveHospitalReports({ user, summary, recentPati
                                         <Button asChild>
                                             <Link href={route('hospital.reports.patients')}>View Patient Reports</Link>
                                         </Button>
-                                        <Button variant="outline" onClick={() => exportReport('patients')}>
-                                            <Download className="mr-2 h-4 w-4" />
-                                            Export
-                                        </Button>
+                                        <ExportDropdown type="patients" label="Export" />
                                     </div>
                                 </div>
                             </CardContent>
@@ -532,10 +624,7 @@ export default function ComprehensiveHospitalReports({ user, summary, recentPati
                                         <Button asChild>
                                             <Link href={route('hospital.reports.appointments')}>View Appointment Reports</Link>
                                         </Button>
-                                        <Button variant="outline" onClick={() => exportReport('appointments')}>
-                                            <Download className="mr-2 h-4 w-4" />
-                                            Export
-                                        </Button>
+                                        <ExportDropdown type="appointments" label="Export" />
                                     </div>
                                 </div>
                             </CardContent>
@@ -558,10 +647,7 @@ export default function ComprehensiveHospitalReports({ user, summary, recentPati
                                         <Button asChild>
                                             <Link href={route('hospital.reports.transfers')}>View Transfer Reports</Link>
                                         </Button>
-                                        <Button variant="outline" onClick={() => exportReport('transfers')}>
-                                            <Download className="mr-2 h-4 w-4" />
-                                            Export
-                                        </Button>
+                                        <ExportDropdown type="transfers" label="Export" />
                                     </div>
                                 </div>
                             </CardContent>
@@ -609,10 +695,7 @@ export default function ComprehensiveHospitalReports({ user, summary, recentPati
                                         <Button asChild>
                                             <Link href={route('hospital.reports.billing')}>View Financial Reports</Link>
                                         </Button>
-                                        <Button variant="outline" onClick={() => exportReport('financial')}>
-                                            <Download className="mr-2 h-4 w-4" />
-                                            Export
-                                        </Button>
+                                        <ExportDropdown type="transactions" label="Export" />
                                     </div>
                                 </div>
                             </CardContent>

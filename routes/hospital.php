@@ -61,6 +61,8 @@ Route::middleware(['auth', 'verified'])
             Route::get('/operation', [HospitalReportController::class, 'clinicOperations'])->name('operation');
             Route::get('/clinic/operations', [HospitalReportController::class, 'clinicOperations'])->name('clinic.operations.nested');
             Route::get('/export/{type}', [HospitalReportController::class, 'export'])->name('export');
+            Route::get('/export-pdf/{type}', [HospitalReportController::class, 'exportPdf'])->name('export.pdf');
+            Route::get('/export-excel/{type}', [HospitalReportController::class, 'exportExcel'])->name('export.excel');
 
             // Debug route
             Route::get('/debug', function () {
