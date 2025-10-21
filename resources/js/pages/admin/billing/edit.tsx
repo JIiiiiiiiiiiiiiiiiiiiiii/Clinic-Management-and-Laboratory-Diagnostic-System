@@ -87,30 +87,30 @@ export default function BillingEdit({
     doctors: Doctor[];
     labTests: LabTest[];
 }) {
-    const [items, setItems] = useState<BillingItem[]>(transaction.items || []);
+    const [items, setItems] = useState<BillingItem[]>(transaction?.items || []);
     const [selectedPatient, setSelectedPatient] = useState<Patient | null>(
-        patients.find(p => p.id === transaction.patient_id) || null
+        patients.find(p => p.id === transaction?.patient_id) || null
     );
     const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(
-        doctors.find(d => d.id === transaction.doctor_id) || null
+        doctors.find(d => d.id === transaction?.doctor_id) || null
     );
 
     const { data, setData, put, processing, errors } = useForm({
-        patient_id: transaction.patient_id?.toString() || '',
-        doctor_id: transaction.doctor_id?.toString() || '',
-        payment_type: transaction.payment_type,
-        payment_method: transaction.payment_method,
-        total_amount: transaction.total_amount,
-        discount_amount: transaction.discount_amount,
-        discount_percentage: transaction.discount_percentage || 0,
-        hmo_provider: transaction.hmo_provider || '',
-        hmo_reference: transaction.hmo_reference || '',
-        payment_reference: transaction.payment_reference || '',
-        status: transaction.status,
-        description: transaction.description || '',
-        notes: transaction.notes || '',
-        transaction_date: transaction.transaction_date.split('T')[0],
-        due_date: transaction.due_date || '',
+        patient_id: transaction?.patient_id?.toString() || '',
+        doctor_id: transaction?.doctor_id?.toString() || '',
+        payment_type: transaction?.payment_type || '',
+        payment_method: transaction?.payment_method || '',
+        total_amount: transaction?.total_amount || 0,
+        discount_amount: transaction?.discount_amount || 0,
+        discount_percentage: transaction?.discount_percentage || 0,
+        hmo_provider: transaction?.hmo_provider || '',
+        hmo_reference: transaction?.hmo_reference || '',
+        payment_reference: transaction?.payment_reference || '',
+        status: transaction?.status || '',
+        description: transaction?.description || '',
+        notes: transaction?.notes || '',
+        transaction_date: transaction?.transaction_date?.split('T')[0] || '',
+        due_date: transaction?.due_date || '',
         items: items,
     });
 
@@ -236,7 +236,7 @@ export default function BillingEdit({
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {patients.map((patient) => (
-                                                    <SelectItem key={patient.patient_id} value={patient.patient_id.toString()}>
+                                                    <SelectItem key={patient.id} value={patient.id.toString()}>
                                                         {patient.last_name}, {patient.first_name} ({patient.patient_no})
                                                     </SelectItem>
                                                 ))}

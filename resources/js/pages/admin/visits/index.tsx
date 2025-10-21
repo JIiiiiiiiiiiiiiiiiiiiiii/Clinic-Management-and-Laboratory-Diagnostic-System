@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import SortableTable from '@/components/SortableTable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import AppLayout from '@/layouts/app-layout';
@@ -377,69 +378,87 @@ export default function VisitsIndex({
                             </div>
                         </CardHeader>
                         <CardContent>
-                        <div className="overflow-x-auto">
-                            <Table className="min-w-full">
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="whitespace-nowrap">Date & Time</TableHead>
-                                        <TableHead className="whitespace-nowrap">Patient</TableHead>
-                                        <TableHead className="whitespace-nowrap">Purpose</TableHead>
-                                        <TableHead className="whitespace-nowrap">Staff</TableHead>
-                                        <TableHead className="whitespace-nowrap">Status</TableHead>
-                                        <TableHead className="whitespace-nowrap">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {initial_visits && initial_visits.length > 0 ? initial_visits.map((visit) => (
-                                        <TableRow key={visit.id} className="hover:bg-gray-50">
-                                            <TableCell className="font-medium py-4">
-                                                <div className="text-sm">
-                                                    {formatDateTime(visit.visit_date_time_time || visit.visit_date_time || visit.visit_date)}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <div className="space-y-1">
-                                                    <div className="font-medium text-sm">{visit.patient?.first_name} {visit.patient?.last_name}</div>
-                                                    <div className="text-xs text-gray-500">{visit.patient?.patient_code || visit.patient?.sequence_number || visit.patient?.patient_no}</div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <div className="text-sm max-w-[200px] truncate" title={visit.purpose}>
-                                                    {visit.purpose}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <div className="space-y-1">
-                                                    <div className="font-medium text-sm">{visit.staff?.name || 'No staff assigned'}</div>
-                                                    <div className="text-xs text-gray-500 capitalize">{visit.staff?.role || 'N/A'}</div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <Badge className={getStatusColor(visit.status)}>
-                                                    {status_options[visit.status] || visit.status}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm"
-                                                    onClick={() => router.visit(`/admin/visits/${visit.id}`)}
-                                                >
-                                                    <Eye className="h-4 w-4 mr-2" />
-                                                    View
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    )) : (
-                                        <TableRow>
-                                            <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                                                No initial visits found
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
+                        <SortableTable
+                            data={initial_visits}
+                            columns={[
+                                {
+                                    key: 'visit_date',
+                                    label: 'Date & Time',
+                                    sortable: true,
+                                    className: 'font-medium py-4',
+                                    render: (value, visit) => (
+                                        <div className="text-sm">
+                                            {formatDateTime(visit.visit_date_time_time || visit.visit_date_time || visit.visit_date)}
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'patient',
+                                    label: 'Patient',
+                                    sortable: true,
+                                    className: 'py-4',
+                                    render: (value, visit) => (
+                                        <div className="space-y-1">
+                                            <div className="font-medium text-sm">{visit.patient?.first_name} {visit.patient?.last_name}</div>
+                                            <div className="text-xs text-gray-500">{visit.patient?.patient_code || visit.patient?.sequence_number || visit.patient?.patient_no}</div>
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'purpose',
+                                    label: 'Purpose',
+                                    sortable: true,
+                                    className: 'py-4',
+                                    render: (value) => (
+                                        <div className="text-sm max-w-[200px] truncate" title={value}>
+                                            {value}
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'staff',
+                                    label: 'Staff',
+                                    sortable: true,
+                                    className: 'py-4',
+                                    render: (value, visit) => (
+                                        <div className="space-y-1">
+                                            <div className="font-medium text-sm">{visit.staff?.name || 'No staff assigned'}</div>
+                                            <div className="text-xs text-gray-500 capitalize">{visit.staff?.role || 'N/A'}</div>
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'status',
+                                    label: 'Status',
+                                    sortable: true,
+                                    className: 'py-4',
+                                    render: (value) => (
+                                        <Badge className={getStatusColor(value)}>
+                                            {status_options[value] || value}
+                                        </Badge>
+                                    )
+                                },
+                                {
+                                    key: 'actions',
+                                    label: 'Actions',
+                                    sortable: false,
+                                    className: 'py-4',
+                                    render: (value, visit) => (
+                                        <Button 
+                                            variant="outline" 
+                                            size="sm"
+                                            onClick={() => router.visit(`/admin/visits/${visit.id}`)}
+                                        >
+                                            <Eye className="h-4 w-4 mr-2" />
+                                            View
+                                        </Button>
+                                    )
+                                }
+                            ]}
+                            defaultSort={{ key: 'visit_date', direction: 'desc' }}
+                            emptyMessage="No initial visits found"
+                            emptyIcon={Calendar}
+                        />
 
                         {/* Initial Visits Pagination */}
                         {initial_visits_pagination.last_page > 1 && (
@@ -489,78 +508,101 @@ export default function VisitsIndex({
                             </div>
                         </CardHeader>
                         <CardContent>
-                        <div className="overflow-x-auto">
-                            <Table className="min-w-full">
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="whitespace-nowrap">Date & Time</TableHead>
-                                        <TableHead className="whitespace-nowrap">Patient</TableHead>
-                                        <TableHead className="whitespace-nowrap">Purpose</TableHead>
-                                        <TableHead className="whitespace-nowrap">Staff</TableHead>
-                                        <TableHead className="whitespace-nowrap">Status</TableHead>
-                                        <TableHead className="whitespace-nowrap">Original Visit</TableHead>
-                                        <TableHead className="whitespace-nowrap">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {follow_up_visits && follow_up_visits.length > 0 ? follow_up_visits.map((visit) => (
-                                        <TableRow key={visit.id} className="hover:bg-gray-50">
-                                            <TableCell className="font-medium py-4">
-                                                <div className="text-sm">
-                                                    {formatDateTime(visit.visit_date_time_time || visit.visit_date_time || visit.visit_date)}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <div className="space-y-1">
-                                                    <div className="font-medium text-sm">{visit.patient?.first_name} {visit.patient?.last_name}</div>
-                                                    <div className="text-xs text-gray-500">{visit.patient?.patient_code || visit.patient?.sequence_number || visit.patient?.patient_no}</div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <div className="text-sm max-w-[200px] truncate" title={visit.purpose}>
-                                                    {visit.purpose}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <div className="space-y-1">
-                                                    <div className="font-medium text-sm">{visit.staff?.name || 'No staff assigned'}</div>
-                                                    <div className="text-xs text-gray-500 capitalize">{visit.staff?.role || 'N/A'}</div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <Badge className={getStatusColor(visit.status)}>
-                                                    {status_options[visit.status] || visit.status}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <Link 
-                                                    href={`/admin/visits/${visit.follow_up_visit_id}`}
-                                                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                                >
-                                                    View Original
-                                                </Link>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm"
-                                                    onClick={() => router.visit(`/admin/visits/${visit.id}`)}
-                                                >
-                                                    <Eye className="h-4 w-4 mr-2" />
-                                                    View
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    )) : (
-                                        <TableRow>
-                                            <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                                                No follow-up visits found
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
+                        <SortableTable
+                            data={follow_up_visits}
+                            columns={[
+                                {
+                                    key: 'visit_date',
+                                    label: 'Date & Time',
+                                    sortable: true,
+                                    className: 'font-medium py-4',
+                                    render: (value, visit) => (
+                                        <div className="text-sm">
+                                            {formatDateTime(visit.visit_date_time_time || visit.visit_date_time || visit.visit_date)}
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'patient',
+                                    label: 'Patient',
+                                    sortable: true,
+                                    className: 'py-4',
+                                    render: (value, visit) => (
+                                        <div className="space-y-1">
+                                            <div className="font-medium text-sm">{visit.patient?.first_name} {visit.patient?.last_name}</div>
+                                            <div className="text-xs text-gray-500">{visit.patient?.patient_code || visit.patient?.sequence_number || visit.patient?.patient_no}</div>
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'purpose',
+                                    label: 'Purpose',
+                                    sortable: true,
+                                    className: 'py-4',
+                                    render: (value) => (
+                                        <div className="text-sm max-w-[200px] truncate" title={value}>
+                                            {value}
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'staff',
+                                    label: 'Staff',
+                                    sortable: true,
+                                    className: 'py-4',
+                                    render: (value, visit) => (
+                                        <div className="space-y-1">
+                                            <div className="font-medium text-sm">{visit.staff?.name || 'No staff assigned'}</div>
+                                            <div className="text-xs text-gray-500 capitalize">{visit.staff?.role || 'N/A'}</div>
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'status',
+                                    label: 'Status',
+                                    sortable: true,
+                                    className: 'py-4',
+                                    render: (value) => (
+                                        <Badge className={getStatusColor(value)}>
+                                            {status_options[value] || value}
+                                        </Badge>
+                                    )
+                                },
+                                {
+                                    key: 'follow_up_visit_id',
+                                    label: 'Original Visit',
+                                    sortable: true,
+                                    className: 'py-4',
+                                    render: (value, visit) => (
+                                        <Link 
+                                            href={`/admin/visits/${visit.follow_up_visit_id}`}
+                                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                        >
+                                            View Original
+                                        </Link>
+                                    )
+                                },
+                                {
+                                    key: 'actions',
+                                    label: 'Actions',
+                                    sortable: false,
+                                    className: 'py-4',
+                                    render: (value, visit) => (
+                                        <Button 
+                                            variant="outline" 
+                                            size="sm"
+                                            onClick={() => router.visit(`/admin/visits/${visit.id}`)}
+                                        >
+                                            <Eye className="h-4 w-4 mr-2" />
+                                            View
+                                        </Button>
+                                    )
+                                }
+                            ]}
+                            defaultSort={{ key: 'visit_date', direction: 'desc' }}
+                            emptyMessage="No follow-up visits found"
+                            emptyIcon={ArrowRight}
+                        />
 
                         {/* Follow-up Visits Pagination */}
                         {follow_up_visits_pagination.last_page > 1 && (

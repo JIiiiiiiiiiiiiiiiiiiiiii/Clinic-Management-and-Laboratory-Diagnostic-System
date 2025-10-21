@@ -44,10 +44,23 @@ class HospitalPatientController extends Controller
             }
         }
 
+        // Apply sorting
+        $sortBy = $request->get('sort_by', 'created_at');
+        $sortDir = $request->get('sort_dir', 'desc');
+        
+        // Validate sort column to prevent SQL injection
+        $allowedSortColumns = ['id', 'first_name', 'last_name', 'created_at', 'updated_at'];
+        if (!in_array($sortBy, $allowedSortColumns)) {
+            $sortBy = 'created_at';
+        }
+        
+        // Validate sort direction
+        $sortDir = in_array(strtolower($sortDir), ['asc', 'desc']) ? strtolower($sortDir) : 'desc';
+
         $patients = $query->with(['transfers' => function($q) {
             $q->latest();
         }])
-        ->orderBy('created_at', 'desc')
+        ->orderBy($sortBy, $sortDir)
         ->paginate(15);
 
         return Inertia::render('Hospital/Patients/Index', [

@@ -507,15 +507,7 @@ export default function BillingIndex({
                                     <Table>
                                         <TableHeader className="bg-gray-50">
                                             <TableRow className="hover:bg-gray-50">
-                                                <TableHead 
-                                                    className="font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
-                                                    onClick={() => handleSort('transaction_id')}
-                                                >
-                                                    Transaction ID
-                                                    {sortBy === 'transaction_id' && (
-                                                        <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>
-                                                    )}
-                                                </TableHead>
+                                                <TableHead className="font-semibold text-gray-700">Transaction ID</TableHead>
                                                 <TableHead className="font-semibold text-gray-700">Patient</TableHead>
                                                 <TableHead className="font-semibold text-gray-700">Specialist</TableHead>
                                                 <TableHead className="font-semibold text-gray-700">Amount</TableHead>
@@ -554,17 +546,11 @@ export default function BillingIndex({
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2">
-                                                            <Button asChild variant="outline" size="sm">
-                                                                <Link href={`/admin/billing/${transaction.id}`}>
-                                                                    <Eye className="h-4 w-4 mr-1" />
-                                                                    View
-                                                                </Link>
+                                                            <Button variant="ghost" size="sm" onClick={() => router.visit(`/admin/billing/${transaction.id}`)}>
+                                                                <Eye className="h-4 w-4" />
                                                             </Button>
-                                                            <Button asChild variant="outline" size="sm">
-                                                                <Link href={`/admin/billing/${transaction.id}/edit`}>
-                                                                    <Edit className="h-4 w-4 mr-1" />
-                                                                    Edit
-                                                                </Link>
+                                                            <Button variant="ghost" size="sm" onClick={() => router.visit(`/admin/billing/${transaction.id}/edit`)}>
+                                                                <Edit className="h-4 w-4" />
                                                             </Button>
                                                         </div>
                                                     </TableCell>
@@ -579,6 +565,135 @@ export default function BillingIndex({
                                         </TableBody>
                                     </Table>
                                 </div>
+                                {/* SortableTable removed */}
+                                    columns={[
+                                        {
+                                            key: 'transaction_id',
+                                            label: 'Transaction ID',
+                                            sortable: true,
+                                            className: 'font-medium',
+                                            render: (value) => (
+                                                <div className="flex items-center gap-2">
+                                                    <div className="p-1 bg-gray-100 rounded-full">
+                                                        <Receipt className="h-4 w-4 text-black" />
+                                                    </div>
+                                                    {value}
+                                                </div>
+                                            )
+                                        },
+                                        {
+                                            key: 'patient',
+                                            label: 'Patient',
+                                            sortable: true,
+                                            render: (value, transaction) => (
+                                                <div>
+                                                    <div className="font-medium">
+                                                        {transaction.patient ? 
+                                                            `${transaction.patient.last_name}, ${transaction.patient.first_name}` : 
+                                                            'Loading...'
+                                                        }
+                                                    </div>
+                                                    <div className="text-sm text-gray-500">
+                                                        {transaction.patient?.patient_no || 'Loading...'}
+                                                    </div>
+                                                </div>
+                                            )
+                                        },
+                                        {
+                                            key: 'doctor',
+                                            label: 'Specialist',
+                                            sortable: true,
+                                            render: (value, transaction) => (
+                                                transaction.doctor ? (
+                                                    <div className="font-medium">{transaction.doctor.name}</div>
+                                                ) : (
+                                                    <span className="text-gray-400">—</span>
+                                                )
+                                            )
+                                        },
+                                        {
+                                            key: 'total_amount',
+                                            label: 'Amount',
+                                            sortable: true,
+                                            className: 'font-semibold',
+                                            render: (value) => `₱${(value || 0).toLocaleString()}`
+                                        },
+                                        {
+                                            key: 'payment_method',
+                                            label: 'Payment Method',
+                                            sortable: true,
+                                            render: (value) => getPaymentMethodBadge(value)
+                                        },
+                                        {
+                                            key: 'status',
+                                            label: 'Status',
+                                            sortable: true,
+                                            render: (value) => getStatusBadge(value)
+                                        },
+                                        {
+                                            key: 'transaction_date',
+                                            label: 'Date',
+                                            sortable: true,
+                                            className: 'text-sm text-gray-600',
+                                            render: (value) => new Date(value).toLocaleDateString()
+                                        },
+                                        {
+                                            key: 'actions',
+                                            label: 'Actions',
+                                            sortable: false,
+                                            render: (value, transaction) => (
+                                                <div className="flex gap-2">
+                                                    <Button asChild size="sm">
+                                                        <Link href={`/admin/billing/${transaction.id}`}>
+                                                            <Eye className="mr-1 h-3 w-3" />
+                                                            View
+                                                        </Link>
+                                                    </Button>
+                                                    {transaction.status === 'pending' && (
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={() => handleMarkPaidClick(transaction)}
+                                                        >
+                                                            <CheckCircle className="mr-1 h-3 w-3" />
+                                                            Mark Paid
+                                                        </Button>
+                                                    )}
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button size="sm" variant="outline">
+                                                                <MoreHorizontal className="h-3 w-3" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem asChild>
+                                                                <Link href={`/admin/billing/${transaction.id}/edit`}>
+                                                                    <Edit className="mr-2 h-4 w-4" />
+                                                                    Edit
+                                                                </Link>
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem asChild>
+                                                                <Link href={`/admin/billing/${transaction.id}/receipt`}>
+                                                                    <Printer className="mr-2 h-4 w-4" />
+                                                                    Print Receipt
+                                                                </Link>
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem 
+                                                                onClick={() => handleDelete(transaction.id)}
+                                                                className="text-red-600"
+                                                            >
+                                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                                Delete
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </div>
+                                            )
+                                        }
+                                    ]}
+                                    defaultSort={{ key: 'transaction_date', direction: 'desc' }}
+                                    emptyMessage={searchTerm ? 'No transactions found' : 'No billing transactions yet'}
+                                    emptyIcon={CreditCard}
+                                />
                             </CardContent>
                         </Card>
                     </TabsContent>
@@ -646,17 +761,11 @@ export default function BillingIndex({
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2">
-                                                            <Button asChild variant="outline" size="sm">
-                                                                <Link href={`/admin/appointments/${appointment.id}`}>
-                                                                    <Eye className="h-4 w-4 mr-1" />
-                                                                    View
-                                                                </Link>
+                                                            <Button variant="ghost" size="sm">
+                                                                <Eye className="h-4 w-4" />
                                                             </Button>
-                                                            <Button asChild size="sm">
-                                                                <Link href={`/admin/billing/create-from-appointments?appointment_id=${appointment.id}`}>
-                                                                    <CheckCircle className="h-4 w-4 mr-1" />
-                                                                    Pay Now
-                                                                </Link>
+                                                            <Button variant="ghost" size="sm">
+                                                                <CheckCircle className="h-4 w-4" />
                                                             </Button>
                                                         </div>
                                                     </TableCell>
@@ -671,6 +780,95 @@ export default function BillingIndex({
                                         </TableBody>
                                     </Table>
                                 </div>
+                                {/* SortableTable removed */}
+                                    data={pendingAppointments}
+                                    columns={[
+                                        {
+                                            key: 'patient_name',
+                                            label: 'Patient',
+                                            sortable: true,
+                                            className: 'font-medium',
+                                            render: (value, appointment) => (
+                                                <div>
+                                                    <div className="font-medium">{appointment.patient_name}</div>
+                                                    <div className="text-sm text-gray-500">{appointment.patient_id}</div>
+                                                </div>
+                                            )
+                                        },
+                                        {
+                                            key: 'appointment_type',
+                                            label: 'Appointment Type',
+                                            sortable: true,
+                                            render: (value) => (
+                                                <Badge variant="outline" className="capitalize">
+                                                    {value}
+                                                </Badge>
+                                            )
+                                        },
+                                        {
+                                            key: 'specialist_name',
+                                            label: 'Specialist',
+                                            sortable: true,
+                                            render: (value) => (
+                                                <div className="font-medium">{value}</div>
+                                            )
+                                        },
+                                        {
+                                            key: 'appointment_date',
+                                            label: 'Date & Time',
+                                            sortable: true,
+                                            className: 'text-sm text-gray-600',
+                                            render: (value, appointment) => (
+                                                <div>
+                                                    <div>{new Date(appointment.appointment_date).toLocaleDateString()}</div>
+                                                    <div className="text-gray-500">{appointment.appointment_time}</div>
+                                                </div>
+                                            )
+                                        },
+                                        {
+                                            key: 'price',
+                                            label: 'Price',
+                                            sortable: true,
+                                            className: 'font-semibold',
+                                            render: (value) => `₱${(value || 0).toLocaleString()}`
+                                        },
+                                        {
+                                            key: 'billing_status',
+                                            label: 'Status',
+                                            sortable: true,
+                                            render: () => (
+                                                <Badge variant="secondary">
+                                                    <Clock className="mr-1 h-3 w-3" />
+                                                    Pending Payment
+                                                </Badge>
+                                            )
+                                        },
+                                        {
+                                            key: 'actions',
+                                            label: 'Actions',
+                                            sortable: false,
+                                            render: (value, appointment) => (
+                                                <div className="flex gap-2">
+                                                    <Button asChild size="sm" variant="outline">
+                                                        <Link href={`/admin/appointments/${appointment.id}`}>
+                                                            <Eye className="mr-1 h-3 w-3" />
+                                                            View
+                                                        </Link>
+                                                    </Button>
+                                                    <Button asChild size="sm">
+                                                        <Link href={`/admin/billing/create-from-appointments?appointment_id=${appointment.id}`}>
+                                                            <CreditCard className="mr-1 h-3 w-3" />
+                                                            Pay Now
+                                                        </Link>
+                                                    </Button>
+                                                </div>
+                                            )
+                                        }
+                                    ]}
+                                    defaultSort={{ key: 'appointment_date', direction: 'asc' }}
+                                    emptyMessage="No pending appointments"
+                                    emptyIcon={Calendar}
+                                /> */}
                             </CardContent>
                         </Card>
                     </TabsContent>

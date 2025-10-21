@@ -9,11 +9,8 @@ class BillingTransaction extends Model
 {
     use HasFactory;
     
-    protected $primaryKey = 'id';
-
     protected $fillable = [
         'transaction_id',
-        'transaction_code',
         'appointment_id',
         'patient_id',
         'doctor_id',
@@ -81,6 +78,16 @@ class BillingTransaction extends Model
         return $this->hasMany(\App\Models\BillingTransactionItem::class, 'billing_transaction_id', 'id');
     }
 
+    public function createdBy()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'created_by', 'id');
+    }
+
+    public function updatedBy()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'updated_by', 'id');
+    }
+
     // Scopes
     public function scopeByStatus($query, $status)
     {
@@ -97,30 +104,78 @@ class BillingTransaction extends Model
         return $query->whereBetween('transaction_date', [$startDate, $endDate]);
     }
 
+    // Business logic methods
+    public function canBeEdited()
+    {
+        return in_array($this->status, ['pending', 'draft']);
+    }
+
+    public function canBeCancelled()
+    {
+        return in_array($this->status, ['pending', 'draft']);
+    }
+
+    public function canBePaid()
+    {
+        return $this->status === 'pending';
+    }
+
+    // Helper methods for getting related data
+    public function getPatientInfo()
+    {
+        if ($this->patient) {
+            return $this->patient;
+        }
+        
+        // Try to get patient from appointment
+        $appointment = $this->appointments()->first();
+        if ($appointment && $appointment->patient) {
+            return $appointment->patient;
+        }
+        
+        return null;
+    }
+
+    public function getDoctorInfo()
+    {
+        if ($this->doctor) {
+            return $this->doctor;
+        }
+        
+        // Try to get doctor from appointment
+        $appointment = $this->appointments()->first();
+        if ($appointment && $appointment->specialist) {
+            return $appointment->specialist;
+        }
+        
+        return null;
+    }
+
     // Methods
-    public function markAsPaid($paymentMethod = 'Cash', $referenceNo = null)
+    public function markAsPaid($paymentMethod = 'cash', $referenceNo = null)
     {
         $this->update([
-            'status' => 'Paid',
+            'status' => 'paid',
             'payment_method' => $paymentMethod,
-            'reference_no' => $referenceNo,
+            'payment_reference' => $referenceNo,
         ]);
 
-        // Mark appointment and visit as completed
-        if ($this->appointment) {
-            $this->appointment->update(['status' => 'Completed']);
-            if ($this->appointment->visit) {
-                $this->appointment->visit->update(['status' => 'Completed']);
-            }
-        }
+        // Mark appointment links as paid
+        $this->appointmentLinks()->update(['status' => 'paid']);
+        
+        // Update appointments billing status
+        $this->appointments()->update(['billing_status' => 'paid']);
     }
 
     public function markAsCancelled()
     {
-        $this->update(['status' => 'Cancelled']);
+        $this->update(['status' => 'cancelled']);
+        
+        // Mark appointment links as cancelled
+        $this->appointmentLinks()->update(['status' => 'cancelled']);
     }
 
-    // Boot method to generate transaction code
+    // Boot method to generate transaction ID
     protected static function boot()
     {
         parent::boot();

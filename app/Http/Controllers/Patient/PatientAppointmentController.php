@@ -84,17 +84,31 @@ class PatientAppointmentController extends Controller
                     ];
                 });
 
-            // Combine both collections
-            $allAppointments = $pendingAppointments->concat($confirmedAppointments)->sortByDesc('created_at');
+            // Combine both collections but filter out duplicates
+            // A duplicate is when we have the same appointment in both pending and confirmed
+            $allAppointments = $pendingAppointments->concat($confirmedAppointments);
+            
+            // Remove duplicates based on appointment date, time, and type
+            $uniqueAppointments = $allAppointments->unique(function ($appointment) {
+                return $appointment['appointment_date'] . '|' . $appointment['appointment_time'] . '|' . $appointment['appointment_type'];
+            });
+            
+            // Sort by creation date
+            $allAppointments = $uniqueAppointments->sortByDesc('created_at');
 
             \Log::info('Appointments loaded', [
                 'total_count' => $allAppointments->count(),
+                'pending_count' => $pendingAppointments->count(),
+                'confirmed_count' => $confirmedAppointments->count(),
+                'unique_count' => $uniqueAppointments->count(),
                 'patient_id' => $patient->patient_id,
                 'appointments_data' => $allAppointments->map(function($apt) {
                     return [
                         'id' => $apt['id'],
                         'type' => $apt['appointment_type'],
-                        'price' => $apt['price']
+                        'price' => $apt['price'],
+                        'source' => $apt['source'],
+                        'status' => $apt['status']
                     ];
                 })->toArray()
             ]);

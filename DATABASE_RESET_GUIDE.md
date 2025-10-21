@@ -1,220 +1,128 @@
-# Database Reset Guide for Clinic System
+# Database Reset Guide
 
 ## Overview
-This guide provides safe methods to reset the clinic database while preserving system functionality. The reset scripts will clear all patient, appointment, billing, and visit data while maintaining admin users, specialists, and system configuration.
-
-## Available Reset Scripts
-
-### 1. Simple Database Reset (Recommended)
-**File:** `simple_database_reset.php`
-- ✅ Safest option
-- ✅ No transaction complications
-- ✅ Comprehensive verification
-- ✅ Preserves system integrity
-
-### 2. Safe Database Reset (Advanced)
-**File:** `safe_database_reset.php`
-- ⚠️ Uses transactions (may have issues)
-- ✅ More comprehensive error handling
-- ✅ User confirmation prompt
-
-### 3. Existing Reset Scripts
-- `reset_database_clean.php` - Original clean reset
-- `reset_database_for_fresh_test.php` - Fresh test reset
+This guide explains how to reset the clinic database while preserving user roles and authentication data.
 
 ## What Gets Cleared
-
-### Patient-Related Data
-- ✅ `patients` - All patient records
-- ✅ `appointments` - All appointment records
-- ✅ `visits` - All visit records
-- ✅ `billing_transactions` - All billing records
-- ✅ `billing_transaction_items` - All billing items
-- ✅ `appointment_billing_links` - All appointment-billing links
-- ✅ `daily_transactions` - All daily transaction records
-- ✅ `pending_appointments` - All pending appointment records
-- ✅ `notifications` - All notifications
-- ✅ `patient_referrals` - All patient referrals
-
-### User Accounts
-- ✅ Patient users (role = 'patient')
-- ✅ Preserves admin users
-- ✅ Preserves doctor users
-- ✅ Preserves medtech users
-- ✅ Preserves nurse users
-
-### Sequences
-- ✅ Resets auto-increment counters to 1
-- ✅ Ensures clean numbering for new records
+- ✅ All patient records
+- ✅ All appointment records  
+- ✅ All visit records
+- ✅ All billing transaction records
+- ✅ All lab-related data
+- ✅ All supply-related data
+- ✅ All related foreign key data
 
 ## What Gets Preserved
-
-### System Configuration
-- ✅ Admin users and credentials
-- ✅ Staff users (doctors, nurses, medtechs)
-- ✅ Specialists table
-- ✅ User roles and permissions
-- ✅ System settings
+- ✅ User accounts and authentication
+- ✅ User roles (admin, doctor, patient, medtech, nurse, etc.)
+- ✅ System configuration
 - ✅ Database structure and relationships
 
-## How to Use
+## How to Reset the Database
 
-### Step 1: Run the Reset Script
+### Method 1: Using the Reset Script (Recommended)
 ```bash
-php simple_database_reset.php
+php reset_clinic_data_clean.php
 ```
 
-### Step 2: Verify System Functionality
+### Method 2: Manual Verification
+After running the reset script, verify the cleanup:
 ```bash
-php verify_system_after_reset.php
+php verify_clean_database.php
 ```
 
-### Step 3: Test the System
-1. Go to `/patient/online-appointment`
-2. Create a new patient account
-3. Book an appointment
-4. Test the complete workflow
+## What the Scripts Do
 
-## Expected Results
+### `reset_clinic_data_clean.php`
+1. Disables foreign key constraints temporarily
+2. Clears all clinic-related data in the correct order
+3. Resets auto-increment counters to 1
+4. Re-enables foreign key constraints
+5. Verifies user roles are preserved
+6. Provides detailed progress reporting
 
-### After Reset
-- ✅ All patient data cleared (0 records)
-- ✅ All appointment data cleared (0 records)
-- ✅ All billing data cleared (0 records)
-- ✅ All visit data cleared (0 records)
-- ✅ Patient users removed
-- ✅ Admin/staff users preserved
-- ✅ Specialists preserved
-- ✅ Sequences reset to 1
+### `verify_clean_database.php`
+1. Checks that all main tables are empty
+2. Verifies user roles are intact
+3. Confirms auto-increment counters are reset
+4. Reports the status of related tables
+5. Provides a comprehensive summary
 
-### System Verification
-- ✅ Database connectivity working
-- ✅ All essential tables present
-- ✅ Foreign key constraints working
-- ✅ Admin access available
-- ✅ Specialists available for appointments
-- ✅ System ready for fresh testing
+## Expected Results After Reset
 
-## Testing Sequence
+### Database State
+- **Patients**: 0 records
+- **Appointments**: 0 records  
+- **Visits**: 0 records
+- **Billing Transactions**: 0 records
+- **Users**: All preserved with roles intact
+- **Auto-increment**: All reset to 1
 
-### 1. Patient Registration
-- Go to `/patient/online-appointment`
-- Create new patient account
-- Verify patient record created
-
-### 2. Appointment Booking
-- Fill out 6-step appointment form
-- Submit appointment
-- Verify pending appointment created
-
-### 3. Admin Approval
-- Login as admin (`admin@clinic.com`)
-- Go to `/admin/pending-appointments`
-- Approve appointment
-- Verify appointment status changed
-
-### 4. Payment Processing
-- Process payment
-- Verify billing transaction created
-- Check payment status
-
-### 5. Visit Creation
-- Create visit record
-- Verify visit linked to appointment
-- Check visit status
-
-### 6. Daily Reports
-- Generate daily report
-- Verify data appears correctly
-- Check report formatting
-
-## Troubleshooting
-
-### Common Issues
-
-#### 1. Foreign Key Errors
-- **Problem:** Foreign key constraint violations
-- **Solution:** Scripts disable foreign key checks during reset
-- **Verification:** Check that constraints are re-enabled
-
-#### 2. Transaction Errors
-- **Problem:** "No active transaction" errors
-- **Solution:** Use `simple_database_reset.php` instead
-- **Note:** Simple script doesn't use transactions
-
-#### 3. Missing Specialists
-- **Problem:** No specialists available for appointments
-- **Solution:** Script creates test specialists if none exist
-- **Verification:** Check specialists table has records
-
-#### 4. Admin Access Issues
-- **Problem:** No admin users after reset
-- **Solution:** Script creates test admin if none exist
-- **Credentials:** `admin@test.com` / `password`
-
-### Verification Checklist
-
-- [ ] All patient tables have 0 records
-- [ ] Admin users exist and accessible
-- [ ] Specialists available for appointments
-- [ ] Foreign key constraints working
-- [ ] Auto-increment sequences reset to 1
-- [ ] Database connectivity working
-- [ ] System ready for testing
+### User Roles Preserved
+- Admin users: 1
+- Doctor users: 1
+- Patient users: 6
+- MedTech users: 1
+- Hospital admin users: 0
+- Nurse users: 0
 
 ## Safety Features
 
-### Data Protection
-- ✅ Only clears patient-related data
-- ✅ Preserves system configuration
-- ✅ Maintains admin access
-- ✅ Keeps specialists for appointments
+### Transaction Safety
+- The script uses database transactions for safety
+- All changes are rolled back if any error occurs
+- Foreign key constraints are properly handled
 
-### Error Handling
-- ✅ Comprehensive error messages
-- ✅ Rollback on failure (safe script)
-- ✅ Verification steps
-- ✅ System integrity checks
+### Data Preservation
+- User authentication data is never touched
+- User roles and permissions remain intact
+- System configuration is preserved
 
-### Backup Recommendations
-- ✅ Export database before reset
-- ✅ Document current state
-- ✅ Test in development environment first
+### Verification
+- Comprehensive verification script included
+- Detailed reporting of all operations
+- Clear success/failure indicators
 
-## Admin Credentials
+## Troubleshooting
 
-### Default Admin User
-- **Email:** `admin@clinic.com`
-- **Password:** (existing password)
-- **Role:** `admin`
+### If Reset Fails
+1. Check database connection
+2. Verify user has proper permissions
+3. Ensure no other processes are using the database
+4. Check for foreign key constraint issues
 
-### Test Admin User (if created)
-- **Email:** `admin@test.com`
-- **Password:** `password`
-- **Role:** `admin`
+### If Verification Shows Issues
+1. Re-run the reset script
+2. Check for any remaining foreign key references
+3. Manually clear any remaining data if needed
 
-## Available Specialists
+## Important Notes
 
-After reset, the system will have specialists available:
-- **Doctors:** For consultations and checkups
-- **MedTechs:** For laboratory procedures
-- **Nurses:** For general nursing care
+⚠️ **WARNING**: This operation permanently deletes all clinic data!
+- Always backup your database before running the reset
+- This cannot be undone
+- Make sure you have proper backups
 
-## Next Steps
+✅ **SAFE**: User accounts and roles are preserved
+- All authentication remains intact
+- User permissions are maintained
+- System access is not affected
 
-1. **Run Reset:** Execute the reset script
-2. **Verify System:** Run verification script
-3. **Test Flow:** Complete end-to-end testing
-4. **Document Issues:** Note any problems found
-5. **Report Results:** Confirm system is working
+## Next Steps After Reset
+
+1. **Test the system** - Verify all functionality works
+2. **Check sorting** - Test if sorting issues are resolved
+3. **Add fresh data** - Create new patients, appointments, etc.
+4. **Monitor performance** - Ensure the system runs smoothly
+
+## Files Created
+- `reset_clinic_data_clean.php` - Main reset script
+- `verify_clean_database.php` - Verification script
+- `DATABASE_RESET_GUIDE.md` - This documentation
 
 ## Support
-
-If you encounter issues:
-1. Check the verification script output
-2. Review error messages carefully
-3. Ensure database connectivity
-4. Verify all required tables exist
-5. Check foreign key constraints
-
-The reset scripts are designed to be safe and preserve system functionality while clearing patient data for fresh testing.
+If you encounter any issues:
+1. Check the error messages in the script output
+2. Verify database permissions
+3. Ensure all dependencies are installed
+4. Contact system administrator if needed

@@ -66,11 +66,32 @@ class AppointmentController extends Controller
             $query->where('specialist_id', $request->specialist);
         }
 
+        // Apply sorting
+        $sortBy = $request->get('sort_by', 'appointment_date');
+        $sortDir = $request->get('sort_dir', 'asc');
+        
+        // Validate sort column to prevent SQL injection
+        $allowedSortColumns = ['id', 'appointment_date', 'appointment_time', 'status', 'price', 'created_at', 'patient_name', 'specialist_name', 'patient_id'];
+        if (!in_array($sortBy, $allowedSortColumns)) {
+            $sortBy = 'appointment_date';
+        }
+        
+        // Validate sort direction
+        $sortDir = in_array(strtolower($sortDir), ['asc', 'desc']) ? strtolower($sortDir) : 'asc';
+
         // Get all appointments from single source (appointments table only)
-        $appointments = $query->with(['patient', 'specialist'])
-                            ->orderBy('appointment_date', 'asc')
-                            ->orderBy('appointment_time', 'asc')
-                            ->get();
+        if ($sortBy === 'patient_id') {
+            // For patient_id sorting, we need to join with patients table to sort by sequence_number
+            $appointments = $query->with(['patient', 'specialist'])
+                                ->leftJoin('patients', 'appointments.patient_id', '=', 'patients.id')
+                                ->orderBy('patients.sequence_number', $sortDir)
+                                ->select('appointments.*')
+                                ->get();
+        } else {
+            $appointments = $query->with(['patient', 'specialist'])
+                                ->orderBy($sortBy, $sortDir)
+                                ->get();
+        }
         
         // Transform appointments to include proper field names for frontend
         $transformedAppointments = $appointments->map(function($appointment) {

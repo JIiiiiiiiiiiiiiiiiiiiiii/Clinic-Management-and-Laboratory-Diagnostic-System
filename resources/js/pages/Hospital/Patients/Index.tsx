@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import SortableTable from '@/components/SortableTable';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { 
@@ -298,88 +299,109 @@ export default function HospitalPatientsIndex({ patients, stats, filters }: Prop
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Patient No</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Age</TableHead>
-                    <TableHead>Gender</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>Address</TableHead>
-                    <TableHead>Registered</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {patients.data.map((patient) => (
-                    <TableRow key={patient.id}>
-                      <TableCell className="font-medium">
-                        {patient.patient_no}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{patient.full_name}</div>
-                          {patient.occupation && (
-                            <div className="text-sm text-muted-foreground">
-                              {patient.occupation}
-                            </div>
-                          )}
+            <SortableTable
+              data={patients.data}
+              columns={[
+                {
+                  key: 'patient_no',
+                  label: 'Patient No',
+                  sortable: true,
+                  className: 'font-medium'
+                },
+                {
+                  key: 'name',
+                  label: 'Name',
+                  sortable: true,
+                  render: (value, patient) => (
+                    <div>
+                      <div className="font-medium">{patient.full_name}</div>
+                      {patient.occupation && (
+                        <div className="text-sm text-muted-foreground">
+                          {patient.occupation}
                         </div>
-                      </TableCell>
-                      <TableCell>{patient.age}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          {patient.sex}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {patient.mobile_no && (
-                          <div className="flex items-center gap-1 text-sm">
-                            <Phone className="h-3 w-3" />
-                            {patient.mobile_no}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {patient.present_address && (
-                          <div className="flex items-center gap-1 text-sm max-w-[200px] truncate">
-                            <MapPin className="h-3 w-3" />
-                            {patient.present_address}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {new Date(patient.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="sm" asChild>
-                            <Link href={route('hospital.patients.show', patient.id)}>
-                              <Eye className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <Button variant="ghost" size="sm" asChild>
-                            <Link href={route('hospital.patients.edit', patient.id)}>
-                              <Edit className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => handleDelete(patient)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                      )}
+                    </div>
+                  )
+                },
+                {
+                  key: 'age',
+                  label: 'Age',
+                  sortable: true
+                },
+                {
+                  key: 'sex',
+                  label: 'Gender',
+                  sortable: true,
+                  render: (value) => (
+                    <Badge variant="outline" className="capitalize">
+                      {value}
+                    </Badge>
+                  )
+                },
+                {
+                  key: 'mobile_no',
+                  label: 'Contact',
+                  sortable: true,
+                  render: (value) => (
+                    value ? (
+                      <div className="flex items-center gap-1 text-sm">
+                        <Phone className="h-3 w-3" />
+                        {value}
+                      </div>
+                    ) : null
+                  )
+                },
+                {
+                  key: 'present_address',
+                  label: 'Address',
+                  sortable: true,
+                  render: (value) => (
+                    value ? (
+                      <div className="flex items-center gap-1 text-sm max-w-[200px] truncate">
+                        <MapPin className="h-3 w-3" />
+                        {value}
+                      </div>
+                    ) : null
+                  )
+                },
+                {
+                  key: 'created_at',
+                  label: 'Registered',
+                  sortable: true,
+                  render: (value) => new Date(value).toLocaleDateString()
+                },
+                {
+                  key: 'actions',
+                  label: 'Actions',
+                  sortable: false,
+                  render: (value, patient) => (
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={route('hospital.patients.show', patient.id)}>
+                          <Eye className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={route('hospital.patients.edit', patient.id)}>
+                          <Edit className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleDelete(patient)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )
+                }
+              ]}
+              defaultSort={{ key: 'created_at', direction: 'desc' }}
+              emptyMessage="No patients found"
+              emptyIcon={Users}
+            />
 
             {/* Pagination */}
             {patients.links && patients.links.length > 3 && (

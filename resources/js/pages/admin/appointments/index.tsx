@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import SortableTable from '@/components/SortableTable';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
@@ -69,6 +70,8 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
     const [showNotifications, setShowNotifications] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     
+    // Sorting state - removed custom sorting, using SortableTable instead
+    
     // Initialize filters from props
     useEffect(() => {
         if (filters.search) setSearchTerm(filters.search);
@@ -113,6 +116,8 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
         };
         return prices[appointmentType] || 0;
     };
+
+    // Handle sorting - removed custom sorting, using SortableTable instead
 
     const filteredAppointments = appointmentsList.filter(appointment => {
         const matchesSearch = (appointment.patient_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -467,105 +472,141 @@ const getTypeBadge = (type: string) => {
                             Appointments ({filteredAppointments.length})
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-gray-50">
-                                        <TableHead className="text-black font-semibold px-6 py-3">Patient</TableHead>
-                                        <TableHead className="text-black font-semibold px-6 py-3">Doctor</TableHead>
-                                        <TableHead className="text-black font-semibold px-6 py-3">Date & Time</TableHead>
-                                        <TableHead className="text-black font-semibold px-6 py-3">Type</TableHead>
-                                        <TableHead className="text-black font-semibold px-6 py-3">Source</TableHead>
-                                        <TableHead className="text-black font-semibold px-6 py-3">Status</TableHead>
-                                        <TableHead className="text-black font-semibold px-6 py-3">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                        {filteredAppointments.length === 0 ? (
-                                            <TableRow>
-                                            <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                                                {appointmentsList.length === 0 ? 'No appointments yet. Click "New Appointment" to create your first appointment.' : 'No appointments found matching your search criteria.'}
-                                            </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            filteredAppointments.map((appointment) => (
-                                                <TableRow key={appointment.id} className="hover:bg-gray-50">
-                                                    <TableCell className="px-6 py-4">
-                                                        <div>
-                                                            <div className="font-medium text-black">{appointment.patient_name}</div>
-                                                            <div className="text-sm text-gray-500">{appointment.patient?.sequence_number || appointment.patient_id}</div>
-                                                            <div className="text-sm text-gray-500">{appointment.contactNumber}</div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="px-6 py-4">
-                                                        <div>
-                                                            <div className="font-medium text-black">{appointment.specialist_name}</div>
-                                                            <div className="text-sm text-gray-500">{appointment.duration}</div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="px-6 py-4">
-                                                        <div>
-                                                            <div className="font-medium text-black">{appointment.appointment_date ? new Date(appointment.appointment_date).toLocaleDateString() : 'N/A'}</div>
-                                                            <div className="text-sm text-gray-500">{appointment.appointment_time ? appointment.appointment_time.substring(0, 5) : 'N/A'}</div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="px-6 py-4">
-                                                        <Badge className={getTypeBadge(appointment.appointment_type)}>
-                                                            {appointment.appointment_type}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="px-6 py-4">
-                                                        <Badge className={appointment.source === 'Online' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}>
-                                                            {appointment.source}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="px-6 py-4">
-                                                        <Badge className={getStatusBadge(appointment.status)}>
-                                                            {appointment.status}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="px-6 py-4">
-                                                        <div className="flex items-center gap-3">
-                                                            {appointment.confirmationSent && (
-                                                                <Bell className="h-4 w-4 text-black" />
-                                                            )}
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => handleEditAppointment(appointment)}
-                                                                className="text-black border-gray-300 hover:bg-gray-50 min-w-[75px] px-3"
-                                                            >
-                                                                <Edit className="h-4 w-4 mr-1" />
-                                                                Edit
-                                                            </Button>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => handleViewAppointment(appointment)}
-                                                                className="text-black border-gray-300 hover:bg-gray-50 min-w-[75px] px-3"
-                                                            >
-                                                                <Eye className="h-4 w-4 mr-1" />
-                                                                View
-                                                            </Button>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => handleDeleteAppointment(appointment.id)}
-                                                                className="text-black border-gray-300 hover:bg-gray-50 min-w-[75px] px-3"
-                                                            >
-                                                                <Trash2 className="h-4 w-4 mr-1" />
-                                                                Delete
-                                                            </Button>
-                                                        </div>
-                                                    </TableCell>
-                                        </TableRow>
-                                            ))
-                                        )}
-                                </TableBody>
-                            </Table>
-                            </div>
-                        </CardContent>
+                    <CardContent className="p-6">
+                        <SortableTable
+                            data={filteredAppointments}
+                            defaultSort={{ key: 'patient_id', direction: 'asc' }}
+                            columns={[
+                                {
+                                    key: 'patient_id',
+                                    label: 'Patient ID',
+                                    sortable: true,
+                                    className: 'font-medium',
+                                    render: (value, appointment) => (
+                                        <div className="text-center">
+                                            <div className="font-medium text-black">{appointment.patient?.sequence_number || appointment.patient_id}</div>
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'patient_name',
+                                    label: 'Patient',
+                                    sortable: false,
+                                    className: 'font-medium',
+                                    render: (value, appointment) => (
+                                        <div>
+                                            <div className="font-medium text-black">{appointment.patient_name}</div>
+                                            <div className="text-sm text-gray-500">{appointment.contactNumber}</div>
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'specialist_name',
+                                    label: 'Doctor',
+                                    sortable: false,
+                                    render: (value, appointment) => (
+                                        <div>
+                                            <div className="font-medium text-black">{appointment.specialist_name}</div>
+                                            <div className="text-sm text-gray-500">{appointment.duration}</div>
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'appointment_date',
+                                    label: 'Date & Time',
+                                    sortable: false,
+                                    render: (value, appointment) => (
+                                        <div>
+                                            <div className="font-medium text-black">{appointment.appointment_date ? new Date(appointment.appointment_date).toLocaleDateString() : 'N/A'}</div>
+                                            <div className="text-sm text-gray-500">{appointment.appointment_time ? appointment.appointment_time.substring(0, 5) : 'N/A'}</div>
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'appointment_type',
+                                    label: 'Type',
+                                    sortable: false,
+                                    render: (value, appointment) => (
+                                        <Badge className={getTypeBadge(appointment.appointment_type)}>
+                                            {appointment.appointment_type}
+                                        </Badge>
+                                    )
+                                },
+                                {
+                                    key: 'source',
+                                    label: 'Source',
+                                    sortable: false,
+                                    render: (value, appointment) => (
+                                        <Badge className={appointment.source === 'Online' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}>
+                                            {appointment.source}
+                                        </Badge>
+                                    )
+                                },
+                                {
+                                    key: 'status',
+                                    label: 'Status',
+                                    sortable: false,
+                                    render: (value, appointment) => (
+                                        <Badge className={getStatusBadge(appointment.status)}>
+                                            {appointment.status}
+                                        </Badge>
+                                    )
+                                },
+                                {
+                                    key: 'created_at',
+                                    label: 'Created',
+                                    sortable: false,
+                                    render: (value, appointment) => (
+                                        <div className="text-sm text-gray-600">
+                                            {new Date(appointment.created_at).toLocaleDateString()}
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'actions',
+                                    label: 'Actions',
+                                    sortable: false,
+                                    render: (value, appointment) => (
+                                        <div className="flex items-center gap-3">
+                                            {appointment.confirmationSent && (
+                                                <Bell className="h-4 w-4 text-black" />
+                                            )}
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleEditAppointment(appointment)}
+                                                className="text-black border-gray-300 hover:bg-gray-50 min-w-[75px] px-3"
+                                            >
+                                                <Edit className="h-4 w-4 mr-1" />
+                                                Edit
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleViewAppointment(appointment)}
+                                                className="text-black border-gray-300 hover:bg-gray-50 min-w-[75px] px-3"
+                                            >
+                                                <Eye className="h-4 w-4 mr-1" />
+                                                View
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleDeleteAppointment(appointment.id)}
+                                                className="text-black border-gray-300 hover:bg-gray-50 min-w-[75px] px-3"
+                                            >
+                                                <Trash2 className="h-4 w-4 mr-1" />
+                                                Delete
+                                            </Button>
+                                        </div>
+                                    )
+                                }
+                            ]}
+                            defaultSort={{ key: 'id', direction: 'asc' }}
+                            emptyMessage={appointmentsList.length === 0 ? 'No appointments yet. Click "New Appointment" to create your first appointment.' : 'No appointments found matching your search criteria.'}
+                            emptyIcon={Calendar}
+                        />
+                    </CardContent>
                     </Card>
                     
                 {/* Edit Appointment Modal */}

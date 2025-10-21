@@ -49,19 +49,15 @@ class PendingAppointmentApprovalService
                 // $billingTransaction = $this->createBillingTransactionFromAppointment($appointment);
                 // $billingLink = $this->createBillingLink($appointment, $billingTransaction);
 
-                // Step 6: Update pending appointment status
-                $pendingAppointment->update([
-                    'status_approval' => 'approved',
-                    'admin_notes' => $adminData['admin_notes'] ?? null,
-                    'approved_by' => auth()->id(),
-                    'approved_at' => now(),
-                ]);
+                // Step 6: Delete the pending appointment since it's now approved
+                $pendingAppointmentId = $pendingAppointment->id;
+                $pendingAppointment->delete();
 
                 // Step 7: Notify patient
                 $this->notifyPatient($appointment, $adminData['admin_notes'] ?? null);
 
                 Log::info('Pending appointment approved successfully', [
-                    'pending_appointment_id' => $pendingAppointment->id,
+                    'pending_appointment_id' => $pendingAppointmentId,
                     'appointment_id' => $appointment->id,
                     'visit_id' => $visit->id,
                     'note' => 'Billing transaction will be created manually by admin'
@@ -69,7 +65,7 @@ class PendingAppointmentApprovalService
 
                 return [
                     'success' => true,
-                    'pending_appointment' => $pendingAppointment,
+                    'pending_appointment_id' => $pendingAppointmentId,
                     'appointment' => $appointment,
                     'visit' => $visit,
                     'note' => 'Billing transaction will be created manually by admin'
