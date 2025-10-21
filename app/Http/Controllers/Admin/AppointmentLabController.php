@@ -25,6 +25,15 @@ class AppointmentLabController extends Controller
     {
         // $this->authorize('view', $appointment); // TODO: Add authorization policy
 
+        // RESTRICTION: Check if appointment has billing transaction
+        $hasBillingTransaction = \App\Models\BillingTransaction::where('appointment_id', $appointment->id)->exists();
+        
+        if (!$hasBillingTransaction) {
+            return redirect()
+                ->route('admin.appointments.index')
+                ->with('error', 'Cannot add lab tests to appointments without billing transactions. Please create a billing transaction first.');
+        }
+
         // Get available lab tests
         $availableLabTests = LabTest::where('is_active', true)
             ->orderBy('name')

@@ -173,8 +173,8 @@ class TransactionalAppointmentService
                 // Create visit
                 $visit = $this->createVisit($appointment);
 
-                // Skip auto-generating billing transaction - admin will handle this manually
-                // $billingTransaction = $this->createBillingTransaction($appointment);
+                // Create billing transaction automatically
+                $billingTransaction = $this->createBillingTransaction($appointment);
 
                 // Notify patient
                 $this->notifyPatientAppointmentApproved($appointment);
@@ -184,7 +184,8 @@ class TransactionalAppointmentService
                     'appointment_code' => $appointment->appointment_code,
                     'visit_id' => $visit->id,
                     'visit_code' => $visit->visit_code,
-                    'note' => 'Billing transaction will be created manually by admin'
+                    'billing_transaction_id' => $billingTransaction->id,
+                    'note' => 'Billing transaction created automatically'
                 ]);
 
                 return [

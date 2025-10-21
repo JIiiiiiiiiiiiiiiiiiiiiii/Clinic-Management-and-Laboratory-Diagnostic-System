@@ -248,7 +248,7 @@ class HospitalReportController extends Controller
             });
         }
         
-        $labOrders = $query->with(['patient', 'labTests', 'results'])->orderBy('created_at', 'desc')->paginate(20);
+        $labOrders = $query->with(['patient', 'results.test', 'results'])->orderBy('created_at', 'desc')->paginate(20);
         $stats = $this->getLaboratoryStatistics($dateRange);
         
         // Determine if this is an admin route
@@ -910,7 +910,7 @@ class HospitalReportController extends Controller
      */
     private function exportLaboratory(array $dateRange)
     {
-        $labOrders = LabOrder::with(['patient', 'labTests', 'results'])
+        $labOrders = LabOrder::with(['patient', 'results.test', 'results'])
             ->whereBetween('lab_orders.created_at', [$dateRange['start'], $dateRange['end']])
             ->orderBy('lab_orders.created_at', 'desc')
             ->get();
@@ -939,8 +939,8 @@ class HospitalReportController extends Controller
                     $order->order_number,
                     $order->patient?->full_name ?? 'N/A',
                     $order->patient?->patient_no ?? 'N/A',
-                    $order->labTests->first()?->name ?? 'N/A',
-                    $order->labTests->first()?->code ?? 'N/A',
+                    $order->results->first()?->test?->name ?? 'N/A',
+                    $order->results->first()?->test?->code ?? 'N/A',
                     $order->status,
                     $order->created_at->format('Y-m-d H:i:s'),
                     'N/A', // TODO: Implement when completed_at field is available

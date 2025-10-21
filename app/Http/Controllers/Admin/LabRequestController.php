@@ -27,6 +27,19 @@ class LabRequestController extends Controller
                 'notes' => 'nullable|string',
             ]);
 
+            // RESTRICTION: Check if appointment has billing transaction
+            $visit = Visit::with(['appointment'])->find($validated['visit_id']);
+            if (!$visit || !$visit->appointment) {
+                return back()->with('error', 'Visit or appointment not found.');
+            }
+
+            // Check if appointment has a billing transaction (not just pending status)
+            $hasBillingTransaction = \App\Models\BillingTransaction::where('appointment_id', $visit->appointment->id)->exists();
+            
+            if (!$hasBillingTransaction) {
+                return back()->with('error', 'Cannot add lab requests to appointments without billing transactions. Please create a billing transaction first.');
+            }
+
             DB::beginTransaction();
 
             $labRequests = [];
@@ -144,16 +157,20 @@ class LabRequestController extends Controller
             foreach ($labRequests as $labRequest) {
                 // Check if item already exists
                 $existingItem = BillingTransactionItem::where('billing_transaction_id', $billingTransaction->id)
-                    ->where('description', $labRequest->labTest->name)
+                    ->where('item_name', $labRequest->labTest->name)
+                    ->where('item_type', 'laboratory')
                     ->first();
 
                 if (!$existingItem) {
                     BillingTransactionItem::create([
                         'billing_transaction_id' => $billingTransaction->id,
-                        'description' => $labRequest->labTest->name,
+                        'item_type' => 'laboratory',
+                        'item_name' => $labRequest->labTest->name,
+                        'item_description' => "Lab test: {$labRequest->labTest->name}",
+                        'lab_test_id' => $labRequest->labTest->id,
                         'quantity' => 1,
                         'unit_price' => $labRequest->price,
-                        'total_amount' => $labRequest->price,
+                        'total_price' => $labRequest->price,
                     ]);
                 }
             }

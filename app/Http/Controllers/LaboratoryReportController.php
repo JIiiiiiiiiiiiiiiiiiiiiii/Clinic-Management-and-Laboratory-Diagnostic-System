@@ -35,7 +35,7 @@ class LaboratoryReportController extends Controller
         $endDate = $this->getEndDate($filter, $date);
         
         // Get lab orders for the period
-        $labOrders = LabOrder::with(['patient', 'labTests', 'results'])
+        $labOrders = LabOrder::with(['patient', 'results.test', 'results'])
             ->whereBetween('created_at', [$startDate, $endDate])
             ->get();
 
@@ -53,7 +53,9 @@ class LaboratoryReportController extends Controller
                 'order_id' => $order->id,
                 'patient_name' => $order->patient ? $order->patient->last_name . ', ' . $order->patient->first_name : 'N/A',
                 'patient_id' => $order->patient_id,
-                'tests_ordered' => $order->labTests->pluck('name')->join(', '),
+                'tests_ordered' => $order->results->map(function ($result) {
+                    return $result->test?->name;
+                })->filter()->join(', '),
                 'status' => $order->status,
                 'ordered_at' => $order->created_at->format('Y-m-d H:i:s'),
                 'ordered_by' => $order->orderedBy ? $order->orderedBy->name : 'N/A'
@@ -110,7 +112,9 @@ class LaboratoryReportController extends Controller
         $testCounts = [];
         
         foreach ($labOrders as $order) {
-            foreach ($order->labTests as $test) {
+            foreach ($order->results as $result) {
+                $test = $result->test;
+                if (!$test) continue;
                 $testName = strtolower($test->name);
                 
                 // Categorize tests

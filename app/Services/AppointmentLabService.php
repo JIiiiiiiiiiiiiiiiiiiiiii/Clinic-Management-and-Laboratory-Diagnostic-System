@@ -27,6 +27,13 @@ class AppointmentLabService
             'notes' => $notes
         ]);
 
+        // RESTRICTION: Check if appointment has billing transaction
+        $hasBillingTransaction = \App\Models\BillingTransaction::where('appointment_id', $appointment->id)->exists();
+        
+        if (!$hasBillingTransaction) {
+            throw new \Exception('Cannot add lab tests to appointments without billing transactions. Please create a billing transaction first.');
+        }
+
         return DB::transaction(function () use ($appointment, $labTestIds, $addedBy, $notes) {
             try {
                 // Get lab tests
@@ -58,7 +65,7 @@ class AppointmentLabService
                     ]);
                 }
 
-                // Update or create billing transaction
+                // Update billing transaction with lab tests
                 $billingTransaction = $this->updateBillingTransaction($appointment, $labTests);
 
                 // Create lab order
@@ -106,8 +113,7 @@ class AppointmentLabService
         $billingTransaction = $appointment->billingTransactions()->first();
 
         if (!$billingTransaction) {
-            // Create new billing transaction if none exists
-            $billingTransaction = $this->createBillingTransaction($appointment);
+            throw new \Exception('No existing billing transaction found for appointment. Cannot add lab tests without a base transaction.');
         }
 
         // Update transaction total
@@ -151,51 +157,6 @@ class AppointmentLabService
         return $billingTransaction;
     }
 
-    /**
-     * Create billing transaction for appointment
-     */
-    private function createBillingTransaction(Appointment $appointment): BillingTransaction
-    {
-        $nextId = BillingTransaction::max('id') + 1;
-        $transactionId = 'TXN-' . str_pad($nextId, 6, '0', STR_PAD_LEFT);
-
-        $billingTransaction = BillingTransaction::create([
-            'transaction_id' => $transactionId,
-            'patient_id' => $appointment->patient_id,
-            'doctor_id' => $appointment->specialist_id,
-            'total_amount' => $appointment->final_total_amount,
-            'amount' => $appointment->final_total_amount,
-            'status' => 'pending',
-            'description' => "Payment for {$appointment->appointment_type} appointment",
-            'transaction_date' => now(),
-            'transaction_date_only' => now()->toDateString(),
-            'transaction_time_only' => now()->toTimeString(),
-            'created_by' => auth()->id() ?? 1,
-            'is_itemized' => true
-        ]);
-
-        // Create appointment billing link
-        \App\Models\AppointmentBillingLink::create([
-            'appointment_id' => $appointment->id,
-            'billing_transaction_id' => $billingTransaction->id,
-            'appointment_type' => $appointment->appointment_type,
-            'appointment_price' => $appointment->price,
-            'status' => 'pending'
-        ]);
-
-        // Add appointment item to transaction
-        BillingTransactionItem::create([
-            'billing_transaction_id' => $billingTransaction->id,
-            'item_type' => 'consultation',
-            'item_name' => ucfirst($appointment->appointment_type),
-            'item_description' => "Appointment: {$appointment->appointment_type}",
-            'quantity' => 1,
-            'unit_price' => $appointment->price,
-            'total_price' => $appointment->price
-        ]);
-
-        return $billingTransaction;
-    }
 
     /**
      * Create lab order for the tests
@@ -212,12 +173,12 @@ class AppointmentLabService
 
         // Create lab results for each test
         foreach ($labTests as $labTest) {
-            LabResult::create([
+            $labResult = LabResult::create([
                 'lab_order_id' => $labOrder->id,
                 'lab_test_id' => $labTest->id,
-                'results' => [],
-                'status' => 'pending'
+                'results' => []
             ]);
+            
         }
 
         return $labOrder;

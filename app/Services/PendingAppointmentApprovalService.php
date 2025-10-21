@@ -109,20 +109,20 @@ class PendingAppointmentApprovalService
         $patientData = [
             'first_name' => $firstName,
             'last_name' => $lastName,
-            'birthdate' => '1990-01-01', // Default birthdate
-            'age' => 30, // Default age
-            'sex' => 'male', // Default sex
-            'civil_status' => 'single',
-            'nationality' => 'Filipino',
-            'address' => 'Not specified',
-            'present_address' => 'Not specified',
+            'birthdate' => $pendingAppointment->birthdate ?? '1990-01-01',
+            'age' => $pendingAppointment->age ?? 30,
+            'sex' => $pendingAppointment->sex ?? 'male',
+            'civil_status' => $pendingAppointment->civil_status ?? 'single',
+            'nationality' => $pendingAppointment->nationality ?? 'Filipino',
+            'address' => $pendingAppointment->address ?? 'Not specified',
+            'present_address' => $pendingAppointment->present_address ?? 'Not specified',
             'mobile_no' => $pendingAppointment->contact_number ?? 'Not specified',
-            'emergency_name' => 'Not specified',
-            'emergency_relation' => 'Self',
-            'attending_physician' => 'To be assigned',
-            'arrival_date' => now()->toDateString(),
-            'arrival_time' => now()->format('H:i:s'),
-            'time_seen' => now()->format('H:i:s'),
+            'emergency_name' => $pendingAppointment->emergency_name ?? 'Not specified',
+            'emergency_relation' => $pendingAppointment->emergency_relation ?? 'Self',
+            'attending_physician' => $pendingAppointment->attending_physician ?? 'To be assigned',
+            'arrival_date' => $pendingAppointment->arrival_date ?? now()->toDateString(),
+            'arrival_time' => $pendingAppointment->arrival_time ?? now()->format('H:i:s'),
+            'time_seen' => $pendingAppointment->time_seen ?? now()->format('H:i:s'),
         ];
 
         // Generate patient number

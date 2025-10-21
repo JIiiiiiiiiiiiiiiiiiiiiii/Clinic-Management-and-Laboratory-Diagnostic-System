@@ -69,19 +69,34 @@ export default function BillingReceipt({
 }: { 
     transaction: BillingTransaction;
 }) {
+    // Debug logging
+    console.log('Transaction data:', transaction);
+    console.log('Items:', transaction.items);
+    console.log('Items with prices:', transaction.items.map(item => ({
+        name: item.item_name,
+        unit_price: item.unit_price,
+        total_price: item.total_price,
+        unit_price_type: typeof item.unit_price,
+        total_price_type: typeof item.total_price
+    })));
+
     const handlePrint = () => {
         window.print();
     };
 
     const calculateSubtotal = () => {
-        return transaction.items.reduce((sum, item) => sum + item.total_price, 0);
+        return transaction.items.reduce((sum, item) => {
+            const price = typeof item.total_price === 'string' ? parseFloat(item.total_price) : item.total_price;
+            return sum + (isNaN(price) ? 0 : price);
+        }, 0);
     };
 
     const calculateDiscount = () => {
         if (transaction.discount_percentage) {
             return (calculateSubtotal() * transaction.discount_percentage) / 100;
         }
-        return transaction.discount_amount;
+        const discountAmount = typeof transaction.discount_amount === 'string' ? parseFloat(transaction.discount_amount) : transaction.discount_amount;
+        return isNaN(discountAmount) ? 0 : discountAmount;
     };
 
     const calculateNetAmount = () => {
@@ -246,8 +261,8 @@ export default function BillingReceipt({
                                                         <td className="border border-gray-300 px-4 py-3 font-medium">{item.item_name}</td>
                                                         <td className="border border-gray-300 px-4 py-3 text-sm text-gray-600">{item.item_description}</td>
                                                         <td className="border border-gray-300 px-4 py-3 text-center">{item.quantity}</td>
-                                                        <td className="border border-gray-300 px-4 py-3 text-right">₱{item.unit_price.toLocaleString()}</td>
-                                                        <td className="border border-gray-300 px-4 py-3 text-right font-semibold">₱{item.total_price.toLocaleString()}</td>
+                                                        <td className="border border-gray-300 px-4 py-3 text-right">₱{Number(item.unit_price).toLocaleString()}</td>
+                                                        <td className="border border-gray-300 px-4 py-3 text-right font-semibold">₱{Number(item.total_price).toLocaleString()}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>

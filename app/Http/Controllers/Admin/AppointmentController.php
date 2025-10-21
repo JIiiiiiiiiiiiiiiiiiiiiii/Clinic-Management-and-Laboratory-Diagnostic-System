@@ -82,13 +82,13 @@ class AppointmentController extends Controller
         // Get all appointments from single source (appointments table only)
         if ($sortBy === 'patient_id') {
             // For patient_id sorting, we need to join with patients table to sort by sequence_number
-            $appointments = $query->with(['patient', 'specialist'])
+            $appointments = $query->with(['patient', 'specialist', 'billingTransactions'])
                                 ->leftJoin('patients', 'appointments.patient_id', '=', 'patients.id')
                                 ->orderBy('patients.sequence_number', $sortDir)
                                 ->select('appointments.*')
                                 ->get();
         } else {
-            $appointments = $query->with(['patient', 'specialist'])
+            $appointments = $query->with(['patient', 'specialist', 'billingTransactions'])
                                 ->orderBy($sortBy, $sortDir)
                                 ->get();
         }
@@ -117,6 +117,15 @@ class AppointmentController extends Controller
                 'source' => $appointment->source,
                 'status' => $appointment->status,
                 'admin_notes' => $appointment->admin_notes,
+                'billing_transactions' => $appointment->billingTransactions ? $appointment->billingTransactions->map(function($transaction) {
+                    return [
+                        'id' => $transaction->id,
+                        'transaction_id' => $transaction->transaction_id,
+                        'total_amount' => $transaction->total_amount,
+                        'status' => $transaction->status,
+                        'created_at' => $transaction->created_at,
+                    ];
+                }) : [],
                 'created_at' => $appointment->created_at,
                 'updated_at' => $appointment->updated_at,
             ];

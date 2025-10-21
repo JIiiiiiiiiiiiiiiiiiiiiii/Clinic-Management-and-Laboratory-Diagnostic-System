@@ -39,7 +39,9 @@ class PatientRecordController extends Controller
                     return [
                         'id' => $order->id,
                         'created_at' => $order->created_at->format('M d, Y'),
-                        'tests' => $order->labTests->pluck('name'),
+                        'tests' => $order->results->map(function ($result) {
+                            return $result->test?->name;
+                        })->filter(),
                         'status' => $order->status,
                         'notes' => $order->notes,
                     ];

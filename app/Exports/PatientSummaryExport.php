@@ -104,7 +104,9 @@ class PatientSummaryExport implements FromArray, WithHeadings, WithStyles, WithC
             foreach ($this->patient->labOrders as $order) {
                 $data[] = [
                     $order->created_at->format('Y-m-d'),
-                    $order->labTests->pluck('name')->join(', '),
+                    $order->results->map(function ($result) {
+                        return $result->test?->name;
+                    })->filter()->join(', '),
                     $order->status,
                     $order->results->count() > 0 ? 'Yes' : 'No'
                 ];

@@ -14,14 +14,16 @@ class LabOrderController extends Controller
 {
     public function allOrders()
     {
-        $orders = LabOrder::with(['patient', 'labTests'])
+        $orders = LabOrder::with(['patient', 'results.test'])
             ->latest()
             ->get();
 
-        // Normalize relation name for frontend (lab_tests)
+        // Get lab tests through results
         $normalized = $orders->map(function ($o) {
-            $o->setRelation('lab_tests', $o->labTests);
-            $o->unsetRelation('labTests');
+            $labTests = $o->results->map(function ($result) {
+                return $result->test;
+            })->filter();
+            $o->setRelation('lab_tests', $labTests);
             return $o;
         });
 
@@ -42,14 +44,16 @@ class LabOrderController extends Controller
 
     public function reportsIndex()
     {
-        $orders = LabOrder::with(['patient:id,first_name,last_name', 'labTests:id,name,code'])
+        $orders = LabOrder::with(['patient:id,first_name,last_name', 'results.test:id,name,code'])
             ->latest()
             ->get(['id', 'patient_id', 'created_at']);
         $tests = LabTest::orderBy('name')->get(['id', 'name', 'code']);
 
         $normalized = $orders->map(function ($o) {
-            $o->setRelation('lab_tests', $o->labTests);
-            $o->unsetRelation('labTests');
+            $labTests = $o->results->map(function ($result) {
+                return $result->test;
+            })->filter();
+            $o->setRelation('lab_tests', $labTests);
             return $o;
         });
 
@@ -61,12 +65,14 @@ class LabOrderController extends Controller
 
     public function index(Request $request, Patient $patient)
     {
-        $orders = LabOrder::with(['labTests'])->where('patient_id', $patient->id)->latest()->get();
+        $orders = LabOrder::with(['results.test'])->where('patient_id', $patient->id)->latest()->get();
         $labTests = LabTest::where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'is_active']);
 
         $normalizedPatientOrders = $orders->map(function ($o) {
-            $o->setRelation('lab_tests', $o->labTests);
-            $o->unsetRelation('labTests');
+            $labTests = $o->results->map(function ($result) {
+                return $result->test;
+            })->filter();
+            $o->setRelation('lab_tests', $labTests);
             return $o;
         });
 
@@ -114,15 +120,16 @@ class LabOrderController extends Controller
     {
         $order->load([
             'patient', 
-            'labTests', 
             'results.test', 
             'results.values',
             'orderedBy'
         ]);
 
-        // Normalize relation name for frontend
-        $order->setRelation('lab_tests', $order->labTests);
-        $order->unsetRelation('labTests');
+        // Get lab tests through results
+        $labTests = $order->results->map(function ($result) {
+            return $result->test;
+        })->filter();
+        $order->setRelation('lab_tests', $labTests);
 
         return Inertia::render('admin/laboratory/orders/show', [
             'order' => $order,

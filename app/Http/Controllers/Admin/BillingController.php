@@ -767,30 +767,19 @@ class BillingController extends Controller
             $transaction->setRelation('doctor', $doctorInfo);
         }
         
-        // Create items from appointment links for display
-        if ($transaction->appointmentLinks->isNotEmpty()) {
-            $appointmentItems = [];
-            foreach ($transaction->appointmentLinks as $link) {
-                $appointment = $link->appointment;
-                if ($appointment) {
-                    $appointmentItems[] = (object) [
-                        'id' => $link->id,
-                        'item_type' => 'appointment',
-                        'item_name' => ucfirst($appointment->appointment_type) . ' Appointment',
-                        'item_description' => "Appointment for {$appointment->patient_name} on {$appointment->appointment_date->format('M d, Y')} at {$appointment->appointment_time->format('g:i A')}",
-                        'quantity' => 1,
-                        'unit_price' => $appointment->price,
-                        'total_price' => $appointment->price,
-                    ];
-                }
-            }
-            $itemsCollection = collect($appointmentItems);
-            $transaction->setRelation('items', $itemsCollection);
-        } else {
-            // No appointment links, set empty collection
-            $itemsCollection = collect();
-            $transaction->setRelation('items', $itemsCollection);
-        }
+        // Use the actual items from the database (includes lab tests and consultations)
+        // The items relationship already contains all the correct items
+        \Log::info('Receipt items loaded:', [
+            'items_count' => $transaction->items->count(),
+            'items' => $transaction->items->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'item_type' => $item->item_type,
+                    'item_name' => $item->item_name,
+                    'total_price' => $item->total_price
+                ];
+            })->toArray()
+        ]);
         
         \Log::info('Receipt data loaded:', [
             'transaction_id' => $transaction->transaction_id,

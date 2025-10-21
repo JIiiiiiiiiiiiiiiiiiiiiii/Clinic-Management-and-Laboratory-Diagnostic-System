@@ -137,13 +137,14 @@ class CompleteAppointmentService
                 // 3. Create visit automatically
                 $visit = $this->createVisit($appointment);
                 
-                // 4. Skip auto-generating billing transaction - admin will handle this manually
-                // $billingTransaction = $this->createBillingTransaction($appointment);
+                // 4. Create billing transaction automatically
+                $billingTransaction = $this->createBillingTransaction($appointment);
                 
                 Log::info('Appointment approved successfully', [
                     'appointment_id' => $appointment->appointment_id,
                     'visit_id' => $visit->visit_id,
-                    'note' => 'Billing transaction will be created manually by admin'
+                    'billing_transaction_id' => $billingTransaction->id,
+                    'note' => 'Billing transaction created automatically'
                 ]);
                 
                 return [

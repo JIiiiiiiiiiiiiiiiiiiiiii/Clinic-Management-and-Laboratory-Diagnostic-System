@@ -173,10 +173,12 @@ class EnhancedBillingController extends Controller
             foreach ($validated['items'] as $item) {
                 BillingTransactionItem::create([
                     'billing_transaction_id' => $transaction->id,
-                    'description' => $item['description'],
+                    'item_type' => $item['item_type'] ?? 'other',
+                    'item_name' => $item['description'],
+                    'item_description' => $item['description'],
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['unit_price'],
-                    'total_amount' => $item['total'],
+                    'total_price' => $item['total'],
                 ]);
             }
 
