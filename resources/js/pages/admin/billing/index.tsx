@@ -12,7 +12,6 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import Heading from '@/components/heading';
-import { formatAppointmentTime, formatAppointmentDateShort } from '@/utils/dateTime';
 import { 
     AlertCircle, 
     ArrowLeft, 
@@ -686,10 +685,8 @@ export default function BillingIndex({
                                                         </TableCell>
                                                         <TableCell className="text-sm text-gray-600">
                                                             <div>
-                                                                <div>{formatAppointmentDateShort(appointment.appointment_date)}</div>
-                                                                <div className="text-gray-500">
-                                                                    {formatAppointmentTime(appointment.appointment_time)}
-                                                                </div>
+                                                                <div>{new Date(appointment.appointment_date).toLocaleDateString()}</div>
+                                                                <div className="text-gray-500">{appointment.appointment_time}</div>
                                                             </div>
                                                         </TableCell>
                                                         <TableCell className="font-semibold">

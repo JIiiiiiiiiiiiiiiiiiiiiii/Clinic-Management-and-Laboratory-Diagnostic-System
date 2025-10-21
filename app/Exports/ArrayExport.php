@@ -8,6 +8,7 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
 class ArrayExport extends BaseExport implements FromArray, WithHeadings
 {
     protected array $rows;
+    protected string $title;
 
     public function __construct(array $rows, string $title = 'Export')
     {

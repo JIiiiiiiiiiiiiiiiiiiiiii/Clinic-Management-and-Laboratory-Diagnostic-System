@@ -72,15 +72,13 @@ class AppointmentAutomationService
         $appointmentData['appointment_code'] = $this->generateAppointmentCode();
         $appointmentData['source'] = $source;
         $appointmentData['status'] = $source === 'Online' ? 'Pending' : 'Confirmed';
-        $appointmentData['billing_status'] = 'pending'; // Set billing status to pending for manual processing
 
         $appointment = Appointment::create($appointmentData);
 
-        // If walk-in appointment, create visit but skip auto-billing
+        // If walk-in appointment, automatically create visit and billing
         if ($source === 'Walk-in') {
             $this->createVisit($appointment);
-            // Skip auto-generating billing transaction - admin will handle this manually
-            // $this->createBillingTransaction($appointment);
+            $this->createBillingTransaction($appointment);
         }
 
         return $appointment;
@@ -93,16 +91,23 @@ class AppointmentAutomationService
     {
         $appointment->update([
             'status' => 'Confirmed',
-            'source' => 'Online',
-            'billing_status' => 'pending' // Set billing status to pending for manual processing
+            'source' => 'Online'
         ]);
 
         // Create visit
         $visit = $this->createVisit($appointment);
         
-        // Skip auto-generating billing transaction - admin will handle this manually
-        // $billingTransaction = $this->createBillingTransaction($appointment);
-        // \App\Models\AppointmentBillingLink::create([...]);
+        // Create billing transaction
+        $billingTransaction = $this->createBillingTransaction($appointment);
+        
+        // Create billing link
+        \App\Models\AppointmentBillingLink::create([
+            'appointment_id' => $appointment->id,
+            'billing_transaction_id' => $billingTransaction->id,
+            'appointment_type' => $appointment->appointment_type,
+            'appointment_price' => $appointment->price,
+            'status' => 'pending',
+        ]);
 
         return $appointment;
     }

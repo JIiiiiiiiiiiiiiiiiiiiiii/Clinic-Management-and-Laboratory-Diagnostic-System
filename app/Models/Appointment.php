@@ -39,7 +39,7 @@ class Appointment extends Model
 
     protected $casts = [
         'appointment_date' => 'date',
-        'appointment_time' => 'datetime',
+        'appointment_time' => 'datetime:H:i:s',
         'price' => 'decimal:2',
     ];
 

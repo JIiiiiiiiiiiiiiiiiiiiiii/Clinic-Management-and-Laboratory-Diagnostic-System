@@ -70,8 +70,6 @@ class SimpleUser implements Authenticatable
     {
         if ($this->role === 'patient') {
             return route('patient.dashboard.simple');
-        } elseif (in_array($this->role, ['hospital_admin', 'hospital_staff'])) {
-            return route('hospital.dashboard');
         }
         return route('admin.dashboard');
     }

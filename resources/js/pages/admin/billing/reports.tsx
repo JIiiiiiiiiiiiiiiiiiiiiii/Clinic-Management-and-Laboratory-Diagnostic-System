@@ -1,306 +1,380 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
+import Heading from '@/components/heading';
 import { 
+    ArrowLeft, 
     TrendingUp,
-    AlertTriangle,
-    Plus,
-    Building2,
-    ArrowLeft,
-    BarChart3,
-    Download,
     DollarSign,
+    BarChart3,
+    PieChart,
+    Download,
     Calendar,
+    Filter,
+    FileText,
     Users,
-    FileText
+    CreditCard
 } from 'lucide-react';
 import { useState } from 'react';
 
+type Summary = {
+    total_revenue: number;
+    total_expenses: number;
+    total_doctor_payments: number;
+    net_profit: number;
+    revenue_count: number;
+    expense_count: number;
+};
+
 const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Billing Management',
-        href: '/admin/billing',
-    },
-    {
-        title: 'Reports',
-        href: '/admin/billing/billing-reports',
-    },
+    { title: 'Billing', href: '/admin/billing' },
+    { title: 'Reports', href: '/admin/billing/billing-reports' },
 ];
 
-interface BillingReportsProps {
-    revenueData: any[];
-    expenseData: any[];
-    doctorPaymentData: any[];
-    summary: {
-        total_revenue: number;
-        total_doctor_payments: number;
-        net_profit: number;
-        revenue_count: number;
-    };
-    filters: {
-        date_from: string;
-        date_to: string;
-        report_type: string;
-    };
-    error?: string;
-}
-
-export default function BillingReports({
+export default function BillingReports({ 
     revenueData,
     expenseData,
     doctorPaymentData,
     summary,
-    filters,
-    error
-}: BillingReportsProps) {
-    const [selectedFormat, setSelectedFormat] = useState('excel');
+    filters
+}: { 
+    revenueData: any[];
+    expenseData: any[];
+    doctorPaymentData: any[];
+    summary: Summary;
+    filters: any;
+}) {
+    const [dateFrom, setDateFrom] = useState(filters.date_from || '');
+    const [dateTo, setDateTo] = useState(filters.date_to || '');
+    const [reportType, setReportType] = useState(filters.report_type || 'daily');
 
-    const handleExportAll = (format: string) => {
-        const exportUrl = `/admin/billing/billing-reports/export-all?format=${format}&date_from=${filters.date_from}&date_to=${filters.date_to}`;
-        window.open(exportUrl, '_blank');
-    };
-
-    const handleDateRangeChange = (dateFrom: string, dateTo: string) => {
+    const handleFilter = () => {
         router.get('/admin/billing/billing-reports', {
             date_from: dateFrom,
             date_to: dateTo,
-            report_type: filters.report_type
+            report_type: reportType,
+        }, {
+            preserveState: true,
+            replace: true,
         });
     };
 
-    const reportTypes = [
-        {
-            title: 'Daily Report',
-            description: 'View daily billing transactions and payments',
-            icon: Calendar,
-            href: '/admin/billing/daily-report',
-            color: 'bg-blue-500'
-        },
-        {
-            title: 'Monthly Report',
-            description: 'View monthly billing summary and trends',
-            icon: BarChart3,
-            href: '/admin/billing/monthly-report',
-            color: 'bg-green-500'
-        },
-        {
-            title: 'Yearly Report',
-            description: 'View yearly financial overview and analytics',
-            icon: TrendingUp,
-            href: '/admin/billing/yearly-report',
-            color: 'bg-purple-500'
-        },
-        {
-            title: 'Transaction Report',
-            description: 'Detailed transaction analysis and filtering',
-            icon: FileText,
-            href: '/admin/billing/transaction-report',
-            color: 'bg-orange-500'
-        },
-        {
-            title: 'Doctor Summary',
-            description: 'Doctor payment summaries and performance',
-            icon: Users,
-            href: '/admin/billing/doctor-summary',
-            color: 'bg-indigo-500'
-        }
-    ];
+    const handleExport = (format: string) => {
+        router.get('/admin/billing/export', {
+            date_from: dateFrom,
+            date_to: dateTo,
+            report_type: reportType,
+            format: format,
+        });
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Billing Reports" />
-            <div className="min-h-screen bg-gray-50 p-6">
-                <div className="mx-auto max-w-7xl">
-                    {/* Header */}
-                    <div className="mb-8">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h1 className="text-3xl font-bold text-gray-900">Billing Reports</h1>
-                                <p className="mt-2 text-gray-600">Comprehensive billing and financial reports</p>
+            <div className="min-h-screen bg-white p-6">
+                {/* Header Section */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-6">
+                            <Button asChild variant="outline" className="h-12 w-12">
+                                <Link href="/admin/billing">
+                                    <ArrowLeft className="h-5 w-5" />
+                                </Link>
+                            </Button>
+                            <Heading title="Billing Reports" description="Financial reports and analytics" icon={TrendingUp} />
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <Button onClick={() => handleExport('excel')} variant="outline">
+                                <Download className="mr-2 h-5 w-5" />
+                                Export Excel
+                            </Button>
+                            <Button onClick={() => handleExport('pdf')} variant="outline">
+                                <Download className="mr-2 h-5 w-5" />
+                                Export PDF
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Filters */}
+                <Card className="mb-6 rounded-xl border border-gray-200 bg-white shadow-sm">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-3 text-lg font-semibold text-gray-900">
+                            <Filter className="h-5 w-5 text-black" />
+                            Report Filters
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                        <div className="flex items-center gap-4 flex-wrap">
+                            <div className="space-y-2">
+                                <Label className="text-sm font-medium text-gray-700">Date From</Label>
+                                <Input
+                                    type="date"
+                                    value={dateFrom}
+                                    onChange={(e) => setDateFrom(e.target.value)}
+                                    className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl"
+                                />
                             </div>
-                            <div className="flex gap-2">
-                                <Button variant="outline" onClick={() => handleExportAll(selectedFormat)}>
-                                    <Download className="mr-2 h-4 w-4" />
-                                    Export All ({selectedFormat.toUpperCase()})
-                                </Button>
-                                <Select value={selectedFormat} onValueChange={setSelectedFormat}>
-                                    <SelectTrigger className="w-32">
+                            <div className="space-y-2">
+                                <Label className="text-sm font-medium text-gray-700">Date To</Label>
+                                <Input
+                                    type="date"
+                                    value={dateTo}
+                                    onChange={(e) => setDateTo(e.target.value)}
+                                    className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-sm font-medium text-gray-700">Report Type</Label>
+                                <Select value={reportType} onValueChange={setReportType}>
+                                    <SelectTrigger className="h-12 w-40 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="excel">Excel</SelectItem>
-                                        <SelectItem value="pdf">PDF</SelectItem>
+                                        <SelectItem value="daily">Daily</SelectItem>
+                                        <SelectItem value="weekly">Weekly</SelectItem>
+                                        <SelectItem value="monthly">Monthly</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
+                            <Button onClick={handleFilter} className="h-12 px-6">
+                                <Filter className="mr-2 h-4 w-4" />
+                                Apply Filters
+                            </Button>
                         </div>
-                    </div>
+                    </CardContent>
+                </Card>
 
-                    {error && (
-                        <div className="mb-6 rounded-md bg-red-50 p-4">
-                            <div className="flex">
-                                <AlertTriangle className="h-5 w-5 text-red-400" />
-                                <div className="ml-3">
-                                    <h3 className="text-sm font-medium text-red-800">Error</h3>
-                                    <div className="mt-2 text-sm text-red-700">{error}</div>
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                        <CardContent className="p-6">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-green-100 rounded-lg">
+                                    <DollarSign className="h-6 w-6 text-green-600" />
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold text-gray-900">₱{summary.total_revenue.toLocaleString()}</div>
+                                    <div className="text-sm text-gray-600">Total Revenue</div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        </CardContent>
+                    </Card>
 
-                    {/* Summary Cards */}
-                    <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                                <DollarSign className="h-4 w-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">₱{summary?.total_revenue?.toLocaleString() || 0}</div>
-                                <p className="text-xs text-muted-foreground">
-                                    From {revenueData?.length || 0} transactions
-                                </p>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Doctor Payments</CardTitle>
-                                <Users className="h-4 w-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">₱{summary?.total_doctor_payments?.toLocaleString() || 0}</div>
-                                <p className="text-xs text-muted-foreground">
-                                    From {doctorPaymentData?.length || 0} payments
-                                </p>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
-                                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">₱{summary?.net_profit?.toLocaleString() || 0}</div>
-                                <p className="text-xs text-muted-foreground">
-                                    Revenue minus payments
-                                </p>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Date Range</CardTitle>
-                                <Calendar className="h-4 w-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-sm font-bold">
-                                    {filters?.date_from} to {filters?.date_to}
+                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                        <CardContent className="p-6">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-red-100 rounded-lg">
+                                    <FileText className="h-6 w-6 text-red-600" />
                                 </div>
-                                <p className="text-xs text-muted-foreground">
-                                    Report period
-                                </p>
-                            </CardContent>
-                        </Card>
-                    </div>
+                                <div>
+                                    <div className="text-2xl font-bold text-gray-900">₱{summary.total_expenses.toLocaleString()}</div>
+                                    <div className="text-sm text-gray-600">Total Expenses</div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                    {/* Report Types */}
-                    <div className="mb-8">
-                        <h2 className="text-2xl font-bold text-gray-900 mb-4">Available Reports</h2>
-                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                            {reportTypes.map((report, index) => (
-                                <Card key={index} className="relative overflow-hidden transition-all duration-200 hover:shadow-xl hover:scale-105">
-                                    <div className={`absolute inset-0 ${report.color} opacity-10`} />
-                                    <CardHeader className="relative">
-                                        <CardTitle className="flex items-center gap-2">
-                                            <report.icon className="h-6 w-6" />
-                                            {report.title}
-                                        </CardTitle>
-                                        <p className="text-sm text-gray-600">{report.description}</p>
-                                    </CardHeader>
-                                    <CardContent className="relative">
-                                        <Button asChild className="w-full bg-green-600 hover:bg-green-700">
-                                            <Link href={report.href}>View Report</Link>
-                                        </Button>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    </div>
+                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                        <CardContent className="p-6">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-blue-100 rounded-lg">
+                                    <Users className="h-6 w-6 text-blue-600" />
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold text-gray-900">₱{summary.total_doctor_payments.toLocaleString()}</div>
+                                    <div className="text-sm text-gray-600">Doctor Payments</div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                    {/* Recent Transactions */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Recent Transactions</CardTitle>
-                            <p className="text-sm text-gray-600">Latest billing transactions and payments</p>
-                        </CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Type</TableHead>
-                                        <TableHead>Patient/Description</TableHead>
-                                        <TableHead>Amount</TableHead>
-                                        <TableHead>Payment Method</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Date</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {revenueData?.slice(0, 10).map((transaction, index) => (
-                                        <TableRow key={index}>
-                                            <TableCell className="font-medium">Billing</TableCell>
-                                            <TableCell>{transaction.patient?.name || 'N/A'}</TableCell>
-                                            <TableCell>₱{transaction.total_amount?.toLocaleString() || 0}</TableCell>
-                                            <TableCell>{transaction.payment_method || 'N/A'}</TableCell>
-                                            <TableCell>
-                                                <span className={`px-2 py-1 rounded-full text-xs ${
-                                                    transaction.status === 'paid' 
-                                                        ? 'bg-green-100 text-green-800' 
-                                                        : 'bg-yellow-100 text-yellow-800'
-                                                }`}>
-                                                    {transaction.status || 'Unknown'}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>
-                                                {transaction.transaction_date ? 
-                                                    new Date(transaction.transaction_date).toLocaleDateString() : 
-                                                    'N/A'
-                                                }
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                    {doctorPaymentData?.slice(0, 5).map((payment, index) => (
-                                        <TableRow key={`payment-${index}`}>
-                                            <TableCell className="font-medium">Doctor Payment</TableCell>
-                                            <TableCell>{payment.doctor?.name || 'Unknown Doctor'}</TableCell>
-                                            <TableCell>₱{payment.amount_paid?.toLocaleString() || 0}</TableCell>
-                                            <TableCell>{payment.payment_method || 'N/A'}</TableCell>
-                                            <TableCell>
-                                                <span className={`px-2 py-1 rounded-full text-xs ${
-                                                    payment.status === 'paid' 
-                                                        ? 'bg-green-100 text-green-800' 
-                                                        : 'bg-yellow-100 text-yellow-800'
-                                                }`}>
-                                                    {payment.status || 'Unknown'}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>
-                                                {payment.payment_date ? 
-                                                    new Date(payment.payment_date).toLocaleDateString() : 
-                                                    'N/A'
-                                                }
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                        <CardContent className="p-6">
+                            <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-lg ${summary.net_profit >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                                    <TrendingUp className={`h-6 w-6 ${summary.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+                                </div>
+                                <div>
+                                    <div className={`text-2xl font-bold ${summary.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        ₱{summary.net_profit.toLocaleString()}
+                                    </div>
+                                    <div className="text-sm text-gray-600">Net Profit</div>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
+
+                {/* Reports Tabs */}
+                <Tabs defaultValue="overview" className="space-y-6">
+                    <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="overview">Overview</TabsTrigger>
+                        <TabsTrigger value="revenue">Revenue</TabsTrigger>
+                        <TabsTrigger value="expenses">Expenses</TabsTrigger>
+                        <TabsTrigger value="doctor-payments">Doctor Payments</TabsTrigger>
+                    </TabsList>
+
+                    {/* Overview Tab */}
+                    <TabsContent value="overview">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-3 text-lg font-semibold text-gray-900">
+                                        <BarChart3 className="h-5 w-5 text-black" />
+                                        Revenue Trend
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-6">
+                                    <div className="text-center py-8">
+                                        <BarChart3 className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                        <h3 className="mb-2 text-lg font-semibold text-gray-600">Revenue Chart</h3>
+                                        <p className="text-gray-500">Revenue trend visualization will be implemented here</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-3 text-lg font-semibold text-gray-900">
+                                        <PieChart className="h-5 w-5 text-black" />
+                                        Payment Methods
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-6">
+                                    <div className="text-center py-8">
+                                        <PieChart className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                        <h3 className="mb-2 text-lg font-semibold text-gray-600">Payment Methods</h3>
+                                        <p className="text-gray-500">Payment method distribution will be implemented here</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </TabsContent>
+
+                    {/* Revenue Tab */}
+                    <TabsContent value="revenue">
+                        <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-3 text-lg font-semibold text-gray-900">
+                                    <DollarSign className="h-5 w-5 text-black" />
+                                    Revenue Analysis
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                <div className="text-center py-8">
+                                    <DollarSign className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                    <h3 className="mb-2 text-lg font-semibold text-gray-600">Revenue Data</h3>
+                                    <p className="text-gray-500 mb-4">Detailed revenue analysis will be displayed here</p>
+                                    <div className="space-y-2">
+                                        {revenueData.map((item, index) => (
+                                            <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                                <span className="font-medium">{item.date || item.week || item.month}</span>
+                                                <span className="font-semibold">₱{item.amount.toLocaleString()}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* Expenses Tab */}
+                    <TabsContent value="expenses">
+                        <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-3 text-lg font-semibold text-gray-900">
+                                    <FileText className="h-5 w-5 text-black" />
+                                    Expense Analysis
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                <div className="text-center py-8">
+                                    <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                    <h3 className="mb-2 text-lg font-semibold text-gray-600">Expense Data</h3>
+                                    <p className="text-gray-500 mb-4">Detailed expense analysis will be displayed here</p>
+                                    <div className="space-y-2">
+                                        {expenseData.map((item, index) => (
+                                            <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                                <span className="font-medium">{item.date || item.week || item.month}</span>
+                                                <span className="font-semibold">₱{item.amount.toLocaleString()}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* Doctor Payments Tab */}
+                    <TabsContent value="doctor-payments">
+                        <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-3 text-lg font-semibold text-gray-900">
+                                    <Users className="h-5 w-5 text-black" />
+                                    Doctor Payment Analysis
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                <div className="text-center py-8">
+                                    <Users className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                    <h3 className="mb-2 text-lg font-semibold text-gray-600">Doctor Payment Data</h3>
+                                    <p className="text-gray-500 mb-4">Detailed doctor payment analysis will be displayed here</p>
+                                    <div className="space-y-2">
+                                        {doctorPaymentData.map((item, index) => (
+                                            <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                                <span className="font-medium">{item.date || item.week || item.month}</span>
+                                                <span className="font-semibold">₱{item.amount.toLocaleString()}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                </Tabs>
+
+                {/* Quick Actions */}
+                <Card className="mt-8 rounded-xl border border-gray-200 bg-white shadow-sm">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-3 text-lg font-semibold text-gray-900">
+                            <Calendar className="h-5 w-5 text-black" />
+                            Quick Reports
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <Button asChild variant="outline" className="h-16">
+                                <Link href="/admin/billing/daily-report">
+                                    <Calendar className="mr-2 h-5 w-5" />
+                                    Daily Report
+                                </Link>
+                            </Button>
+                            <Button asChild variant="outline" className="h-16">
+                                <Link href="/admin/billing/hmo-report">
+                                    <CreditCard className="mr-2 h-5 w-5" />
+                                    HMO Report
+                                </Link>
+                            </Button>
+                            <Button asChild variant="outline" className="h-16">
+                                <Link href="/admin/billing/doctor-summary">
+                                    <Users className="mr-2 h-5 w-5" />
+                                    Doctor Summary
+                                </Link>
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         </AppLayout>
     );
 }
+
+
+

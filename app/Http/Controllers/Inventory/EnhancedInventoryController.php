@@ -16,7 +16,7 @@ class EnhancedInventoryController extends Controller
     {
         $stats = [
             'total_items' => InventoryItem::count(),
-            'low_stock_items' => InventoryItem::where('status', 'Low Stock')->count(),
+            'low_stock_items' => InventoryItem::lowStock()->count(),
             'out_of_stock_items' => InventoryItem::where('stock', 0)->count(),
             'total_suppliers' => Supplier::count(),
             'total_movements_today' => InventoryMovement::whereDate('created_at', today())->count(),
@@ -27,7 +27,7 @@ class EnhancedInventoryController extends Controller
             ->limit(10)
             ->get();
 
-        $lowStockItems = InventoryItem::where('status', 'Low Stock')
+        $lowStockItems = InventoryItem::lowStock()
             ->orderBy('stock', 'asc')
             ->limit(10)
             ->get();

@@ -636,10 +636,10 @@ const getTypeBadge = (type: string) => {
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
                                             >
                                                 <option value="">Select type...</option>
-                                                <option value="general_consultation">General Consultation</option>
-                                                <option value="cbc">Complete Blood Count (CBC)</option>
-                                                <option value="fecalysis_test">Fecalysis Test</option>
-                                                <option value="urinarysis_test">Urinarysis Test</option>
+                                                <option value="New Consultation">New Consultation</option>
+                                                <option value="Follow-up">Follow-up</option>
+                                                <option value="Emergency">Emergency</option>
+                                                <option value="Routine Checkup">Routine Checkup</option>
                                             </select>
                                         </div>
                                         <div>
@@ -654,6 +654,19 @@ const getTypeBadge = (type: string) => {
                                                 <option value="Pending">Pending</option>
                                                 <option value="Cancelled">Cancelled</option>
                                                 <option value="Completed">Completed</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-black mb-2">Duration</label>
+                                            <select
+                                                value={editForm.duration}
+                                                onChange={(e) => setEditForm(prev => ({ ...prev, duration: e.target.value }))}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                                            >
+                                                <option value="">Select duration...</option>
+                                                <option value="30 min">30 minutes</option>
+                                                <option value="45 min">45 minutes</option>
+                                                <option value="60 min">60 minutes</option>
                                             </select>
                                         </div>
                                         <div>
@@ -762,6 +775,10 @@ const getTypeBadge = (type: string) => {
                                                                     selectedAppointment.appointment_time.split('T')[1]?.substring(0, 5) :
                                                                     selectedAppointment.appointment_time.substring(0, 5)) : 'N/A'}
                                                         </div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-sm text-gray-600">Duration</div>
+                                                        <div className="font-medium text-black">{selectedAppointment.duration || 'N/A'}</div>
                                                     </div>
                                                     <div>
                                                         <div className="text-sm text-gray-600">Type</div>

@@ -51,7 +51,7 @@ class DashboardController extends Controller
                 ->count(),
             'todayAppointments' => Appointment::whereDate('appointment_date', now()->toDateString())->count(),
             'pendingLabTests' => LabResult::whereNull('verified_at')->count(),
-            'lowStockSupplies' => \App\Models\InventoryItem::where('status', 'Low Stock')->count(),
+            'lowStockSupplies' => \App\Models\InventoryItem::lowStock()->count(),
             'unpaidBills' => 0, // Default to 0 if no transactions
             'items' => Item::count(),
             'labOrders' => LabOrder::count(),

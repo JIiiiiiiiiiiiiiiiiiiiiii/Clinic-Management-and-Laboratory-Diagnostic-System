@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class Patient extends Model
 {
     use HasFactory;
-
+    
     protected $primaryKey = 'id';
 
     protected $fillable = [
@@ -30,7 +30,6 @@ class Patient extends Model
         'civil_status',
         'nationality',
         'address',
-        'present_address',
         'telephone_no',
         'mobile_no',
         'emergency_name',
@@ -100,11 +99,6 @@ class Patient extends Model
         return $this->belongsTo(User::class, 'user_id', 'id');
     }
 
-    public function transfers()
-    {
-        return $this->hasMany(PatientTransfer::class, 'patient_id', 'id');
-    }
-
     // Scopes
     public function scopeBySex($query, $sex)
     {
@@ -122,7 +116,7 @@ class Patient extends Model
         return $this->birthdate ? $this->birthdate->format('M d, Y') : 'N/A';
     }
 
-    // Boot method to generate patient number and ensure address consistency
+    // Boot method to generate patient number
     protected static function boot()
     {
         parent::boot();
@@ -132,18 +126,6 @@ class Patient extends Model
             if (empty($patient->patient_no)) {
                 $nextId = static::max('id') + 1;
                 $patient->patient_no = 'P' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
-            }
-
-            // Ensure present_address is set - use address if present_address is empty
-            if (empty($patient->present_address) && !empty($patient->address)) {
-                $patient->present_address = $patient->address;
-            }
-        });
-
-        static::updating(function ($patient) {
-            // Ensure present_address is set - use address if present_address is empty
-            if (empty($patient->present_address) && !empty($patient->address)) {
-                $patient->present_address = $patient->address;
             }
         });
     }

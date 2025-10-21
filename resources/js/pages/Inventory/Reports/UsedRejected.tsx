@@ -338,10 +338,6 @@ export default function UsedRejectedReport({
                                             <span className="text-sm text-gray-600">Low Stock:</span>
                                             <span className="font-semibold text-yellow-600">{data.department_stats.doctor_nurse.low_stock}</span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-sm text-gray-600">Out of Stock:</span>
-                                            <span className="font-semibold text-red-600">{data.department_stats.doctor_nurse.out_of_stock}</span>
-                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -370,10 +366,6 @@ export default function UsedRejectedReport({
                                         <div className="flex justify-between">
                                             <span className="text-sm text-gray-600">Low Stock:</span>
                                             <span className="font-semibold text-yellow-600">{data.department_stats.med_tech.low_stock}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-sm text-gray-600">Out of Stock:</span>
-                                            <span className="font-semibold text-red-600">{data.department_stats.med_tech.out_of_stock}</span>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -408,10 +400,10 @@ export default function UsedRejectedReport({
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge 
-                                                        variant={item.status === 'Out of Stock' ? 'destructive' : 'default'}
-                                                        className={item.status === 'Low Stock' ? 'bg-orange-500 text-white hover:bg-orange-600' : ''}
-                                                    >
+                                                    <Badge variant={
+                                                        item.status === 'In Stock' ? 'default' :
+                                                        item.status === 'Low Stock' ? 'secondary' : 'destructive'
+                                                    }>
                                                         {item.status}
                                                     </Badge>
                                                 </TableCell>
@@ -450,10 +442,10 @@ export default function UsedRejectedReport({
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge 
-                                                        variant={item.status === 'Out of Stock' ? 'destructive' : 'default'}
-                                                        className={item.status === 'Low Stock' ? 'bg-orange-500 text-white hover:bg-orange-600' : ''}
-                                                    >
+                                                    <Badge variant={
+                                                        item.status === 'In Stock' ? 'default' :
+                                                        item.status === 'Low Stock' ? 'secondary' : 'destructive'
+                                                    }>
                                                         {item.status}
                                                     </Badge>
                                                 </TableCell>

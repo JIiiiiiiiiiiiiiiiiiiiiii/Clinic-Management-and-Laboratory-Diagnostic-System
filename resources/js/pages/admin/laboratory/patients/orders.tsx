@@ -32,40 +32,24 @@ type LabOrder = {
     status: string;
     created_at: string;
     notes?: string;
-    patient_visit_id?: number | null;
-    visit?: {
-        id: number;
-        visit_code: string;
-        visit_date_time_time: string;
-        status: string;
-    } | null;
     lab_tests: LabTest[];
 };
 
 const breadcrumbs = (patient: Patient): BreadcrumbItem[] => [
     { title: 'Laboratory', href: '/admin/laboratory' },
     { title: 'Lab Orders', href: '/admin/laboratory/orders' },
-    { title: `${patient.last_name}, ${patient.first_name}`, href: `/admin/laboratory/patients/${patient.id}/orders` },
+    { title: `${patient.last_name}, ${patient.first_name}`, href: `/admin/laboratory/patients/${patient.patient_id}/orders` },
 ];
-
-type Visit = {
-    id: number;
-    visit_code: string;
-    visit_date_time_time: string;
-    status: string;
-};
 
 export default function PatientLabOrders({
     patient,
     labTests,
     orders = [],
-    availableVisits = [],
     patient_visit_id = null,
 }: {
     patient: Patient;
     labTests: LabTest[];
     orders?: LabOrder[];
-    availableVisits?: Visit[];
     patient_visit_id?: number | null;
 }) {
     const [selectedTests, setSelectedTests] = useState<number[]>([]);
@@ -91,7 +75,7 @@ export default function PatientLabOrders({
             return;
         }
 
-        router.post(`/admin/laboratory/patients/${patient.id}/orders`, data, {
+        router.post(`/admin/laboratory/patients/${patient.patient_id}/orders`, data, {
             onSuccess: () => {
                 setShowCreateForm(false);
                 setSelectedTests([]);
@@ -174,24 +158,6 @@ export default function PatientLabOrders({
                                     </div>
 
                                     <div>
-                                        <Label htmlFor="patient_visit_id" className="text-sm font-semibold text-gray-700 mb-2 block">Link to Visit (Optional)</Label>
-                                        <select
-                                            id="patient_visit_id"
-                                            value={data.patient_visit_id || ''}
-                                            onChange={(e) => setData('patient_visit_id', e.target.value ? parseInt(e.target.value) : null)}
-                                            className="w-full border-gray-300 rounded-xl shadow-sm focus:border-gray-500 focus:ring-gray-500"
-                                        >
-                                            <option value="">No visit linked</option>
-                                            {availableVisits.map((visit) => (
-                                                <option key={visit.id} value={visit.id}>
-                                                    {visit.visit_code} - {new Date(visit.visit_date_time_time).toLocaleDateString()} ({visit.status})
-                                                </option>
-                                            ))}
-                                        </select>
-                                        {errors.patient_visit_id && <p className="mt-2 text-sm text-black">{errors.patient_visit_id}</p>}
-                                    </div>
-
-                                    <div>
                                         <Label htmlFor="notes" className="text-sm font-semibold text-gray-700 mb-2 block">Notes (Optional)</Label>
                                         <Textarea
                                             id="notes"
@@ -260,11 +226,6 @@ export default function PatientLabOrders({
                                                     <div className="text-sm text-muted-foreground">
                                                         <strong>Ordered:</strong> {new Date(order.created_at).toLocaleString()}
                                                     </div>
-                                                    {order.visit && (
-                                                        <div className="mt-2 text-sm text-muted-foreground">
-                                                            <strong>Visit:</strong> {order.visit.visit_code} ({new Date(order.visit.visit_date_time_time).toLocaleDateString()})
-                                                        </div>
-                                                    )}
                                                     {order.notes && (
                                                         <div className="mt-2 text-sm text-muted-foreground">
                                                             <strong>Notes:</strong> {order.notes}

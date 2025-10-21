@@ -341,34 +341,8 @@ class AppointmentController extends Controller
      */
     public function show(Appointment $appointment)
     {
-        // Format the appointment data for frontend display
-        $formattedAppointment = [
-            'id' => $appointment->id,
-            'patient_name' => $appointment->patient_name,
-            'patient_id' => $appointment->patient_id,
-            'contact_number' => $appointment->contact_number,
-            'appointment_type' => $appointment->appointment_type,
-            'price' => $appointment->price,
-            'specialist_type' => $appointment->specialist_type,
-            'specialist_name' => $appointment->specialist_name,
-            'specialist_id' => $appointment->specialist_id,
-            'appointment_date' => $appointment->appointment_date ? $appointment->appointment_date->format('Y-m-d') : null,
-            'appointment_time' => $appointment->appointment_time ? $appointment->appointment_time->format('H:i:s') : null,
-            'duration' => $appointment->duration,
-            'status' => $appointment->status,
-            'billing_status' => $appointment->billing_status,
-            'notes' => $appointment->notes,
-            'special_requirements' => $appointment->special_requirements,
-            'created_at' => $appointment->created_at,
-            'updated_at' => $appointment->updated_at,
-            'patient' => $appointment->patient,
-            'specialist' => $appointment->specialist,
-            'visits' => $appointment->visits,
-            'billingTransactions' => $appointment->billingTransactions
-        ];
-
         return Inertia::render('admin/appointments/show', [
-            'appointment' => $formattedAppointment
+            'appointment' => $appointment
         ]);
     }
 

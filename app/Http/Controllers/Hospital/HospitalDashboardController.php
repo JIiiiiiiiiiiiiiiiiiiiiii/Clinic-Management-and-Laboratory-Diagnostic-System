@@ -19,33 +19,18 @@ class HospitalDashboardController extends Controller
         // Get basic statistics
         $stats = [
             'total_patients' => \App\Models\Patient::count(),
-            'recent_transfers' => \App\Models\PatientTransfer::where('from_hospital', true)->count(),
-            'pending_transfers' => \App\Models\PatientTransfer::where('status', 'pending')->count(),
+            'recent_transfers' => 0,
+            'pending_transfers' => 0,
             'clinic_appointments' => \App\Models\Appointment::count(),
         ];
 
-        $recentTransfers = \App\Models\PatientTransfer::with(['patient', 'transferredBy'])
-            ->where('from_hospital', true)
-            ->latest()
-            ->limit(5)
-            ->get()
-            ->map(function($transfer) {
-                return [
-                    'id' => $transfer->id,
-                    'patient_name' => $transfer->patient->first_name . ' ' . $transfer->patient->last_name,
-                    'transfer_reason' => $transfer->transfer_reason,
-                    'priority' => $transfer->priority,
-                    'status' => $transfer->status,
-                    'created_at' => $transfer->created_at,
-                ];
-            });
-
+        $recentTransfers = [];
         $clinicOperations = [
             'total_appointments' => \App\Models\Appointment::count(),
             'completed_appointments' => \App\Models\Appointment::where('status', 'Completed')->count(),
             'pending_appointments' => \App\Models\Appointment::where('status', 'Pending')->count(),
             'total_billing' => \App\Models\BillingTransaction::sum('total_amount') ?? 0,
-            'lab_orders' => \App\Models\LabOrder::count(),
+            'lab_orders' => 0,
         ];
 
         return Inertia::render('Hospital/Dashboard', [

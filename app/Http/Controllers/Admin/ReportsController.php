@@ -11,8 +11,6 @@ use App\Models\LabOrder;
 use App\Models\LabResult;
 use App\Models\Supply\Supply;
 use App\Models\User;
-use App\Models\FinancialOverview;
-use App\Services\FinancialOverviewService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -109,24 +107,17 @@ class ReportsController extends Controller
                 $query->where('hmo_provider', $request->hmo_provider);
             }
 
-            $transactions = $query->with(['patient', 'doctor'])
+            $transactions = $query->with(['patient', 'orderedBy'])
                 ->orderBy('transaction_date', 'desc')
                 ->paginate(20);
 
-            // Transform transactions to include patient_name and doctor_name
-            $transactions->getCollection()->transform(function ($transaction) {
-                $transaction->patient_name = $transaction->patient ? $transaction->patient->first_name . ' ' . $transaction->patient->last_name : 'N/A';
-                $transaction->doctor_name = $transaction->doctor ? $transaction->doctor->name : 'N/A';
-                return $transaction;
-            });
-
             // Calculate summary with null checks
             $summary = [
-                'total_revenue' => $transactions->where('status', 'paid')->sum('total_amount') ?? 0,
+                'total_revenue' => $transactions->sum('total_amount') ?? 0,
                 'total_transactions' => $transactions->count(),
-                'average_transaction' => $transactions->where('status', 'paid')->avg('total_amount') ?? 0,
-                'cash_payments' => $transactions->where('payment_method', 'cash')->where('status', 'paid')->sum('total_amount') ?? 0,
-                'hmo_payments' => $transactions->where('payment_method', 'hmo')->where('status', 'paid')->sum('total_amount') ?? 0,
+                'average_transaction' => $transactions->avg('total_amount') ?? 0,
+                'cash_payments' => $transactions->where('payment_method', 'Cash')->sum('total_amount') ?? 0,
+                'hmo_payments' => $transactions->where('payment_method', 'HMO')->sum('total_amount') ?? 0,
                 'date_from' => $request->get('date_from'),
                 'date_to' => $request->get('date_to'),
             ];
@@ -134,52 +125,17 @@ class ReportsController extends Controller
             // Get chart data
             $chartData = $this->getFinancialChartData($request);
 
-            // Get financial overview from database
-            $financialOverview = $this->getFinancialOverviewFromDatabase($request);
-            
-            // Debug logging
-            Log::info('Financial Overview Data:', [
-                'count' => $financialOverview->count(),
-                'data' => $financialOverview->toArray(),
-                'type' => get_class($financialOverview)
-            ]);
-            
-            // Ensure we always have an array, even if empty
-            if (!$financialOverview || $financialOverview->isEmpty()) {
-                $financialOverview = collect();
-            }
-            
-            // Convert to array for frontend
-            $financialOverviewArray = $financialOverview->toArray();
-            
-            Log::info('Financial Overview Array for Frontend:', [
-                'count' => count($financialOverviewArray),
-                'data' => $financialOverviewArray,
-                'type' => gettype($financialOverviewArray)
-            ]);
-
             return Inertia::render('admin/reports/financial', [
                 'transactions' => $transactions,
                 'summary' => $summary,
                 'chartData' => $chartData,
-                'financialOverview' => $financialOverviewArray,
                 'filterOptions' => $this->getFilterOptions(),
                 'metadata' => $this->getReportMetadata(),
             ]);
         } catch (\Exception $e) {
             Log::error('Financial reports error: ' . $e->getMessage());
-            
-            // Create a proper paginated structure for error case
-            $emptyTransactions = new \Illuminate\Pagination\LengthAwarePaginator(
-                collect(), // empty collection
-                0, // total
-                20, // per page
-                1, // current page
-                ['path' => request()->url()]
-            );
-            
             return Inertia::render('admin/reports/financial', [
-                'transactions' => $emptyTransactions,
+                'transactions' => collect(),
                 'summary' => [
                     'total_revenue' => 0,
                     'total_transactions' => 0,
@@ -187,7 +143,6 @@ class ReportsController extends Controller
                     'cash_payments' => 0,
                     'hmo_payments' => 0,
                 ],
-                'financialOverview' => [],
                 'chartData' => [],
                 'filterOptions' => $this->getFilterOptions(),
                 'metadata' => $this->getReportMetadata(),
@@ -283,7 +238,7 @@ class ReportsController extends Controller
                 $query->where('status', $request->status);
             }
 
-            $labOrders = $query->with(['patient'])
+            $labOrders = $query->with(['patient', 'orderedBy'])
                 ->orderBy('created_at', 'desc')
                 ->paginate(20);
 
@@ -580,129 +535,6 @@ class ReportsController extends Controller
     }
 
     /**
-     * Get financial overview data from database
-     */
-    private function getFinancialOverviewFromDatabase(Request $request)
-    {
-        try {
-            $query = FinancialOverview::query();
-
-            // Apply date filters
-            if ($request->filled('date_from')) {
-                $query->where('date', '>=', $request->date_from);
-            }
-
-            if ($request->filled('date_to')) {
-                $query->where('date', '<=', $request->date_to);
-            }
-
-            // If no date filters, get all data (for now, to debug)
-            if (!$request->filled('date_from') && !$request->filled('date_to')) {
-                // Get all data for debugging
-                // $query->where('date', '>=', now()->subDays(30)->format('Y-m-d'));
-            }
-
-            $overviewData = $query->orderBy('date', 'desc')->get();
-            
-            // Debug logging
-            Log::info('Financial Overview Query Debug:', [
-                'total_records' => FinancialOverview::count(),
-                'query_sql' => $query->toSql(),
-                'query_bindings' => $query->getBindings(),
-                'result_count' => $overviewData->count(),
-                'result_data' => $overviewData->toArray()
-            ]);
-
-            // Transform to match frontend expectations
-            $transformedData = $overviewData->map(function ($overview) {
-                return [
-                    'id' => $overview->date->format('Y-m-d'),
-                    'date' => $overview->date->format('Y-m-d'),
-                    'total_transactions' => (int) $overview->total_transactions,
-                    'total_revenue' => (float) $overview->total_revenue,
-                    'pending_amount' => (float) $overview->pending_amount,
-                    'cash_total' => (float) $overview->cash_total,
-                    'hmo_total' => (float) $overview->hmo_total,
-                    'other_payment_total' => (float) $overview->other_payment_total,
-                    'paid_transactions' => (int) $overview->paid_transactions,
-                    'pending_transactions' => (int) $overview->pending_transactions,
-                    'cancelled_transactions' => (int) $overview->cancelled_transactions,
-                ];
-            });
-            
-            // Debug the transformed data
-            Log::info('Transformed Financial Overview Data:', [
-                'count' => $transformedData->count(),
-                'data' => $transformedData->toArray()
-            ]);
-            
-            return $transformedData;
-
-        } catch (\Exception $e) {
-            Log::error('Financial overview database error: ' . $e->getMessage());
-            return collect();
-        }
-    }
-
-    /**
-     * Sync financial overview data
-     */
-    public function syncFinancialOverview()
-    {
-        try {
-            FinancialOverviewService::syncAll();
-            return response()->json(['success' => true, 'message' => 'Financial overview synced successfully']);
-        } catch (\Exception $e) {
-            Log::error('Financial overview sync error: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Failed to sync financial overview'], 500);
-        }
-    }
-
-    /**
-     * Debug financial overview data
-     */
-    public function debugFinancialOverview()
-    {
-        try {
-            $financialOverview = FinancialOverview::all();
-            $billingTransactions = BillingTransaction::all();
-            
-            // Test the same query as the main method
-            $testQuery = $this->getFinancialOverviewFromDatabase(request());
-            
-            return response()->json([
-                'financial_overview_count' => $financialOverview->count(),
-                'billing_transactions_count' => $billingTransactions->count(),
-                'financial_overview_data' => $financialOverview->toArray(),
-                'billing_transactions_data' => $billingTransactions->toArray(),
-                'test_query_result' => $testQuery->toArray(),
-                'test_query_count' => $testQuery->count(),
-            ]);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    /**
-     * Test financial overview data
-     */
-    public function testFinancialOverview()
-    {
-        try {
-            $financialOverview = $this->getFinancialOverviewFromDatabase(request());
-            
-            return response()->json([
-                'success' => true,
-                'data' => $financialOverview->toArray(),
-                'count' => $financialOverview->count(),
-                'type' => get_class($financialOverview),
-            ]);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    /**
      * Generate report metadata
      */
     private function getReportMetadata()
@@ -847,29 +679,18 @@ class ReportsController extends Controller
             // Create export data based on type
             $exportData = [];
             
-            if ($type === 'financial') {
-                // For financial reports, use the multi-sheet export
-                return Excel::download(new \App\Exports\FinancialReportExport(
-                    $data['summary'],
-                    $data['transactions']->toArray(),
-                    $data['financialOverview'],
-                    $this->getDateRangeString($request)
-                ), $filename . '.xlsx');
-            } elseif ($type === 'all') {
+            if ($type === 'all') {
                 // Export all data types
                 $exportData = $this->getAllReportData($request);
-                return Excel::download(
-                    new \App\Exports\ArrayExport($exportData, ucfirst($type) . ' Report - ' . now()->format('Y-m-d')),
-                    $filename . '.xlsx'
-                );
             } else {
                 // Export specific type
                 $exportData = $this->formatDataForExport($data, $type);
-                return Excel::download(
-                    new \App\Exports\ArrayExport($exportData, ucfirst($type) . ' Report - ' . now()->format('Y-m-d')),
-                    $filename . '.xlsx'
-                );
             }
+            
+            return Excel::download(
+                new \App\Exports\ArrayExport($exportData, ucfirst($type) . ' Report - ' . now()->format('Y-m-d')),
+                $filename . '.xlsx'
+            );
         } catch (\Exception $e) {
             Log::error('Excel export failed: ' . $e->getMessage());
             return response()->json(['error' => 'Excel export failed: ' . $e->getMessage()], 500);
@@ -885,11 +706,8 @@ class ReportsController extends Controller
             $data = $this->getReportData($type, $request);
             $metadata = $this->getReportMetadata();
 
-            // For financial reports, pass the complete data structure
-            $viewData = $data;
-            
             $pdf = Pdf::loadView("reports.{$type}", [
-                'data' => $viewData,
+                'data' => $data,
                 'metadata' => $metadata,
                 'filters' => $request->all(),
                 'title' => ucfirst($type) . ' Report',
@@ -900,9 +718,7 @@ class ReportsController extends Controller
             $pdf->setOptions([
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
-                'defaultFont' => 'DejaVu Sans',
-                'isPhpEnabled' => true,
-                'isJavascriptEnabled' => true,
+                'defaultFont' => 'Arial',
             ]);
 
             return $pdf->download("{$filename}.pdf");
@@ -963,32 +779,20 @@ class ReportsController extends Controller
                 $query->where('payment_method', $request->payment_method);
             }
 
-            $transactions = $query->with(['patient', 'doctor'])->get();
-
-            // Transform transactions to include patient_name and doctor_name
-            $transactions->transform(function ($transaction) {
-                $transaction->patient_name = $transaction->patient ? $transaction->patient->first_name . ' ' . $transaction->patient->last_name : 'N/A';
-                $transaction->doctor_name = $transaction->doctor ? $transaction->doctor->name : 'N/A';
-                return $transaction;
-            });
-
-            // Get financial overview data
-            $financialOverview = $this->getFinancialOverviewFromDatabase($request);
+            $transactions = $query->with(['patient', 'orderedBy'])->get();
 
             return [
                 'transactions' => $transactions,
-                'financialOverview' => $financialOverview->toArray(),
                 'summary' => [
-                    'total_revenue' => $transactions->where('status', 'paid')->sum('total_amount') ?? 0,
+                    'total_revenue' => $transactions->sum('total_amount') ?? 0,
                     'total_transactions' => $transactions->count(),
-                    'average_transaction' => $transactions->where('status', 'paid')->avg('total_amount') ?? 0,
+                    'average_transaction' => $transactions->avg('total_amount') ?? 0,
                 ]
             ];
         } catch (\Exception $e) {
             Log::error('Financial report data error: ' . $e->getMessage());
             return [
                 'transactions' => collect(),
-                'financialOverview' => [],
                 'summary' => [
                     'total_revenue' => 0,
                     'total_transactions' => 0,
@@ -1043,7 +847,7 @@ class ReportsController extends Controller
             $query = LabOrder::query();
             $this->applyCommonFilters($query, $request, 'created_at');
 
-            $labOrders = $query->with(['patient'])->get();
+            $labOrders = $query->with(['patient', 'orderedBy'])->get();
 
             return [
                 'labOrders' => $labOrders,

@@ -123,40 +123,12 @@ class SystemWideSpecialistBillingHelper
             ->get();
         
         foreach ($invalidTransactions as $transaction) {
-            try {
-                // Find the related appointment
-                $appointment = Appointment::where("patient_id", $transaction->patient_id)->first();
-                if ($appointment) {
-                    $doctorId = ($appointment->specialist_type === "doctor") ? $appointment->specialist_id : null;
-                    
-                    // Check if updating would cause a constraint violation
-                    $existingTransaction = BillingTransaction::where('patient_id', $transaction->patient_id)
-                        ->where('doctor_id', $doctorId)
-                        ->where('total_amount', $transaction->total_amount)
-                        ->where('status', $transaction->status)
-                        ->where('id', '!=', $transaction->id)
-                        ->first();
-                    
-                    if ($existingTransaction) {
-                        Log::warning("SYSTEM-WIDE: Skipping update for transaction {$transaction->id} - would create duplicate constraint", [
-                            'transaction_id' => $transaction->id,
-                            'existing_transaction_id' => $existingTransaction->id,
-                            'patient_id' => $transaction->patient_id,
-                            'doctor_id' => $doctorId
-                        ]);
-                        continue;
-                    }
-                    
-                    $transaction->update(["doctor_id" => $doctorId]);
-                    Log::info("SYSTEM-WIDE: Fixed billing transaction {$transaction->id} with doctor_id {$doctorId}");
-                }
-            } catch (\Exception $e) {
-                Log::error("SYSTEM-WIDE: Failed to update transaction {$transaction->id}", [
-                    'error' => $e->getMessage(),
-                    'transaction_id' => $transaction->id
-                ]);
-                // Continue with next transaction instead of failing completely
-                continue;
+            // Find the related appointment
+            $appointment = Appointment::where("patient_id", $transaction->patient_id)->first();
+            if ($appointment) {
+                $doctorId = ($appointment->specialist_type === "doctor") ? $appointment->specialist_id : null;
+                $transaction->update(["doctor_id" => $doctorId]);
+                Log::info("SYSTEM-WIDE: Fixed billing transaction {$transaction->id} with doctor_id {$doctorId}");
             }
         }
         

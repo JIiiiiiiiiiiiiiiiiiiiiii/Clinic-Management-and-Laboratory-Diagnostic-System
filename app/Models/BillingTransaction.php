@@ -81,16 +81,6 @@ class BillingTransaction extends Model
         return $this->hasMany(\App\Models\BillingTransactionItem::class, 'billing_transaction_id', 'id');
     }
 
-    public function createdBy()
-    {
-        return $this->belongsTo(\App\Models\User::class, 'created_by', 'id');
-    }
-
-    public function updatedBy()
-    {
-        return $this->belongsTo(\App\Models\User::class, 'updated_by', 'id');
-    }
-
     // Scopes
     public function scopeByStatus($query, $status)
     {
@@ -100,53 +90,6 @@ class BillingTransaction extends Model
     public function scopeByPaymentMethod($query, $method)
     {
         return $query->where('payment_method', $method);
-    }
-
-    // Business logic methods
-    public function canBeEdited()
-    {
-        return in_array($this->status, ['pending', 'draft']);
-    }
-
-    public function canBeCancelled()
-    {
-        return in_array($this->status, ['pending', 'draft']);
-    }
-
-    public function canBePaid()
-    {
-        return $this->status === 'pending';
-    }
-
-    // Helper methods for getting related data
-    public function getPatientInfo()
-    {
-        if ($this->patient) {
-            return $this->patient;
-        }
-        
-        // Try to get patient from appointment
-        $appointment = $this->appointments()->first();
-        if ($appointment && $appointment->patient) {
-            return $appointment->patient;
-        }
-        
-        return null;
-    }
-
-    public function getDoctorInfo()
-    {
-        if ($this->doctor) {
-            return $this->doctor;
-        }
-        
-        // Try to get doctor from appointment
-        $appointment = $this->appointments()->first();
-        if ($appointment && $appointment->specialist) {
-            return $appointment->specialist;
-        }
-        
-        return null;
     }
 
     public function scopeByDateRange($query, $startDate, $endDate)

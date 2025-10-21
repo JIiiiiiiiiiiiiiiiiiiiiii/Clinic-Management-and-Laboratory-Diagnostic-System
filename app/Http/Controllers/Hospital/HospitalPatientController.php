@@ -48,37 +48,10 @@ class HospitalPatientController extends Controller
             $q->latest();
         }])
         ->orderBy('created_at', 'desc')
-        ->paginate(15)
-        ->through(function($patient) {
-            return [
-                'id' => $patient->id,
-                'patient_no' => $patient->patient_no,
-                'full_name' => $patient->first_name . ' ' . $patient->last_name,
-                'age' => $patient->age,
-                'sex' => $patient->sex,
-                'mobile_no' => $patient->mobile_no,
-                'present_address' => $patient->present_address,
-                'created_at' => $patient->created_at,
-                'transfers' => $patient->transfers
-            ];
-        });
-
-        // Get statistics
-        $stats = [
-            'total_patients' => Patient::count(),
-            'male_patients' => Patient::where('sex', 'male')->count(),
-            'female_patients' => Patient::where('sex', 'female')->count(),
-            'transferred_patients' => Patient::whereHas('transfers', function($q) {
-                $q->where('status', 'completed');
-            })->count(),
-            'new_this_month' => Patient::whereMonth('created_at', now()->month)
-                ->whereYear('created_at', now()->year)
-                ->count(),
-        ];
+        ->paginate(15);
 
         return Inertia::render('Hospital/Patients/Index', [
             'patients' => $patients,
-            'stats' => $stats,
             'filters' => $request->only(['search', 'transfer_status']),
         ]);
     }
@@ -122,7 +95,7 @@ class HospitalPatientController extends Controller
     public function show(Patient $patient): Response
     {
         $patient->load(['transfers', 'visits', 'appointments']);
-
+        
         return Inertia::render('Hospital/Patients/Show', [
             'patient' => $patient,
         ]);
@@ -195,58 +168,10 @@ class HospitalPatientController extends Controller
     public function transferHistory(Patient $patient): Response
     {
         $transfers = $patient->transfers()->with('transferredBy')->latest()->get();
-
+        
         return Inertia::render('Hospital/Patients/TransferHistory', [
             'patient' => $patient,
             'transfers' => $transfers,
         ]);
-    }
-
-    public function refer(): Response
-    {
-        $patients = Patient::with(['transfers' => function($q) {
-            $q->latest();
-        }])
-        ->orderBy('created_at', 'desc')
-        ->get()
-        ->map(function($patient) {
-            return [
-                'id' => $patient->id,
-                'patient_no' => $patient->patient_no,
-                'full_name' => $patient->first_name . ' ' . $patient->last_name,
-                'age' => $patient->age,
-                'sex' => $patient->sex,
-                'mobile_no' => $patient->mobile_no,
-                'created_at' => $patient->created_at,
-                'transfers' => $patient->transfers
-            ];
-        });
-
-        return Inertia::render('Hospital/Patients/Refer', [
-            'patients' => $patients,
-        ]);
-    }
-
-    public function processReferral(Request $request)
-    {
-        $validated = $request->validate([
-            'patient_id' => 'required|exists:patients,id',
-            'transfer_reason' => 'required|string|max:500',
-            'priority' => 'required|in:low,medium,high,urgent',
-            'notes' => 'nullable|string|max:1000',
-        ]);
-
-        $transfer = PatientTransfer::create([
-            'patient_id' => $validated['patient_id'],
-            'from_hospital' => true,
-            'transfer_reason' => $validated['transfer_reason'],
-            'priority' => $validated['priority'],
-            'notes' => $validated['notes'],
-            'status' => 'pending',
-            'transferred_by' => auth()->id(),
-        ]);
-
-        return redirect()->route('hospital.patients.refer')
-            ->with('success', 'Patient referral created successfully.');
     }
 }

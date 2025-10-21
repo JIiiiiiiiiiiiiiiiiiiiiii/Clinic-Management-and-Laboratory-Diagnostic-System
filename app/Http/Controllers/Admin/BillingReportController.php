@@ -361,48 +361,19 @@ class BillingReportController extends Controller
             $query->where('doctor_id', $doctorId);
         }
 
-        // Get paginated transactions
-        $transactions = $query->orderBy('transaction_date', 'desc')->paginate(20);
-
-        // Transform transactions to include patient_name and doctor_name
-        $transactions->getCollection()->transform(function ($transaction) {
-            $transaction->patient_name = $transaction->patient ? $transaction->patient->first_name . ' ' . $transaction->patient->last_name : 'N/A';
-            $transaction->doctor_name = $transaction->doctor ? $transaction->doctor->name : 'N/A';
-            return $transaction;
-        });
+        $transactions = $query->get();
 
         // Calculate summary
-        $allTransactions = $query->get();
         $summary = [
-            'total_revenue' => $allTransactions->sum('total_amount'),
-            'total_transactions' => $allTransactions->count(),
-            'average_transaction' => $allTransactions->count() > 0 ? $allTransactions->avg('total_amount') : 0,
-            'date_from' => $dateFrom,
-            'date_to' => $dateTo,
-        ];
-
-        // Get filter options
-        $filterOptions = [
-            'doctors' => \App\Models\User::where('role', 'doctor')->select('id', 'name')->get(),
-            'departments' => ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'General Medicine'],
-            'statuses' => ['paid', 'pending', 'cancelled', 'refunded'],
-            'payment_methods' => ['cash', 'card', 'hmo', 'insurance'],
-            'hmo_providers' => ['Maxicare', 'PhilHealth', 'Intellicare', 'Medicard'],
-        ];
-
-        // Metadata
-        $metadata = [
-            'generated_at' => now()->toISOString(),
-            'generated_by' => auth()->user()->name ?? 'System',
-            'generated_by_role' => auth()->user()->role ?? 'User',
-            'system_version' => '1.0.0',
+            'total_revenue' => $transactions->sum('total_amount'),
+            'total_transactions' => $transactions->count(),
+            'paid_transactions' => $transactions->where('status', 'paid')->count(),
+            'pending_transactions' => $transactions->where('status', 'pending')->count(),
         ];
 
         return inertia('admin/billing/transaction-report', [
             'transactions' => $transactions,
             'summary' => $summary,
-            'filterOptions' => $filterOptions,
-            'metadata' => $metadata,
             'filters' => [
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,

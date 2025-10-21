@@ -64,12 +64,7 @@ class User extends Authenticatable
             return route('patient.dashboard');
         }
 
-        // Hospital staff should go to hospital dashboard
-        if (in_array($mappedRole, ['hospital_admin', 'hospital_staff'])) {
-            return route('hospital.dashboard');
-        }
-
-        // All other roles (clinic staff) go to admin dashboard
+        // All other roles (staff) go to admin dashboard
         return route('admin.dashboard');
     }
 

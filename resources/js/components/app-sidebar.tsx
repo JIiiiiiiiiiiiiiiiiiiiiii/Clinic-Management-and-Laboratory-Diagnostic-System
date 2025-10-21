@@ -70,6 +70,10 @@ const data = {
           title: "Test Templates",
           url: "/admin/laboratory/tests",
         },
+        {
+          title: "Reports",
+          url: "/admin/reports/laboratory",
+        },
       ],
     },
     {
@@ -93,6 +97,10 @@ const data = {
         {
           title: "Med Tech Supplies",
           url: "/admin/inventory/medtech",
+        },
+        {
+          title: "Reports",
+          url: "/admin/inventory/reports",
         },
       ],
     },
@@ -157,6 +165,10 @@ const data = {
         {
           title: "Doctor Payments",
           url: "/admin/billing/doctor-payments",
+        },
+        {
+          title: "Reports",
+          url: "/admin/billing/billing-reports",
         },
       ],
     },

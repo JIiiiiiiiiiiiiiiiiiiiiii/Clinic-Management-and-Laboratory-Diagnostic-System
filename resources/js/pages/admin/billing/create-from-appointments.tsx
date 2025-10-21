@@ -10,7 +10,6 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import Heading from '@/components/heading';
-import { formatAppointmentTime, formatAppointmentDateShort } from '@/utils/dateTime';
 import { 
     ArrowLeft, 
     Calendar,
@@ -112,23 +111,8 @@ export default function CreateFromAppointments({
             notes: notes,
         }, {
             onStart: () => console.log('Form submission started'),
-            onSuccess: (page) => {
-                console.log('Form submission successful:', page);
-                // Check if we got redirected to billing index
-                if (page.url.includes('/admin/billing') && !page.url.includes('create-from-appointments')) {
-                    console.log('Redirected to billing index successfully');
-                } else {
-                    console.log('Still on create-from-appointments page');
-                }
-            },
-            onError: (errors) => {
-                console.error('Form submission failed:', errors);
-                if (errors.error) {
-                    alert('Error: ' + errors.error);
-                } else {
-                    alert('Error: Unknown error occurred');
-                }
-            },
+            onSuccess: (page) => console.log('Form submission successful:', page),
+            onError: (errors) => console.error('Form submission failed:', errors),
             onFinish: () => console.log('Form submission finished')
         });
     };
@@ -312,11 +296,11 @@ export default function CreateFromAppointments({
                                                     <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
                                                         <div className="flex items-center gap-1">
                                                             <Calendar className="h-4 w-4" />
-                                                            {formatAppointmentDateShort(appointment.appointment_date)}
+                                                            {new Date(appointment.appointment_date).toLocaleDateString()}
                                                         </div>
                                                         <div className="flex items-center gap-1">
                                                             <Clock className="h-4 w-4" />
-                                                            {formatAppointmentTime(appointment.appointment_time)}
+                                                            {appointment.appointment_time}
                                                         </div>
                                                         <div className="flex items-center gap-1">
                                                             <User className="h-4 w-4" />

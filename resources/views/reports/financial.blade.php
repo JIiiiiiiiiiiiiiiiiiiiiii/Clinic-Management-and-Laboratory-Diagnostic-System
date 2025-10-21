@@ -5,7 +5,7 @@
     <title>Financial Report</title>
     <style>
         body {
-            font-family: 'DejaVu Sans', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 20px;
             color: #333;
@@ -140,71 +140,27 @@
         Date Range: {{ $dateRange ?? 'N/A' }}
     </div>
 
-    <!-- Financial Overview Table -->
     <div class="section">
-        <h2>Financial Overview</h2>
-        @if(isset($data['financialOverview']) && count($data['financialOverview']) > 0)
+        <h2>Financial Summary</h2>
+        @if(isset($data) && is_array($data))
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Date</th>
-                        <th>Total Transactions</th>
-                        <th>Total Revenue</th>
-                        <th>Pending Amount</th>
-                        <th>Cash Total</th>
-                        <th>HMO Total</th>
+                        <th>Metric</th>
+                        <th>Value</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($data['financialOverview'] as $overview)
+                    @foreach($data as $key => $value)
                         <tr>
-                            <td>{{ \Carbon\Carbon::parse($overview['date'])->format('M d, Y') }}</td>
-                            <td class="text-right">{{ $overview['total_transactions'] }}</td>
-                            <td class="text-right">₱{{ number_format($overview['total_revenue'], 2) }}</td>
-                            <td class="text-right">₱{{ number_format($overview['pending_amount'], 2) }}</td>
-                            <td class="text-right">₱{{ number_format($overview['cash_total'], 2) }}</td>
-                            <td class="text-right">₱{{ number_format($overview['hmo_total'], 2) }}</td>
+                            <td>{{ ucfirst(str_replace('_', ' ', $key)) }}</td>
+                            <td>{{ is_numeric($value) ? '₱' . number_format($value, 2) : $value }}</td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
         @else
-            <p>No financial overview data available.</p>
-        @endif
-    </div>
-
-    <!-- Financial Transactions Table -->
-    <div class="section">
-        <h2>Financial Transactions</h2>
-        @if(isset($data['transactions']) && count($data['transactions']) > 0)
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Transaction ID</th>
-                        <th>Patient Name</th>
-                        <th>Doctor Name</th>
-                        <th>Amount</th>
-                        <th>Payment Method</th>
-                        <th>Status</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($data['transactions'] as $transaction)
-                        <tr>
-                            <td>{{ $transaction->transaction_id }}</td>
-                            <td>{{ $transaction->patient_name }}</td>
-                            <td>{{ $transaction->doctor_name }}</td>
-                            <td class="text-right">₱{{ number_format($transaction->total_amount, 2) }}</td>
-                            <td>{{ ucfirst($transaction->payment_method) }}</td>
-                            <td>{{ ucfirst($transaction->status) }}</td>
-                            <td>{{ \Carbon\Carbon::parse($transaction->transaction_date)->format('M d, Y') }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        @else
-            <p>No transaction data available.</p>
+            <p>No financial data available.</p>
         @endif
     </div>
 

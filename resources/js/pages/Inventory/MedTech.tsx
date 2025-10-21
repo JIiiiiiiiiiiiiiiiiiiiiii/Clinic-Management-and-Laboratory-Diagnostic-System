@@ -44,7 +44,6 @@ type MedTechItem = {
 type MedTechStats = {
     totalItems: number;
     lowStock: number;
-    outOfStock: number;
     consumedItems: number;
     rejectedItems: number;
 };
@@ -188,7 +187,7 @@ export default function MedTech({
                         }
                     >
                         {/* Statistics Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                             <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
                                 <div className="flex items-center gap-2 mb-2">
                                     <Package className="h-4 w-4 text-black" />
@@ -196,39 +195,12 @@ export default function MedTech({
                                 </div>
                                 <div className="text-2xl font-bold text-gray-900">{stats.totalItems}</div>
                             </div>
-                            <div className={`rounded-lg p-4 border shadow-sm ${
-                                stats.lowStock > 0 
-                                    ? 'bg-orange-500 border-orange-500' 
-                                    : 'bg-white border-gray-200'
-                            }`}>
+                            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <AlertTriangle className={`h-4 w-4 ${
-                                        stats.lowStock > 0 ? 'text-white' : 'text-black'
-                                    }`} />
-                                    <span className={`text-sm font-medium ${
-                                        stats.lowStock > 0 ? 'text-white' : 'text-gray-800'
-                                    }`}>Low Stock</span>
+                                    <AlertTriangle className="h-4 w-4 text-black" />
+                                    <span className="text-sm font-medium text-gray-800">Low Stock</span>
                                 </div>
-                                <div className={`text-2xl font-bold ${
-                                    stats.lowStock > 0 ? 'text-white' : 'text-gray-900'
-                                }`}>{stats.lowStock}</div>
-                            </div>
-                            <div className={`rounded-lg p-4 border shadow-sm ${
-                                stats.outOfStock > 0 
-                                    ? 'bg-red-500 border-red-500' 
-                                    : 'bg-white border-gray-200'
-                            }`}>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <AlertTriangle className={`h-4 w-4 ${
-                                        stats.outOfStock > 0 ? 'text-white' : 'text-black'
-                                    }`} />
-                                    <span className={`text-sm font-medium ${
-                                        stats.outOfStock > 0 ? 'text-white' : 'text-gray-800'
-                                    }`}>Out of Stock</span>
-                                </div>
-                                <div className={`text-2xl font-bold ${
-                                    stats.outOfStock > 0 ? 'text-white' : 'text-gray-900'
-                                }`}>{stats.outOfStock}</div>
+                                <div className="text-2xl font-bold text-gray-900">{stats.lowStock}</div>
                             </div>
                             <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
                                 <div className="flex items-center gap-2 mb-2">
@@ -306,10 +278,7 @@ export default function MedTech({
                                                     <TableCell className="text-sm text-black">{item.consumed} {item.unit}</TableCell>
                                                     <TableCell className="text-sm text-black">{item.rejected} {item.unit}</TableCell>
                                                     <TableCell>
-                                                        <Badge 
-                                                            variant={item.status === 'Out of Stock' ? 'destructive' : 'default'}
-                                                            className={item.status === 'Low Stock' ? 'bg-orange-500 text-white hover:bg-orange-600' : ''}
-                                                        >
+                                                        <Badge variant={item.status === 'Low Stock' ? 'destructive' : item.status === 'Out of Stock' ? 'destructive' : 'default'}>
                                                             {item.status}
                                                         </Badge>
                                                     </TableCell>

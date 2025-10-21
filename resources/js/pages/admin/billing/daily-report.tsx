@@ -149,7 +149,7 @@ export default function DailyReport({
                 </Card>
 
                 {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
                     <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
                         <CardContent className="p-6">
                             <div className="flex items-center gap-3">
@@ -159,6 +159,20 @@ export default function DailyReport({
                                 <div>
                                     <div className="text-2xl font-bold text-gray-900">₱{(summary.total_revenue || 0).toLocaleString()}</div>
                                     <div className="text-sm text-gray-600">Total Revenue</div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                        <CardContent className="p-6">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-red-100 rounded-lg">
+                                    <FileText className="h-6 w-6 text-red-600" />
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold text-gray-900">₱{(summary.total_expenses || 0).toLocaleString()}</div>
+                                    <div className="text-sm text-gray-600">Total Expenses</div>
                                 </div>
                             </div>
                         </CardContent>
@@ -181,6 +195,22 @@ export default function DailyReport({
                     <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
                         <CardContent className="p-6">
                             <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-lg ${(summary.net_profit || 0) >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                                    <TrendingUp className={`h-6 w-6 ${(summary.net_profit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+                                </div>
+                                <div>
+                                    <div className={`text-2xl font-bold ${(summary.net_profit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        ₱{(summary.net_profit || 0).toLocaleString()}
+                                    </div>
+                                    <div className="text-sm text-gray-600">Net Profit</div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                        <CardContent className="p-6">
+                            <div className="flex items-center gap-3">
                                 <div className="p-2 bg-blue-100 rounded-lg">
                                     <Receipt className="h-6 w-6 text-blue-600" />
                                 </div>
@@ -193,42 +223,42 @@ export default function DailyReport({
                     </Card>
                 </div>
 
-                {/* Transactions Table */}
-                <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-3 text-lg font-semibold text-gray-900">
-                            <CreditCard className="h-5 w-5 text-black" />
-                            Daily Transactions
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-6">
-                        <div className="overflow-x-auto rounded-xl border border-gray-200">
-                            <Table>
-                                <TableHeader className="bg-gray-50">
-                                    <TableRow className="hover:bg-gray-50">
-                                        <TableHead className="font-semibold text-gray-700">Type</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Transaction ID</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Patient/Source</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Specialist</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Amount</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Payment Method</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {transactions.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={7} className="text-center py-8">
-                                                <div className="flex flex-col items-center">
-                                                    <CreditCard className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                                                    <h3 className="mb-2 text-lg font-semibold text-gray-600">No transactions found</h3>
-                                                    <p className="text-gray-500">No transactions for this date</p>
-                                                </div>
-                                            </TableCell>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Transactions Table */}
+                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-3 text-lg font-semibold text-gray-900">
+                                <CreditCard className="h-5 w-5 text-black" />
+                                Daily Transactions
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-6">
+                            <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                <Table>
+                                    <TableHeader className="bg-gray-50">
+                                        <TableRow className="hover:bg-gray-50">
+                                            <TableHead className="font-semibold text-gray-700">Type</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Transaction ID</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Patient/Source</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Specialist</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Amount</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Payment Method</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Status</TableHead>
                                         </TableRow>
-                                    ) : (
-                                        <>
-                                            {transactions.map((transaction) => (
+                                    </TableHeader>
+                                    <TableBody>
+                                        {transactions.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={7} className="text-center py-8">
+                                                    <div className="flex flex-col items-center">
+                                                        <CreditCard className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                                        <h3 className="mb-2 text-lg font-semibold text-gray-600">No transactions found</h3>
+                                                        <p className="text-gray-500">No transactions for this date</p>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            transactions.map((transaction) => (
                                                 <TableRow key={transaction.id} className="hover:bg-gray-50">
                                                     <TableCell>
                                                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -286,24 +316,76 @@ export default function DailyReport({
                                                         </span>
                                                     </TableCell>
                                                 </TableRow>
-                                            ))}
-                                            {/* Total Row */}
-                                            <TableRow className="bg-gray-50 font-semibold">
-                                                <TableCell colSpan={4} className="text-right">
-                                                    <span className="text-gray-700">TOTAL:</span>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Expenses Table */}
+                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-3 text-lg font-semibold text-gray-900">
+                                <FileText className="h-5 w-5 text-black" />
+                                Daily Expenses
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-6">
+                            <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                <Table>
+                                    <TableHeader className="bg-gray-50">
+                                        <TableRow className="hover:bg-gray-50">
+                                            <TableHead className="font-semibold text-gray-700">Expense</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Category</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Amount</TableHead>
+                                            <TableHead className="font-semibold text-gray-700">Status</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {expenses.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={4} className="text-center py-8">
+                                                    <div className="flex flex-col items-center">
+                                                        <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                                        <h3 className="mb-2 text-lg font-semibold text-gray-600">No expenses found</h3>
+                                                        <p className="text-gray-500">No expenses for this date</p>
+                                                    </div>
                                                 </TableCell>
-                                                <TableCell className="text-green-600">
-                                                    ₱{transactions.reduce((sum, transaction) => sum + transaction.amount, 0).toLocaleString()}
-                                                </TableCell>
-                                                <TableCell colSpan={2}></TableCell>
                                             </TableRow>
-                                        </>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </CardContent>
-                </Card>
+                                        ) : (
+                                            expenses.map((expense) => (
+                                                <TableRow key={expense.id} className="hover:bg-gray-50">
+                                                    <TableCell className="font-medium">
+                                                        {expense.expense_name}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                            {expense.expense_category.replace('_', ' ')}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell className="font-semibold">
+                                                        ₱{expense.amount.toLocaleString()}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                                            expense.status === 'approved' 
+                                                                ? 'bg-green-100 text-green-800' 
+                                                                : 'bg-yellow-100 text-yellow-800'
+                                                        }`}>
+                                                            {expense.status}
+                                                        </span>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
         </AppLayout>
     );
