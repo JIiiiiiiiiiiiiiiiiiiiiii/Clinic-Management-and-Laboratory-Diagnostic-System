@@ -13,6 +13,7 @@ import { useState } from 'react';
 
 type Patient = {
     id: number;
+    patient_id?: string;
     first_name: string;
     last_name: string;
     age: number;
@@ -38,7 +39,7 @@ type LabOrder = {
 const breadcrumbs = (patient: Patient): BreadcrumbItem[] => [
     { title: 'Laboratory', href: '/admin/laboratory' },
     { title: 'Lab Orders', href: '/admin/laboratory/orders' },
-    { title: `${patient.last_name}, ${patient.first_name}`, href: `/admin/laboratory/patients/${patient.patient_id}/orders` },
+    { title: `${patient.last_name}, ${patient.first_name}`, href: `/admin/laboratory/patients/${patient.id}/orders` },
 ];
 
 export default function PatientLabOrders({
@@ -75,7 +76,7 @@ export default function PatientLabOrders({
             return;
         }
 
-        router.post(`/admin/laboratory/patients/${patient.patient_id}/orders`, data, {
+        router.post(`/admin/laboratory/patients/${patient.id}/orders`, data, {
             onSuccess: () => {
                 setShowCreateForm(false);
                 setSelectedTests([]);

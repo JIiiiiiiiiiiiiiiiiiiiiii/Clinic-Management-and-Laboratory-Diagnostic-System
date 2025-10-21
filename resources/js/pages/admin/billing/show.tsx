@@ -123,11 +123,11 @@ export default function BillingShow({
     };
 
     const calculateSubtotal = () => {
-        return transaction.items.reduce((sum, item) => sum + item.total_price, 0);
+        return transaction.items.reduce((sum, item) => sum + parseFloat(item.total_price || 0), 0);
     };
 
     const calculateNetAmount = () => {
-        return calculateSubtotal() - transaction.discount_amount;
+        return calculateSubtotal() - parseFloat(transaction.discount_amount || 0);
     };
 
     const handleStatusUpdate = (newStatus: string) => {

@@ -8,7 +8,7 @@ import { useRoleAccess } from '@/hooks/useRoleAccess';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { Calendar, CheckCircle, Clock, Filter, Plus, Search, Stethoscope, Edit, Eye, UserCheck, Bell, CalendarDays, Users, X, Save, Trash2 } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, Filter, Plus, Search, Stethoscope, Edit, Eye, UserCheck, Bell, CalendarDays, Users, X, Save, Trash2, TestTube } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import RealtimeNotificationBell from '@/components/RealtimeNotificationBell';
 
@@ -277,6 +277,11 @@ const getTypeBadge = (type: string) => {
     const handleNewAppointment = () => {
         // Redirect to the shared appointment booking page
         router.visit(route('admin.appointments.walk-in'));
+    };
+
+    const handleAddLabTests = (appointment: any) => {
+        // Navigate to add lab tests page
+        router.visit(route('admin.appointments.show-add-lab-tests', appointment.id));
     };
 
 
@@ -553,6 +558,23 @@ const getTypeBadge = (type: string) => {
                                     )
                                 },
                                 {
+                                    key: 'final_total_amount',
+                                    label: 'Amount',
+                                    sortable: true,
+                                    render: (value, appointment) => (
+                                        <div className="text-right">
+                                            <div className="font-medium text-black">
+                                                ₱{appointment.final_total_amount?.toLocaleString() || appointment.price?.toLocaleString() || '0'}
+                                            </div>
+                                            {appointment.total_lab_amount > 0 && (
+                                                <div className="text-xs text-blue-600">
+                                                    +₱{appointment.total_lab_amount?.toLocaleString()} lab
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                },
+                                {
                                     key: 'created_at',
                                     label: 'Created',
                                     sortable: false,
@@ -588,6 +610,15 @@ const getTypeBadge = (type: string) => {
                                             >
                                                 <Eye className="h-4 w-4 mr-1" />
                                                 View
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleAddLabTests(appointment)}
+                                                className="text-blue-600 border-blue-300 hover:bg-blue-50 min-w-[100px] px-3"
+                                            >
+                                                <TestTube className="h-4 w-4 mr-1" />
+                                                Add Lab Tests
                                             </Button>
                                             <Button
                                                 variant="outline"

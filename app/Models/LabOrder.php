@@ -39,6 +39,18 @@ class LabOrder extends Model
             ->withPivot('results', 'verified_by', 'verified_at')
             ->withTimestamps();
     }
+
+    public function appointments()
+    {
+        return $this->hasManyThrough(
+            Appointment::class,
+            AppointmentLabOrder::class,
+            'lab_order_id',
+            'id',
+            'id',
+            'appointment_id'
+        );
+    }
 }
 
 

@@ -23,7 +23,6 @@ class BillingTransactionItem extends Model
     ];
 
     protected $casts = [
-        'quantity' => 'integer',
         'unit_price' => 'decimal:2',
         'total_price' => 'decimal:2',
     ];
@@ -36,7 +35,33 @@ class BillingTransactionItem extends Model
 
     public function labTest()
     {
-        return $this->belongsTo(LabTest::class);
+        return $this->belongsTo(LabTest::class, 'lab_test_id');
+    }
+
+    public function service()
+    {
+        return $this->belongsTo(Service::class, 'service_id');
+    }
+
+    public function medicine()
+    {
+        return $this->belongsTo(Medicine::class, 'medicine_id');
+    }
+
+    // Scopes
+    public function scopeAppointments($query)
+    {
+        return $query->where('item_type', 'consultation');
+    }
+
+    public function scopeLabTests($query)
+    {
+        return $query->where('item_type', 'laboratory');
+    }
+
+    public function scopeServices($query)
+    {
+        return $query->where('item_type', 'service');
     }
 
     // Accessors
@@ -50,13 +75,15 @@ class BillingTransactionItem extends Model
         return '₱' . number_format($this->total_price, 2);
     }
 
-    // Methods
-    public function calculateTotal()
+    public function getItemTypeColorAttribute()
     {
-        $this->total_price = $this->quantity * $this->unit_price;
-        return $this;
+        return match($this->item_type) {
+            'consultation' => 'blue',
+            'laboratory' => 'green',
+            'medicine' => 'purple',
+            'procedure' => 'orange',
+            'other' => 'gray',
+            default => 'gray'
+        };
     }
 }
-
-
-

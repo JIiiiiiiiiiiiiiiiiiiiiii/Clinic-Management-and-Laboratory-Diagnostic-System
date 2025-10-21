@@ -536,50 +536,64 @@ class BillingController extends Controller
         $doctorInfo = $transaction->getDoctorInfo();
         
         if ($patientInfo) {
-            $transaction->patient = $patientInfo;
             $transaction->setRelation('patient', $patientInfo);
-            $transaction->setAttribute('patient', $patientInfo);
         }
         
         if ($doctorInfo) {
-            $transaction->doctor = $doctorInfo;
             $transaction->setRelation('doctor', $doctorInfo);
-            $transaction->setAttribute('doctor', $doctorInfo);
         }
         
-        // Create items from appointment links
-        if ($transaction->appointmentLinks->isNotEmpty()) {
-            $appointmentItems = [];
-            foreach ($transaction->appointmentLinks as $link) {
-                $appointment = $link->appointment;
-                if ($appointment) {
-                    $appointmentItems[] = (object) [
-                        'id' => $link->id,
-                        'item_type' => 'appointment',
-                        'item_name' => ucfirst($appointment->appointment_type) . ' Appointment',
-                        'item_description' => "Appointment for {$appointment->patient_name} on {$appointment->appointment_date->format('M d, Y')} at {$appointment->appointment_time->format('g:i A')}",
-                        'quantity' => 1,
-                        'unit_price' => $appointment->price,
-                        'total_price' => $appointment->price,
-                    ];
-                }
-            }
-            $itemsCollection = collect($appointmentItems);
-            $transaction->items = $itemsCollection;
+        // Check if transaction has itemized billing (with lab tests)
+        if ($transaction->is_itemized && $transaction->items()->exists()) {
+            // Use actual billing transaction items (includes consultation + lab tests)
+            $itemsCollection = $transaction->items;
             $transaction->setRelation('items', $itemsCollection);
-            $transaction->setAttribute('items', $itemsCollection);
         } else {
-            // No appointment links, set empty collection
-            $itemsCollection = collect();
-            $transaction->items = $itemsCollection;
-            $transaction->setRelation('items', $itemsCollection);
-            $transaction->setAttribute('items', $itemsCollection);
+            // Create items from appointment links (legacy billing)
+            if ($transaction->appointmentLinks->isNotEmpty()) {
+                $appointmentItems = [];
+                foreach ($transaction->appointmentLinks as $link) {
+                    $appointment = $link->appointment;
+                    if ($appointment) {
+                        $appointmentItems[] = (object) [
+                            'id' => $link->id,
+                            'item_type' => 'consultation',
+                            'item_name' => ucfirst($appointment->appointment_type) . ' Appointment',
+                            'item_description' => "Appointment for {$appointment->patient_name} on {$appointment->appointment_date->format('M d, Y')} at {$appointment->appointment_time->format('g:i A')}",
+                            'quantity' => 1,
+                            'unit_price' => $appointment->price,
+                            'total_price' => $appointment->price,
+                        ];
+                    }
+                }
+                $itemsCollection = collect($appointmentItems);
+                $transaction->setRelation('items', $itemsCollection);
+            } else {
+                // No appointment links, set empty collection
+                $itemsCollection = collect();
+                $transaction->setRelation('items', $itemsCollection);
+            }
         }
         
+        // Update transaction amounts if appointment has lab tests
+        if ($transaction->appointmentLinks->isNotEmpty()) {
+            $appointment = $transaction->appointmentLinks->first()->appointment;
+            if ($appointment && $appointment->final_total_amount > $appointment->price) {
+                // Only update the specific fields we need
+                $transaction->update([
+                    'total_amount' => $appointment->final_total_amount,
+                    'amount' => $appointment->final_total_amount
+                ]);
+            }
+        }
+
         \Log::info('Transaction loaded with relationships:', [
             'id' => $transaction->id,
             'transaction_id' => $transaction->transaction_id,
             'status' => $transaction->status,
+            'total_amount' => $transaction->total_amount,
+            'amount' => $transaction->amount,
+            'is_itemized' => $transaction->is_itemized,
             'patient' => $transaction->patient ? $transaction->patient->first_name . ' ' . $transaction->patient->last_name : 'No patient',
             'doctor' => $transaction->doctor ? $transaction->doctor->name : 'No doctor',
             'items_count' => isset($transaction->items) ? $transaction->items->count() : 0,
@@ -746,15 +760,11 @@ class BillingController extends Controller
         $doctorInfo = $transaction->getDoctorInfo();
         
         if ($patientInfo) {
-            $transaction->patient = $patientInfo;
             $transaction->setRelation('patient', $patientInfo);
-            $transaction->setAttribute('patient', $patientInfo);
         }
         
         if ($doctorInfo) {
-            $transaction->doctor = $doctorInfo;
             $transaction->setRelation('doctor', $doctorInfo);
-            $transaction->setAttribute('doctor', $doctorInfo);
         }
         
         // Create items from appointment links for display
@@ -775,15 +785,11 @@ class BillingController extends Controller
                 }
             }
             $itemsCollection = collect($appointmentItems);
-            $transaction->items = $itemsCollection;
             $transaction->setRelation('items', $itemsCollection);
-            $transaction->setAttribute('items', $itemsCollection);
         } else {
             // No appointment links, set empty collection
             $itemsCollection = collect();
-            $transaction->items = $itemsCollection;
             $transaction->setRelation('items', $itemsCollection);
-            $transaction->setAttribute('items', $itemsCollection);
         }
         
         \Log::info('Receipt data loaded:', [

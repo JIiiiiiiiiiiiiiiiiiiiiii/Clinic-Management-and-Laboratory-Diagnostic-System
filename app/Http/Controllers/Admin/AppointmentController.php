@@ -71,7 +71,7 @@ class AppointmentController extends Controller
         $sortDir = $request->get('sort_dir', 'asc');
         
         // Validate sort column to prevent SQL injection
-        $allowedSortColumns = ['id', 'appointment_date', 'appointment_time', 'status', 'price', 'created_at', 'patient_name', 'specialist_name', 'patient_id'];
+        $allowedSortColumns = ['id', 'appointment_date', 'appointment_time', 'status', 'price', 'final_total_amount', 'total_lab_amount', 'created_at', 'patient_name', 'specialist_name', 'patient_id'];
         if (!in_array($sortBy, $allowedSortColumns)) {
             $sortBy = 'appointment_date';
         }
@@ -111,6 +111,8 @@ class AppointmentController extends Controller
                 'appointment_time' => $appointment->appointment_time,
                 'duration' => $appointment->duration,
                 'price' => $appointment->price,
+                'total_lab_amount' => $appointment->total_lab_amount ?? 0,
+                'final_total_amount' => $appointment->final_total_amount ?? $appointment->price,
                 'additional_info' => $appointment->additional_info,
                 'source' => $appointment->source,
                 'status' => $appointment->status,

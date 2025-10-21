@@ -20,6 +20,8 @@ class Appointment extends Model
         "contact_number",
         "appointment_type",
         "price",
+        "total_lab_amount",
+        "final_total_amount",
         "specialist_type",
         "specialist_name",
         "specialist_id",
@@ -43,6 +45,8 @@ class Appointment extends Model
         "appointment_date" => "date",
         "appointment_time" => "datetime:H:i:s",
         "price" => "decimal:2",
+        "total_lab_amount" => "decimal:2",
+        "final_total_amount" => "decimal:2",
     ];
 
     // Relationships
@@ -64,6 +68,28 @@ class Appointment extends Model
     public function billingLinks()
     {
         return $this->hasMany(AppointmentBillingLink::class, "appointment_id", "id");
+    }
+
+    public function labTests()
+    {
+        return $this->hasMany(AppointmentLabTest::class);
+    }
+
+    public function labOrders()
+    {
+        return $this->hasManyThrough(LabOrder::class, AppointmentLabOrder::class, 'appointment_id', 'id', 'id', 'lab_order_id');
+    }
+
+    public function billingTransactions()
+    {
+        return $this->hasManyThrough(
+            BillingTransaction::class,
+            AppointmentBillingLink::class,
+            'appointment_id',
+            'id',
+            'id',
+            'billing_transaction_id'
+        );
     }
 
     // Scopes

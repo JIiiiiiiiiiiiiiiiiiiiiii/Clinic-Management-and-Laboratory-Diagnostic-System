@@ -223,6 +223,15 @@ Route::prefix('admin')
         Route::prefix('appointments')->name('appointments.')->middleware(['role:doctor,admin'])->group(function () {
             Route::get('/', [AppointmentController::class, 'index'])->name('index');
             Route::get('/create', [AppointmentController::class, 'create'])->name('create');
+            
+            // Lab Test Routes
+            Route::get('/{appointment}/add-lab-tests', [\App\Http\Controllers\Admin\AppointmentLabController::class, 'showAddLabTests'])->name('show-add-lab-tests');
+            
+            Route::post('/{appointment}/add-lab-tests', [\App\Http\Controllers\Admin\AppointmentLabController::class, 'addLabTests'])->name('add-lab-tests');
+            Route::delete('/{appointment}/remove-lab-test', [\App\Http\Controllers\Admin\AppointmentLabController::class, 'removeLabTest'])->name('remove-lab-test');
+            Route::get('/api/lab-tests/available', [\App\Http\Controllers\Admin\AppointmentLabController::class, 'getAvailableLabTests'])->name('api.lab-tests.available');
+            Route::get('/{appointment}/api/lab-tests', [\App\Http\Controllers\Admin\AppointmentLabController::class, 'getAppointmentLabTests'])->name('api.lab-tests');
+            Route::post('/api/lab-tests/pricing', [\App\Http\Controllers\Admin\AppointmentLabController::class, 'getLabTestPricing'])->name('api.lab-tests.pricing');
             Route::get('/walk-in', function () {
                 // Get doctors and medtechs for the form
                 $doctors = \App\Models\User::where('role', 'doctor')->get()->map(function($user) {
