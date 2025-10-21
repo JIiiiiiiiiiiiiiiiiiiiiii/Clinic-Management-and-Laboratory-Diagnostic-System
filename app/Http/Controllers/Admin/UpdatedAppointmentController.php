@@ -104,10 +104,10 @@ class UpdatedAppointmentController extends Controller
             );
 
             return redirect()->route('admin.appointments.pending')
-                ->with('success', 'Appointment approved successfully! Visit and billing transaction created.')
+                ->with('success', 'Appointment approved successfully! Visit created. Billing transaction will be created manually.')
                 ->with('appointment_code', $result['appointment']->appointment_code)
                 ->with('visit_code', $result['visit_code'])
-                ->with('transaction_code', $result['transaction_code']);
+                ->with('note', 'Billing transaction will be created manually by admin');
 
         } catch (\Exception $e) {
             \Log::error('Failed to approve appointment', [
@@ -245,15 +245,14 @@ class UpdatedAppointmentController extends Controller
                 'appointment_code' => $result['appointment_code'],
                 'visit_id' => $result['visit_id'],
                 'visit_code' => $result['visit_code'],
-                'transaction_id' => $result['transaction_id'],
-                'transaction_code' => $result['transaction_code']
+                'note' => 'Billing transaction will be created manually by admin'
             ]);
 
             return redirect()->route('admin.appointments.index')
-                ->with('success', 'Walk-in appointment created successfully! Visit and billing transaction created.')
+                ->with('success', 'Walk-in appointment created successfully! Visit created. Billing transaction will be created manually.')
                 ->with('appointment_code', $result['appointment_code'])
                 ->with('visit_code', $result['visit_code'])
-                ->with('transaction_code', $result['transaction_code']);
+                ->with('note', 'Billing transaction will be created manually by admin');
 
         } catch (\Exception $e) {
             \Log::error('Failed to create walk-in appointment', [

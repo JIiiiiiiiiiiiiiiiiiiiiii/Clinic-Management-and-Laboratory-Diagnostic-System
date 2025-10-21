@@ -87,29 +87,15 @@ class AppointmentApprovalService
 
                 $visitId = $visit->id;
 
-                // Create billing transaction
-                $billingTransaction = BillingTransaction::create([
-                    'appointment_id' => $appointment->id,
-                    'patient_id' => $appointment->patient_id,
-                    'doctor_id' => $specialist->role === 'Doctor' ? $assignedSpecialistId : null,
-                    'total_amount' => $appointment->price,
-                    'amount' => $appointment->price,
-                    'status' => 'pending',
-                    'transaction_date' => now(),
-                    'created_by' => 1, // Default admin user
-                ]);
+                // Set billing status to pending for manual processing
+                $appointment->update(['billing_status' => 'pending']);
 
-                // Create appointment billing link
-                \App\Models\AppointmentBillingLink::create([
-                    'appointment_id' => $appointment->id,
-                    'billing_transaction_id' => $billingTransaction->id,
-                    'appointment_type' => $appointment->appointment_type,
-                    'appointment_price' => $appointment->price,
-                    'status' => 'pending',
-                ]);
+                // Skip auto-generating billing transaction - admin will handle this manually
+                // $billingTransaction = BillingTransaction::create([...]);
+                // $billingLink = AppointmentBillingLink::create([...]);
 
-                $transactionId = $billingTransaction->id;
-                $transactionCode = $billingTransaction->transaction_id;
+                $transactionId = null;
+                $transactionCode = null;
 
                 // Create notification for patient
                 Notification::create([
@@ -129,7 +115,7 @@ class AppointmentApprovalService
                 Log::info('Appointment approved successfully', [
                     'appointment_id' => $appointment->id,
                     'visit_id' => $visitId,
-                    'transaction_id' => $transactionId,
+                    'note' => 'Billing transaction will be created manually by admin',
                     'specialist_id' => $assignedSpecialistId,
                 ]);
 
@@ -139,8 +125,7 @@ class AppointmentApprovalService
                     'appointment_code' => $appointment->appointment_code ?? 'A' . str_pad($appointment->id, 4, '0', STR_PAD_LEFT),
                     'visit_id' => $visitId,
                     'visit_code' => $visitCode,
-                    'transaction_id' => $transactionId,
-                    'transaction_code' => $transactionCode,
+                    'note' => 'Billing transaction will be created manually by admin',
                     'status' => 'Confirmed'
                 ];
 

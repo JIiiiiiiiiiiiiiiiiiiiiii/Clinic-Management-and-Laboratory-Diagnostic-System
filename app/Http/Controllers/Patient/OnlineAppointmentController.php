@@ -13,6 +13,7 @@ use App\Services\AppointmentCreationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 
 class OnlineAppointmentController extends Controller
@@ -45,7 +46,9 @@ class OnlineAppointmentController extends Controller
 
         // Get available doctors and medtechs
         $doctors = \App\Models\Specialist::where('role', 'Doctor')
-            ->where('status', 'Active')
+            ->when(Schema::hasColumn('specialists', 'status'), function($query) {
+                return $query->where('status', 'Active');
+            })
             ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id')
             ->get()
             ->map(function ($doctor) {
@@ -62,7 +65,9 @@ class OnlineAppointmentController extends Controller
             });
 
         $medtechs = \App\Models\Specialist::where('role', 'MedTech')
-            ->where('status', 'Active')
+            ->when(Schema::hasColumn('specialists', 'status'), function($query) {
+                return $query->where('status', 'Active');
+            })
             ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id')
             ->get()
             ->map(function ($medtech) {
@@ -473,7 +478,9 @@ class OnlineAppointmentController extends Controller
     public function getStaff()
     {
         try {
-            $staff = \App\Models\Specialist::where('status', 'Active')
+            $staff = \App\Models\Specialist::when(Schema::hasColumn('specialists', 'status'), function($query) {
+                    return $query->where('status', 'Active');
+                })
                 ->orderBy('role')
                 ->orderBy('name')
                 ->get()

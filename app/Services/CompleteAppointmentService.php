@@ -130,26 +130,27 @@ class CompleteAppointmentService
                 $appointment->update([
                     'status' => 'Confirmed',
                     'admin_notes' => $adminData['admin_notes'] ?? null,
-                    'specialist_id' => $adminData['specialist_id'] ?? $appointment->specialist_id
+                    'specialist_id' => $adminData['specialist_id'] ?? $appointment->specialist_id,
+                    'billing_status' => 'pending' // Set billing status to pending for manual processing
                 ]);
                 
                 // 3. Create visit automatically
                 $visit = $this->createVisit($appointment);
                 
-                // 4. Create billing transaction automatically
-                $billingTransaction = $this->createBillingTransaction($appointment);
+                // 4. Skip auto-generating billing transaction - admin will handle this manually
+                // $billingTransaction = $this->createBillingTransaction($appointment);
                 
                 Log::info('Appointment approved successfully', [
                     'appointment_id' => $appointment->appointment_id,
                     'visit_id' => $visit->visit_id,
-                    'transaction_id' => $billingTransaction->transaction_id
+                    'note' => 'Billing transaction will be created manually by admin'
                 ]);
                 
                 return [
                     'success' => true,
                     'appointment_id' => $appointment->appointment_id,
                     'visit_id' => $visit->visit_id,
-                    'transaction_id' => $billingTransaction->transaction_id,
+                    'note' => 'Billing transaction will be created manually by admin',
                     'status' => 'Confirmed'
                 ];
                 

@@ -64,21 +64,23 @@ class AppointmentCreationService
             // Create visit automatically
             $visit = $this->createVisit($appointment);
 
-            // Create billing transaction and link if appointment is confirmed
-            $billingTransaction = null;
-            $billingLink = null;
+            // Set billing status to pending for manual processing
+            $appointment->update(['billing_status' => 'pending']);
             
-            if ($appointment->status === 'Confirmed') {
-                $billingTransaction = $this->createBillingTransaction($appointment);
-                $billingLink = $this->createBillingLink($appointment, $billingTransaction);
-            }
+            // Skip auto-generating billing transaction - admin will handle this manually
+            // $billingTransaction = null;
+            // $billingLink = null;
+            
+            // if ($appointment->status === 'Confirmed') {
+            //     $billingTransaction = $this->createBillingTransaction($appointment);
+            //     $billingLink = $this->createBillingLink($appointment, $billingTransaction);
+            // }
 
             return [
                 'patient' => $patient,
                 'appointment' => $appointment,
                 'visit' => $visit,
-                'billing_transaction' => $billingTransaction,
-                'billing_link' => $billingLink
+                'note' => 'Billing transaction will be created manually by admin'
             ];
         });
     }
@@ -120,8 +122,12 @@ class AppointmentCreationService
         if (!isset($patientData['time_seen'])) {
             $patientData['time_seen'] = now()->format('H:i:s');
         }
+        if (!isset($patientData['present_address'])) {
+            $patientData['present_address'] = 'Not specified';
+        }
+        // Also set address for backward compatibility
         if (!isset($patientData['address'])) {
-            $patientData['address'] = 'Not specified';
+            $patientData['address'] = $patientData['present_address'];
         }
         if (!isset($patientData['emergency_name'])) {
             $patientData['emergency_name'] = 'Not specified';
@@ -275,7 +281,7 @@ class AppointmentCreationService
      * @param Appointment $appointment
      * @return BillingTransaction
      */
-        private function createBillingTransaction(Appointment $appointment)
+    private function createBillingTransaction(Appointment $appointment)
     {
         // SYSTEM-WIDE FIX: Use the comprehensive helper
         return \App\Helpers\SystemWideSpecialistBillingHelper::createBillingTransactionSafely($appointment->id, [

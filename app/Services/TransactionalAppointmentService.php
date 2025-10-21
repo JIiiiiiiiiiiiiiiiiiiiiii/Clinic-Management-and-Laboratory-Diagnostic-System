@@ -105,31 +105,33 @@ class TransactionalAppointmentService
                 // Create appointment (immediately confirmed)
                 $appointment = $this->createAppointment($appointmentData, $patientId, 'Walk-in', 'Confirmed');
                 
-                // Automatically create visit and billing transaction
+                // Set billing status to pending for manual processing
+                $appointment->update(['billing_status' => 'pending']);
+                
+                // Create visit automatically
                 $visit = $this->createVisit($appointment);
-                $billingTransaction = $this->createBillingTransaction($appointment);
+                
+                // Skip auto-generating billing transaction - admin will handle this manually
+                // $billingTransaction = $this->createBillingTransaction($appointment);
 
                 Log::info('Walk-in appointment created successfully', [
                     'appointment_id' => $appointment->id,
                     'appointment_code' => $appointment->appointment_code,
                     'visit_id' => $visit->id,
                     'visit_code' => $visit->visit_code,
-                    'transaction_id' => $billingTransaction->id,
-                    'transaction_code' => $billingTransaction->transaction_code
+                    'note' => 'Billing transaction will be created manually by admin'
                 ]);
 
                 return [
                     'success' => true,
                     'appointment' => $appointment,
                     'visit' => $visit,
-                    'billing_transaction' => $billingTransaction,
+                    'note' => 'Billing transaction will be created manually by admin',
                     'patient' => $patient ?? null,
                     'appointment_id' => $appointment->id,
                     'appointment_code' => $appointment->appointment_code,
                     'visit_id' => $visit->id,
-                    'visit_code' => $visit->visit_code,
-                    'transaction_id' => $billingTransaction->id,
-                    'transaction_code' => $billingTransaction->transaction_code
+                    'visit_code' => $visit->visit_code
                 ];
 
             } catch (Exception $e) {
@@ -164,14 +166,15 @@ class TransactionalAppointmentService
                 $appointment->update([
                     'status' => 'Confirmed',
                     'admin_notes' => $adminNotes,
-                    'specialist_id' => $assignedStaffId ?? $appointment->specialist_id
+                    'specialist_id' => $assignedStaffId ?? $appointment->specialist_id,
+                    'billing_status' => 'pending' // Set billing status to pending for manual processing
                 ]);
 
                 // Create visit
                 $visit = $this->createVisit($appointment);
 
-                // Create billing transaction
-                $billingTransaction = $this->createBillingTransaction($appointment);
+                // Skip auto-generating billing transaction - admin will handle this manually
+                // $billingTransaction = $this->createBillingTransaction($appointment);
 
                 // Notify patient
                 $this->notifyPatientAppointmentApproved($appointment);
@@ -181,19 +184,16 @@ class TransactionalAppointmentService
                     'appointment_code' => $appointment->appointment_code,
                     'visit_id' => $visit->id,
                     'visit_code' => $visit->visit_code,
-                    'transaction_id' => $billingTransaction->id,
-                    'transaction_code' => $billingTransaction->transaction_code
+                    'note' => 'Billing transaction will be created manually by admin'
                 ]);
 
                 return [
                     'success' => true,
                     'appointment' => $appointment,
                     'visit' => $visit,
-                    'billing_transaction' => $billingTransaction,
+                    'note' => 'Billing transaction will be created manually by admin',
                     'visit_id' => $visit->id,
-                    'visit_code' => $visit->visit_code,
-                    'transaction_id' => $billingTransaction->id,
-                    'transaction_code' => $billingTransaction->transaction_code
+                    'visit_code' => $visit->visit_code
                 ];
 
             } catch (Exception $e) {
@@ -407,4 +407,3 @@ class TransactionalAppointmentService
         });
     }
 }
-
