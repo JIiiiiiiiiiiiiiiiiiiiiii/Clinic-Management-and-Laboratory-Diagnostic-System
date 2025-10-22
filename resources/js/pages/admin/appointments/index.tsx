@@ -8,6 +8,7 @@ import { useRoleAccess } from '@/hooks/useRoleAccess';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
+import { safeFormatDate, safeFormatTime } from '@/utils/dateTime';
 import { Calendar, CheckCircle, Clock, Filter, Plus, Search, Stethoscope, Edit, Eye, UserCheck, Bell, CalendarDays, Users, X, Save, Trash2, TestTube } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import RealtimeNotificationBell from '@/components/RealtimeNotificationBell';
@@ -531,8 +532,8 @@ const getTypeBadge = (type: string) => {
                                     sortable: false,
                                     render: (value, appointment) => (
                                         <div>
-                                            <div className="font-medium text-black">{appointment.appointment_date ? new Date(appointment.appointment_date).toLocaleDateString() : 'N/A'}</div>
-                                            <div className="text-sm text-gray-500">{appointment.appointment_time ? appointment.appointment_time.substring(0, 5) : 'N/A'}</div>
+                                            <div className="font-medium text-black">{safeFormatDate(appointment.appointment_date)}</div>
+                                            <div className="text-sm text-gray-500">{safeFormatTime(appointment.appointment_time)}</div>
                                         </div>
                                     )
                                 },
@@ -589,7 +590,7 @@ const getTypeBadge = (type: string) => {
                                     sortable: false,
                                     render: (value, appointment) => (
                                         <div className="text-sm text-gray-600">
-                                            {new Date(appointment.created_at).toLocaleDateString()}
+                                            {safeFormatDate(appointment.created_at)}
                                         </div>
                                     )
                                 },
@@ -846,15 +847,14 @@ const getTypeBadge = (type: string) => {
                                                     </div>
                                                     <div>
                                                         <div className="text-sm text-gray-600">Date</div>
-                                                        <div className="font-medium text-black">{selectedAppointment.appointment_date ? new Date(selectedAppointment.appointment_date).toLocaleDateString() : 'N/A'}</div>
+                                                        <div className="font-medium text-black">
+                                                            {safeFormatDate(selectedAppointment.appointment_date)}
+                                                        </div>
                                                     </div>
                                                     <div>
                                                         <div className="text-sm text-gray-600">Time</div>
                                                         <div className="font-medium text-black">
-                                                            {selectedAppointment.appointment_time ? 
-                                                                (selectedAppointment.appointment_time.includes('T') ? 
-                                                                    selectedAppointment.appointment_time.split('T')[1]?.substring(0, 5) :
-                                                                    selectedAppointment.appointment_time.substring(0, 5)) : 'N/A'}
+                                                            {safeFormatTime(selectedAppointment.appointment_time)}
                                                         </div>
                                                     </div>
                                                     <div>

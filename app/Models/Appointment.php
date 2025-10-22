@@ -49,6 +49,7 @@ class Appointment extends Model
         "final_total_amount" => "decimal:2",
     ];
 
+
     // Relationships
     public function patient()
     {
@@ -154,11 +155,35 @@ class Appointment extends Model
         return $this->checkForDuplicates() !== null;
     }
 
-    // Boot method to generate unique key
+    /**
+     * Boot the model with date validation and unique key generation
+     */
     protected static function boot()
     {
         parent::boot();
 
+        // Validate dates before saving
+        static::saving(function ($appointment) {
+            // Validate appointment_date
+            if ($appointment->appointment_date) {
+                $date = \Carbon\Carbon::parse($appointment->appointment_date);
+                if (!$date || $date->year < 1900 || $date->year > 2100) {
+                    throw new \InvalidArgumentException('Invalid appointment date. Date must be between 1900 and 2100.');
+                }
+            }
+
+            // Validate appointment_time
+            if ($appointment->appointment_time) {
+                $time = \Carbon\Carbon::parse($appointment->appointment_time);
+                if (!$time) {
+                    throw new \InvalidArgumentException('Invalid appointment time format.');
+                }
+            }
+
+            return true;
+        });
+
+        // Generate unique key and check for duplicates
         static::creating(function ($appointment) {
             if (empty($appointment->unique_appointment_key)) {
                 $appointment->unique_appointment_key = $appointment->generateUniqueKey();

@@ -10,6 +10,7 @@ use App\Models\AppointmentBillingLink;
 use App\Models\Patient;
 use App\Models\User;
 use App\Models\LabTest;
+use App\Services\DateValidationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -279,6 +280,9 @@ class BillingController extends Controller
             'appointment_ids.*' => 'exists:appointments,id',
             'payment_method' => 'required|in:cash,hmo',
             'payment_reference' => 'nullable|string|max:255',
+            'hmo_provider' => 'nullable|string|max:255',
+            'hmo_reference_number' => 'nullable|string|max:255',
+            'is_senior_citizen' => 'nullable|boolean',
             'notes' => 'nullable|string',
         ]);
 
@@ -287,7 +291,12 @@ class BillingController extends Controller
             \Log::info('Starting transaction creation...');
             
             $appointments = Appointment::whereIn('id', $request->appointment_ids)
-                ->pendingBilling()
+                ->where('status', 'Confirmed')
+                ->where(function($query) {
+                    $query->whereNull('billing_status')
+                          ->orWhere('billing_status', 'pending')
+                          ->orWhere('billing_status', 'not_billed');
+                })
                 ->get();
 
             \Log::info('Found appointments: ' . $appointments->count());
@@ -316,6 +325,15 @@ class BillingController extends Controller
             $totalAmount = $appointments->sum('price');
             \Log::info('Total amount: ' . $totalAmount);
 
+            // Calculate senior citizen discount
+            $isSeniorCitizen = $request->boolean('is_senior_citizen', false);
+            $consultationAppointments = $appointments->filter(function($apt) {
+                return in_array($apt->appointment_type, ['consultation', 'general_consultation']);
+            });
+            $consultationAmount = $consultationAppointments->sum('price');
+            $seniorDiscountAmount = $isSeniorCitizen && $request->payment_method !== 'hmo' ? ($consultationAmount * 0.20) : 0;
+            $finalAmount = $totalAmount - $seniorDiscountAmount;
+
             // Generate unique transaction ID (increment like patient ID)
             $transactionId = $this->getNextAvailableTransactionId();
             \Log::info('Generated transaction ID: ' . $transactionId);
@@ -332,22 +350,16 @@ class BillingController extends Controller
             $specialist = \App\Models\Specialist::where('role', 'Doctor')->first();
             $doctorId = $specialist ? $specialist->specialist_id : null;
             
-            // Create new transaction using the first appointment's ID
-            $firstAppointment = $appointments->first();
-            
-            // Generate sequential transaction ID (like patient codes)
-            $nextTransactionId = BillingTransaction::max('id') + 1;
-            $transactionId = 'TXN-' . str_pad($nextTransactionId, 6, '0', STR_PAD_LEFT);
-            
-            $transaction = BillingTransaction::create([
+            // Create transaction with basic required fields first
+            $transactionData = [
                 'transaction_id' => $transactionId,
-                'appointment_id' => $firstAppointment->id, // Use first appointment as primary
+                'appointment_id' => $firstAppointment->id,
                 'patient_id' => $patientId,
                 'doctor_id' => $doctorId,
                 'payment_type' => 'cash',
-                'total_amount' => $totalAmount,
-                'amount' => $totalAmount,
-                'discount_amount' => 0,
+                'total_amount' => $finalAmount,
+                'amount' => $finalAmount,
+                'discount_amount' => $seniorDiscountAmount,
                 'payment_method' => $request->payment_method,
                 'payment_reference' => $request->payment_reference,
                 'status' => 'pending',
@@ -357,9 +369,38 @@ class BillingController extends Controller
                 'transaction_date_only' => $now->toDateString(),
                 'transaction_time_only' => $now->toTimeString(),
                 'created_by' => auth()->id(),
-            ]);
+            ];
+            
+            // Add optional fields only if they have values
+            if ($isSeniorCitizen) {
+                $transactionData['is_senior_citizen'] = $isSeniorCitizen;
+                $transactionData['senior_discount_amount'] = $seniorDiscountAmount;
+                $transactionData['senior_discount_percentage'] = $seniorDiscountAmount > 0 ? 20.00 : 0;
+            }
+            
+            if ($request->hmo_provider) {
+                $transactionData['hmo_provider'] = $request->hmo_provider;
+            }
+            
+            if ($request->hmo_reference_number) {
+                $transactionData['hmo_reference_number'] = $request->hmo_reference_number;
+            }
+            
+            \Log::info('Creating transaction with data:', $transactionData);
+            
+            $transaction = BillingTransaction::create($transactionData);
             
             \Log::info('Billing transaction created with ID: ' . $transaction->id);
+            
+            // Debug logging for amount calculations
+            \Log::info('Transaction amount debug:', [
+                'total_amount' => $totalAmount,
+                'final_amount' => $finalAmount,
+                'senior_discount_amount' => $seniorDiscountAmount,
+                'is_senior_citizen' => $isSeniorCitizen,
+                'hmo_provider' => $request->hmo_provider,
+                'hmo_reference_number' => $request->hmo_reference_number
+            ]);
 
             // Create appointment billing links and update appointment status
             foreach ($appointments as $appointment) {

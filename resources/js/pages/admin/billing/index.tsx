@@ -12,6 +12,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import Heading from '@/components/heading';
+import { safeFormatDate, safeFormatTime } from '@/utils/dateTime';
 import { 
     AlertCircle, 
     ArrowLeft, 
@@ -54,11 +55,20 @@ type BillingTransaction = {
     } | null;
     payment_type: 'cash' | 'health_card' | 'discount';
     total_amount: number;
+    amount: number;
     discount_amount: number;
+    discount_percentage: number | null;
+    is_senior_citizen: boolean;
+    senior_discount_amount: number;
+    senior_discount_percentage: number;
     hmo_provider: string | null;
+    hmo_reference: string | null;
+    hmo_reference_number: string | null;
     payment_method: 'cash' | 'hmo';
+    payment_reference: string | null;
     status: 'draft' | 'pending' | 'paid' | 'cancelled' | 'refunded';
     description: string | null;
+    notes: string | null;
     transaction_date: string;
     due_date: string | null;
     created_at: string;
@@ -539,7 +549,7 @@ export default function BillingIndex({
                                                         {transaction.doctor ? transaction.doctor.name : '—'}
                                                     </TableCell>
                                                     <TableCell className="font-semibold text-green-600">
-                                                        ₱{transaction.total_amount.toLocaleString()}
+                                                        ₱{transaction.amount.toLocaleString()}
                                                     </TableCell>
                                                     <TableCell>
                                                         <Badge variant="outline" className="capitalize">
@@ -632,8 +642,12 @@ export default function BillingIndex({
                                                     <TableCell>{appointment.specialist_name}</TableCell>
                                                     <TableCell>
                                                         <div>
-                                                            <div className="font-medium">{new Date(appointment.appointment_date).toLocaleDateString()}</div>
-                                                            <div className="text-sm text-gray-500">{appointment.appointment_time}</div>
+                                                            <div className="font-medium">
+                                                                {safeFormatDate(appointment.appointment_date)}
+                                                            </div>
+                                                            <div className="text-sm text-gray-500">
+                                                                {safeFormatTime(appointment.appointment_time)}
+                                                            </div>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="font-semibold text-green-600">
@@ -967,7 +981,7 @@ export default function BillingIndex({
                                             Transaction: <span className="font-medium">{selectedTransaction.transaction_id}</span>
                                         </p>
                                         <p className="text-sm text-gray-600 mb-4">
-                                            Amount: <span className="font-medium">₱{(selectedTransaction.total_amount || 0).toLocaleString()}</span>
+                                            Amount: <span className="font-medium">₱{(selectedTransaction.amount || 0).toLocaleString()}</span>
                                         </p>
                                     </div>
                                     

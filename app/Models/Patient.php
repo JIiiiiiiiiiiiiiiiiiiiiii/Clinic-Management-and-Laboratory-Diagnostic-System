@@ -23,6 +23,8 @@ class Patient extends Model
         'middle_name',
         'birthdate',
         'age',
+        'is_senior_citizen',
+        'senior_citizen_id',
         'sex',
         'occupation',
         'religion',
@@ -131,5 +133,25 @@ class Patient extends Model
                 $patient->patient_no = 'P' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
             }
         });
+    }
+
+    // Senior citizen methods
+    public function isSeniorCitizen()
+    {
+        return $this->is_senior_citizen ?? false;
+    }
+
+    public function getAge()
+    {
+        if ($this->birthdate) {
+            return \Carbon\Carbon::parse($this->birthdate)->age;
+        }
+        return $this->age ?? 0;
+    }
+
+    public function shouldBeSeniorCitizen()
+    {
+        $age = $this->getAge();
+        return $age >= 60;
     }
 }

@@ -4,6 +4,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 import Heading from '@/components/heading';
+import { safeFormatDate, safeFormatTime } from '@/utils/dateTime';
 import { 
     ArrowLeft, 
     Printer,
@@ -33,14 +34,20 @@ type BillingTransaction = {
     } | null;
     payment_type: 'cash' | 'health_card' | 'discount';
     total_amount: number;
+    amount: number;
     discount_amount: number;
     discount_percentage: number | null;
+    is_senior_citizen: boolean;
+    senior_discount_amount: number;
+    senior_discount_percentage: number;
     hmo_provider: string | null;
     hmo_reference: string | null;
+    hmo_reference_number: string | null;
     payment_method: 'cash' | 'card' | 'bank_transfer' | 'check' | 'hmo';
     payment_reference: string | null;
     status: 'draft' | 'pending' | 'paid' | 'cancelled' | 'refunded';
     description: string | null;
+    notes: string | null;
     transaction_date: string;
     due_date: string | null;
     created_at: string;
@@ -99,8 +106,17 @@ export default function BillingReceipt({
         return isNaN(discountAmount) ? 0 : discountAmount;
     };
 
+    const calculateSeniorDiscount = () => {
+        const seniorDiscountAmount = typeof transaction.senior_discount_amount === 'string' ? parseFloat(transaction.senior_discount_amount) : transaction.senior_discount_amount;
+        return isNaN(seniorDiscountAmount) ? 0 : seniorDiscountAmount;
+    };
+
+    const calculateTotalDiscount = () => {
+        return calculateDiscount() + calculateSeniorDiscount();
+    };
+
     const calculateNetAmount = () => {
-        return calculateSubtotal() - calculateDiscount();
+        return calculateSubtotal() - calculateTotalDiscount();
     };
 
     const getPaymentMethodLabel = (method: string) => {
@@ -205,14 +221,14 @@ export default function BillingReceipt({
                                             Transaction Details
                                         </h3>
                                         <div className="space-y-2 text-sm">
-                                            <div><span className="font-medium">Date:</span> {new Date(transaction.transaction_date).toLocaleDateString()}</div>
-                                            <div><span className="font-medium">Time:</span> {new Date(transaction.transaction_date).toLocaleTimeString()}</div>
+                                            <div><span className="font-medium">Date:</span> {safeFormatDate(transaction.transaction_date)}</div>
+                                            <div><span className="font-medium">Time:</span> {safeFormatTime(transaction.transaction_date)}</div>
                                             {transaction.doctor && (
                                                 <div><span className="font-medium">Doctor:</span> {transaction.doctor.name}</div>
                                             )}
                                             <div><span className="font-medium">Status:</span> {getStatusLabel(transaction.status)}</div>
                                             {transaction.due_date && (
-                                                <div><span className="font-medium">Due Date:</span> {new Date(transaction.due_date).toLocaleDateString()}</div>
+                                                <div><span className="font-medium">Due Date:</span> {safeFormatDate(transaction.due_date)}</div>
                                             )}
                                         </div>
                                     </div>
@@ -232,8 +248,11 @@ export default function BillingReceipt({
                                         {transaction.hmo_provider && (
                                             <div><span className="font-medium">HMO Provider:</span> {transaction.hmo_provider}</div>
                                         )}
-                                        {transaction.hmo_reference && (
-                                            <div><span className="font-medium">HMO Reference:</span> {transaction.hmo_reference}</div>
+                                        {transaction.hmo_reference_number && (
+                                            <div><span className="font-medium">HMO Reference Number:</span> {transaction.hmo_reference_number}</div>
+                                        )}
+                                        {transaction.is_senior_citizen && (
+                                            <div><span className="font-medium">Senior Citizen:</span> Yes (20% discount applied)</div>
                                         )}
                                     </div>
                                 </div>
@@ -282,9 +301,18 @@ export default function BillingReceipt({
                                             {calculateDiscount() > 0 && (
                                                 <div className="flex justify-between text-lg text-red-600">
                                                     <span className="font-medium">
-                                                        Discount {transaction.discount_percentage ? `(${transaction.discount_percentage}%)` : ''}:
+                                                        Regular Discount {transaction.discount_percentage ? `(${transaction.discount_percentage}%)` : ''}:
                                                     </span>
                                                     <span className="font-semibold">-₱{calculateDiscount().toLocaleString()}</span>
+                                                </div>
+                                            )}
+
+                                            {calculateSeniorDiscount() > 0 && (
+                                                <div className="flex justify-between text-lg text-red-600">
+                                                    <span className="font-medium">
+                                                        Senior Citizen Discount (20%):
+                                                    </span>
+                                                    <span className="font-semibold">-₱{calculateSeniorDiscount().toLocaleString()}</span>
                                                 </div>
                                             )}
 
@@ -331,7 +359,7 @@ export default function BillingReceipt({
                 </div>
             </div>
 
-            <style jsx>{`
+            <style>{`
                 @media print {
                     .print\\:shadow-none {
                         box-shadow: none !important;

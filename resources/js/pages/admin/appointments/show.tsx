@@ -5,6 +5,8 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 import Heading from '@/components/heading';
+import { safeFormatDate, safeFormatTime } from '@/utils/dateTime';
+import { SafeAppointmentDisplay } from '@/components/SafeDateDisplay';
 import { 
     ArrowLeft, 
     Edit,
@@ -186,13 +188,13 @@ export default function AppointmentShow({
                                         <div>
                                             <label className="text-sm font-medium text-gray-500">Date</label>
                                             <p className="text-lg font-semibold text-gray-900">
-                                                {new Date(appointment.appointment_date).toLocaleDateString()}
+                                                {safeFormatDate(appointment.appointment_date)}
                                             </p>
                                         </div>
                                         <div>
                                             <label className="text-sm font-medium text-gray-500">Time</label>
                                             <p className="text-lg font-semibold text-gray-900">
-                                                {new Date(appointment.appointment_time).toLocaleTimeString()}
+                                                {safeFormatTime(appointment.appointment_time)}
                                             </p>
                                         </div>
                                     </div>
@@ -300,24 +302,9 @@ export default function AppointmentShow({
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-6">
-                                <div className="space-y-3">
-                                    <div className="flex justify-between">
-                                        <span className="font-medium">Appointment Date:</span>
-                                        <span>{new Date(appointment.appointment_date).toLocaleDateString()}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="font-medium">Appointment Time:</span>
-                                        <span>{new Date(appointment.appointment_time).toLocaleTimeString()}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="font-medium">Created:</span>
-                                        <span>{new Date(appointment.created_at).toLocaleDateString()}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="font-medium">Last Updated:</span>
-                                        <span>{new Date(appointment.updated_at).toLocaleDateString()}</span>
-                                    </div>
-                                </div>
+                                <SafeAppointmentDisplay 
+                                    appointment={appointment}
+                                />
                             </CardContent>
                         </Card>
                     </div>

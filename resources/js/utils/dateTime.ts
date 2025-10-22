@@ -13,29 +13,48 @@ export function formatAppointmentTime(timeString: string | null | undefined): st
     }
     
     try {
-        // Handle both time strings (HH:MM:SS) and datetime strings
-        let date: Date;
-        
-        // If it's already a time string (HH:MM:SS), create a date with today's date
-        if (typeof timeString === 'string' && timeString.match(/^\d{2}:\d{2}:\d{2}$/)) {
-            const today = new Date();
-            const [hours, minutes, seconds] = timeString.split(':');
-            date = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 
-                          parseInt(hours), parseInt(minutes), parseInt(seconds));
-        } else {
-            // Handle datetime strings
-            date = new Date(timeString);
-        }
-        
-        if (isNaN(date.getTime())) {
+        // Handle different time formats
+        if (timeString.includes('T')) {
+            // Handle datetime strings (ISO format)
+            const timePart = timeString.split('T')[1];
+            if (timePart) {
+                const time = new Date(`2000-01-01T${timePart}`);
+                return isNaN(time.getTime()) ? 'Invalid time' : time.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: true 
+                });
+            }
             return 'Invalid time';
+        } else if (timeString.match(/^\d{2}:\d{2}:\d{2}$/)) {
+            // Handle time strings (HH:MM:SS)
+            const [hours, minutes] = timeString.split(':');
+            const time = new Date(`2000-01-01T${hours}:${minutes}:00`);
+            return isNaN(time.getTime()) ? 'Invalid time' : time.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: true 
+            });
+        } else if (timeString.match(/^\d{2}:\d{2}$/)) {
+            // Handle time strings (HH:MM)
+            const time = new Date(`2000-01-01T${timeString}:00`);
+            return isNaN(time.getTime()) ? 'Invalid time' : time.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: true 
+            });
+        } else {
+            // Try to parse as a general datetime
+            const date = new Date(timeString);
+            if (isNaN(date.getTime())) {
+                return 'Invalid time';
+            }
+            return date.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: true 
+            });
         }
-        
-        return date.toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: true 
-        });
     } catch (error) {
         console.error('Error formatting appointment time:', error);
         return 'Invalid time';
@@ -162,6 +181,137 @@ export function formatAppointmentDate(dateString: string | null | undefined): st
     } catch (error) {
         console.error('Error formatting appointment date:', error);
         return 'Invalid date';
+    }
+}
+
+/**
+ * Safely format a date string with comprehensive validation and error handling
+ * @param dateString - The date string from the database
+ * @returns Formatted date string or fallback text
+ */
+export function safeFormatDate(dateString: string | null | undefined): string {
+    // Handle null, undefined, or empty values
+    if (!dateString || dateString.trim() === '') {
+        return 'No date set';
+    }
+    
+    try {
+        // Pre-validate the string format
+        const trimmedDate = dateString.trim();
+        
+        // Check for common invalid patterns
+        if (trimmedDate === '0000-00-00' || trimmedDate === '0000-00-00 00:00:00') {
+            return 'No date set';
+        }
+        
+        // Create date object
+        const date = new Date(trimmedDate);
+        
+        // Validate the date
+        if (isNaN(date.getTime())) {
+            console.warn('Invalid date string detected:', dateString);
+            return 'Invalid date';
+        }
+        
+        // Additional validation for reasonable date ranges
+        const year = date.getFullYear();
+        if (year < 1900 || year > 2100) {
+            console.warn('Date out of reasonable range:', dateString);
+            return 'Invalid date';
+        }
+        
+        return date.toLocaleDateString();
+    } catch (error) {
+        console.error('Error formatting date:', error, 'Input:', dateString);
+        return 'Invalid date';
+    }
+}
+
+/**
+ * Safely format a time string with comprehensive validation and error handling
+ * @param timeString - The time string from the database
+ * @returns Formatted time string or fallback text
+ */
+export function safeFormatTime(timeString: string | null | undefined): string {
+    // Handle null, undefined, or empty values
+    if (!timeString || timeString.trim() === '') {
+        return 'No time set';
+    }
+    
+    try {
+        const trimmedTime = timeString.trim();
+        
+        // Check for common invalid patterns
+        if (trimmedTime === '00:00:00' || trimmedTime === '00:00') {
+            return 'No time set';
+        }
+        
+        // Handle different time formats with strict validation
+        if (trimmedTime.includes('T')) {
+            const timePart = trimmedTime.split('T')[1];
+            if (timePart) {
+                const time = new Date(`2000-01-01T${timePart}`);
+                if (isNaN(time.getTime())) {
+                    console.warn('Invalid time string detected:', timeString);
+                    return 'Invalid time';
+                }
+                return time.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: true 
+                });
+            }
+            return 'Invalid time';
+        } else if (trimmedTime.match(/^\d{2}:\d{2}:\d{2}$/)) {
+            const [hours, minutes] = trimmedTime.split(':');
+            const hourNum = parseInt(hours);
+            const minuteNum = parseInt(minutes);
+            
+            // Validate time ranges
+            if (hourNum < 0 || hourNum > 23 || minuteNum < 0 || minuteNum > 59) {
+                console.warn('Time out of valid range:', timeString);
+                return 'Invalid time';
+            }
+            
+            const time = new Date(`2000-01-01T${hours}:${minutes}:00`);
+            return isNaN(time.getTime()) ? 'Invalid time' : time.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: true 
+            });
+        } else if (trimmedTime.match(/^\d{2}:\d{2}$/)) {
+            const [hours, minutes] = trimmedTime.split(':');
+            const hourNum = parseInt(hours);
+            const minuteNum = parseInt(minutes);
+            
+            // Validate time ranges
+            if (hourNum < 0 || hourNum > 23 || minuteNum < 0 || minuteNum > 59) {
+                console.warn('Time out of valid range:', timeString);
+                return 'Invalid time';
+            }
+            
+            const time = new Date(`2000-01-01T${trimmedTime}:00`);
+            return isNaN(time.getTime()) ? 'Invalid time' : time.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: true 
+            });
+        } else {
+            // Try to parse as general time format
+            const time = new Date(`2000-01-01T${trimmedTime}`);
+            if (isNaN(time.getTime())) {
+                console.warn('Invalid time format:', timeString);
+                return 'Invalid time';
+            }
+            return time.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: true 
+            });
+        }
+    } catch (error) {
+        console.error('Error formatting time:', error, 'Input:', timeString);
+        return 'Invalid time';
     }
 }
 
