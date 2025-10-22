@@ -22,6 +22,7 @@ use App\Http\Controllers\Admin\AppointmentController;
 use App\Http\Controllers\Admin\ClinicProcedureController;
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\NotificationController;
+use App\Http\Controllers\Admin\EnhancedHmoReportController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\DashboardController;
@@ -172,6 +173,16 @@ Route::prefix('admin')
             // Doctor Summary (MUST come before parameterized routes)
             Route::get('/doctor-summary', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'doctorSummary'])->name('doctor-summary');
             
+            // Enhanced HMO Reports (MUST come before parameterized routes)
+            Route::get('/enhanced-hmo-report', [EnhancedHmoReportController::class, 'index'])->name('enhanced-hmo-report.index');
+            Route::get('/enhanced-hmo-report/generate', [EnhancedHmoReportController::class, 'generateReport'])->name('enhanced-hmo-report.generate');
+            Route::post('/enhanced-hmo-report/generate', [EnhancedHmoReportController::class, 'generateReport'])->name('enhanced-hmo-report.generate.post');
+            Route::get('/enhanced-hmo-report/export-data', [EnhancedHmoReportController::class, 'exportData'])->name('enhanced-hmo-report.export-data');
+            Route::get('/enhanced-hmo-report/provider-performance', [EnhancedHmoReportController::class, 'providerPerformance'])->name('enhanced-hmo-report.provider-performance');
+            Route::get('/enhanced-hmo-report/patient-coverage', [EnhancedHmoReportController::class, 'patientCoverage'])->name('enhanced-hmo-report.patient-coverage');
+            Route::get('/enhanced-hmo-report/{report}', [EnhancedHmoReportController::class, 'show'])->name('enhanced-hmo-report.show');
+            Route::get('/enhanced-hmo-report/{report}/export', [EnhancedHmoReportController::class, 'export'])->name('enhanced-hmo-report.export');
+            
             // Doctor Payments - Redirect to billing index with doctor payments tab
             Route::prefix('doctor-payments')->name('doctor-payments.')->group(function () {
                 Route::get('/', function () {
@@ -215,6 +226,7 @@ Route::prefix('admin')
                 Route::get('/monthly/export', [App\Http\Controllers\Admin\BillingReportController::class, 'exportMonthlyReport'])->name('monthly.export');
                 Route::get('/yearly/export', [App\Http\Controllers\Admin\BillingReportController::class, 'exportYearlyReport'])->name('yearly.export');
             });
+
 
             
         });

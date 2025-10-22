@@ -532,50 +532,9 @@ class BillingReportController extends Controller
 
     public function hmoReport(Request $request)
     {
-        $dateFrom = $request->get('date_from', now()->subDays(30)->format('Y-m-d'));
-        $dateTo = $request->get('date_to', now()->format('Y-m-d'));
-
-        // Get HMO transactions
-        // Convert date strings to datetime range for proper filtering
-        $startDateTime = $dateFrom . ' 00:00:00';
-        $endDateTime = $dateTo . ' 23:59:59';
-        
-        $hmoTransactions = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
-            ->where('payment_method', 'hmo')
-            ->whereNotNull('hmo_provider')
-            ->with(['patient', 'doctor', 'appointmentLinks.appointment'])
-            ->get();
-
-        // Group by HMO provider
-        $hmoSummary = $hmoTransactions->groupBy('hmo_provider')
-            ->map(function ($transactions, $provider) {
-                return [
-                    'provider' => $provider,
-                    'total_amount' => $transactions->sum('total_amount'),
-                    'transaction_count' => $transactions->count(),
-                    'paid_count' => $transactions->where('status', 'paid')->count(),
-                    'pending_count' => $transactions->where('status', 'pending')->count(),
-                ];
-            });
-
-        // Calculate summary
-        $summary = [
-            'total_hmo_revenue' => $hmoTransactions->sum('total_amount'),
-            'total_hmo_transactions' => $hmoTransactions->count(),
-            'hmo_providers_count' => $hmoSummary->count(),
-            'paid_hmo_transactions' => $hmoTransactions->where('status', 'paid')->count(),
-            'pending_hmo_transactions' => $hmoTransactions->where('status', 'pending')->count(),
-        ];
-
-        return inertia('admin/billing/hmo-report', [
-            'hmoTransactions' => $hmoTransactions,
-            'hmoSummary' => $hmoSummary,
-            'summary' => $summary,
-            'filters' => [
-                'date_from' => $dateFrom,
-                'date_to' => $dateTo,
-            ]
-        ]);
+        // Redirect to the enhanced HMO report with the same parameters
+        $queryParams = $request->query();
+        return redirect()->route('admin.billing.enhanced-hmo-report.index', $queryParams);
     }
 
     public function exportAll(Request $request)
