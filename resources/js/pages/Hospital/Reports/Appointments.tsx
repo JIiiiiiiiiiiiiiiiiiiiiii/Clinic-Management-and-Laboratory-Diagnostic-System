@@ -70,10 +70,6 @@ export default function HospitalAppointmentReports({ user, appointments, stats, 
   const [search, setSearch] = useState(filters.search || '');
   const [status, setStatus] = useState(filters.status || '');
   const [specialistType, setSpecialistType] = useState(filters.specialist_type || '');
-  
-  // Sorting state
-  const [sortBy, setSortBy] = useState<string>(filters.sort_by || 'appointment_date');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>(filters.sort_dir || 'desc');
 
   const breadcrumbs: BreadcrumbItem[] = [
     { label: 'Hospital Dashboard', href: route('hospital.dashboard') },
@@ -81,30 +77,11 @@ export default function HospitalAppointmentReports({ user, appointments, stats, 
     { label: 'Appointment Reports', href: route('hospital.reports.appointments') },
   ];
 
-  // Handle sorting
-  const handleSort = (field: string) => {
-    const newSortDir = sortBy === field && sortDir === 'asc' ? 'desc' : 'asc';
-    setSortBy(field);
-    setSortDir(newSortDir);
-    router.get(route('hospital.reports.appointments'), {
-      search: search || undefined,
-      status: status || undefined,
-      specialist_type: specialistType || undefined,
-      sort_by: field,
-      sort_dir: newSortDir,
-    }, {
-      preserveState: true,
-      replace: true
-    });
-  };
-
   const handleFilter = () => {
     router.get(route('hospital.reports.appointments'), {
       search: search || undefined,
       status: status || undefined,
       specialist_type: specialistType || undefined,
-      sort_by: sortBy,
-      sort_dir: sortDir,
     }, {
       preserveState: true,
       replace: true
@@ -327,48 +304,24 @@ export default function HospitalAppointmentReports({ user, appointments, stats, 
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+            <div className="rounded-md border">
               <Table>
-                <TableHeader className="bg-gray-50">
+                <TableHeader>
                   <TableRow>
-                    <TableHead 
-                      className="font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('patient_id')}
-                    >
-                      Patient ID
-                      {sortBy === 'patient_id' && (
-                        <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>
-                      )}
-                    </TableHead>
-                    <TableHead className="font-semibold text-gray-700">
-                      Patient
-                    </TableHead>
-                    <TableHead className="font-semibold text-gray-700">
-                      Date & Time
-                    </TableHead>
-                    <TableHead className="font-semibold text-gray-700">
-                      Specialist
-                    </TableHead>
-                    <TableHead className="font-semibold text-gray-700">
-                      Type
-                    </TableHead>
-                    <TableHead className="font-semibold text-gray-700">
-                      Status
-                    </TableHead>
-                    <TableHead className="font-semibold text-gray-700">
-                      Price
-                    </TableHead>
-                    <TableHead className="font-semibold text-gray-700">Actions</TableHead>
+                    <TableHead>Patient</TableHead>
+                    <TableHead>Date & Time</TableHead>
+                    <TableHead>Specialist</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {appointments.data && appointments.data.length > 0 ? appointments.data.map((appointment: any) => (
-                    <TableRow key={appointment.id} className="hover:bg-gray-50/50 transition-colors">
-                      <TableCell className="font-medium text-center">
-                        {appointment.patient?.sequence_number || appointment.patient_id}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {appointment.patient_name}
+                  {appointments.data.map((appointment) => (
+                    <TableRow key={appointment.id}>
+                      <TableCell>
+                        <div className="font-medium">{appointment.patient_name}</div>
                       </TableCell>
                       <TableCell>
                         <div>
@@ -399,8 +352,10 @@ export default function HospitalAppointmentReports({ user, appointments, stats, 
                           {getStatusBadge(appointment.status)}
                         </div>
                       </TableCell>
-                      <TableCell className="font-medium">
-                        ₱{appointment.price.toLocaleString()}
+                      <TableCell>
+                        <div className="font-medium">
+                          ₱{appointment.price.toLocaleString()}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Button variant="ghost" size="sm">
@@ -408,13 +363,7 @@ export default function HospitalAppointmentReports({ user, appointments, stats, 
                         </Button>
                       </TableCell>
                     </TableRow>
-                  )) : (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-gray-500">
-                        No appointments found
-                      </TableCell>
-                    </TableRow>
-                  )}
+                  ))}
                 </TableBody>
               </Table>
             </div>

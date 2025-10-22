@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Users, Download, ArrowLeft } from 'lucide-react';
+import { Users, Plus, Search } from 'lucide-react';
 
 interface Patient {
   id: number;
@@ -25,53 +25,45 @@ interface PatientStats {
   new_this_month: number;
 }
 
-interface DateRange {
-  start: string;
-  end: string;
-}
-
 interface Props {
-  user: any;
   patients: {
     data: Patient[];
     links: any[];
     meta: any;
   };
   stats: PatientStats;
-  dateRange: DateRange;
   filters: any;
 }
 
-export default function HospitalReportsPatients({ user, patients, stats, dateRange, filters }: Props) {
+export default function HospitalPatientsIndex({ patients, stats, filters }: Props) {
   const breadcrumbs: BreadcrumbItem[] = [
     { label: 'Hospital Dashboard', href: route('hospital.dashboard') },
-    { label: 'Reports', href: route('hospital.reports.index') },
-    { label: 'Patient Reports', href: route('hospital.reports.patients') },
+    { label: 'Patients', href: route('hospital.patients.index') },
   ];
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
-      <Head title="Patient Reports" />
+      <Head title="Hospital Patients" />
       
       <div className="space-y-6 p-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button variant="outline" size="sm" asChild>
-              <Link href={route('hospital.reports.index')}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Reports
-              </Link>
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Patient Reports</h1>
-              <p className="text-muted-foreground">Patient statistics and demographics</p>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Hospital Patients</h1>
+            <p className="text-muted-foreground">Manage patient records and information</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              Export Report
+            <Button asChild>
+              <Link href={route('hospital.patients.create')}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Patient
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href={route('hospital.patients.refer')}>
+                <Users className="h-4 w-4 mr-2" />
+                Refer Patient
+              </Link>
             </Button>
           </div>
         </div>
@@ -122,15 +114,21 @@ export default function HospitalReportsPatients({ user, patients, stats, dateRan
         {/* Patients List */}
         <Card>
           <CardHeader>
-            <CardTitle>Patient Records</CardTitle>
-            <CardDescription>Patient data for the selected period</CardDescription>
+            <CardTitle>Patients List</CardTitle>
+            <CardDescription>View and manage all patient records</CardDescription>
           </CardHeader>
           <CardContent>
             {patients.data.length === 0 ? (
               <div className="text-center py-8">
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium">No patient data found</h3>
-                <p className="text-muted-foreground">No patients match the current filters or date range.</p>
+                <h3 className="text-lg font-medium">No patients found</h3>
+                <p className="text-muted-foreground mb-4">Get started by adding a new patient</p>
+                <Button asChild>
+                  <Link href={route('hospital.patients.create')}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add First Patient
+                  </Link>
+                </Button>
               </div>
             ) : (
               <div className="space-y-4">
@@ -147,26 +145,22 @@ export default function HospitalReportsPatients({ user, patients, stats, dateRan
                         </p>
                       </div>
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      Registered: {new Date(patient.created_at).toLocaleDateString()}
+                    <div className="flex items-center space-x-2">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={route('hospital.patients.show', patient.id)}>
+                          View
+                        </Link>
+                      </Button>
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={route('hospital.patients.edit', patient.id)}>
+                          Edit
+                        </Link>
+                      </Button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Date Range Info */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Report Period</CardTitle>
-            <CardDescription>Current reporting period</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm text-muted-foreground">
-              From {new Date(dateRange.start).toLocaleDateString()} to {new Date(dateRange.end).toLocaleDateString()}
-            </div>
           </CardContent>
         </Card>
       </div>

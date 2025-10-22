@@ -49,6 +49,7 @@ class HandleInertiaRequests extends Middleware
                     'name' => $request->user()->name,
                     'email' => $request->user()->email,
                     'role' => $request->user()->getMappedRole(),
+                    'permissions' => $request->user()->getAllPermissions()->pluck('name')->toArray(),
                     'avatar' => null, // Add avatar if you have one
                 ] : null,
             ],

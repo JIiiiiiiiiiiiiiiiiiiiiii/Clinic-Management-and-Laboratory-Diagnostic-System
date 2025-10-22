@@ -6,6 +6,8 @@ use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\RedirectBasedOnRole;
 use App\Http\Middleware\SimpleAuthMiddleware;
 use App\Http\Middleware\HospitalAccess;
+use App\Http\Middleware\RoleBasedAccess;
+use App\Http\Middleware\ModuleAccess;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -39,6 +41,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => CheckRole::class,
             'simple.auth' => SimpleAuthMiddleware::class,
             'hospital.access' => HospitalAccess::class,
+            'role.access' => RoleBasedAccess::class,
+            'module.access' => ModuleAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

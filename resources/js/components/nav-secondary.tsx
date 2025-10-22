@@ -29,9 +29,11 @@ export function NavSecondary({
     url?: string
     icon: LucideIcon
     isActive?: boolean
+    show?: boolean
     items?: {
       title: string
       url: string
+      show?: boolean
     }[]
   }[]
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
@@ -61,7 +63,7 @@ export function NavSecondary({
     <SidebarGroup {...props}>
       <SidebarGroupContent>
         <SidebarMenu>
-          {items?.map((item) => {
+          {items?.filter(item => item.show !== false).map((item) => {
             const isOpen = openItems.includes(item.title);
             
             return (
@@ -84,7 +86,7 @@ export function NavSecondary({
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <SidebarMenuSub>
-                        {item.items?.map((subItem) => (
+                        {item.items?.filter(subItem => subItem.show !== false).map((subItem) => (
                           <SidebarMenuSubItem key={subItem.title}>
                             <SidebarMenuSubButton asChild>
                               <Link href={subItem.url || '#'}>

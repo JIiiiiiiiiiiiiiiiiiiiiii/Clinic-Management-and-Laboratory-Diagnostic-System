@@ -57,6 +57,14 @@ class UserRoleSeeder extends Seeder
                 'employee_id' => 'EMP005',
             ],
             [
+                'name' => 'Nurse Jennifer',
+                'email' => 'nurse@clinic.com',
+                'password' => Hash::make('password'),
+                'role' => 'nurse',
+                'is_active' => true,
+                'employee_id' => 'EMP006',
+            ],
+            [
                 'name' => 'Patient John Doe',
                 'email' => 'patient@clinic.com',
                 'password' => Hash::make('password'),

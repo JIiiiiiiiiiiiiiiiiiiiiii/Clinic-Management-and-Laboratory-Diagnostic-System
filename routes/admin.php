@@ -46,15 +46,17 @@ Route::prefix('admin')
         
 
         // Patient CRUD routes (URLs -> /admin/patient) - All staff can access
-        Route::resource('patient', PatientController::class)->names([
-            'index' => 'patient.index',
-            'create' => 'patient.create',
-            'store' => 'patient.store',
-            'show' => 'patient.show',
-            'edit' => 'patient.edit',
-            'update' => 'patient.update',
-            'destroy' => 'patient.destroy',
-        ]);
+        Route::middleware(['module.access:patients'])->group(function () {
+            Route::resource('patient', PatientController::class)->names([
+                'index' => 'patient.index',
+                'create' => 'patient.create',
+                'store' => 'patient.store',
+                'show' => 'patient.show',
+                'edit' => 'patient.edit',
+                'update' => 'patient.update',
+                'destroy' => 'patient.destroy',
+            ]);
+        });
 
 
         // Specialist Management - Admin only
@@ -93,13 +95,13 @@ Route::prefix('admin')
         });
 
         // Laboratory Routes - Lab staff, doctors, and admin
-        Route::prefix('laboratory')->name('laboratory.')->middleware(['role:laboratory_technologist,medtech,doctor,admin'])->group(function () {
+        Route::prefix('laboratory')->name('laboratory.')->middleware(['module.access:laboratory'])->group(function () {
             Route::get('/', function () {
                 return Inertia::render('admin/laboratory/index');
             })->name('index');
 
-            // Manage lab tests (admin only)
-            Route::middleware(['role:admin'])->group(function () {
+            // Manage lab tests (admin and medtech only)
+            Route::middleware(['role:admin,medtech'])->group(function () {
                 Route::get('/tests', [LabTestController::class, 'index'])->name('tests.index');
                 Route::get('/tests/create', [LabTestController::class, 'create'])->name('tests.create');
                 Route::post('/tests', [LabTestController::class, 'store'])->name('tests.store');
@@ -145,7 +147,7 @@ Route::prefix('admin')
         });
 
         // Billing Routes - Cashier and admin only
-        Route::prefix('billing')->name('billing.')->group(function () {
+        Route::prefix('billing')->name('billing.')->middleware(['module.access:billing'])->group(function () {
             // Main billing routes
             Route::get('/', [App\Http\Controllers\Admin\BillingController::class, 'index'])->name('index');
             Route::get('/create', [App\Http\Controllers\Admin\BillingController::class, 'create'])->name('create');
@@ -233,8 +235,8 @@ Route::prefix('admin')
             
         });
 
-        // Appointments Routes - Doctor and admin only
-        Route::prefix('appointments')->name('appointments.')->middleware(['role:doctor,admin'])->group(function () {
+        // Appointments Routes - Doctor, nurse and admin only
+        Route::prefix('appointments')->name('appointments.')->middleware(['role:doctor,nurse,admin'])->group(function () {
             Route::get('/', [AppointmentController::class, 'index'])->name('index');
             Route::get('/create', [AppointmentController::class, 'create'])->name('create');
             
@@ -327,8 +329,8 @@ Route::prefix('admin')
             Route::put('/{visit}/cancel', [\App\Http\Controllers\Admin\VisitController::class, 'markCancelled'])->name('cancel');
         });
 
-        // Pending Appointments Routes - Admin only
-        Route::prefix('pending-appointments')->name('pending-appointments.')->middleware(['role:admin'])->group(function () {
+        // Pending Appointments Routes - Doctor, nurse and admin only
+        Route::prefix('pending-appointments')->name('pending-appointments.')->middleware(['role:doctor,nurse,admin'])->group(function () {
             Route::get('/', [\App\Http\Controllers\Admin\PendingAppointmentController::class, 'index'])->name('index');
             Route::get('/{pendingAppointment}', [\App\Http\Controllers\Admin\PendingAppointmentController::class, 'show'])->name('show');
             Route::post('/{pendingAppointment}/approve', [\App\Http\Controllers\Admin\PendingAppointmentController::class, 'approve'])->name('approve');
@@ -393,7 +395,7 @@ Route::prefix('admin')
 
 
         // Inventory routes - All authenticated staff can access
-        Route::prefix('inventory')->name('inventory.')->group(function () {
+        Route::prefix('inventory')->name('inventory.')->middleware(['module.access:inventory'])->group(function () {
             // Main inventory dashboard
             Route::get('/', [App\Http\Controllers\InventoryController::class, 'index'])->name('index');
             Route::get('/create', [App\Http\Controllers\InventoryController::class, 'create'])->name('create');
