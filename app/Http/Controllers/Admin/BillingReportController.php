@@ -684,17 +684,10 @@ class BillingReportController extends Controller
         // Clear existing records for the date
         DailyTransaction::where('transaction_date', $date)->delete();
 
-        // Get all transactions for the date, but only the LATEST transaction for each appointment
+        // Get all billing transactions for the date (including doctor payments)
         $billingTransactions = BillingTransaction::whereDate('transaction_date', $date)
             ->with(['patient', 'doctor', 'appointmentLinks.appointment', 'items'])
-            ->get()
-            ->groupBy('appointment_id')
-            ->map(function ($transactions) {
-                // Return only the latest transaction for each appointment
-                return $transactions->sortByDesc('created_at')->first();
-            })
-            ->filter() // Remove null values
-            ->values();
+            ->get();
 
         Log::info('Found billing transactions for sync', [
             'date' => $date,
@@ -703,52 +696,33 @@ class BillingReportController extends Controller
                 return [
                     'id' => $txn->transaction_id,
                     'date' => $txn->transaction_date,
-                    'amount' => $txn->total_amount
+                    'amount' => $txn->total_amount,
+                    'payment_type' => $txn->payment_type
                 ];
             })->toArray()
         ]);
 
-        $doctorPayments = DoctorPayment::whereDate('payment_date', $date)
-            ->with(['doctor'])
-            ->get();
-
         $expenses = collect(); // Expense model removed
 
-        // Create daily transactions from the latest transactions only
+        // Create daily transactions from billing transactions
         foreach ($billingTransactions as $transaction) {
+            $transactionType = $transaction->payment_type === 'doctor_payment' ? 'doctor_payment' : 'billing';
+            $amount = $transaction->payment_type === 'doctor_payment' ? -$transaction->total_amount : $transaction->total_amount;
+            
             DailyTransaction::create([
                 'transaction_date' => $date,
-                'transaction_type' => 'billing',
+                'transaction_type' => $transactionType,
                 'transaction_id' => $transaction->transaction_id,
-                'patient_name' => $this->getPatientName($transaction),
+                'patient_name' => $transaction->payment_type === 'doctor_payment' ? 'Doctor Payment' : $this->getPatientName($transaction),
                 'specialist_name' => $this->getSpecialistName($transaction),
-                'amount' => $transaction->total_amount,
+                'amount' => $amount,
                 'payment_method' => $transaction->payment_method,
                 'status' => $transaction->status,
-                'description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',
+                'description' => $transaction->description ?: ($transaction->payment_type === 'doctor_payment' ? 'Doctor Payment - Incentives' : 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)'),
                 'items_count' => $transaction->items->count(),
                 'appointments_count' => $transaction->appointmentLinks->count(),
                 'original_transaction_id' => $transaction->id,
                 'original_table' => 'billing_transactions',
-            ]);
-        }
-
-        // Sync doctor payments
-        foreach ($doctorPayments as $payment) {
-            DailyTransaction::create([
-                'transaction_date' => $date,
-                'transaction_type' => 'doctor_payment',
-                'transaction_id' => 'DP-' . $payment->id,
-                'patient_name' => 'Doctor Payment',
-                'specialist_name' => $payment->doctor ? $payment->doctor->name : 'Unknown Doctor',
-                'amount' => -$payment->amount_paid,
-                'payment_method' => $payment->payment_method ?? 'cash',
-                'status' => $payment->status,
-                'description' => 'Doctor Payment - ' . $payment->description,
-                'items_count' => 0,
-                'appointments_count' => 0,
-                'original_transaction_id' => $payment->id,
-                'original_table' => 'doctor_payments',
             ]);
         }
 

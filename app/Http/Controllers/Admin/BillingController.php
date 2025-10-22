@@ -91,7 +91,13 @@ class BillingController extends Controller
         ];
 
         // Get specialists for filter
-        $doctors = \App\Models\Staff::where('role', 'Doctor')->select('staff_id as id', 'name')->get();
+        $doctors = \App\Models\Specialist::where('role', 'Doctor')
+            ->when(\Schema::hasColumn('specialists', 'status'), function($query) {
+                return $query->where('status', 'Active');
+            })
+            ->select('specialist_id as id', 'name', 'specialization')
+            ->orderBy('name')
+            ->get();
 
             \Log::info('Billing data being sent to frontend:', [
                 'transactions_count' => $transactions->count(),

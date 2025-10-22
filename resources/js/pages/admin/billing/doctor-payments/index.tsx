@@ -29,8 +29,13 @@ import {
 } from 'lucide-react';
 
 interface Doctor {
-    id: number;
+    specialist_id: number;
     name: string;
+    role?: string;
+    specialization?: string;
+    contact?: string;
+    email?: string;
+    status?: string;
 }
 
 interface DoctorPayment {
@@ -94,6 +99,17 @@ export default function DoctorPaymentsIndex({ payments, summary, doctors, filter
     const [doctorFilter, setDoctorFilter] = useState(filters.doctor_id || 'all');
     const [dateFrom, setDateFrom] = useState(filters.date_from || '');
     const [dateTo, setDateTo] = useState(filters.date_to || '');
+
+    // Debug: Log the data being received
+    console.log('=== DOCTOR PAYMENTS INDEX DEBUG ===');
+    console.log('Payments data:', payments);
+    console.log('Doctors data:', doctors);
+    console.log('First payment:', payments?.data?.[0]);
+    if (payments?.data?.[0]) {
+        console.log('First payment doctor:', payments.data[0].doctor);
+        console.log('First payment doctor type:', typeof payments.data[0].doctor);
+        console.log('First payment doctor keys:', payments.data[0].doctor ? Object.keys(payments.data[0].doctor) : 'NULL');
+    }
 
     const getStatusBadge = (status: keyof typeof statusConfig) => {
         const config = statusConfig[status];
@@ -252,7 +268,7 @@ export default function DoctorPaymentsIndex({ payments, summary, doctors, filter
                                 >
                                     <option value="all">All Doctors</option>
                                     {doctors.map((doctor) => (
-                                        <option key={doctor.id} value={doctor.id.toString()}>
+                                        <option key={doctor.specialist_id} value={doctor.specialist_id.toString()}>
                                             {doctor.name}
                                         </option>
                                     ))}
@@ -308,7 +324,7 @@ export default function DoctorPaymentsIndex({ payments, summary, doctors, filter
                                                         <div className="p-1 bg-gray-100 rounded-full">
                                                             <Users className="h-4 w-4 text-black" />
                                                         </div>
-                                                        {payment.doctor.name}
+                                                        {payment.doctor ? payment.doctor.name : 'N/A'}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="font-semibold">

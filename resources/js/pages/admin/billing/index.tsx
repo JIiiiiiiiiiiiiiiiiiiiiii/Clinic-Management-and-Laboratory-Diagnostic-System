@@ -837,7 +837,25 @@ export default function BillingIndex({
                                                                     </Link>
                                                                 </Button>
                                                                 {payment.status === 'pending' && (
-                                                                    <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700">
+                                                                    <Button 
+                                                                        size="sm" 
+                                                                        variant="outline" 
+                                                                        className="text-green-600 hover:text-green-700"
+                                                                        onClick={() => {
+                                                                            if (confirm('Are you sure you want to mark this payment as paid?')) {
+                                                                                router.put(`/admin/billing/doctor-payments/${payment.id}/mark-paid`, {}, {
+                                                                                    onSuccess: () => {
+                                                                                        // Refresh the page to show updated status
+                                                                                        window.location.reload();
+                                                                                    },
+                                                                                    onError: (errors) => {
+                                                                                        console.error('Mark as paid failed:', errors);
+                                                                                        alert('Failed to mark payment as paid. Please try again.');
+                                                                                    },
+                                                                                });
+                                                                            }
+                                                                        }}
+                                                                    >
                                                                         <Check className="mr-1 h-3 w-3" />
                                                                         Mark Paid
                                                                     </Button>

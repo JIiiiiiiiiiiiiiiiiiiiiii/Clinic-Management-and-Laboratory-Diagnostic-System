@@ -40,7 +40,7 @@ class DoctorPayment extends Model
     // Relationships
     public function doctor()
     {
-        return $this->belongsTo(User::class, 'doctor_id');
+        return $this->belongsTo(\App\Models\Specialist::class, 'doctor_id', 'specialist_id');
     }
 
     public function createdBy()

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,11 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { type BreadcrumbItem } from '@/types';
 import Heading from '@/components/heading';
-import { ArrowLeft, Calculator, DollarSign } from 'lucide-react';
+import { ArrowLeft, DollarSign, Check } from 'lucide-react';
 
 interface Doctor {
     id: number;
     name: string;
+    specialization?: string;
 }
 
 interface CreateDoctorPaymentProps {
@@ -29,66 +30,59 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function CreateDoctorPayment({ doctors }: CreateDoctorPaymentProps) {
     const { data, setData, post, processing, errors } = useForm({
         doctor_id: '',
-        basic_salary: '',
-        deductions: '',
-        holiday_pay: '',
         incentives: '',
-        payment_date: '',
+        payment_date: new Date().toISOString().split('T')[0], // Default to today
         status: 'pending',
         notes: '',
     });
 
-    const [netPayment, setNetPayment] = useState(0);
-
-    const calculateNetPayment = () => {
-        const basicSalary = parseFloat(data.basic_salary) || 0;
-        const deductions = parseFloat(data.deductions) || 0;
-        const holidayPay = parseFloat(data.holiday_pay) || 0;
-        const incentives = parseFloat(data.incentives) || 0;
-        
-        const net = basicSalary + holidayPay + incentives - deductions;
-        setNetPayment(net);
-        return net;
-    };
-
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        // Calculate net payment before submission
-        const net = calculateNetPayment();
-        
-        console.log('Submitting doctor payment form...');
+        console.log('=== FORM SUBMISSION STARTED ===');
+        console.log('Processing state:', processing);
         console.log('Form data:', data);
-        console.log('Calculated net payment:', net);
         
-        // Let Inertia handle the validation through the backend
-        // Remove client-side validation that blocks submission
-        post('/admin/billing/doctor-payments', {
-            onSuccess: (page) => {
+        // Prevent multiple submissions
+        if (processing) {
+            console.log('Form is already processing, skipping submission');
+            return;
+        }
+        
+        // Validate required fields
+        if (!data.doctor_id) {
+            console.log('Validation failed: No doctor selected');
+            alert('Please select a doctor');
+            return;
+        }
+        
+        if (!data.incentives || parseFloat(data.incentives) <= 0) {
+            console.log('Validation failed: Invalid incentives amount');
+            alert('Please enter a valid incentives amount');
+            return;
+        }
+        
+        // Data is already in the correct format for submission
+        
+        console.log('Submitting form data:', data);
+        console.log('About to submit to:', '/admin/billing/doctor-payments/simple');
+        
+        // Submit to the main route
+        post('/admin/billing/doctor-payments/simple', {
+            onSuccess: (page: any) => {
                 console.log('Form submitted successfully');
-                console.log('Response:', page);
+                console.log('Success response:', page);
+                alert('Doctor payment created successfully!');
+                // Redirect to billing index with transactions tab
+                window.location.href = '/admin/billing?tab=transactions';
             },
-            onError: (errors) => {
+            onError: (errors: any) => {
                 console.error('Form submission errors:', errors);
-                // Focus on first error field
-                const firstErrorField = Object.keys(errors)[0];
-                if (firstErrorField) {
-                    const element = document.querySelector(`[name="${firstErrorField}"]`) as HTMLElement;
-                    if (element) {
-                        element.focus();
-                    }
-                }
-            },
-            onFinish: () => {
-                console.log('Form submission finished');
+                console.error('Error details:', JSON.stringify(errors, null, 2));
+                alert('Error creating doctor payment: ' + (errors.error || 'Unknown error'));
             }
         });
     };
-
-    // Update net payment when form data changes
-    React.useEffect(() => {
-        calculateNetPayment();
-    }, [data.basic_salary, data.deductions, data.holiday_pay, data.incentives]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -128,7 +122,12 @@ export default function CreateDoctorPayment({ doctors }: CreateDoctorPaymentProp
                                     <SelectContent>
                                         {doctors.map((doctor) => (
                                             <SelectItem key={doctor.id} value={doctor.id.toString()}>
-                                                {doctor.name}
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium">{doctor.name}</span>
+                                                    {doctor.specialization && (
+                                                        <span className="text-sm text-gray-500">{doctor.specialization}</span>
+                                                    )}
+                                                </div>
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -138,78 +137,24 @@ export default function CreateDoctorPayment({ doctors }: CreateDoctorPaymentProp
                                 )}
                             </div>
 
-                            {/* Basic Salary */}
-                            <div className="space-y-2">
-                                <Label htmlFor="basic_salary">Basic Salary *</Label>
-                                <Input
-                                    id="basic_salary"
-                                    type="number"
-                                    step="0.01"
-                                    value={data.basic_salary}
-                                    onChange={(e) => setData('basic_salary', e.target.value)}
-                                    placeholder="Enter basic salary amount"
-                                />
-                                {errors.basic_salary && (
-                                    <p className="text-sm text-red-600">{errors.basic_salary}</p>
-                                )}
-                            </div>
-
-                            {/* Deductions */}
-                            <div className="space-y-2">
-                                <Label htmlFor="deductions">Deductions</Label>
-                                <Input
-                                    id="deductions"
-                                    type="number"
-                                    step="0.01"
-                                    value={data.deductions}
-                                    onChange={(e) => setData('deductions', e.target.value)}
-                                    placeholder="Enter deductions amount"
-                                />
-                                {errors.deductions && (
-                                    <p className="text-sm text-red-600">{errors.deductions}</p>
-                                )}
-                            </div>
-
-                            {/* Holiday Pay */}
-                            <div className="space-y-2">
-                                <Label htmlFor="holiday_pay">Holiday Pay</Label>
-                                <Input
-                                    id="holiday_pay"
-                                    type="number"
-                                    step="0.01"
-                                    value={data.holiday_pay}
-                                    onChange={(e) => setData('holiday_pay', e.target.value)}
-                                    placeholder="Enter holiday pay amount"
-                                />
-                                {errors.holiday_pay && (
-                                    <p className="text-sm text-red-600">{errors.holiday_pay}</p>
-                                )}
-                            </div>
-
                             {/* Incentives */}
                             <div className="space-y-2">
-                                <Label htmlFor="incentives">Incentives</Label>
-                                <Input
-                                    id="incentives"
-                                    type="number"
-                                    step="0.01"
-                                    value={data.incentives}
-                                    onChange={(e) => setData('incentives', e.target.value)}
-                                    placeholder="Enter incentives amount"
-                                />
+                                <Label htmlFor="incentives">Incentives *</Label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₱</span>
+                                    <Input
+                                        id="incentives"
+                                        type="number"
+                                        step="0.01"
+                                        value={data.incentives}
+                                        onChange={(e) => setData('incentives', e.target.value)}
+                                        placeholder="0.00"
+                                        className="pl-8"
+                                    />
+                                </div>
                                 {errors.incentives && (
                                     <p className="text-sm text-red-600">{errors.incentives}</p>
                                 )}
-                            </div>
-
-                            {/* Net Payment Display */}
-                            <div className="space-y-2">
-                                <Label>Net Payment (Calculated)</Label>
-                                <div className="p-3 bg-muted rounded-md">
-                                    <span className="text-lg font-semibold">
-                                        ₱{netPayment.toFixed(2)}
-                                    </span>
-                                </div>
                             </div>
 
                             {/* Payment Date */}
@@ -262,23 +207,73 @@ export default function CreateDoctorPayment({ doctors }: CreateDoctorPaymentProp
                                 )}
                             </div>
 
-                            {/* Submit Button */}
-                            <div className="flex gap-4">
-                                <Button
-                                    type="submit"
-                                    disabled={processing}
-                                    className="flex-1"
-                                >
-                                    {processing ? 'Creating...' : 'Create Payment'}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => window.history.back()}
-                                >
-                                    Cancel
-                                </Button>
-                            </div>
+                                {/* Submit Button */}
+                                <div className="flex gap-4">
+                                    <Button
+                                        type="submit"
+                                        disabled={processing}
+                                        className="flex-1"
+                                    >
+                                        {processing ? 'Creating Payment...' : 'Create Payment'}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => window.history.back()}
+                                    >
+                                        Cancel
+                                    </Button>
+                                </div>
+                                
+                                {/* Mark as Paid Button - Only show if status is pending */}
+                                {data.status === 'pending' && (
+                                    <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h4 className="font-medium text-yellow-800">Payment Created</h4>
+                                                <p className="text-sm text-yellow-600">This payment is currently pending. You can mark it as paid now.</p>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                className="bg-green-600 hover:bg-green-700"
+                                                onClick={() => {
+                                                    // Validate required fields first
+                                                    if (!data.doctor_id) {
+                                                        alert('Please select a doctor');
+                                                        return;
+                                                    }
+                                                    
+                                                    if (!data.incentives || parseFloat(data.incentives) <= 0) {
+                                                        alert('Please enter a valid incentives amount');
+                                                        return;
+                                                    }
+                                                    
+                                                    // Submit the form with paid status
+                                                    setData('status', 'paid');
+                                                    
+                                                    console.log('Submitting form data (Mark as Paid):', data);
+                                                    
+                                                    post('/admin/billing/doctor-payments/simple', {
+                                                        onSuccess: (page: any) => {
+                                                            console.log('Form submitted successfully (Mark as Paid)');
+                                                            console.log('Success response:', page);
+                                                            alert('Doctor payment created and marked as paid!');
+                                                            window.location.href = '/admin/billing?tab=transactions';
+                                                        },
+                                                        onError: (errors: any) => {
+                                                            console.error('Form submission errors:', errors);
+                                                            console.error('Error details:', JSON.stringify(errors, null, 2));
+                                                            alert('Error creating doctor payment: ' + (errors.error || 'Unknown error'));
+                                                        }
+                                                    });
+                                                }}
+                                            >
+                                                <Check className="mr-2 h-4 w-4" />
+                                                Mark as Paid
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                         </form>
                     </CardContent>
                 </Card>

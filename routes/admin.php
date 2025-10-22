@@ -190,6 +190,8 @@ Route::prefix('admin')
                 })->name('index');
                 Route::get('/create', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'create'])->name('create');
                 Route::post('/', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'store'])->name('store');
+                Route::post('/simple', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'storeSimple'])->name('store-simple');
+        Route::put('/{id}/mark-paid', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'markPaid'])->name('mark-paid');
                 Route::get('/summary', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'summary'])->name('summary');
                 Route::get('/{doctorPayment}', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'show'])->name('show');
                 Route::get('/{doctorPayment}/edit', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'edit'])->name('edit');

@@ -8,6 +8,7 @@ use App\Models\DoctorPaymentBillingLink;
 use App\Models\DoctorSummaryReport;
 use App\Models\User;
 use App\Models\BillingTransaction;
+use App\Models\DailyTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -49,6 +50,16 @@ class DoctorPaymentController extends Controller
 
             $payments = $query->paginate(15)->withQueryString();
 
+            // Debug: Log the first payment data
+            if ($payments->count() > 0) {
+                \Log::info('First payment data:', [
+                    'payment_id' => $payments->first()->id,
+                    'doctor_id' => $payments->first()->doctor_id,
+                    'doctor_loaded' => $payments->first()->relationLoaded('doctor'),
+                    'doctor_name' => $payments->first()->doctor ? $payments->first()->doctor->name : 'NULL'
+                ]);
+            }
+
             // Get summary statistics
             $summary = [
                 'total_paid' => DoctorPayment::where('status', 'paid')->sum('net_payment'),
@@ -58,10 +69,36 @@ class DoctorPaymentController extends Controller
             ];
 
             // Get doctors for filter dropdown
-            $doctors = User::where('role', 'doctor')
-                ->select('id', 'name')
+            $doctors = \App\Models\Specialist::where('role', 'Doctor')
+                ->select('specialist_id as id', 'name')
                 ->orderBy('name')
                 ->get();
+
+            // Debug: Log the actual data being sent to frontend
+            \Log::info('Data being sent to frontend:', [
+                'payments_count' => $payments->count(),
+                'first_payment_doctor' => $payments->count() > 0 ? [
+                    'doctor_id' => $payments->first()->doctor_id,
+                    'doctor_name' => $payments->first()->doctor ? $payments->first()->doctor->name : 'NULL',
+                    'doctor_loaded' => $payments->first()->relationLoaded('doctor')
+                ] : 'No payments',
+                'doctors_count' => $doctors->count(),
+                'first_doctor' => $doctors->count() > 0 ? $doctors->first() : 'No doctors'
+            ]);
+
+            // Debug: Check if the doctor relationship is properly loaded
+            if ($payments->count() > 0) {
+                $firstPayment = $payments->first();
+                \Log::info('First payment doctor relationship:', [
+                    'doctor_id' => $firstPayment->doctor_id,
+                    'doctor_loaded' => $firstPayment->relationLoaded('doctor'),
+                    'doctor_object' => $firstPayment->doctor ? [
+                        'specialist_id' => $firstPayment->doctor->specialist_id,
+                        'name' => $firstPayment->doctor->name,
+                        'role' => $firstPayment->doctor->role
+                    ] : 'NULL'
+                ]);
+            }
 
             return Inertia::render('admin/billing/doctor-payments/index', [
                 'payments' => $payments,
@@ -83,8 +120,11 @@ class DoctorPaymentController extends Controller
         try {
             \Log::info('DoctorPaymentController::create method called');
             
-            $doctors = User::where('role', 'doctor')
-                ->select('id', 'name')
+            $doctors = \App\Models\Specialist::where('role', 'Doctor')
+                ->when(\Schema::hasColumn('specialists', 'status'), function($query) {
+                    return $query->where('status', 'Active');
+                })
+                ->select('specialist_id as id', 'name', 'specialization')
                 ->orderBy('name')
                 ->get();
             
@@ -161,6 +201,218 @@ class DoctorPaymentController extends Controller
     }
 
     /**
+     * Store a simplified doctor payment (incentives only)
+     */
+    public function storeSimple(Request $request)
+    {
+        try {
+            \Log::info('=== DOCTOR PAYMENT STORE SIMPLE CALLED ===');
+            \Log::info('DoctorPaymentController::storeSimple method called');
+            \Log::info('Request data: ' . json_encode($request->all()));
+            \Log::info('Request method: ' . $request->method());
+            \Log::info('Request URL: ' . $request->fullUrl());
+            \Log::info('Auth user: ' . (auth()->user() ? auth()->user()->name : 'Not authenticated'));
+            \Log::info('Request headers: ' . json_encode($request->headers->all()));
+            \Log::info('Request IP: ' . $request->ip());
+            
+            // Check if specialists table exists and has data
+            $specialistCount = \App\Models\Specialist::count();
+            \Log::info('Specialists count: ' . $specialistCount);
+            
+            // Log the doctor_id being sent
+            \Log::info('Doctor ID from request: ' . $request->doctor_id);
+            
+            // Check if the specific doctor exists
+            $doctorExists = \App\Models\Specialist::where('specialist_id', $request->doctor_id)->exists();
+            \Log::info('Doctor exists: ' . ($doctorExists ? 'Yes' : 'No'));
+            
+            if ($specialistCount === 0) {
+                return back()->withErrors(['doctor_id' => 'No specialists found in the database.']);
+            }
+            
+            $request->validate([
+                'doctor_id' => 'required|exists:specialists,specialist_id',
+                'incentives' => 'required|numeric|min:0',
+                'payment_date' => 'required|date',
+                'status' => 'required|in:pending,paid,cancelled',
+                'notes' => 'nullable|string|max:1000',
+            ]);
+
+            DB::beginTransaction();
+
+            $incentives = $request->incentives;
+            $netPayment = $incentives; // For simplified version, net payment = incentives
+
+            $payment = DoctorPayment::create([
+                'doctor_id' => $request->doctor_id,
+                'basic_salary' => 0, // No basic salary for simplified version
+                'deductions' => 0,
+                'holiday_pay' => 0,
+                'incentives' => $incentives,
+                'net_payment' => $netPayment,
+                'payment_date' => $request->payment_date,
+                'status' => $request->status,
+                'notes' => $request->notes,
+                'created_by' => auth()->id(),
+            ]);
+
+            // Create a billing transaction for this doctor payment
+            $billingTransaction = BillingTransaction::create([
+                'transaction_id' => 'DP-' . str_pad($payment->id, 6, '0', STR_PAD_LEFT),
+                'patient_id' => null, // Doctor payments don't have patients
+                'doctor_id' => $request->doctor_id,
+                'payment_type' => 'cash', // Use valid enum value
+                'total_amount' => $netPayment,
+                'amount' => $netPayment,
+                'discount_amount' => 0,
+                'payment_method' => 'cash',
+                'status' => $request->status,
+                'description' => "Doctor Payment - Incentives",
+                'notes' => $request->notes,
+                'transaction_date' => now(),
+                'transaction_date_only' => $request->payment_date,
+                'transaction_time_only' => now()->toTimeString(),
+                'created_by' => auth()->id(),
+            ]);
+
+            // Create link between payment and transaction
+            DoctorPaymentBillingLink::create([
+                'doctor_payment_id' => $payment->id,
+                'billing_transaction_id' => $billingTransaction->id,
+                'payment_amount' => $netPayment,
+                'status' => $request->status,
+            ]);
+
+            // If status is paid, mark as paid
+            if ($request->status === 'paid') {
+                $payment->markAsPaid();
+            }
+
+            DB::commit();
+
+            \Log::info('Doctor payment created successfully', [
+                'payment_id' => $payment->id,
+                'transaction_id' => $billingTransaction->id,
+                'amount' => $netPayment
+            ]);
+
+            // Return success response for Inertia.js
+            return redirect()->route('admin.billing.index', ['tab' => 'transactions'])
+                ->with('success', 'Doctor payment created successfully!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('DoctorPaymentController::storeSimple error: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Failed to create doctor payment: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Mark doctor payment as paid
+     */
+    public function markPaid(Request $request, $id)
+    {
+        try {
+            $payment = DoctorPayment::findOrFail($id);
+            
+            if ($payment->status === 'paid') {
+                return back()->withErrors(['error' => 'Payment is already marked as paid.']);
+            }
+
+            DB::beginTransaction();
+
+            // Update doctor payment status
+            $payment->update([
+                'status' => 'paid',
+                'updated_by' => auth()->id(),
+            ]);
+
+            // Update billing transaction status
+            $billingLink = DoctorPaymentBillingLink::where('doctor_payment_id', $payment->id)->first();
+            if ($billingLink) {
+                $billingTransaction = BillingTransaction::find($billingLink->billing_transaction_id);
+                if ($billingTransaction) {
+                    $billingTransaction->update([
+                        'status' => 'paid',
+                        'updated_by' => auth()->id(),
+                    ]);
+                }
+            }
+
+            // Sync to daily transactions
+            $this->syncDoctorPaymentToDailyTransactions($payment);
+
+            DB::commit();
+
+            \Log::info('Doctor payment marked as paid', [
+                'payment_id' => $payment->id,
+                'amount' => $payment->net_payment
+            ]);
+
+            return back()->with('success', 'Doctor payment marked as paid successfully!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('DoctorPaymentController::markPaid error: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Failed to mark payment as paid: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Sync doctor payment to daily transactions
+     */
+    private function syncDoctorPaymentToDailyTransactions(DoctorPayment $payment)
+    {
+        $billingLink = DoctorPaymentBillingLink::where('doctor_payment_id', $payment->id)->first();
+        if (!$billingLink) return;
+
+        $billingTransaction = BillingTransaction::find($billingLink->billing_transaction_id);
+        if (!$billingTransaction) return;
+
+        // Check if already synced
+        $existing = DailyTransaction::where('original_transaction_id', $billingTransaction->id)
+            ->where('original_table', 'billing_transactions')
+            ->first();
+
+        if ($existing) {
+            // Update existing record
+            $existing->update([
+                'status' => $billingTransaction->status,
+                'payment_method' => $billingTransaction->payment_method,
+                'amount' => -$billingTransaction->total_amount, // Negative for doctor payments (expenses)
+            ]);
+        } else {
+            // Create new record
+            DailyTransaction::create([
+                'transaction_date' => $billingTransaction->transaction_date,
+                'transaction_type' => 'doctor_payment',
+                'transaction_id' => $billingTransaction->transaction_id,
+                'patient_name' => 'Doctor Payment',
+                'specialist_name' => $this->getSpecialistName($billingTransaction),
+                'amount' => -$billingTransaction->total_amount, // Negative for doctor payments (expenses)
+                'payment_method' => $billingTransaction->payment_method,
+                'status' => $billingTransaction->status,
+                'description' => $billingTransaction->description ?: 'Doctor Payment - Incentives',
+                'items_count' => 0,
+                'appointments_count' => 0,
+                'original_transaction_id' => $billingTransaction->id,
+                'original_table' => 'billing_transactions',
+            ]);
+        }
+    }
+
+    /**
+     * Get specialist name for daily transaction
+     */
+    private function getSpecialistName(BillingTransaction $transaction)
+    {
+        if ($transaction->doctor) {
+            return $transaction->doctor->name;
+        }
+        return 'Unknown';
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(DoctorPayment $doctorPayment)
@@ -187,8 +439,8 @@ class DoctorPaymentController extends Controller
                 return back()->withErrors(['error' => 'This payment cannot be edited.']);
             }
 
-            $doctors = User::where('role', 'doctor')
-                ->select('id', 'name')
+            $doctors = \App\Models\Specialist::where('role', 'Doctor')
+                ->select('specialist_id as id', 'name')
                 ->orderBy('name')
                 ->get();
 
@@ -391,8 +643,8 @@ class DoctorPaymentController extends Controller
             ];
 
             // Get doctors for filter dropdown
-            $doctors = User::where('role', 'doctor')
-                ->select('id', 'name')
+            $doctors = \App\Models\Specialist::where('role', 'Doctor')
+                ->select('specialist_id as id', 'name')
                 ->orderBy('name')
                 ->get();
 
