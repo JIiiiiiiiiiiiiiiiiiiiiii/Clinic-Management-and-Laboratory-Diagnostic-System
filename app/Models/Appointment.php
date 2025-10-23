@@ -117,20 +117,22 @@ class Appointment extends Model
     // Methods
     public function calculatePrice()
     {
-        $basePrice = 500; // Base consultation price
-        
-        switch ($this->appointment_type) {
-            case "consultation":
-                return $basePrice;
-            case "follow-up":
-                return $basePrice * 0.8; // 20% discount for follow-up
-            case "check-up":
-                return $basePrice * 1.2; // 20% premium for check-up
-            case "emergency":
-                return $basePrice * 1.5; // 50% premium for emergency
-            default:
-                return $basePrice;
-        }
+        return match($this->appointment_type) {
+            'consultation' => 300.00,
+            'general_consultation' => 300.00,
+            'checkup' => 300.00,
+            'fecalysis' => 500.00,
+            'fecalysis_test' => 500.00,
+            'cbc' => 500.00,
+            'urinalysis' => 500.00,
+            'urinarysis_test' => 500.00,
+            'x-ray' => 700.00,
+            'ultrasound' => 800.00,
+            'follow-up' => 240.00, // 20% discount for follow-up
+            'check-up' => 360.00, // 20% premium for check-up
+            'emergency' => 450.00, // 50% premium for emergency
+            default => 300.00,
+        };
     }
 
     public function generateUniqueKey()

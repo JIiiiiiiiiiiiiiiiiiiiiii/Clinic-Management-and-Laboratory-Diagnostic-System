@@ -27,12 +27,8 @@ class AppointmentLabService
             'notes' => $notes
         ]);
 
-        // RESTRICTION: Check if appointment has billing transaction
-        $hasBillingTransaction = \App\Models\BillingTransaction::where('appointment_id', $appointment->id)->exists();
-        
-        if (!$hasBillingTransaction) {
-            throw new \Exception('Cannot add lab tests to appointments without billing transactions. Please create a billing transaction first.');
-        }
+        // Allow lab tests to be added to appointments without requiring existing billing transactions
+        // The billing transaction will be created later with the complete total including lab tests
 
         return DB::transaction(function () use ($appointment, $labTestIds, $addedBy, $notes) {
             try {
@@ -65,8 +61,8 @@ class AppointmentLabService
                     ]);
                 }
 
-                // Update billing transaction with lab tests
-                $billingTransaction = $this->updateBillingTransaction($appointment, $labTests);
+                // Update billing transaction with lab tests (if it exists)
+                $billingTransaction = $this->updateBillingTransactionIfExists($appointment, $labTests);
 
                 // Create lab order
                 $labOrder = $this->createLabOrder($appointment, $labTests, $addedBy, $notes);
@@ -105,15 +101,20 @@ class AppointmentLabService
     }
 
     /**
-     * Update billing transaction with lab tests
+     * Update billing transaction with lab tests (if it exists)
      */
-    private function updateBillingTransaction(Appointment $appointment, $labTests): BillingTransaction
+    private function updateBillingTransactionIfExists(Appointment $appointment, $labTests): ?BillingTransaction
     {
         // Get existing billing transaction
         $billingTransaction = $appointment->billingTransactions()->first();
 
         if (!$billingTransaction) {
-            throw new \Exception('No existing billing transaction found for appointment. Cannot add lab tests without a base transaction.');
+            // No existing billing transaction - this is fine, it will be created later
+            Log::info('No existing billing transaction found for appointment. Lab tests added, transaction will be created later.', [
+                'appointment_id' => $appointment->id,
+                'lab_tests_count' => $labTests->count()
+            ]);
+            return null;
         }
 
         // Update transaction total

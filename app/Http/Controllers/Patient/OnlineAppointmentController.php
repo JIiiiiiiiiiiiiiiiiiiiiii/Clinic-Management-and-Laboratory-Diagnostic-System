@@ -254,8 +254,9 @@ class OnlineAppointmentController extends Controller
                 'user_id' => $user->id
             ]);
 
-            // Send notification to admin for approval
-            $this->notifyAdminPendingAppointment($appointment);
+            // Send notification to admin for approval using centralized service
+            $notificationService = app(\App\Services\NotificationService::class);
+            $notificationService->notifyNewPendingAppointment($appointment);
 
             return redirect()->route('patient.appointments')
                 ->with('success', 'Online appointment request submitted successfully! Your appointment is pending admin approval. You will be notified once it\'s approved.')
@@ -417,60 +418,6 @@ class OnlineAppointmentController extends Controller
         }
     }
 
-    /**
-     * Notify admin users about pending appointment
-     */
-    private function notifyAdminPendingAppointment($appointment)
-    {
-        try {
-            // Get all admin users
-            $adminUsers = User::where('role', 'admin')->get();
-
-            \Log::info('Sending notifications to admin users for online appointment', [
-                'admin_count' => $adminUsers->count(),
-                'appointment_id' => $appointment->id
-            ]);
-
-            // Get patient information
-            $patient = $appointment->patient;
-            $patientName = $patient ? $patient->first_name . ' ' . $patient->last_name : 'Unknown Patient';
-
-            foreach ($adminUsers as $admin) {
-                // Create notification
-                $notification = Notification::create([
-                    'type' => 'appointment_request',
-                    'title' => 'New Online Appointment Request - Pending Approval',
-                    'message' => "Patient {$patientName} has requested an online appointment for {$appointment->appointment_type} on {$appointment->appointment_date} at {$appointment->appointment_time}. Please review and approve.",
-                    'data' => [
-                        'appointment_id' => $appointment->id,
-                        'patient_id' => $patient ? $patient->id : null,
-                        'patient_no' => $patient ? $patient->patient_no : null,
-                        'patient_name' => $patientName,
-                        'appointment_type' => $appointment->appointment_type,
-                        'appointment_date' => $appointment->appointment_date,
-                        'appointment_time' => $appointment->appointment_time,
-                        'specialist_name' => $appointment->specialist ? $appointment->specialist->name : 'Unknown Specialist',
-                        'status' => $appointment->status,
-                        'price' => $appointment->price,
-                        'source' => $appointment->source,
-                    ],
-                    'user_id' => $admin->id,
-                    'read' => false,
-                ]);
-
-                \Log::info('Online appointment notification created successfully', [
-                    'notification_id' => $notification->id,
-                    'admin_id' => $admin->id,
-                    'admin_name' => $admin->name
-                ]);
-            }
-        } catch (\Exception $e) {
-            \Log::error('Failed to create admin notifications for online appointment', [
-                'error' => $e->getMessage(),
-                'appointment_id' => $appointment->id
-            ]);
-        }
-    }
 
     /**
      * Get available staff members for appointment booking

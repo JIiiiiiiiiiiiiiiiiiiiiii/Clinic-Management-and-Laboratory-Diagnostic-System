@@ -13,25 +13,21 @@ class HmoProvider extends Model
         'name',
         'code',
         'description',
-        'contact_person',
-        'contact_email',
-        'contact_phone',
+        'contact_number',
+        'email',
         'address',
-        'commission_rate',
-        'status',
-        'coverage_details',
-        'payment_terms',
-        'contract_start_date',
-        'contract_end_date',
+        'is_active',
     ];
 
     protected $casts = [
-        'commission_rate' => 'decimal:2',
-        'coverage_details' => 'array',
-        'payment_terms' => 'array',
-        'contract_start_date' => 'date',
-        'contract_end_date' => 'date',
+        'is_active' => 'boolean',
     ];
+
+    // Accessor for status field (maps is_active to status)
+    public function getStatusAttribute()
+    {
+        return $this->is_active ? 'active' : 'inactive';
+    }
 
     // Relationships
     public function patientCoverages()

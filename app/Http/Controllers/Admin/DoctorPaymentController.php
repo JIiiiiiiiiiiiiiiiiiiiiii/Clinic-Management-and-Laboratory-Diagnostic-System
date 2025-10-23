@@ -4,14 +4,13 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\DoctorPayment;
-use App\Models\DoctorPaymentBillingLink;
 use App\Models\DoctorSummaryReport;
 use App\Models\User;
-use App\Models\BillingTransaction;
 use App\Models\DailyTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class DoctorPaymentController extends Controller
 {
@@ -152,29 +151,32 @@ class DoctorPaymentController extends Controller
             \Log::info('Request data: ' . json_encode($request->all()));
             
             $request->validate([
-                'doctor_id' => 'required|exists:users,id',
-                'basic_salary' => 'required|numeric|min:0',
-                'deductions' => 'nullable|numeric|min:0',
-                'holiday_pay' => 'nullable|numeric|min:0',
+                'doctor_id' => 'required|exists:specialists,specialist_id',
                 'incentives' => 'nullable|numeric|min:0',
                 'payment_date' => 'required|date',
                 'status' => 'required|in:pending,paid,cancelled',
                 'notes' => 'nullable|string|max:1000',
             ]);
 
+            // Check for duplicate payment for the same doctor on the same date
+            $netPayment = $request->incentives ?? 0;
+            $existingPayment = DoctorPayment::where('doctor_id', $request->doctor_id)
+                ->where('payment_date', $request->payment_date)
+                ->where('net_payment', $netPayment)
+                ->where('status', 'pending')
+                ->first();
+
+            if ($existingPayment) {
+                return back()->withErrors(['error' => 'A payment for this doctor on this date with the same amount already exists.']);
+            }
+
             DB::beginTransaction();
 
-            $basicSalary = $request->basic_salary;
-            $deductions = $request->deductions ?? 0;
-            $holidayPay = $request->holiday_pay ?? 0;
             $incentives = $request->incentives ?? 0;
-            $netPayment = $basicSalary + $holidayPay + $incentives - $deductions;
+            $netPayment = $incentives;
 
             $payment = DoctorPayment::create([
                 'doctor_id' => $request->doctor_id,
-                'basic_salary' => $basicSalary,
-                'deductions' => $deductions,
-                'holiday_pay' => $holidayPay,
                 'incentives' => $incentives,
                 'net_payment' => $netPayment,
                 'payment_date' => $request->payment_date,
@@ -238,6 +240,17 @@ class DoctorPaymentController extends Controller
                 'notes' => 'nullable|string|max:1000',
             ]);
 
+            // Check for duplicate payment for the same doctor on the same date
+            $existingPayment = DoctorPayment::where('doctor_id', $request->doctor_id)
+                ->where('payment_date', $request->payment_date)
+                ->where('incentives', $request->incentives)
+                ->where('status', 'pending')
+                ->first();
+
+            if ($existingPayment) {
+                return back()->withErrors(['error' => 'A payment for this doctor on this date with the same amount already exists.']);
+            }
+
             DB::beginTransaction();
 
             $incentives = $request->incentives;
@@ -245,9 +258,6 @@ class DoctorPaymentController extends Controller
 
             $payment = DoctorPayment::create([
                 'doctor_id' => $request->doctor_id,
-                'basic_salary' => 0, // No basic salary for simplified version
-                'deductions' => 0,
-                'holiday_pay' => 0,
                 'incentives' => $incentives,
                 'net_payment' => $netPayment,
                 'payment_date' => $request->payment_date,
@@ -256,32 +266,7 @@ class DoctorPaymentController extends Controller
                 'created_by' => auth()->id(),
             ]);
 
-            // Create a billing transaction for this doctor payment
-            $billingTransaction = BillingTransaction::create([
-                'transaction_id' => 'DP-' . str_pad($payment->id, 6, '0', STR_PAD_LEFT),
-                'patient_id' => null, // Doctor payments don't have patients
-                'doctor_id' => $request->doctor_id,
-                'payment_type' => 'cash', // Use valid enum value
-                'total_amount' => $netPayment,
-                'amount' => $netPayment,
-                'discount_amount' => 0,
-                'payment_method' => 'cash',
-                'status' => $request->status,
-                'description' => "Doctor Payment - Incentives",
-                'notes' => $request->notes,
-                'transaction_date' => now(),
-                'transaction_date_only' => $request->payment_date,
-                'transaction_time_only' => now()->toTimeString(),
-                'created_by' => auth()->id(),
-            ]);
-
-            // Create link between payment and transaction
-            DoctorPaymentBillingLink::create([
-                'doctor_payment_id' => $payment->id,
-                'billing_transaction_id' => $billingTransaction->id,
-                'payment_amount' => $netPayment,
-                'status' => $request->status,
-            ]);
+            // Doctor payments are managed independently - no need for billing transactions
 
             // If status is paid, mark as paid
             if ($request->status === 'paid') {
@@ -292,12 +277,11 @@ class DoctorPaymentController extends Controller
 
             \Log::info('Doctor payment created successfully', [
                 'payment_id' => $payment->id,
-                'transaction_id' => $billingTransaction->id,
                 'amount' => $netPayment
             ]);
 
             // Return success response for Inertia.js
-            return redirect()->route('admin.billing.index', ['tab' => 'transactions'])
+            return redirect()->route('admin.billing.doctor-payments.index')
                 ->with('success', 'Doctor payment created successfully!');
 
         } catch (\Exception $e) {
@@ -324,22 +308,11 @@ class DoctorPaymentController extends Controller
             // Update doctor payment status
             $payment->update([
                 'status' => 'paid',
+                'paid_date' => now()->toDateString(),
                 'updated_by' => auth()->id(),
             ]);
 
-            // Update billing transaction status
-            $billingLink = DoctorPaymentBillingLink::where('doctor_payment_id', $payment->id)->first();
-            if ($billingLink) {
-                $billingTransaction = BillingTransaction::find($billingLink->billing_transaction_id);
-                if ($billingTransaction) {
-                    $billingTransaction->update([
-                        'status' => 'paid',
-                        'updated_by' => auth()->id(),
-                    ]);
-                }
-            }
-
-            // Sync to daily transactions
+            // Sync to daily transactions directly (no need for billing transaction links)
             $this->syncDoctorPaymentToDailyTransactions($payment);
 
             DB::commit();
@@ -363,54 +336,37 @@ class DoctorPaymentController extends Controller
      */
     private function syncDoctorPaymentToDailyTransactions(DoctorPayment $payment)
     {
-        $billingLink = DoctorPaymentBillingLink::where('doctor_payment_id', $payment->id)->first();
-        if (!$billingLink) return;
-
-        $billingTransaction = BillingTransaction::find($billingLink->billing_transaction_id);
-        if (!$billingTransaction) return;
-
         // Check if already synced
-        $existing = DailyTransaction::where('original_transaction_id', $billingTransaction->id)
-            ->where('original_table', 'billing_transactions')
+        $existing = DailyTransaction::where('original_transaction_id', $payment->id)
+            ->where('original_table', 'doctor_payments')
             ->first();
 
         if ($existing) {
             // Update existing record
             $existing->update([
-                'status' => $billingTransaction->status,
-                'payment_method' => $billingTransaction->payment_method,
-                'amount' => -$billingTransaction->total_amount, // Negative for doctor payments (expenses)
+                'status' => $payment->status,
+                'amount' => -$payment->net_payment, // Negative for doctor payments (expenses)
             ]);
         } else {
             // Create new record
             DailyTransaction::create([
-                'transaction_date' => $billingTransaction->transaction_date,
+                'transaction_date' => $payment->payment_date,
                 'transaction_type' => 'doctor_payment',
-                'transaction_id' => $billingTransaction->transaction_id,
+                'transaction_id' => 'DP-' . str_pad($payment->id, 6, '0', STR_PAD_LEFT),
                 'patient_name' => 'Doctor Payment',
-                'specialist_name' => $this->getSpecialistName($billingTransaction),
-                'amount' => -$billingTransaction->total_amount, // Negative for doctor payments (expenses)
-                'payment_method' => $billingTransaction->payment_method,
-                'status' => $billingTransaction->status,
-                'description' => $billingTransaction->description ?: 'Doctor Payment - Incentives',
+                'specialist_name' => $payment->doctor ? $payment->doctor->name : 'Unknown Doctor',
+                'amount' => -$payment->net_payment, // Negative for doctor payments (expenses)
+                'payment_method' => 'cash', // Default for doctor payments
+                'status' => $payment->status,
+                'description' => 'Doctor Payment - ' . ($payment->doctor ? $payment->doctor->name : 'Unknown'),
                 'items_count' => 0,
                 'appointments_count' => 0,
-                'original_transaction_id' => $billingTransaction->id,
-                'original_table' => 'billing_transactions',
+                'original_transaction_id' => $payment->id,
+                'original_table' => 'doctor_payments',
             ]);
         }
     }
 
-    /**
-     * Get specialist name for daily transaction
-     */
-    private function getSpecialistName(BillingTransaction $transaction)
-    {
-        if ($transaction->doctor) {
-            return $transaction->doctor->name;
-        }
-        return 'Unknown';
-    }
 
     /**
      * Display the specified resource.
@@ -418,7 +374,7 @@ class DoctorPaymentController extends Controller
     public function show(DoctorPayment $doctorPayment)
     {
         try {
-            $doctorPayment->load(['doctor', 'createdBy', 'updatedBy', 'billingLinks.billingTransaction']);
+            $doctorPayment->load(['doctor', 'createdBy', 'updatedBy']);
 
             return Inertia::render('admin/billing/doctor-payments/show', [
                 'payment' => $doctorPayment,
@@ -466,9 +422,6 @@ class DoctorPaymentController extends Controller
 
             $request->validate([
                 'doctor_id' => 'required|exists:users,id',
-                'basic_salary' => 'required|numeric|min:0',
-                'deductions' => 'nullable|numeric|min:0',
-                'holiday_pay' => 'nullable|numeric|min:0',
                 'incentives' => 'nullable|numeric|min:0',
                 'payment_date' => 'required|date',
                 'status' => 'required|in:pending,paid,cancelled',
@@ -477,17 +430,11 @@ class DoctorPaymentController extends Controller
 
             DB::beginTransaction();
 
-            $basicSalary = $request->basic_salary;
-            $deductions = $request->deductions ?? 0;
-            $holidayPay = $request->holiday_pay ?? 0;
             $incentives = $request->incentives ?? 0;
-            $netPayment = $basicSalary + $holidayPay + $incentives - $deductions;
+            $netPayment = $incentives;
 
             $doctorPayment->update([
                 'doctor_id' => $request->doctor_id,
-                'basic_salary' => $basicSalary,
-                'deductions' => $deductions,
-                'holiday_pay' => $holidayPay,
                 'incentives' => $incentives,
                 'net_payment' => $netPayment,
                 'payment_date' => $request->payment_date,
@@ -525,9 +472,7 @@ class DoctorPaymentController extends Controller
 
             DB::beginTransaction();
 
-            // Delete related records
-            $doctorPayment->billingLinks()->delete();
-            $doctorPayment->summaryReports()->delete();
+            // Delete the doctor payment
             $doctorPayment->delete();
 
             DB::commit();
@@ -542,46 +487,6 @@ class DoctorPaymentController extends Controller
         }
     }
 
-    /**
-     * Add doctor payment to billing transactions
-     */
-    public function addToTransactions(DoctorPayment $doctorPayment)
-    {
-        try {
-            if ($doctorPayment->status !== 'pending') {
-                return back()->withErrors(['error' => 'Only pending payments can be added to transactions.']);
-            }
-
-            DB::beginTransaction();
-
-            // Create billing transaction
-            $billingTransaction = BillingTransaction::create([
-                'patient_id' => null, // Doctor payments don't have patients
-                'transaction_type' => 'doctor_payment',
-                'amount' => $doctorPayment->net_payment,
-                'description' => "Doctor Payment - {$doctorPayment->doctor->name}",
-                'status' => 'pending',
-                'created_by' => auth()->id(),
-            ]);
-
-            // Create link between payment and transaction
-            DoctorPaymentBillingLink::create([
-                'doctor_payment_id' => $doctorPayment->id,
-                'billing_transaction_id' => $billingTransaction->id,
-                'payment_amount' => $doctorPayment->net_payment,
-                'status' => 'pending',
-            ]);
-
-            DB::commit();
-
-            return back()->with('success', 'Doctor payment added to transactions successfully!');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('DoctorPaymentController::addToTransactions error: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Failed to add payment to transactions: ' . $e->getMessage()]);
-        }
-    }
 
     /**
      * Mark doctor payment as paid
@@ -596,9 +501,6 @@ class DoctorPaymentController extends Controller
             DB::beginTransaction();
 
             $doctorPayment->markAsPaid();
-
-            // Update billing links status
-            $doctorPayment->billingLinks()->update(['status' => 'paid']);
 
             DB::commit();
 
@@ -657,6 +559,167 @@ class DoctorPaymentController extends Controller
         } catch (\Exception $e) {
             \Log::error('DoctorPaymentController::summary error: ' . $e->getMessage());
             return back()->withErrors(['error' => 'Failed to load summary report: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Show doctor summary report (main doctor summary page)
+     */
+    public function doctorSummary(Request $request)
+    {
+        try {
+            // Handle different parameter formats based on report type
+            $reportType = $request->get('report_type', 'daily');
+            
+            if ($reportType === 'daily') {
+                $date = $request->get('date', now()->format('Y-m-d'));
+                $filters = [
+                    'date_from' => $date,
+                    'date_to' => $date,
+                    'report_type' => 'daily',
+                    'doctor_id' => $request->get('doctor_id', 'all'),
+                    'status' => $request->get('status', 'all'),
+                ];
+            } elseif ($reportType === 'monthly') {
+                $month = $request->get('month', now()->format('Y-m'));
+                $filters = [
+                    'date_from' => $month . '-01',
+                    'date_to' => now()->parse($month)->endOfMonth()->format('Y-m-d'),
+                    'report_type' => 'monthly',
+                    'doctor_id' => $request->get('doctor_id', 'all'),
+                    'status' => $request->get('status', 'all'),
+                ];
+            } elseif ($reportType === 'yearly') {
+                $year = $request->get('year', now()->format('Y'));
+                $filters = [
+                    'date_from' => $year . '-01-01',
+                    'date_to' => $year . '-12-31',
+                    'report_type' => 'yearly',
+                    'doctor_id' => $request->get('doctor_id', 'all'),
+                    'status' => $request->get('status', 'all'),
+                ];
+            } else {
+                // Fallback to date range
+                $filters = [
+                    'date_from' => $request->get('date_from', now()->subDays(30)->format('Y-m-d')),
+                    'date_to' => $request->get('date_to', now()->format('Y-m-d')),
+                    'report_type' => 'daily',
+                    'doctor_id' => $request->get('doctor_id', 'all'),
+                    'status' => $request->get('status', 'all'),
+                ];
+            }
+
+            $doctors = \App\Models\Specialist::where('role', 'Doctor')
+                ->when(\Schema::hasColumn('specialists', 'status'), function($query) {
+                    return $query->where('status', 'Active');
+                })
+                ->select('specialist_id as id', 'name', 'specialization')
+                ->orderBy('name')
+                ->get();
+
+            // Use the DoctorPaymentReportService to get the data
+            $reportService = new \App\Services\DoctorPaymentReportService();
+            $reportData = $reportService->getReportData($filters);
+            $summary = $reportService->getSummaryStatistics($filters);
+
+            return Inertia::render('admin/billing/doctor-summary', [
+                'reportData' => $reportData,
+                'summary' => $summary,
+                'doctors' => $doctors,
+                'filters' => $filters,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('DoctorPaymentController::doctorSummary error: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            return back()->withErrors(['error' => 'Failed to load doctor summary: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Export doctor summary report
+     */
+    public function exportDoctorSummary(Request $request)
+    {
+        try {
+            \Log::info('Export request received', $request->all());
+            
+            // Handle different parameter formats based on report type
+            $reportType = $request->get('report_type', 'daily');
+            
+            if ($reportType === 'daily') {
+                $date = $request->get('date', now()->format('Y-m-d'));
+                $filters = [
+                    'date_from' => $date,
+                    'date_to' => $date,
+                    'report_type' => 'daily',
+                    'doctor_id' => $request->get('doctor_id', 'all'),
+                    'status' => $request->get('status', 'all'),
+                    'format' => $request->get('format', 'excel'),
+                ];
+            } elseif ($reportType === 'monthly') {
+                $month = $request->get('month', now()->format('Y-m'));
+                $filters = [
+                    'date_from' => $month . '-01',
+                    'date_to' => now()->parse($month)->endOfMonth()->format('Y-m-d'),
+                    'report_type' => 'monthly',
+                    'doctor_id' => $request->get('doctor_id', 'all'),
+                    'status' => $request->get('status', 'all'),
+                    'format' => $request->get('format', 'excel'),
+                ];
+            } elseif ($reportType === 'yearly') {
+                $year = $request->get('year', now()->format('Y'));
+                $filters = [
+                    'date_from' => $year . '-01-01',
+                    'date_to' => $year . '-12-31',
+                    'report_type' => 'yearly',
+                    'doctor_id' => $request->get('doctor_id', 'all'),
+                    'status' => $request->get('status', 'all'),
+                    'format' => $request->get('format', 'excel'),
+                ];
+            } else {
+                // Fallback to date range
+                $filters = [
+                    'date_from' => $request->get('date_from', now()->subDays(30)->format('Y-m-d')),
+                    'date_to' => $request->get('date_to', now()->format('Y-m-d')),
+                    'report_type' => 'daily',
+                    'doctor_id' => $request->get('doctor_id', 'all'),
+                    'status' => $request->get('status', 'all'),
+                    'format' => $request->get('format', 'excel'),
+                ];
+            }
+
+            \Log::info('Export filters', $filters);
+
+            $reportService = new \App\Services\DoctorPaymentReportService();
+            $reportData = $reportService->getReportData($filters);
+            $summary = $reportService->getSummaryStatistics($filters);
+
+            \Log::info('Export data count', ['count' => count($reportData)]);
+
+            if ($filters['format'] === 'excel') {
+                $filename = 'doctor-summary-' . $reportType . '-' . now()->format('Y-m-d-H-i-s') . '.xlsx';
+                return Excel::download(new \App\Exports\DoctorPaymentReportExport($reportData, $summary, $filters), $filename);
+            } else {
+                // PDF export
+                $filename = 'doctor-summary-' . $reportType . '-' . now()->format('Y-m-d-H-i-s') . '.pdf';
+                
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.doctor-summary-pdf', [
+                    'reportData' => $reportData,
+                    'summary' => $summary,
+                    'filters' => $filters
+                ])->setPaper('a4', 'portrait')
+                  ->setOptions([
+                      'isHtml5ParserEnabled' => true,
+                      'isRemoteEnabled' => false,
+                      'defaultFont' => 'Arial'
+                  ]);
+                
+                return $pdf->download($filename);
+            }
+        } catch (\Exception $e) {
+            \Log::error('DoctorPaymentController::exportDoctorSummary error: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            return back()->withErrors(['error' => 'Failed to export doctor summary: ' . $e->getMessage()]);
         }
     }
 }

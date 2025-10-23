@@ -259,7 +259,7 @@ class CompleteAppointmentService
      */
     private function createAppointment(int $patientId, array $data, string $source, string $status)
     {
-        return Appointment::create([
+        $appointment = Appointment::create([
             'patient_id' => $patientId,
             'specialist_id' => $data['specialist_id'] ?? null,
             'appointment_type' => $data['appointment_type'] ?? 'General Consultation',
@@ -267,12 +267,18 @@ class CompleteAppointmentService
             'appointment_date' => $data['appointment_date'],
             'appointment_time' => $data['appointment_time'],
             'duration' => $data['duration'] ?? '30 min',
-            'price' => $data['price'] ?? 0.00,
+            'price' => $data['price'] ?? null, // Will be calculated after creation
             'additional_info' => $data['additional_info'] ?? null,
             'source' => $source,
             'status' => $status,
             'billing_status' => 'pending'
         ]);
+
+        // Calculate and set price using the model's calculatePrice method
+        $calculatedPrice = $data['price'] ?? $appointment->calculatePrice();
+        $appointment->update(['price' => $calculatedPrice]);
+
+        return $appointment;
     }
     
     /**

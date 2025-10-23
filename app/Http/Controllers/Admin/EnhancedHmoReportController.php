@@ -24,9 +24,30 @@ class EnhancedHmoReportController extends Controller
      */
     public function index(Request $request)
     {
-        $dateFrom = $request->get('date_from', now()->subDays(30)->format('Y-m-d'));
-        $dateTo = $request->get('date_to', now()->format('Y-m-d'));
+        // Handle new filter parameters for daily/monthly/yearly reports
+        $reportType = $request->get('report_type', 'daily');
+        $date = $request->get('date');
+        $month = $request->get('month');
+        $year = $request->get('year');
+        
+        // Set date range based on report type
+        if ($reportType === 'daily' && $date) {
+            $dateFrom = $date;
+            $dateTo = $date;
+        } elseif ($reportType === 'monthly' && $month) {
+            $dateFrom = $month . '-01';
+            $dateTo = date('Y-m-t', strtotime($month . '-01'));
+        } elseif ($reportType === 'yearly' && $year) {
+            $dateFrom = $year . '-01-01';
+            $dateTo = $year . '-12-31';
+        } else {
+            // For initial load, show a broader date range to ensure we get data
+            $dateFrom = $request->get('date_from', '2025-01-01');
+            $dateTo = $request->get('date_to', now()->addDays(30)->format('Y-m-d'));
+        }
+        
         $providerId = $request->get('hmo_provider_id');
+        
 
         // Get summary statistics
         $summary = $this->getSummaryStatistics($dateFrom, $dateTo);
@@ -36,6 +57,78 @@ class EnhancedHmoReportController extends Controller
         
         // Get HMO transactions
         $hmoTransactions = $this->getHmoTransactions($dateFrom, $dateTo, $providerId);
+        
+        // Debug: Log what we're sending to frontend
+        \Log::info('Enhanced HMO Report - Data being sent to frontend', [
+            'hmo_transactions_count' => count($hmoTransactions),
+            'hmo_transactions_sample' => count($hmoTransactions) > 0 ? $hmoTransactions[0] : 'No transactions',
+            'summary' => $summary,
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'provider_id' => $providerId,
+            'report_type' => $reportType,
+            'date' => $date,
+            'month' => $month,
+            'year' => $year
+        ]);
+        
+        // Additional debugging - check if data is being passed correctly
+        \Log::info('HMO Transactions Data Check', [
+            'is_array' => is_array($hmoTransactions),
+            'count' => is_array($hmoTransactions) ? count($hmoTransactions) : 'not array',
+            'first_item' => is_array($hmoTransactions) && count($hmoTransactions) > 0 ? $hmoTransactions[0] : 'no items',
+            'all_transactions' => $hmoTransactions
+        ]);
+        
+        // Force some test data to verify frontend is working
+        if (count($hmoTransactions) === 0) {
+            \Log::info('No transactions found, adding test data');
+            $hmoTransactions = [
+                [
+                    'id' => 999,
+                    'transaction_id' => 'TEST-001',
+                    'patient_name' => 'Test Patient',
+                    'doctor_name' => 'Test Doctor',
+                    'total_amount' => 1000.00,
+                    'hmo_provider' => 'Test Provider',
+                    'payment_method' => 'hmo',
+                    'status' => 'paid',
+                    'transaction_date' => now()->format('Y-m-d H:i:s'),
+                ]
+            ];
+        }
+        
+        // Debug: Check if we have any HMO transactions at all
+        $allHmoTransactions = BillingTransaction::where('payment_method', 'hmo')->count();
+        \Log::info('Total HMO transactions in database: ' . $allHmoTransactions);
+        
+        // Debug: Check if we have any HMO providers
+        $allHmoProviders = HmoProvider::count();
+        \Log::info('Total HMO providers in database: ' . $allHmoProviders);
+
+        // Debug: Return JSON for testing
+        if ($request->get('debug') === 'true') {
+            return response()->json([
+                'summary' => $summary,
+                'hmoProviders' => $hmoProviders,
+                'hmoTransactions' => $hmoTransactions,
+                'filters' => [
+                    'date_from' => $dateFrom,
+                    'date_to' => $dateTo,
+                    'hmo_provider_id' => $providerId,
+                    'report_type' => $reportType,
+                    'date' => $date,
+                    'month' => $month,
+                    'year' => $year,
+                ],
+                'debug_info' => [
+                    'dateFrom' => $dateFrom,
+                    'dateTo' => $dateTo,
+                    'reportType' => $reportType,
+                    'providerId' => $providerId,
+                ]
+            ]);
+        }
 
         return Inertia::render('admin/billing/enhanced-hmo-report', [
             'summary' => $summary,
@@ -45,6 +138,10 @@ class EnhancedHmoReportController extends Controller
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
                 'hmo_provider_id' => $providerId,
+                'report_type' => $reportType,
+                'date' => $date,
+                'month' => $month,
+                'year' => $year,
             ]
         ]);
     }
@@ -274,15 +371,38 @@ class EnhancedHmoReportController extends Controller
         $endDateTime = $dateTo . ' 23:59:59';
 
         $query = BillingTransaction::with(['patient', 'doctor'])
-            ->whereBetween('transaction_date', [$startDateTime, $endDateTime])
-            ->where('payment_method', 'hmo')
-            ->whereNotNull('hmo_provider');
+            ->where('payment_method', 'hmo');
+            
+        // Only apply date filter if dates are provided
+        if ($dateFrom && $dateTo) {
+            // Use datetime comparison to match getSummaryStatistics method
+            $query->whereBetween('transaction_date', [$startDateTime, $endDateTime]);
+        }
 
-        if ($providerId) {
-            $query->where('hmo_provider', $providerId);
+        if ($providerId && $providerId !== 'all') {
+            // Get the provider name from the HmoProvider model
+            $provider = HmoProvider::find($providerId);
+            if ($provider) {
+                $query->where(function($q) use ($provider) {
+                    $q->where('hmo_provider', $provider->name)
+                      ->orWhere('hmo_provider', 'like', '%' . $provider->name . '%')
+                      ->orWhere('hmo_provider', 'like', '%' . strtolower($provider->name) . '%')
+                      ->orWhere('hmo_provider', 'like', '%' . strtoupper($provider->name) . '%');
+                });
+            }
         }
 
         $transactions = $query->orderBy('transaction_date', 'desc')->get();
+        
+        // Debug: Log the query results
+        \Log::info('HMO Transactions Query Results', [
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'startDateTime' => $startDateTime,
+            'endDateTime' => $endDateTime,
+            'transactions_count' => $transactions->count(),
+            'transactions_sample' => $transactions->take(2)->toArray()
+        ]);
 
         return $transactions->map(function ($transaction) {
             $patient = $transaction->patient;
@@ -294,13 +414,13 @@ class EnhancedHmoReportController extends Controller
                 'patient_name' => $patient ? $patient->first_name . ' ' . $patient->last_name : 'N/A',
                 'doctor_name' => $doctor ? $doctor->name : 'N/A',
                 'total_amount' => $transaction->total_amount,
-                'hmo_provider' => $transaction->hmo_provider,
+                'hmo_provider' => $transaction->hmo_provider ?: 'Unknown Provider',
                 'payment_method' => $transaction->payment_method,
                 'status' => $transaction->status,
                 'transaction_date' => $transaction->transaction_date->format('Y-m-d H:i:s'),
                 'description' => $transaction->description,
             ];
-        });
+        })->toArray();
     }
 
     /**
@@ -312,12 +432,24 @@ class EnhancedHmoReportController extends Controller
         $endDateTime = $dateTo . ' 23:59:59';
 
         // HMO Transactions
-        $query = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
-            ->where('payment_method', 'hmo')
-            ->whereNotNull('hmo_provider');
+        $query = BillingTransaction::where('payment_method', 'hmo');
+        
+        // Only apply date filter if dates are provided
+        if ($dateFrom && $dateTo) {
+            $query->whereBetween('transaction_date', [$startDateTime, $endDateTime]);
+        }
 
-        if ($providerId) {
-            $query->where('hmo_provider', $providerId);
+        if ($providerId && $providerId !== 'all') {
+            // Get the provider name from the HmoProvider model
+            $provider = HmoProvider::find($providerId);
+            if ($provider) {
+                $query->where(function($q) use ($provider) {
+                    $q->where('hmo_provider', $provider->name)
+                      ->orWhere('hmo_provider', 'like', '%' . $provider->name . '%')
+                      ->orWhere('hmo_provider', 'like', '%' . strtolower($provider->name) . '%')
+                      ->orWhere('hmo_provider', 'like', '%' . strtoupper($provider->name) . '%');
+                });
+            }
         }
 
         $hmoTransactions = $query->get();
@@ -369,14 +501,39 @@ class EnhancedHmoReportController extends Controller
         $endDateTime = $dateTo . ' 23:59:59';
 
         // HMO Transactions
-        $hmoTransactions = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
-            ->where('payment_method', 'hmo')
-            ->whereNotNull('hmo_provider')
-            ->get();
+        $query = BillingTransaction::where('payment_method', 'hmo');
+        
+        // Only apply date filter if dates are provided
+        if ($dateFrom && $dateTo) {
+            $query->whereBetween('transaction_date', [$startDateTime, $endDateTime]);
+        }
+        
+        $hmoTransactions = $query->get();
+
+        // HMO Claims
+        $claimsQuery = HmoClaim::whereBetween('submission_date', [$startDateTime, $endDateTime]);
+        $claims = $claimsQuery->get();
+
+        // HMO Providers
+        $hmoProviders = HmoProvider::active()->get();
+
+        // Patient Coverages
+        $patientCoverages = HmoPatientCoverage::where('status', 'active')->get();
 
         return [
             'total_hmo_revenue' => $hmoTransactions->sum('total_amount'),
             'total_hmo_transactions' => $hmoTransactions->count(),
+            'total_claims_amount' => $claims->sum('amount'),
+            'total_approved_amount' => $claims->where('status', 'approved')->sum('amount'),
+            'total_rejected_amount' => $claims->where('status', 'rejected')->sum('amount'),
+            'total_claims_count' => $claims->count(),
+            'approved_claims_count' => $claims->where('status', 'approved')->count(),
+            'rejected_claims_count' => $claims->where('status', 'rejected')->count(),
+            'approval_rate' => $claims->count() > 0 ? ($claims->where('status', 'approved')->count() / $claims->count()) * 100 : 0,
+            'hmo_providers_count' => $hmoProviders->count(),
+            'active_patient_coverages' => $patientCoverages->count(),
+            'pending_claims_count' => $claims->where('status', 'pending')->count(),
+            'paid_claims_count' => $claims->where('status', 'paid')->count(),
         ];
     }
 

@@ -22,6 +22,8 @@ import {
     Plus,
     Eye,
     Calendar,
+    CalendarDays,
+    CalendarRange,
     Clock,
     ChevronDown
 } from 'lucide-react';
@@ -47,7 +49,8 @@ type HmoProvider = {
     id: number;
     name: string;
     code: string;
-    status: string;
+    status?: string;
+    is_active?: boolean;
 };
 
 type RecentReport = {
@@ -94,11 +97,31 @@ export default function EnhancedHmoReport({
     hmoTransactions?: HmoTransaction[];
     filters?: any;
 }) {
-    const [dateFrom, setDateFrom] = useState(filters?.date_from || '');
-    const [dateTo, setDateTo] = useState(filters?.date_to || '');
-    const [selectedProvider, setSelectedProvider] = useState('all');
-    const [activeTab, setActiveTab] = useState('providers');
+    // Debug: Log what the component receives
+    console.log('EnhancedHmoReport - Received data:', {
+        hmoTransactionsCount: hmoTransactions?.length || 0,
+        hmoTransactions: hmoTransactions,
+        summary: summary,
+        hmoProviders: hmoProviders,
+        filters: filters
+    });
+    
+    // Additional debugging
+    console.log('hmoTransactions type:', typeof hmoTransactions);
+    console.log('hmoTransactions is array:', Array.isArray(hmoTransactions));
+    console.log('hmoTransactions length:', hmoTransactions?.length);
+    console.log('hmoTransactions first item:', hmoTransactions?.[0]);
+    console.log('hmoTransactions === undefined:', hmoTransactions === undefined);
+    console.log('hmoTransactions === null:', hmoTransactions === null);
+    
+    
+    const [selectedDate, setSelectedDate] = useState(filters?.date || new Date().toISOString().split('T')[0]);
+    const [selectedMonth, setSelectedMonth] = useState(filters?.month || new Date().toISOString().slice(0, 7));
+    const [selectedYear, setSelectedYear] = useState(filters?.year || new Date().getFullYear().toString());
+    const [activeTab, setActiveTab] = useState(filters?.report_type || 'daily');
+    const [selectedProvider, setSelectedProvider] = useState(filters?.hmo_provider_id || 'all');
     const [isLoading, setIsLoading] = useState(false);
+    const [activeViewTab, setActiveViewTab] = useState('reports');
 
     // Provide default values for summary
     const defaultSummary: Summary = {
@@ -119,62 +142,58 @@ export default function EnhancedHmoReport({
 
     const safeSummary = summary || defaultSummary;
 
-    const handleFilter = () => {
-        try {
-            setIsLoading(true);
-            const filterParams: any = {
-                date_from: dateFrom,
-                date_to: dateTo,
-            };
-            
-            // Only add hmo_provider_id if not "all"
-            if (selectedProvider && selectedProvider !== 'all') {
-                filterParams.hmo_provider_id = selectedProvider;
-            }
-            
-            router.get('/admin/billing/enhanced-hmo-report', filterParams, {
-                preserveState: true,
-                replace: true,
-                onFinish: () => setIsLoading(false),
-            });
-        } catch (error) {
-            console.error('Error filtering HMO report:', error);
-            setIsLoading(false);
-        }
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('en-PH', {
+            style: 'currency',
+            currency: 'PHP',
+        }).format(amount);
+    };
+
+    const handleDailyReport = () => {
+        router.get('/admin/billing/enhanced-hmo-report', {
+            date: selectedDate,
+            report_type: 'daily',
+            hmo_provider_id: selectedProvider,
+        });
+    };
+
+    const handleMonthlyReport = () => {
+        router.get('/admin/billing/enhanced-hmo-report', {
+            month: selectedMonth,
+            report_type: 'monthly',
+            hmo_provider_id: selectedProvider,
+        });
+    };
+
+    const handleYearlyReport = () => {
+        router.get('/admin/billing/enhanced-hmo-report', {
+            year: selectedYear,
+            report_type: 'yearly',
+            hmo_provider_id: selectedProvider,
+        });
     };
 
     const handleGenerateReport = () => {
         router.get('/admin/billing/enhanced-hmo-report/generate');
     };
 
-    const handleExportData = (format: string = 'excel') => {
-        const filterParams: any = {
-            date_from: dateFrom,
-            date_to: dateTo,
-            format: format
+    const handleExport = (reportType: string, format: string) => {
+        const params: any = { 
+            format, 
+            report_type: reportType,
+            hmo_provider_id: selectedProvider
         };
         
-        // Only add hmo_provider_id if not "all"
-        if (selectedProvider && selectedProvider !== 'all') {
-            filterParams.hmo_provider_id = selectedProvider;
+        if (reportType === 'daily') {
+            params.date = selectedDate;
+        } else if (reportType === 'monthly') {
+            params.month = selectedMonth;
+        } else if (reportType === 'yearly') {
+            params.year = selectedYear;
         }
-        
-        // Create a form and submit it to trigger download
-        const form = document.createElement('form');
-        form.method = 'GET';
-        form.action = '/admin/billing/enhanced-hmo-report/export-data';
-        
-        Object.keys(filterParams).forEach(key => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = key;
-            input.value = filterParams[key];
-            form.appendChild(input);
-        });
-        
-        document.body.appendChild(form);
-        form.submit();
-        document.body.removeChild(form);
+
+        const exportUrl = `/admin/billing/enhanced-hmo-report/export?${new URLSearchParams(params).toString()}`;
+        window.open(exportUrl, '_blank');
     };
 
     return (
@@ -197,90 +216,187 @@ export default function EnhancedHmoReport({
                             />
                         </div>
                         <div className="flex items-center gap-4">
-                            <Button onClick={handleGenerateReport} variant="outline">
-                                <Plus className="mr-2 h-4 w-4" />
-                                Generate Report
+                            <Button onClick={() => handleExport(activeTab, 'excel')} variant="outline">
+                                <Download className="mr-2 h-5 w-5" />
+                                Export Excel
                             </Button>
-                            <div className="relative">
-                                <Select onValueChange={(value) => handleExportData(value)}>
-                                    <SelectTrigger className="w-40">
-                                        <Download className="mr-2 h-4 w-4" />
-                                        <SelectValue placeholder="Export Data" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="excel">
-                                            <div className="flex items-center">
-                                                <FileText className="mr-2 h-4 w-4" />
-                                                Excel (.xlsx)
-                                            </div>
-                                        </SelectItem>
-                                        <SelectItem value="pdf">
-                                            <div className="flex items-center">
-                                                <FileText className="mr-2 h-4 w-4" />
-                                                PDF (.pdf)
-                                            </div>
-                                        </SelectItem>
-                                        <SelectItem value="csv">
-                                            <div className="flex items-center">
-                                                <FileText className="mr-2 h-4 w-4" />
-                                                CSV (.csv)
-                                            </div>
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            <Button onClick={() => handleExport(activeTab, 'pdf')} variant="outline">
+                                <Download className="mr-2 h-5 w-5" />
+                                Export PDF
+                            </Button>
                         </div>
                     </div>
                 </div>
 
-                {/* Filters */}
+                {/* Report Type Tabs */}
                 <Card className="mb-6 rounded-xl border border-gray-200 bg-white shadow-sm">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-3 text-lg font-semibold text-gray-900">
-                            <Filter className="h-5 w-5 text-black" />
-                            Report Filters
-                        </CardTitle>
-                    </CardHeader>
                     <CardContent className="p-6">
-                        <div className="flex items-center gap-4 flex-wrap">
-                            <div className="space-y-2">
-                                <Label className="text-sm font-medium text-gray-700">Date From</Label>
-                                <Input
-                                    type="date"
-                                    value={dateFrom}
-                                    onChange={(e) => setDateFrom(e.target.value)}
-                                    className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl"
-                                />
+                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                            <TabsList className="grid w-full grid-cols-3">
+                                <TabsTrigger value="daily" className="flex items-center gap-2">
+                                    <Calendar className="h-4 w-4" />
+                                    Daily Report
+                                </TabsTrigger>
+                                <TabsTrigger value="monthly" className="flex items-center gap-2">
+                                    <CalendarDays className="h-4 w-4" />
+                                    Monthly Report
+                                </TabsTrigger>
+                                <TabsTrigger value="yearly" className="flex items-center gap-2">
+                                    <CalendarRange className="h-4 w-4" />
+                                    Yearly Report
+                                </TabsTrigger>
+                            </TabsList>
+
+                            {/* Daily Report Tab */}
+                            <TabsContent value="daily" className="mt-6">
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-sm font-medium text-gray-700">Select Date</Label>
+                                            <Input
+                                                type="date"
+                                                value={selectedDate}
+                                                onChange={(e) => setSelectedDate(e.target.value)}
+                                                className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl"
+                                            />
+                                        </div>
+                                        <Button onClick={handleDailyReport} className="h-12 px-6">
+                                            <Calendar className="mr-2 h-4 w-4" />
+                                            Generate Daily Report
+                                        </Button>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-4">
+                                        <Button 
+                                            variant="outline"
+                                            onClick={() => handleExport('daily', 'excel')}
+                                            className="h-12"
+                                        >
+                                            <Download className="mr-2 h-4 w-4" />
+                                            Export Excel
+                                        </Button>
+                                        <Button 
+                                            variant="outline"
+                                            onClick={() => handleExport('daily', 'pdf')}
+                                            className="h-12"
+                                        >
+                                            <Download className="mr-2 h-4 w-4" />
+                                            Export PDF
+                                        </Button>
+                                    </div>
+                                </div>
+                            </TabsContent>
+
+                            {/* Monthly Report Tab */}
+                            <TabsContent value="monthly" className="mt-6">
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-sm font-medium text-gray-700">Select Month</Label>
+                                            <Input
+                                                type="month"
+                                                value={selectedMonth}
+                                                onChange={(e) => setSelectedMonth(e.target.value)}
+                                                className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl"
+                                            />
+                                        </div>
+                                        <Button onClick={handleMonthlyReport} className="h-12 px-6">
+                                            <CalendarDays className="mr-2 h-4 w-4" />
+                                            Generate Monthly Report
+                                        </Button>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-4">
+                                        <Button 
+                                            variant="outline"
+                                            onClick={() => handleExport('monthly', 'excel')}
+                                            className="h-12"
+                                        >
+                                            <Download className="mr-2 h-4 w-4" />
+                                            Export Excel
+                                        </Button>
+                                        <Button 
+                                            variant="outline"
+                                            onClick={() => handleExport('monthly', 'pdf')}
+                                            className="h-12"
+                                        >
+                                            <Download className="mr-2 h-4 w-4" />
+                                            Export PDF
+                                        </Button>
+                                    </div>
+                                </div>
+                            </TabsContent>
+
+                            {/* Yearly Report Tab */}
+                            <TabsContent value="yearly" className="mt-6">
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-sm font-medium text-gray-700">Select Year</Label>
+                                            <Select value={selectedYear} onValueChange={setSelectedYear}>
+                                                <SelectTrigger className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {Array.from({ length: 10 }, (_, i) => {
+                                                        const year = new Date().getFullYear() - i;
+                                                        return (
+                                                            <SelectItem key={year} value={year.toString()}>
+                                                                {year}
+                                                            </SelectItem>
+                                                        );
+                                                    })}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <Button onClick={handleYearlyReport} className="h-12 px-6">
+                                            <CalendarRange className="mr-2 h-4 w-4" />
+                                            Generate Yearly Report
+                                        </Button>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-4">
+                                        <Button 
+                                            variant="outline"
+                                            onClick={() => handleExport('yearly', 'excel')}
+                                            className="h-12"
+                                        >
+                                            <Download className="mr-2 h-4 w-4" />
+                                            Export Excel
+                                        </Button>
+                                        <Button 
+                                            variant="outline"
+                                            onClick={() => handleExport('yearly', 'pdf')}
+                                            className="h-12"
+                                        >
+                                            <Download className="mr-2 h-4 w-4" />
+                                            Export PDF
+                                        </Button>
+                                    </div>
+                                </div>
+                            </TabsContent>
+                        </Tabs>
+
+                        {/* Additional Filters */}
+                        <div className="mt-6 pt-6 border-t border-gray-200">
+                            <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-medium text-gray-700">HMO Provider</Label>
+                                    <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+                                        <SelectTrigger className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Providers</SelectItem>
+                                            {hmoProviders && hmoProviders.length > 0 ? hmoProviders.map((provider) => (
+                                                <SelectItem key={provider.id} value={provider.id.toString()}>
+                                                    {provider.name} ({provider.code})
+                                                </SelectItem>
+                                            )) : null}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label className="text-sm font-medium text-gray-700">Date To</Label>
-                                <Input
-                                    type="date"
-                                    value={dateTo}
-                                    onChange={(e) => setDateTo(e.target.value)}
-                                    className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-sm font-medium text-gray-700">HMO Provider</Label>
-                                <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-                                    <SelectTrigger className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl">
-                                        <SelectValue placeholder="All Providers" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Providers</SelectItem>
-                                        {hmoProviders && hmoProviders.length > 0 ? hmoProviders.map((provider) => (
-                                            <SelectItem key={provider.id} value={provider.id.toString()}>
-                                                {provider.name} ({provider.code})
-                                            </SelectItem>
-                                        )) : null}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <Button onClick={handleFilter} className="h-12 px-6" disabled={isLoading}>
-                                <Filter className="mr-2 h-4 w-4" />
-                                {isLoading ? 'Loading...' : 'Apply Filters'}
-                            </Button>
                         </div>
                     </CardContent>
                 </Card>
@@ -294,7 +410,7 @@ export default function EnhancedHmoReport({
                 ) : (
                     <>
                 {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
                     <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
                         <CardContent className="p-6">
                             <div className="flex items-center gap-3">
@@ -302,7 +418,7 @@ export default function EnhancedHmoReport({
                                     <DollarSign className="h-6 w-6 text-green-600" />
                                 </div>
                                 <div>
-                                    <div className="text-2xl font-bold text-gray-900">₱{safeSummary.total_hmo_revenue.toLocaleString()}</div>
+                                    <div className="text-2xl font-bold text-gray-900">{formatCurrency(safeSummary.total_hmo_revenue)}</div>
                                     <div className="text-sm text-gray-600">Total HMO Revenue</div>
                                 </div>
                             </div>
@@ -322,10 +438,52 @@ export default function EnhancedHmoReport({
                             </div>
                         </CardContent>
                     </Card>
+
+                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                        <CardContent className="p-6">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-green-100 rounded-lg">
+                                    <TrendingUp className="h-6 w-6 text-green-600" />
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold text-gray-900">{formatCurrency(safeSummary.total_approved_amount)}</div>
+                                    <div className="text-sm text-gray-600">Approved Amount</div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                        <CardContent className="p-6">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-yellow-100 rounded-lg">
+                                    <Clock className="h-6 w-6 text-yellow-600" />
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold text-gray-900">{safeSummary.pending_claims_count}</div>
+                                    <div className="text-sm text-gray-600">Pending Claims</div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                        <CardContent className="p-6">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-purple-100 rounded-lg">
+                                    <BarChart3 className="h-6 w-6 text-purple-600" />
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold text-gray-900">{safeSummary.approval_rate.toFixed(1)}%</div>
+                                    <div className="text-sm text-gray-600">Approval Rate</div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
 
                 {/* Tabs for different views */}
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+                <Tabs value={activeViewTab} onValueChange={setActiveViewTab} className="space-y-6">
                     <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="providers">Providers</TabsTrigger>
                         <TabsTrigger value="reports">Reports</TabsTrigger>
@@ -378,11 +536,11 @@ export default function EnhancedHmoReport({
                                                         </TableCell>
                                                         <TableCell>
                                                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                                provider.status === 'active' 
+                                                                (provider.status === 'active' || provider.is_active === true) 
                                                                     ? 'bg-green-100 text-green-800' 
                                                                     : 'bg-red-100 text-red-800'
                                                             }`}>
-                                                                {provider.status}
+                                                                {provider.status || (provider.is_active ? 'active' : 'inactive')}
                                                             </span>
                                                         </TableCell>
                                                         <TableCell>
@@ -458,7 +616,7 @@ export default function EnhancedHmoReport({
                                                             </span>
                                                         </TableCell>
                                                         <TableCell className="font-semibold text-green-600">
-                                                            ₱{transaction.total_amount.toLocaleString()}
+                                                            {formatCurrency(transaction.total_amount)}
                                                         </TableCell>
                                                         <TableCell>
                                                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${

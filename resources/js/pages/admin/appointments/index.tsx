@@ -281,16 +281,8 @@ const getTypeBadge = (type: string) => {
     };
 
     const handleAddLabTests = (appointment: any) => {
-        // Check if appointment has billing transaction
-        const hasBillingTransaction = appointment.billing_transactions && appointment.billing_transactions.length > 0;
-        
-        if (!hasBillingTransaction) {
-            // Show popup message instead of navigating
-            alert('⚠️ Cannot add lab tests to appointments without billing transactions.\n\nPlease create a billing transaction first by:\n1. Go to Billing → Pending Appointments\n2. Find this appointment\n3. Click "Pay Now" to create a transaction\n4. Then you can add lab tests');
-            return;
-        }
-        
-        // Navigate to add lab tests page if billing transaction exists
+        // Allow lab tests to be added to appointments without requiring existing billing transactions
+        // The billing transaction will be created later with the complete total including lab tests
         router.visit(route('admin.appointments.show-add-lab-tests', appointment.id));
     };
 

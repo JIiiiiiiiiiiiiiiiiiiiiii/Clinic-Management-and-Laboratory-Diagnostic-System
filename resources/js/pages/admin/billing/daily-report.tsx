@@ -26,6 +26,11 @@ type Transaction = {
     patient_name: string;
     specialist_name: string;
     amount: number;
+    total_amount?: number;
+    final_amount?: number;
+    discount_amount?: number;
+    senior_discount_amount?: number;
+    is_senior_citizen?: boolean;
     payment_method: string;
     status: string;
     description: string;
@@ -297,7 +302,26 @@ export default function DailyReport({
                                                     <TableCell className={`font-semibold ${
                                                         transaction.amount < 0 ? 'text-red-600' : 'text-green-600'
                                                     }`}>
-                                                        {transaction.amount < 0 ? '-' : ''}₱{Math.abs(transaction.amount).toLocaleString()}
+                                                        <div className="flex flex-col">
+                                                            <div>
+                                                                {transaction.amount < 0 ? '-' : ''}₱{Math.abs(transaction.amount).toLocaleString()}
+                                                            </div>
+                                                            {transaction.total_amount && transaction.total_amount !== transaction.amount && (
+                                                                <div className="text-xs text-gray-500">
+                                                                    Original: ₱{transaction.total_amount.toLocaleString()}
+                                                                    {transaction.senior_discount_amount > 0 && (
+                                                                        <span className="ml-2 text-green-600">
+                                                                            (-₱{transaction.senior_discount_amount.toLocaleString()} senior)
+                                                                        </span>
+                                                                    )}
+                                                                    {transaction.discount_amount > 0 && (
+                                                                        <span className="ml-2 text-blue-600">
+                                                                            (-₱{transaction.discount_amount.toLocaleString()} discount)
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </TableCell>
                                                     <TableCell>
                                                         <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">

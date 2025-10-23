@@ -55,10 +55,19 @@ class AppointmentCreationService
             
             $appointment = Appointment::create($appointmentData);
 
+            // Calculate and set price using the model's calculatePrice method
+            $calculatedPrice = $appointment->calculatePrice();
+            $appointment->update([
+                'price' => $calculatedPrice,
+                'final_total_amount' => $calculatedPrice, // Set final_total_amount to the same as price when no lab tests
+                'total_lab_amount' => 0 // No lab tests initially
+            ]);
+
             Log::info('Appointment created successfully', [
                 'appointment_id' => $appointment->id,
                 'patient_id' => $patient->id,
-                'appointment_type' => $appointment->appointment_type
+                'appointment_type' => $appointment->appointment_type,
+                'price' => $calculatedPrice
             ]);
 
             // Create visit automatically

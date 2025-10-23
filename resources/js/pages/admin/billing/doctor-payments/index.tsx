@@ -14,13 +14,11 @@ import {
     Search, 
     Filter,
     Eye,
-    Edit,
     Trash2,
     MoreHorizontal,
     CheckCircle,
     Clock,
     XCircle,
-    Receipt,
     FileText,
     Users,
     DollarSign,
@@ -41,9 +39,6 @@ interface Doctor {
 interface DoctorPayment {
     id: number;
     doctor: Doctor;
-    basic_salary: number;
-    deductions: number;
-    holiday_pay: number;
     incentives: number;
     net_payment: number;
     payment_date: string;
@@ -142,13 +137,6 @@ export default function DoctorPaymentsIndex({ payments, summary, doctors, filter
         });
     };
 
-    const handleAddToTransactions = (paymentId: number) => {
-        router.post(`/admin/billing/doctor-payments/${paymentId}/add-to-transactions`, {}, {
-            onSuccess: () => {
-                router.reload();
-            }
-        });
-    };
 
     const handleMarkAsPaid = (paymentId: number) => {
         router.post(`/admin/billing/doctor-payments/${paymentId}/mark-as-paid`, {}, {
@@ -291,9 +279,6 @@ export default function DoctorPaymentsIndex({ payments, summary, doctors, filter
                                                 Doctor
                                             </div>
                                         </TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Basic Salary</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Deductions</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Holiday Pay</TableHead>
                                         <TableHead className="font-semibold text-gray-700">Incentives</TableHead>
                                         <TableHead className="font-semibold text-gray-700">Net Payment</TableHead>
                                         <TableHead className="font-semibold text-gray-700">Status</TableHead>
@@ -327,15 +312,6 @@ export default function DoctorPaymentsIndex({ payments, summary, doctors, filter
                                                         {payment.doctor ? payment.doctor.name : 'N/A'}
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="font-semibold">
-                                                    ₱{payment.basic_salary.toLocaleString()}
-                                                </TableCell>
-                                                <TableCell className="text-red-600">
-                                                    -₱{payment.deductions.toLocaleString()}
-                                                </TableCell>
-                                                <TableCell className="text-green-600">
-                                                    +₱{payment.holiday_pay.toLocaleString()}
-                                                </TableCell>
                                                 <TableCell className="text-green-600">
                                                     +₱{payment.incentives.toLocaleString()}
                                                 </TableCell>
@@ -357,23 +333,13 @@ export default function DoctorPaymentsIndex({ payments, summary, doctors, filter
                                                             </Link>
                                                         </Button>
                                                         {payment.status === 'pending' && (
-                                                            <>
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={() => handleAddToTransactions(payment.id)}
-                                                                >
-                                                                    <Receipt className="mr-1 h-3 w-3" />
-                                                                    Add to Transactions
-                                                                </Button>
-                                                                <Button
-                                                                    size="sm"
-                                                                    onClick={() => handleMarkAsPaid(payment.id)}
-                                                                >
-                                                                    <CheckCircle className="mr-1 h-3 w-3" />
-                                                                    Mark Paid
-                                                                </Button>
-                                                            </>
+                                                            <Button
+                                                                size="sm"
+                                                                onClick={() => handleMarkAsPaid(payment.id)}
+                                                            >
+                                                                <CheckCircle className="mr-1 h-3 w-3" />
+                                                                Mark Paid
+                                                            </Button>
                                                         )}
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
@@ -382,12 +348,6 @@ export default function DoctorPaymentsIndex({ payments, summary, doctors, filter
                                                                 </Button>
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent align="end">
-                                                                <DropdownMenuItem asChild>
-                                                                    <Link href={`/admin/billing/doctor-payments/${payment.id}/edit`}>
-                                                                        <Edit className="mr-2 h-4 w-4" />
-                                                                        Edit
-                                                                    </Link>
-                                                                </DropdownMenuItem>
                                                                 <DropdownMenuItem 
                                                                     onClick={() => handleDelete(payment.id)}
                                                                     className="text-red-600"

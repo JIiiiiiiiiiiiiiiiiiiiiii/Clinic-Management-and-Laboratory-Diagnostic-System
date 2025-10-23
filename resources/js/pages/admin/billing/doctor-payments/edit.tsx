@@ -7,19 +7,19 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Calculator } from 'lucide-react';
+import { type BreadcrumbItem } from '@/types';
+import Heading from '@/components/heading';
+import { ArrowLeft, DollarSign, Check } from 'lucide-react';
 
 interface Doctor {
     id: number;
     name: string;
+    specialization?: string;
 }
 
 interface DoctorPayment {
     id: number;
     doctor_id: number;
-    basic_salary: number;
-    deductions: number;
-    holiday_pay: number;
     incentives: number;
     net_payment: number;
     payment_date: string;
@@ -32,47 +32,33 @@ interface EditDoctorPaymentProps {
     doctors: Doctor[];
 }
 
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Billing', href: '/admin/billing' },
+    { title: 'Doctor Payments', href: '/admin/billing/doctor-payments' },
+    { title: 'Edit Payment', href: '#' },
+];
+
 export default function EditDoctorPayment({ payment, doctors }: EditDoctorPaymentProps) {
     const { data, setData, put, processing, errors } = useForm({
         doctor_id: payment.doctor_id.toString(),
-        basic_salary: payment.basic_salary.toString(),
-        deductions: payment.deductions.toString(),
-        holiday_pay: payment.holiday_pay.toString(),
         incentives: payment.incentives.toString(),
         payment_date: payment.payment_date,
         status: payment.status,
         notes: payment.notes || '',
     });
 
-    const [netPayment, setNetPayment] = useState(payment.net_payment);
-
-    const calculateNetPayment = () => {
-        const basicSalary = parseFloat(data.basic_salary) || 0;
-        const deductions = parseFloat(data.deductions) || 0;
-        const holidayPay = parseFloat(data.holiday_pay) || 0;
-        const incentives = parseFloat(data.incentives) || 0;
-        
-        const net = basicSalary + holidayPay + incentives - deductions;
-        setNetPayment(net);
-        return net;
-    };
-
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        // Calculate net payment before submission
-        const net = calculateNetPayment();
-        
         console.log('Updating doctor payment...');
         console.log('Form data:', data);
-        console.log('Calculated net payment:', net);
         
-        // Let Inertia handle the validation through the backend
-        // Remove client-side validation that blocks submission
         put(`/admin/billing/doctor-payments/${payment.id}`, {
             onSuccess: (page) => {
                 console.log('Payment updated successfully');
                 console.log('Response:', page);
+                // Redirect to doctor payments index
+                window.location.href = '/admin/billing/doctor-payments';
             },
             onError: (errors) => {
                 console.error('Form submission errors:', errors);
@@ -91,27 +77,20 @@ export default function EditDoctorPayment({ payment, doctors }: EditDoctorPaymen
         });
     };
 
-    // Update net payment when form data changes
-    React.useEffect(() => {
-        calculateNetPayment();
-    }, [data.basic_salary, data.deductions, data.holiday_pay, data.incentives]);
 
     return (
-        <AppLayout>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Edit Doctor Payment" />
             
-            <div className="container mx-auto py-6">
-                <div className="mb-6">
-                    <div className="flex items-center gap-4 mb-4">
+            <div className="min-h-screen bg-white p-6">
+                <div className="mb-8">
+                    <div className="flex items-center gap-6">
                         <Button asChild variant="outline" className="h-12 w-12">
                             <a href="/admin/billing/doctor-payments">
                                 <ArrowLeft className="h-5 w-5" />
                             </a>
                         </Button>
-                        <div>
-                            <h1 className="text-3xl font-bold">Edit Doctor Payment</h1>
-                            <p className="text-muted-foreground">Modify the payment information</p>
-                        </div>
+                        <Heading title="Edit Doctor Payment" description="Modify the payment information" icon={DollarSign} />
                     </div>
                 </div>
 
@@ -137,7 +116,12 @@ export default function EditDoctorPayment({ payment, doctors }: EditDoctorPaymen
                                     <SelectContent>
                                         {doctors.map((doctor) => (
                                             <SelectItem key={doctor.id} value={doctor.id.toString()}>
-                                                {doctor.name}
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium">{doctor.name}</span>
+                                                    {doctor.specialization && (
+                                                        <span className="text-sm text-gray-500">{doctor.specialization}</span>
+                                                    )}
+                                                </div>
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -147,79 +131,24 @@ export default function EditDoctorPayment({ payment, doctors }: EditDoctorPaymen
                                 )}
                             </div>
 
-                            {/* Basic Salary */}
-                            <div className="space-y-2">
-                                <Label htmlFor="basic_salary">Basic Salary *</Label>
-                                <Input
-                                    id="basic_salary"
-                                    type="number"
-                                    step="0.01"
-                                    value={data.basic_salary}
-                                    onChange={(e) => setData('basic_salary', e.target.value)}
-                                    placeholder="Enter basic salary amount"
-                                />
-                                {errors.basic_salary && (
-                                    <p className="text-sm text-red-600">{errors.basic_salary}</p>
-                                )}
-                            </div>
-
-                            {/* Deductions */}
-                            <div className="space-y-2">
-                                <Label htmlFor="deductions">Deductions</Label>
-                                <Input
-                                    id="deductions"
-                                    type="number"
-                                    step="0.01"
-                                    value={data.deductions}
-                                    onChange={(e) => setData('deductions', e.target.value)}
-                                    placeholder="Enter deductions amount"
-                                />
-                                {errors.deductions && (
-                                    <p className="text-sm text-red-600">{errors.deductions}</p>
-                                )}
-                            </div>
-
-                            {/* Holiday Pay */}
-                            <div className="space-y-2">
-                                <Label htmlFor="holiday_pay">Holiday Pay</Label>
-                                <Input
-                                    id="holiday_pay"
-                                    type="number"
-                                    step="0.01"
-                                    value={data.holiday_pay}
-                                    onChange={(e) => setData('holiday_pay', e.target.value)}
-                                    placeholder="Enter holiday pay amount"
-                                />
-                                {errors.holiday_pay && (
-                                    <p className="text-sm text-red-600">{errors.holiday_pay}</p>
-                                )}
-                            </div>
-
                             {/* Incentives */}
                             <div className="space-y-2">
-                                <Label htmlFor="incentives">Incentives</Label>
-                                <Input
-                                    id="incentives"
-                                    type="number"
-                                    step="0.01"
-                                    value={data.incentives}
-                                    onChange={(e) => setData('incentives', e.target.value)}
-                                    placeholder="Enter incentives amount"
-                                />
+                                <Label htmlFor="incentives">Incentives *</Label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₱</span>
+                                    <Input
+                                        id="incentives"
+                                        type="number"
+                                        step="0.01"
+                                        value={data.incentives}
+                                        onChange={(e) => setData('incentives', e.target.value)}
+                                        placeholder="0.00"
+                                        className="pl-8"
+                                    />
+                                </div>
                                 {errors.incentives && (
                                     <p className="text-sm text-red-600">{errors.incentives}</p>
                                 )}
-                            </div>
-
-                            {/* Net Payment Display */}
-                            <div className="space-y-2">
-                                <Label>Net Payment (Calculated)</Label>
-                                <div className="p-3 bg-muted rounded-md flex items-center gap-2">
-                                    <Calculator className="h-4 w-4" />
-                                    <span className="text-lg font-semibold">
-                                        ₱{netPayment.toFixed(2)}
-                                    </span>
-                                </div>
                             </div>
 
                             {/* Payment Date */}
@@ -289,6 +218,40 @@ export default function EditDoctorPayment({ payment, doctors }: EditDoctorPaymen
                                     Cancel
                                 </Button>
                             </div>
+
+                            {/* Mark as Paid Button - Only show if status is pending */}
+                            {data.status === 'pending' && (
+                                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h4 className="font-medium text-yellow-800">Payment Pending</h4>
+                                            <p className="text-sm text-yellow-600">This payment is currently pending. You can mark it as paid now.</p>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            className="bg-green-600 hover:bg-green-700"
+                                            onClick={() => {
+                                                setData('status', 'paid');
+                                                // Submit the form with paid status
+                                                put(`/admin/billing/doctor-payments/${payment.id}`, {
+                                                    onSuccess: (page) => {
+                                                        console.log('Payment marked as paid successfully');
+                                                        console.log('Response:', page);
+                                                        // Redirect to doctor payments index
+                                                        window.location.href = '/admin/billing/doctor-payments';
+                                                    },
+                                                    onError: (errors) => {
+                                                        console.error('Form submission errors:', errors);
+                                                    }
+                                                });
+                                            }}
+                                        >
+                                            <Check className="mr-2 h-4 w-4" />
+                                            Mark as Paid
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </form>
                     </CardContent>
                 </Card>

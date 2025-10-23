@@ -93,12 +93,6 @@ const getPermissionBasedNavigation = (permissions: any, userRole: string) => {
       href: "/admin/dashboard",
       icon: LayoutDashboardIcon,
       show: true, // Always show for staff
-      items: [
-        {
-          title: "Overview",
-          url: "/admin/dashboard",
-        },
-      ],
     },
     // Patient Management - Doctor, Nurse, Hospital Staff
     {
@@ -147,21 +141,6 @@ const getPermissionBasedNavigation = (permissions: any, userRole: string) => {
           title: "Test Templates",
           url: "/admin/laboratory/tests",
           show: getSubItemAccess('laboratory', 'Test Templates'),
-        },
-        {
-          title: "Results Entry",
-          url: "/admin/laboratory/results",
-          show: getSubItemAccess('laboratory', 'Results Entry'),
-        },
-        {
-          title: "Lab Reports",
-          url: "/admin/laboratory/lab-reports",
-          show: getSubItemAccess('laboratory', 'Lab Reports'),
-        },
-        {
-          title: "Reports",
-          url: "/admin/reports/laboratory",
-          show: getSubItemAccess('laboratory', 'Reports'),
         },
       ],
     },
@@ -218,11 +197,6 @@ const getPermissionBasedNavigation = (permissions: any, userRole: string) => {
           url: "/admin/inventory/medtech",
           show: getSubItemAccess('inventory', 'Med Tech Supplies'),
         },
-        {
-          title: "Reports",
-          url: "/admin/inventory/reports",
-          show: getSubItemAccess('inventory', 'Reports'),
-        },
       ],
     },
     // Reports - Doctor, MedTech, Nurse, Hospital Staff
@@ -232,6 +206,43 @@ const getPermissionBasedNavigation = (permissions: any, userRole: string) => {
       href: "/admin/reports",
       icon: BarChartIcon,
       show: getModuleAccess('reports'),
+      items: [
+        {
+          title: "Overview",
+          url: "/admin/reports",
+          show: getSubItemAccess('reports', 'Overview'),
+        },
+        {
+          title: "Financial",
+          url: "/admin/reports/financial",
+          show: getSubItemAccess('reports', 'Financial'),
+        },
+        {
+          title: "Patients",
+          url: "/admin/reports/patients",
+          show: getSubItemAccess('reports', 'Patients'),
+        },
+        {
+          title: "Laboratory",
+          url: "/admin/reports/laboratory",
+          show: getSubItemAccess('reports', 'Laboratory'),
+        },
+        {
+          title: "Inventory",
+          url: "/admin/reports/inventory",
+          show: getSubItemAccess('reports', 'Inventory'),
+        },
+        {
+          title: "Appointments",
+          url: "/admin/reports/appointments",
+          show: getSubItemAccess('reports', 'Appointments'),
+        },
+        {
+          title: "Analytics",
+          url: "/admin/reports/analytics",
+          show: getSubItemAccess('reports', 'Analytics'),
+        },
+      ],
     },
   ];
 
@@ -247,14 +258,17 @@ const getPermissionBasedNavigation = (permissions: any, userRole: string) => {
         {
           title: "Doctors",
           url: "/admin/specialists/doctors",
+          show: true,
         },
         {
           title: "Nurses",
           url: "/admin/specialists/nurses",
+          show: true,
         },
         {
           title: "Med Techs",
           url: "/admin/specialists/medtechs",
+          show: true,
         },
       ],
     },
@@ -272,13 +286,18 @@ const getPermissionBasedNavigation = (permissions: any, userRole: string) => {
           show: getSubItemAccess('billing', 'Transactions'),
         },
         {
+          title: "HMO Providers",
+          url: "/admin/billing/hmo-providers",
+          show: getSubItemAccess('billing', 'HMO Providers'),
+        },
+        {
           title: "Doctor Payments",
           url: "/admin/billing/doctor-payments",
           show: getSubItemAccess('billing', 'Doctor Payments'),
         },
         {
           title: "Reports",
-          url: "/admin/billing/billing-reports",
+          url: "/admin/billing/doctor-summary",
           show: getSubItemAccess('billing', 'Reports'),
         },
       ],

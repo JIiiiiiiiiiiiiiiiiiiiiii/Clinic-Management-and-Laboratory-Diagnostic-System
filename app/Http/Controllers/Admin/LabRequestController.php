@@ -27,17 +27,10 @@ class LabRequestController extends Controller
                 'notes' => 'nullable|string',
             ]);
 
-            // RESTRICTION: Check if appointment has billing transaction
+            // Allow lab requests to be added to appointments without requiring existing billing transactions
             $visit = Visit::with(['appointment'])->find($validated['visit_id']);
             if (!$visit || !$visit->appointment) {
                 return back()->with('error', 'Visit or appointment not found.');
-            }
-
-            // Check if appointment has a billing transaction (not just pending status)
-            $hasBillingTransaction = \App\Models\BillingTransaction::where('appointment_id', $visit->appointment->id)->exists();
-            
-            if (!$hasBillingTransaction) {
-                return back()->with('error', 'Cannot add lab requests to appointments without billing transactions. Please create a billing transaction first.');
             }
 
             DB::beginTransaction();

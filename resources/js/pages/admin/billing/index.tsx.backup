@@ -752,7 +752,7 @@ export default function BillingIndex({
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="font-semibold text-green-600">
-                                                        ₱{appointment.price.toLocaleString()}
+                                                        ₱{(appointment.final_total_amount || appointment.price).toLocaleString()}
                                                     </TableCell>
                                                     <TableCell>
                                                         <Badge variant="outline" className="bg-yellow-100 text-yellow-800">

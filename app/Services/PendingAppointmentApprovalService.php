@@ -157,7 +157,7 @@ class PendingAppointmentApprovalService
             'appointment_date' => $pendingAppointment->appointment_date,
             'appointment_time' => $pendingAppointment->appointment_time,
             'duration' => $pendingAppointment->duration,
-            'price' => $pendingAppointment->price,
+            'price' => null, // Will be calculated after creation
             'notes' => $pendingAppointment->notes,
             'special_requirements' => $pendingAppointment->special_requirements,
             'source' => 'Online',
@@ -168,10 +168,21 @@ class PendingAppointmentApprovalService
 
         $appointment = Appointment::create($appointmentData);
         
+        // Calculate and set price using the Appointment model's calculatePrice method
+        $calculatedPrice = $appointment->calculatePrice();
+        $appointment->update([
+            'price' => $calculatedPrice,
+            'final_total_amount' => $calculatedPrice, // Set final_total_amount to the same as price when no lab tests
+            'total_lab_amount' => 0 // No lab tests initially
+        ]);
+        
         Log::info('Appointment created from pending', [
             'appointment_id' => $appointment->id,
             'patient_id' => $patient->id,
-            'pending_appointment_id' => $pendingAppointment->id
+            'pending_appointment_id' => $pendingAppointment->id,
+            'appointment_type' => $appointment->appointment_type,
+            'calculated_price' => $calculatedPrice,
+            'final_price' => $appointment->fresh()->price
         ]);
 
         return $appointment;

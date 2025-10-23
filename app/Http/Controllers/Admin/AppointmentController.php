@@ -667,7 +667,7 @@ class AppointmentController extends Controller
                 'appointment_date' => $request->appointment_date,
                 'appointment_time' => $timeFormatted,
                 'duration' => '30 min',
-                'price' => $this->calculatePrice($request->appointment_type),
+                'price' => null, // Will be calculated using Appointment model's calculatePrice method
                 'additional_info' => $request->notes,
                 'admin_notes' => $request->special_requirements,
                 'source' => 'Walk-in',
@@ -676,6 +676,10 @@ class AppointmentController extends Controller
 
             // Create appointment
             $appointment = \App\Models\Appointment::create($appointmentData);
+
+            // Calculate and set price using the model's calculatePrice method
+            $calculatedPrice = $appointment->calculatePrice();
+            $appointment->update(['price' => $calculatedPrice]);
 
             // Generate visit code before creation
             $nextId = \App\Models\Visit::max('id') + 1;

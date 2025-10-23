@@ -17,8 +17,7 @@ import {
     CheckCircle, 
     XCircle, 
     AlertCircle,
-    FileText,
-    DollarSign
+    FileText
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -266,10 +265,7 @@ export default function PendingAppointmentShow({
                                     </div>
                                     <div>
                                         <Label className="text-sm font-medium text-gray-600">Price</Label>
-                                        <div className="flex items-center gap-2">
-                                            <DollarSign className="h-4 w-4 text-green-600" />
-                                            <p className="text-lg font-semibold text-green-600">{pendingAppointment.price}</p>
-                                        </div>
+                                        <p className="text-lg font-semibold text-green-600">{pendingAppointment.price}</p>
                                     </div>
                                 </div>
                             </CardContent>

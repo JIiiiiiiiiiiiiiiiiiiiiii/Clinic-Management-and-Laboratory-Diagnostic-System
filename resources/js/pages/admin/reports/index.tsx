@@ -164,19 +164,6 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
                 profit: (summary?.total_revenue || 0) - (summary?.total_expenses || 0),
             },
         },
-        {
-            id: 'summary',
-            title: 'General Summary / Combined Report',
-            description: 'Comprehensive overview of all clinic operations and KPIs',
-            icon: TrendingUp,
-            color: 'bg-gradient-to-r from-indigo-500 to-purple-600',
-            href: '/admin/reports/analytics',
-            stats: {
-                total_patients: summary?.total_patients || 0,
-                total_revenue: summary?.total_revenue || 0,
-                total_appointments: summary?.total_appointments || 0,
-            },
-        },
     ];
 
     return (

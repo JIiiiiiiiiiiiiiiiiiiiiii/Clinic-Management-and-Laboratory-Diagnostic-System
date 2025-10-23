@@ -77,7 +77,7 @@ class BillingController extends Controller
 
             // Get pending appointments for billing
             $pendingAppointments = Appointment::where('billing_status', 'pending')
-                ->with(['patient', 'specialist'])
+                ->with(['patient', 'specialist', 'labTests.labTest'])
                 ->orderBy('appointment_date', 'asc')
                 ->get();
                 
@@ -108,7 +108,7 @@ class BillingController extends Controller
 
 
             // Load doctor payments data
-            $doctorPayments = \App\Models\DoctorPayment::orderBy('created_at', 'desc')
+            $doctorPayments = \App\Models\DoctorPayment::with('doctor')->orderBy('created_at', 'desc')
                 ->paginate(15);
 
 
@@ -215,11 +215,16 @@ class BillingController extends Controller
         $patients = Patient::select('id', 'first_name', 'last_name', 'patient_no')->get();
         $doctors = User::where('role', 'doctor')->select('id', 'name')->get();
         $labTests = LabTest::select('id', 'name', 'code', 'price')->get();
+        $hmoProviders = \App\Models\HmoProvider::where('is_active', true)
+            ->select('id', 'name', 'code', 'is_active')
+            ->orderBy('name')
+            ->get();
 
         return Inertia::render('admin/billing/create', [
             'patients' => $patients,
             'doctors' => $doctors,
             'labTests' => $labTests,
+            'hmoProviders' => $hmoProviders,
         ]);
     }
 
@@ -233,11 +238,15 @@ class BillingController extends Controller
         \Log::info('Request parameters: ' . json_encode(request()->all()));
         
         $pendingAppointments = Appointment::pendingBilling()
-            ->with(['billingLinks'])
+            ->with(['billingLinks', 'labTests.labTest'])
             ->orderBy('appointment_date', 'asc')
             ->get();
 
         $doctors = User::where('role', 'doctor')->select('id', 'name')->get();
+        $hmoProviders = \App\Models\HmoProvider::where('is_active', true)
+            ->select('id', 'name', 'code', 'is_active')
+            ->orderBy('name')
+            ->get();
 
         // Get the appointment_id from the request to pre-select it
         $selectedAppointmentId = request()->get('appointment_id');
@@ -245,6 +254,7 @@ class BillingController extends Controller
 
         \Log::info('Pending appointments found: ' . $pendingAppointments->count());
         \Log::info('Doctors found: ' . $doctors->count());
+        \Log::info('HMO providers found: ' . $hmoProviders->count());
 
         // If no doctors found, log a warning but continue
         if ($doctors->isEmpty()) {
@@ -254,6 +264,7 @@ class BillingController extends Controller
         return Inertia::render('admin/billing/create-from-appointments', [
             'pendingAppointments' => $pendingAppointments,
             'doctors' => $doctors,
+            'hmoProviders' => $hmoProviders,
             'selectedAppointmentId' => $selectedAppointmentId,
         ]);
     }
@@ -303,6 +314,7 @@ class BillingController extends Controller
                           ->orWhere('billing_status', 'pending')
                           ->orWhere('billing_status', 'not_billed');
                 })
+                ->with(['labTests.labTest']) // Load lab tests relationship
                 ->get();
 
             \Log::info('Found appointments: ' . $appointments->count());
@@ -328,16 +340,54 @@ class BillingController extends Controller
                 return back()->withErrors(['error' => 'No valid pending appointments selected.']);
             }
 
+            // Calculate total amount including lab tests
             $totalAmount = $appointments->sum('price');
-            \Log::info('Total amount: ' . $totalAmount);
+            
+            // Add lab test amounts to total
+            $totalLabAmount = 0;
+            foreach ($appointments as $appointment) {
+                $labAmount = $appointment->total_lab_amount ?? 0;
+                
+                // Fallback: Calculate from lab tests if total_lab_amount is not set
+                if ($labAmount == 0 && $appointment->labTests->count() > 0) {
+                    $labAmount = $appointment->labTests->sum('total_price');
+                    \Log::info('Fallback calculation for lab amount', [
+                        'appointment_id' => $appointment->id,
+                        'calculated_amount' => $labAmount
+                    ]);
+                }
+                
+                $totalLabAmount += $labAmount;
+                
+                \Log::info('Appointment lab test debug', [
+                    'appointment_id' => $appointment->id,
+                    'appointment_price' => $appointment->price,
+                    'total_lab_amount' => $labAmount,
+                    'final_total_amount' => $appointment->final_total_amount ?? 0,
+                    'lab_tests_count' => $appointment->labTests->count()
+                ]);
+            }
+            
+            $totalAmount += $totalLabAmount;
+            \Log::info('Total amount (including lab tests): ' . $totalAmount);
+            \Log::info('Lab test amount: ' . $totalLabAmount);
 
             // Calculate senior citizen discount
             $isSeniorCitizen = $request->boolean('is_senior_citizen', false);
             $consultationAppointments = $appointments->filter(function($apt) {
                 return in_array($apt->appointment_type, ['consultation', 'general_consultation']);
             });
+            
+            // Calculate consultation amount including lab tests for senior discount
             $consultationAmount = $consultationAppointments->sum('price');
-            $seniorDiscountAmount = $isSeniorCitizen && $request->payment_method !== 'hmo' ? ($consultationAmount * 0.20) : 0;
+            $consultationLabAmount = 0;
+            foreach ($consultationAppointments as $appointment) {
+                $consultationLabAmount += $appointment->total_lab_amount ?? 0;
+            }
+            $totalConsultationAmount = $consultationAmount + $consultationLabAmount;
+            
+            // Senior citizen discount applies to consultation + lab tests for consultation appointments
+            $seniorDiscountAmount = $isSeniorCitizen && $request->payment_method !== 'hmo' ? ($totalConsultationAmount * 0.20) : 0;
             $finalAmount = $totalAmount - $seniorDiscountAmount;
 
             // Generate unique transaction ID (increment like patient ID)
@@ -363,9 +413,9 @@ class BillingController extends Controller
                 'patient_id' => $patientId,
                 'doctor_id' => $doctorId,
                 'payment_type' => 'cash',
-                'total_amount' => $finalAmount,
-                'amount' => $finalAmount,
-                'discount_amount' => $seniorDiscountAmount,
+                'total_amount' => $totalAmount, // Original amount before discount
+                'amount' => $finalAmount, // Final amount after discount
+                'discount_amount' => 0, // Regular discount amount (not senior citizen)
                 'payment_method' => $request->payment_method,
                 'payment_reference' => $request->payment_reference,
                 'status' => 'pending',
@@ -382,6 +432,11 @@ class BillingController extends Controller
                 $transactionData['is_senior_citizen'] = $isSeniorCitizen;
                 $transactionData['senior_discount_amount'] = $seniorDiscountAmount;
                 $transactionData['senior_discount_percentage'] = $seniorDiscountAmount > 0 ? 20.00 : 0;
+            }
+            
+            // Mark as itemized if lab tests exist
+            if ($totalLabAmount > 0) {
+                $transactionData['is_itemized'] = true;
             }
             
             if ($request->hmo_provider) {
@@ -408,8 +463,36 @@ class BillingController extends Controller
                 'hmo_reference_number' => $request->hmo_reference_number
             ]);
 
-            // Create appointment billing links and update appointment status
+            // Create billing transaction items for appointments and lab tests
             foreach ($appointments as $appointment) {
+                // Create consultation item
+                \App\Models\BillingTransactionItem::create([
+                    'billing_transaction_id' => $transaction->id,
+                    'item_type' => 'consultation',
+                    'item_name' => ucfirst($appointment->appointment_type) . ' Appointment',
+                    'item_description' => "Appointment for {$appointment->patient_name} on {$appointment->appointment_date->format('M d, Y')} at {$appointment->appointment_time->format('g:i A')}",
+                    'quantity' => 1,
+                    'unit_price' => $appointment->price,
+                    'total_price' => $appointment->price
+                ]);
+
+                // Create lab test items if any
+                if ($appointment->total_lab_amount > 0) {
+                    $labTests = $appointment->labTests()->with('labTest')->get();
+                    foreach ($labTests as $appointmentLabTest) {
+                        \App\Models\BillingTransactionItem::create([
+                            'billing_transaction_id' => $transaction->id,
+                            'item_type' => 'laboratory',
+                            'lab_test_id' => $appointmentLabTest->lab_test_id,
+                            'item_name' => $appointmentLabTest->labTest->name,
+                            'item_description' => "Lab test: {$appointmentLabTest->labTest->name}",
+                            'quantity' => 1,
+                            'unit_price' => $appointmentLabTest->unit_price,
+                            'total_price' => $appointmentLabTest->total_price
+                        ]);
+                    }
+                }
+
                 // Check if billing link already exists to avoid duplicates
                 $existingLink = AppointmentBillingLink::where('appointment_id', $appointment->id)
                     ->where('billing_transaction_id', $transaction->id)
@@ -591,7 +674,7 @@ class BillingController extends Controller
         }
         
         // Check if transaction has itemized billing (with lab tests)
-        if ($transaction->is_itemized && $transaction->items()->exists()) {
+        if ($transaction->items()->exists()) {
             // Use actual billing transaction items (includes consultation + lab tests)
             $itemsCollection = $transaction->items;
             $transaction->setRelation('items', $itemsCollection);
@@ -611,6 +694,22 @@ class BillingController extends Controller
                             'unit_price' => $appointment->price,
                             'total_price' => $appointment->price,
                         ];
+                        
+                        // Add lab test items if they exist
+                        if ($appointment->total_lab_amount > 0) {
+                            $labTests = $appointment->labTests()->with('labTest')->get();
+                            foreach ($labTests as $appointmentLabTest) {
+                                $appointmentItems[] = (object) [
+                                    'id' => 'lab_' . $appointmentLabTest->id,
+                                    'item_type' => 'laboratory',
+                                    'item_name' => $appointmentLabTest->labTest->name,
+                                    'item_description' => "Lab test: {$appointmentLabTest->labTest->name}",
+                                    'quantity' => 1,
+                                    'unit_price' => $appointmentLabTest->unit_price,
+                                    'total_price' => $appointmentLabTest->total_price,
+                                ];
+                            }
+                        }
                     }
                 }
                 $itemsCollection = collect($appointmentItems);
@@ -626,11 +725,33 @@ class BillingController extends Controller
         if ($transaction->appointmentLinks->isNotEmpty()) {
             $appointment = $transaction->appointmentLinks->first()->appointment;
             if ($appointment && $appointment->final_total_amount > $appointment->price) {
-                // Only update the specific fields we need
-                $transaction->update([
-                    'total_amount' => $appointment->final_total_amount,
-                    'amount' => $appointment->final_total_amount
-                ]);
+                // Calculate new amounts preserving senior citizen discount
+                $newTotalAmount = $appointment->final_total_amount;
+                $newAmount = $newTotalAmount;
+                
+                // If senior citizen discount exists, apply it to the new total
+                if ($transaction->is_senior_citizen && $transaction->senior_discount_amount > 0) {
+                    // Calculate the senior discount percentage based on consultation items
+                    $consultationItems = $transaction->appointmentLinks->filter(function($link) {
+                        return in_array($link->appointment->appointment_type, ['consultation', 'general_consultation']);
+                    });
+                    $consultationAmount = $consultationItems->sum('appointment_price');
+                    $seniorDiscountAmount = $consultationAmount * 0.20; // 20% discount
+                    $newAmount = $newTotalAmount - $seniorDiscountAmount;
+                    
+                    // Update the senior discount amount
+                    $transaction->update([
+                        'total_amount' => $newTotalAmount,
+                        'amount' => $newAmount,
+                        'senior_discount_amount' => $seniorDiscountAmount
+                    ]);
+                } else {
+                    // No senior citizen discount, just update amounts
+                    $transaction->update([
+                        'total_amount' => $newTotalAmount,
+                        'amount' => $newAmount
+                    ]);
+                }
             }
         }
 
@@ -640,6 +761,10 @@ class BillingController extends Controller
             'status' => $transaction->status,
             'total_amount' => $transaction->total_amount,
             'amount' => $transaction->amount,
+            'is_senior_citizen' => $transaction->is_senior_citizen,
+            'senior_discount_amount' => $transaction->senior_discount_amount,
+            'senior_discount_percentage' => $transaction->senior_discount_percentage,
+            'discount_amount' => $transaction->discount_amount,
             'is_itemized' => $transaction->is_itemized,
             'patient' => $transaction->patient ? $transaction->patient->first_name . ' ' . $transaction->patient->last_name : 'No patient',
             'doctor' => $transaction->doctor ? $transaction->doctor->name : 'No doctor',

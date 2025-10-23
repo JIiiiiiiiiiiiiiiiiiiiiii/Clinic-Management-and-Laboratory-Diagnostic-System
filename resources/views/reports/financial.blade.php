@@ -152,15 +152,59 @@
                 </thead>
                 <tbody>
                     @foreach($data as $key => $value)
-                        <tr>
-                            <td>{{ ucfirst(str_replace('_', ' ', $key)) }}</td>
-                            <td>{{ is_numeric($value) ? '₱' . number_format($value, 2) : $value }}</td>
-                        </tr>
+                        @if(in_array($key, ['total_revenue', 'total_transactions']))
+                            <tr>
+                                <td>{{ ucfirst(str_replace('_', ' ', $key)) }}</td>
+                                <td>
+                                    @if($key === 'total_revenue')
+                                        PHP {{ number_format($value, 2) }}
+                                    @elseif($key === 'total_transactions')
+                                        {{ $value }}
+                                    @else
+                                        {{ $value }}
+                                    @endif
+                                </td>
+                            </tr>
+                        @endif
                     @endforeach
                 </tbody>
             </table>
         @else
             <p>No financial data available.</p>
+        @endif
+    </div>
+
+    <div class="section">
+        <h2>Financial Transactions</h2>
+        @if(isset($transactions) && count($transactions) > 0)
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Transaction ID</th>
+                        <th>Patient Name</th>
+                        <th>Doctor Name</th>
+                        <th>Amount</th>
+                        <th>Payment Method</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($transactions as $transaction)
+                        <tr>
+                            <td>{{ $transaction['id'] }}</td>
+                            <td>{{ $transaction['patient_name'] }}</td>
+                            <td>{{ $transaction['doctor_name'] }}</td>
+                            <td>PHP {{ number_format($transaction['total_amount'], 2) }}</td>
+                            <td>{{ $transaction['payment_method'] }}</td>
+                            <td>{{ \Carbon\Carbon::parse($transaction['transaction_date'])->format('M d, Y') }}</td>
+                            <td>{{ $transaction['status'] }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @else
+            <p>No transaction data available.</p>
         @endif
     </div>
 

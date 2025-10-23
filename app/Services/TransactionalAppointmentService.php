@@ -45,8 +45,9 @@ class TransactionalAppointmentService
                 // Create appointment
                 $appointment = $this->createAppointment($appointmentData, $patientId, 'Online', 'Pending');
                 
-                // Send notification to admin
-                $this->notifyAdminPendingAppointment($appointment);
+                // Send notification to admin using centralized service
+                $notificationService = app(\App\Services\NotificationService::class);
+                $notificationService->notifyNewAppointment($appointment);
 
                 Log::info('Online appointment created successfully', [
                     'appointment_id' => $appointment->id,
@@ -234,7 +235,7 @@ class TransactionalAppointmentService
             'appointment_date' => $appointmentData['appointment_date'],
             'appointment_time' => $appointmentData['appointment_time'],
             'duration' => $appointmentData['duration'] ?? '30 min',
-            'price' => $appointmentData['price'] ?? 0.00,
+            'price' => $appointmentData['price'] ?? null, // Will be calculated after creation
             'additional_info' => $appointmentData['additional_info'] ?? null,
             'source' => $source,
             'status' => $status,
@@ -243,7 +244,14 @@ class TransactionalAppointmentService
 
         // Generate appointment code after insert
         $appointmentCode = 'A' . str_pad($appointment->id, 4, '0', STR_PAD_LEFT);
-        $appointment->update(['appointment_code' => $appointmentCode]);
+        
+        // Calculate and set price if not provided
+        $calculatedPrice = $appointmentData['price'] ?? $appointment->calculatePrice();
+        
+        $appointment->update([
+            'appointment_code' => $appointmentCode,
+            'price' => $calculatedPrice
+        ]);
 
         return $appointment->fresh();
     }
@@ -309,29 +317,6 @@ class TransactionalAppointmentService
         return $transaction->fresh();
     }
 
-    /**
-     * Notify admin about pending appointment
-     */
-    private function notifyAdminPendingAppointment(Appointment $appointment): void
-    {
-        $admins = \App\Models\User::where('role', 'admin')->get();
-        
-        foreach ($admins as $admin) {
-            Notification::create([
-                'user_id' => $admin->id,
-                'type' => 'appointment_pending',
-                'title' => 'New Online Appointment Request',
-                'message' => "Patient {$appointment->patient->first_name} {$appointment->patient->last_name} has requested an appointment for {$appointment->appointment_type} on {$appointment->appointment_date} at {$appointment->appointment_time}",
-                'data' => [
-                    'appointment_id' => $appointment->id,
-                    'appointment_code' => $appointment->appointment_code,
-                    'patient_id' => $appointment->patient_id,
-                    'patient_code' => $appointment->patient->patient_code
-                ],
-                'is_read' => false
-            ]);
-        }
-    }
 
     /**
      * Notify patient about appointment approval

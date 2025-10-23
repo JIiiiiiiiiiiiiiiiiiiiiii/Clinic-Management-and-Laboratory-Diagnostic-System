@@ -24,12 +24,12 @@ class InventoryReportController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->paginate(10);
 
-            return Inertia::render('Inventory/Reports', [
+            return Inertia::render('admin/reports/inventory', [
                 'reports' => $reports,
             ]);
         } catch (\Exception $e) {
             // Fallback if there are no reports yet
-            return Inertia::render('Inventory/Reports', [
+            return Inertia::render('admin/reports/inventory', [
                 'reports' => [
                     'data' => [],
                     'links' => [],

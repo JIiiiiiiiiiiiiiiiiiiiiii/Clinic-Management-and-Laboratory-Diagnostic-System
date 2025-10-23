@@ -30,6 +30,7 @@ type PendingAppointment = {
     patient_id: string;
     appointment_type: string;
     price: number;
+    final_total_amount?: number;
     appointment_date: string;
     appointment_time: string;
     specialist_name: string;
@@ -39,6 +40,13 @@ type PendingAppointment = {
 type Doctor = {
     id: number;
     name: string;
+};
+
+type HmoProvider = {
+    id: number;
+    name: string;
+    code: string;
+    is_active: boolean;
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -55,10 +63,12 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function CreateFromAppointments({ 
     pendingAppointments,
     doctors,
+    hmoProviders = [],
     selectedAppointmentId 
 }: { 
     pendingAppointments: PendingAppointment[];
     doctors: Doctor[];
+    hmoProviders?: HmoProvider[];
     selectedAppointmentId?: string;
 }) {
     const [selectedAppointments, setSelectedAppointments] = useState<number[]>(
@@ -66,13 +76,24 @@ export default function CreateFromAppointments({
     );
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [paymentReference, setPaymentReference] = useState('');
+    const [hmoProvider, setHmoProvider] = useState('');
+    const [hmoReferenceNumber, setHmoReferenceNumber] = useState('');
+    const [isSeniorCitizen, setIsSeniorCitizen] = useState(false);
     const [notes, setNotes] = useState('');
 
     const selectedAppointmentsData = pendingAppointments.filter(apt => 
         selectedAppointments.includes(apt.id)
     );
 
-    const totalAmount = selectedAppointmentsData.reduce((sum, apt) => sum + apt.price, 0);
+    const totalAmount = selectedAppointmentsData.reduce((sum, apt) => sum + (apt.final_total_amount || apt.price), 0);
+    
+    // Calculate senior citizen discount (20% on consultation appointments including lab tests)
+    const consultationAppointments = selectedAppointmentsData.filter(apt => 
+        apt.appointment_type === 'consultation' || apt.appointment_type === 'general_consultation'
+    );
+    const consultationAmount = consultationAppointments.reduce((sum, apt) => sum + (apt.final_total_amount || apt.price), 0);
+    const seniorDiscountAmount = isSeniorCitizen && paymentMethod !== 'hmo' ? (consultationAmount * 0.20) : 0;
+    const finalAmount = totalAmount - seniorDiscountAmount;
 
     const handleAppointmentToggle = (appointmentId: number) => {
         setSelectedAppointments(prev => 
@@ -109,6 +130,9 @@ export default function CreateFromAppointments({
             appointment_ids: selectedAppointments,
             payment_method: paymentMethod,
             payment_reference: paymentReference,
+            hmo_provider: hmoProvider,
+            hmo_reference_number: hmoReferenceNumber,
+            is_senior_citizen: isSeniorCitizen,
             notes: notes,
         }, {
             onStart: () => console.log('Form submission started'),
@@ -154,8 +178,20 @@ export default function CreateFromAppointments({
                                     <span className="font-semibold">{selectedAppointments.length}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium">Subtotal:</span>
+                                    <span className="text-lg font-semibold">₱{Number(totalAmount || 0).toFixed(2)}</span>
+                                </div>
+                                
+                                {isSeniorCitizen && seniorDiscountAmount > 0 && (
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm font-medium text-blue-600">Senior Citizen Discount (20%):</span>
+                                        <span className="text-lg font-semibold text-blue-600">-₱{Number(seniorDiscountAmount).toFixed(2)}</span>
+                                    </div>
+                                )}
+                                
+                                <div className="flex items-center justify-between border-t pt-2">
                                     <span className="text-sm font-medium">Total Amount:</span>
-                                    <span className="text-lg font-bold text-green-600">₱{Number(totalAmount || 0).toFixed(2)}</span>
+                                    <span className="text-lg font-bold text-green-600">₱{Number(finalAmount || 0).toFixed(2)}</span>
                                 </div>
                                 
                                 {selectedAppointmentsData.length > 0 && (
@@ -168,7 +204,7 @@ export default function CreateFromAppointments({
                                                         <div className="text-sm font-medium">{appointment.patient_name}</div>
                                                         <div className="text-xs text-gray-500">{appointment.appointment_type}</div>
                                                     </div>
-                                                    <div className="text-sm font-semibold">₱{Number(appointment.price || 0).toFixed(2)}</div>
+                                                    <div className="text-sm font-semibold">₱{Number(appointment.final_total_amount || appointment.price || 0).toFixed(2)}</div>
                                                 </div>
                                             ))}
                                         </div>
@@ -212,6 +248,56 @@ export default function CreateFromAppointments({
                                                 placeholder="Reference number (optional)"
                                             />
                                         </div>
+                                    </div>
+
+                                    {paymentMethod === 'hmo' && (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="hmo_provider">HMO Provider</Label>
+                                                <Select value={hmoProvider} onValueChange={setHmoProvider}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select HMO provider" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {hmoProviders.map((provider) => (
+                                                            <SelectItem key={provider.id} value={provider.name}>
+                                                                {provider.name} ({provider.code})
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="hmo_reference_number">HMO Reference Number</Label>
+                                                <Input
+                                                    id="hmo_reference_number"
+                                                    value={hmoReferenceNumber}
+                                                    onChange={(e) => setHmoReferenceNumber(e.target.value)}
+                                                    placeholder="Enter HMO reference number"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Senior Citizen Discount */}
+                                    <div className="space-y-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                                        <div className="flex items-center space-x-2">
+                                            <input
+                                                type="checkbox"
+                                                id="is_senior_citizen"
+                                                checked={isSeniorCitizen}
+                                                onChange={(e) => setIsSeniorCitizen(e.target.checked)}
+                                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                            />
+                                            <Label htmlFor="is_senior_citizen" className="text-sm font-medium text-gray-700">
+                                                Senior Citizen (20% discount on consultation)
+                                            </Label>
+                                        </div>
+                                        {isSeniorCitizen && (
+                                            <div className="text-sm text-blue-700 bg-blue-100 p-3 rounded-lg">
+                                                <strong>Senior Citizen Discount Applied:</strong> 20% discount will be applied to consultation appointments only.
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="notes">Notes</Label>

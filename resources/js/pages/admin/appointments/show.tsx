@@ -181,7 +181,14 @@ export default function AppointmentShow({
                                         </div>
                                         <div>
                                             <label className="text-sm font-medium text-gray-500">Price</label>
-                                            <p className="text-lg font-semibold text-gray-900">₱{(appointment.price || 0).toLocaleString()}</p>
+                                            <p className="text-lg font-semibold text-gray-900">
+                                                ₱{(appointment.final_total_amount || appointment.price || 0).toLocaleString()}
+                                                {appointment.total_lab_amount > 0 && (
+                                                    <span className="text-sm text-green-600 ml-2">
+                                                        (+₱{appointment.total_lab_amount.toLocaleString()} lab)
+                                                    </span>
+                                                )}
+                                            </p>
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

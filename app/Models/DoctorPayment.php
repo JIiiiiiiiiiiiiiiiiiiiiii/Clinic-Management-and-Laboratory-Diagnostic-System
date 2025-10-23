@@ -14,9 +14,6 @@ class DoctorPayment extends Model
 
     protected $fillable = [
         'doctor_id',
-        'basic_salary',
-        'deductions',
-        'holiday_pay',
         'incentives',
         'net_payment',
         'payment_date',
@@ -28,9 +25,6 @@ class DoctorPayment extends Model
     ];
 
     protected $casts = [
-        'basic_salary' => 'decimal:2',
-        'deductions' => 'decimal:2',
-        'holiday_pay' => 'decimal:2',
         'incentives' => 'decimal:2',
         'net_payment' => 'decimal:2',
         'payment_date' => 'date',
@@ -53,20 +47,6 @@ class DoctorPayment extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
-    public function billingLinks()
-    {
-        return $this->hasMany(DoctorPaymentBillingLink::class);
-    }
-
-    public function billingTransactions()
-    {
-        return $this->belongsToMany(
-            BillingTransaction::class,
-            'doctor_payment_billing_links',
-            'doctor_payment_id',
-            'billing_transaction_id'
-        );
-    }
 
     // Scopes
     public function scopeByDoctor($query, $doctorId)
@@ -90,20 +70,6 @@ class DoctorPayment extends Model
         return '₱' . number_format($this->net_payment, 2);
     }
 
-    public function getFormattedBasicSalaryAttribute()
-    {
-        return '₱' . number_format($this->basic_salary, 2);
-    }
-
-    public function getFormattedDeductionsAttribute()
-    {
-        return '₱' . number_format($this->deductions, 2);
-    }
-
-    public function getFormattedHolidayPayAttribute()
-    {
-        return '₱' . number_format($this->holiday_pay, 2);
-    }
 
     public function getFormattedIncentivesAttribute()
     {
@@ -113,7 +79,7 @@ class DoctorPayment extends Model
     // Methods
     public function calculateNetPayment()
     {
-        $this->net_payment = $this->basic_salary + $this->holiday_pay + $this->incentives - $this->deductions;
+        $this->net_payment = $this->incentives;
         return $this;
     }
 
@@ -124,7 +90,7 @@ class DoctorPayment extends Model
 
     public function canBeEdited()
     {
-        return in_array($this->status, ['pending']);
+        return in_array($this->status, ['pending', 'paid', 'cancelled']);
     }
 
     public function canBeCancelled()
@@ -148,9 +114,6 @@ class DoctorPayment extends Model
         DoctorSummaryReport::create([
             'doctor_id' => $this->doctor_id,
             'payment_id' => $this->id,
-            'basic_salary' => $this->basic_salary,
-            'deductions' => $this->deductions,
-            'holiday_pay' => $this->holiday_pay,
             'incentives' => $this->incentives,
             'total_paid' => $this->net_payment,
             'payment_date' => $this->paid_date,

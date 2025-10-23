@@ -138,6 +138,11 @@ class BillingReportController extends Controller
                 'patient_name' => $transaction->patient_name,
                 'specialist_name' => $transaction->specialist_name,
                 'amount' => $transaction->amount,
+                'total_amount' => $transaction->total_amount,
+                'final_amount' => $transaction->final_amount,
+                'discount_amount' => $transaction->discount_amount,
+                'senior_discount_amount' => $transaction->senior_discount_amount,
+                'is_senior_citizen' => $transaction->is_senior_citizen,
                 'payment_method' => $transaction->payment_method,
                 'status' => $transaction->status,
                 'description' => $transaction->description,
@@ -482,6 +487,22 @@ class BillingReportController extends Controller
 
         $doctorPayments = $query->get();
 
+        // Group doctor payments by doctor
+        $doctorPaymentsGrouped = $doctorPayments->groupBy('doctor_id')
+            ->map(function ($payments, $doctorId) {
+                $doctor = $payments->first()->doctor;
+                return [
+                    'doctor' => [
+                        'id' => $doctorId,
+                        'name' => $doctor ? $doctor->name : 'Unknown Doctor',
+                    ],
+                    'total_paid' => $payments->where('status', 'paid')->sum('net_payment'),
+                    'pending_amount' => $payments->where('status', 'pending')->sum('net_payment'),
+                    'payment_count' => $payments->count(),
+                    'paid_payments' => $payments->where('status', 'paid')->count(),
+                ];
+            });
+
         // Get revenue by doctor
         // Convert date strings to datetime range for proper filtering
         $startDateTime = $dateFrom . ' 00:00:00';
@@ -500,8 +521,10 @@ class BillingReportController extends Controller
             ->map(function ($transactions, $doctorId) {
                 $doctor = $transactions->first()->doctor;
                 return [
-                    'doctor_id' => $doctorId,
-                    'doctor_name' => $doctor ? $doctor->name : 'Unknown',
+                    'doctor' => [
+                        'id' => $doctorId,
+                        'name' => $doctor ? $doctor->name : 'Unknown Doctor',
+                    ],
                     'total_revenue' => $transactions->sum('total_amount'),
                     'transaction_count' => $transactions->count(),
                 ];
@@ -509,16 +532,22 @@ class BillingReportController extends Controller
 
         // Calculate summary
         $summary = [
-            'total_doctor_payments' => $doctorPayments->sum('amount_paid'),
+            'total_doctor_payments' => $doctorPayments->where('status', 'paid')->sum('net_payment'),
             'total_doctor_revenue' => $revenueByDoctor->sum('total_revenue'),
-            'doctors_count' => $doctorPayments->groupBy('doctor_id')->count(),
+            'doctors_count' => $doctorPaymentsGrouped->count(),
         ];
 
-        // Get all doctors for filter
-        $doctors = \App\Models\User::where('role', 'doctor')->get(['id', 'name']);
+        // Get all doctors for filter from specialists table
+        $doctors = \App\Models\Specialist::where('role', 'Doctor')
+            ->when(\Schema::hasColumn('specialists', 'status'), function($query) {
+                return $query->where('status', 'Active');
+            })
+            ->select('specialist_id as id', 'name', 'specialization')
+            ->orderBy('name')
+            ->get();
 
         return inertia('admin/billing/doctor-summary', [
-            'doctorPayments' => $doctorPayments,
+            'doctorPayments' => $doctorPaymentsGrouped,
             'revenueByDoctor' => $revenueByDoctor,
             'summary' => $summary,
             'doctors' => $doctors,
@@ -528,6 +557,114 @@ class BillingReportController extends Controller
                 'doctor_id' => $doctorId,
             ]
         ]);
+    }
+
+    /**
+     * Export doctor summary report
+     */
+    public function exportDoctorSummary(Request $request)
+    {
+        $dateFrom = $request->get('date_from', now()->subDays(30)->format('Y-m-d'));
+        $dateTo = $request->get('date_to', now()->format('Y-m-d'));
+        $doctorId = $request->get('doctor_id', 'all');
+        $format = $request->get('format', 'excel');
+
+        try {
+            // Get doctor payments
+            $query = DoctorPayment::whereBetween('payment_date', [$dateFrom, $dateTo])
+                ->with(['doctor']);
+
+            if ($doctorId !== 'all') {
+                $query->where('doctor_id', $doctorId);
+            }
+
+            $doctorPayments = $query->get();
+
+            // Group doctor payments by doctor
+            $doctorPaymentsGrouped = $doctorPayments->groupBy('doctor_id')
+                ->map(function ($payments, $doctorId) {
+                    $doctor = $payments->first()->doctor;
+                    return [
+                        'doctor' => [
+                            'id' => $doctorId,
+                            'name' => $doctor ? $doctor->name : 'Unknown Doctor',
+                        ],
+                        'total_paid' => $payments->where('status', 'paid')->sum('net_payment'),
+                        'pending_amount' => $payments->where('status', 'pending')->sum('net_payment'),
+                        'payment_count' => $payments->count(),
+                        'paid_payments' => $payments->where('status', 'paid')->count(),
+                    ];
+                });
+
+            // Get revenue by doctor
+            $startDateTime = $dateFrom . ' 00:00:00';
+            $endDateTime = $dateTo . ' 23:59:59';
+            
+            $revenueQuery = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
+                ->where('status', 'paid')
+                ->with(['doctor']);
+
+            if ($doctorId !== 'all') {
+                $revenueQuery->where('doctor_id', $doctorId);
+            }
+
+            $revenueByDoctor = $revenueQuery->get()
+                ->groupBy('doctor_id')
+                ->map(function ($transactions, $doctorId) {
+                    $doctor = $transactions->first()->doctor;
+                    return [
+                        'doctor' => [
+                            'id' => $doctorId,
+                            'name' => $doctor ? $doctor->name : 'Unknown Doctor',
+                        ],
+                        'total_revenue' => $transactions->sum('total_amount'),
+                        'transaction_count' => $transactions->count(),
+                    ];
+                });
+
+            // Calculate summary
+            $summary = [
+                'total_doctors' => $doctorPaymentsGrouped->count(),
+                'total_payments' => $doctorPayments->count(),
+                'total_paid' => $doctorPayments->where('status', 'paid')->sum('net_payment'),
+                'total_pending' => $doctorPayments->where('status', 'pending')->sum('net_payment'),
+                'total_revenue' => $revenueByDoctor->sum('total_revenue'),
+            ];
+
+            // Create export data
+            $exportData = [];
+            foreach ($doctorPaymentsGrouped as $doctorId => $paymentData) {
+                $revenueData = $revenueByDoctor->get($doctorId, ['total_revenue' => 0, 'transaction_count' => 0]);
+                
+                $exportData[] = [
+                    'Doctor Name' => $paymentData['doctor']['name'],
+                    'Total Paid' => number_format($paymentData['total_paid'], 2),
+                    'Pending Amount' => number_format($paymentData['pending_amount'], 2),
+                    'Payment Count' => $paymentData['payment_count'],
+                    'Paid Payments' => $paymentData['paid_payments'],
+                    'Total Revenue' => number_format($revenueData['total_revenue'], 2),
+                    'Transaction Count' => $revenueData['transaction_count'],
+                ];
+            }
+
+            if ($format === 'pdf') {
+                $filename = 'Doctor_Summary_Report_' . now()->format('Y-m-d') . '.pdf';
+                $html = $this->buildHtmlTable('Doctor Summary Report - ' . $dateFrom . ' to ' . $dateTo, $exportData);
+                return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)->download($filename);
+            }
+            
+            $filename = 'Doctor_Summary_Report_' . now()->format('Y-m-d') . '.xlsx';
+
+            return \Maatwebsite\Excel\Facades\Excel::download(
+                new \App\Exports\ArrayExport($exportData, 'Doctor Summary Report - ' . $dateFrom . ' to ' . $dateTo),
+                $filename,
+                \Maatwebsite\Excel\Excel::XLSX
+            );
+
+        } catch (\Exception $e) {
+            \Log::error('Doctor Summary Export Error: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Failed to export doctor summary report. Please try again.']);
+        }
     }
 
     public function hmoReport(Request $request)
@@ -707,7 +844,7 @@ class BillingReportController extends Controller
         // Create daily transactions from billing transactions
         foreach ($billingTransactions as $transaction) {
             $transactionType = $transaction->payment_type === 'doctor_payment' ? 'doctor_payment' : 'billing';
-            $amount = $transaction->payment_type === 'doctor_payment' ? -$transaction->total_amount : $transaction->total_amount;
+            $amount = $transaction->payment_type === 'doctor_payment' ? -$transaction->total_amount : $transaction->amount;
             
             DailyTransaction::create([
                 'transaction_date' => $date,
@@ -716,6 +853,11 @@ class BillingReportController extends Controller
                 'patient_name' => $transaction->payment_type === 'doctor_payment' ? 'Doctor Payment' : $this->getPatientName($transaction),
                 'specialist_name' => $this->getSpecialistName($transaction),
                 'amount' => $amount,
+                'total_amount' => $transaction->total_amount, // Original amount before discount
+                'final_amount' => $transaction->amount, // Final amount after discount
+                'discount_amount' => $transaction->discount_amount ?? 0,
+                'senior_discount_amount' => $transaction->senior_discount_amount ?? 0,
+                'is_senior_citizen' => $transaction->is_senior_citizen ?? false,
                 'payment_method' => $transaction->payment_method,
                 'status' => $transaction->status,
                 'description' => $transaction->description ?: ($transaction->payment_type === 'doctor_payment' ? 'Doctor Payment - Incentives' : 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)'),

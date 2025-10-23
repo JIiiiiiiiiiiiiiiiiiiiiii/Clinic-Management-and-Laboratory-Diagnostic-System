@@ -107,9 +107,59 @@ class ReportsController extends Controller
                 $query->where('hmo_provider', $request->hmo_provider);
             }
 
-            $transactions = $query->with(['patient', 'orderedBy'])
+            $transactions = $query->with(['patient', 'doctor'])
                 ->orderBy('transaction_date', 'desc')
                 ->paginate(20);
+
+            // Debug: Log the count of transactions
+            \Log::info('Financial Reports - Transaction count: ' . $transactions->count());
+            \Log::info('Financial Reports - Total transactions in DB: ' . \App\Models\BillingTransaction::count());
+            
+            // Debug: Log first transaction data
+            if ($transactions->count() > 0) {
+                $firstTransaction = $transactions->first();
+                \Log::info('First transaction data: ' . json_encode([
+                    'id' => $firstTransaction->id,
+                    'patient' => $firstTransaction->patient ? $firstTransaction->patient->first_name . ' ' . $firstTransaction->patient->last_name : 'No patient',
+                    'doctor' => $firstTransaction->doctor ? $firstTransaction->doctor->name : 'No doctor',
+                    'amount' => $firstTransaction->total_amount,
+                ]));
+            }
+
+            // Transform data to match frontend expectations
+            $transformedData = $transactions->getCollection()->map(function ($transaction) {
+                return [
+                    'id' => $transaction->id,
+                    'patient_name' => $transaction->patient ? 
+                        $transaction->patient->first_name . ' ' . $transaction->patient->last_name : 
+                        'Unknown Patient',
+                    'doctor_name' => $transaction->doctor ? 
+                        $transaction->doctor->name : 
+                        'Unknown Doctor',
+                    'total_amount' => $transaction->total_amount,
+                    'payment_method' => $transaction->payment_method,
+                    'transaction_date' => $transaction->transaction_date,
+                    'status' => $transaction->status,
+                ];
+            });
+
+            // Create a new paginated result with transformed data
+            $transactions = new \Illuminate\Pagination\LengthAwarePaginator(
+                $transformedData,
+                $transactions->total(),
+                $transactions->perPage(),
+                $transactions->currentPage(),
+                [
+                    'path' => $transactions->url($transactions->currentPage()),
+                    'pageName' => 'page',
+                ]
+            );
+
+            // Debug: Log transformed data
+            \Log::info('Transformed data count: ' . $transformedData->count());
+            if ($transformedData->count() > 0) {
+                \Log::info('First transformed transaction: ' . json_encode($transformedData->first()));
+            }
 
             // Calculate summary with null checks
             $summary = [
@@ -554,6 +604,11 @@ class ReportsController extends Controller
     private function checkReportAccess($reportType)
     {
         $user = Auth::user();
+        
+        // If no user is authenticated, deny access
+        if (!$user) {
+            return false;
+        }
 
         switch ($user->role) {
             case 'admin':
@@ -706,8 +761,12 @@ class ReportsController extends Controller
             $data = $this->getReportData($type, $request);
             $metadata = $this->getReportMetadata();
 
+            // Transform data for PDF template based on type
+            $pdfData = $this->formatDataForPdf($data, $type);
+
             $pdf = Pdf::loadView("reports.{$type}", [
-                'data' => $data,
+                'data' => $pdfData,
+                'transactions' => $data['transactions'] ?? [],
                 'metadata' => $metadata,
                 'filters' => $request->all(),
                 'title' => ucfirst($type) . ' Report',
@@ -725,7 +784,8 @@ class ReportsController extends Controller
 
         } catch (\Exception $e) {
             Log::error("PDF export failed for {$type}: " . $e->getMessage());
-            return response()->json(['error' => 'PDF generation failed'], 500);
+            Log::error("PDF export stack trace: " . $e->getTraceAsString());
+            return response()->json(['error' => 'PDF generation failed: ' . $e->getMessage()], 500);
         }
     }
 
@@ -734,8 +794,37 @@ class ReportsController extends Controller
      */
     private function exportToCsv($type, Request $request, $filename)
     {
-        // Implementation for CSV export
-        return response()->json(['message' => 'CSV export not yet implemented']);
+        try {
+            $data = $this->getReportData($type, $request);
+            $exportData = $this->formatDataForExport($data, $type);
+            
+            $csvData = [];
+            
+            // Add headers
+            if (!empty($exportData)) {
+                $csvData[] = array_keys($exportData[0]);
+            }
+            
+            // Add data rows
+            foreach ($exportData as $row) {
+                $csvData[] = array_values($row);
+            }
+            
+            $csvContent = '';
+            foreach ($csvData as $row) {
+                $csvContent .= implode(',', array_map(function($field) {
+                    return '"' . str_replace('"', '""', $field) . '"';
+                }, $row)) . "\n";
+            }
+            
+            return response($csvContent)
+                ->header('Content-Type', 'text/csv')
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '.csv"');
+                
+        } catch (\Exception $e) {
+            Log::error('CSV export failed: ' . $e->getMessage());
+            return response()->json(['error' => 'CSV export failed: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -779,14 +868,41 @@ class ReportsController extends Controller
                 $query->where('payment_method', $request->payment_method);
             }
 
-            $transactions = $query->with(['patient', 'orderedBy'])->get();
+            if ($request->filled('hmo_provider')) {
+                $query->where('hmo_provider', $request->hmo_provider);
+            }
+
+            $transactions = $query->with(['patient', 'doctor'])
+                ->orderBy('transaction_date', 'desc')
+                ->get();
+
+            // Transform data to match frontend expectations (same as main page)
+            $transformedTransactions = $transactions->map(function ($transaction) {
+                return [
+                    'id' => $transaction->id,
+                    'patient_name' => $transaction->patient ? 
+                        $transaction->patient->first_name . ' ' . $transaction->patient->last_name : 
+                        'Unknown Patient',
+                    'doctor_name' => $transaction->doctor ? 
+                        $transaction->doctor->name : 
+                        'Unknown Doctor',
+                    'total_amount' => $transaction->total_amount,
+                    'payment_method' => $transaction->payment_method,
+                    'transaction_date' => $transaction->transaction_date,
+                    'status' => $transaction->status,
+                ];
+            });
 
             return [
-                'transactions' => $transactions,
+                'transactions' => $transformedTransactions,
                 'summary' => [
                     'total_revenue' => $transactions->sum('total_amount') ?? 0,
                     'total_transactions' => $transactions->count(),
                     'average_transaction' => $transactions->avg('total_amount') ?? 0,
+                    'cash_payments' => $transactions->where('payment_method', 'Cash')->sum('total_amount') ?? 0,
+                    'hmo_payments' => $transactions->where('payment_method', 'HMO')->sum('total_amount') ?? 0,
+                    'date_from' => $request->get('date_from'),
+                    'date_to' => $request->get('date_to'),
                 ]
             ];
         } catch (\Exception $e) {
@@ -1111,14 +1227,47 @@ class ReportsController extends Controller
     }
 
     /**
+     * Format data for PDF template
+     */
+    private function formatDataForPdf($data, $type)
+    {
+        try {
+            switch ($type) {
+                case 'financial':
+                    // Return summary data as flat array for PDF template
+                    return $data['summary'] ?? [];
+                    
+                case 'patients':
+                    return $data['summary'] ?? [];
+                    
+                case 'laboratory':
+                    return $data['summary'] ?? [];
+                    
+                case 'inventory':
+                    return $data['summary'] ?? [];
+                    
+                default:
+                    return [];
+            }
+        } catch (\Exception $e) {
+            Log::error('PDF data formatting error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
      * Get date range string for reports
      */
     private function getDateRangeString(Request $request)
     {
-        $from = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
-        $to = $request->get('date_to', now()->endOfMonth()->format('Y-m-d'));
+        $from = $request->get('date_from');
+        $to = $request->get('date_to');
 
-        return "From: {$from} To: {$to}";
+        if ($from && $to) {
+            return "From: {$from} To: {$to}";
+        } else {
+            return "All Time";
+        }
     }
 
     /**
@@ -1367,12 +1516,13 @@ class ReportsController extends Controller
                 case 'financial':
                     foreach ($data['transactions'] as $transaction) {
                         $exportData[] = [
-                            'Transaction ID' => $transaction->transaction_id,
-                            'Patient' => $transaction->patient?->first_name . ' ' . $transaction->patient?->last_name ?? 'N/A',
-                            'Amount' => $transaction->total_amount,
-                            'Payment Method' => $transaction->payment_method,
-                            'Status' => $transaction->status,
-                            'Date' => $transaction->transaction_date->format('Y-m-d H:i:s'),
+                            'Transaction ID' => $transaction['id'],
+                            'Patient Name' => $transaction['patient_name'],
+                            'Doctor Name' => $transaction['doctor_name'],
+                            'Amount' => $transaction['total_amount'],
+                            'Payment Method' => $transaction['payment_method'],
+                            'Status' => $transaction['status'],
+                            'Date' => \Carbon\Carbon::parse($transaction['transaction_date'])->format('Y-m-d H:i:s'),
                         ];
                     }
                     break;

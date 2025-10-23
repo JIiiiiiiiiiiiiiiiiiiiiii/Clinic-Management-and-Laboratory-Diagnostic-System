@@ -30,13 +30,13 @@ import {
     TrendingUp,
     Users,
     Calendar,
-    Edit,
     Filter,
     Printer,
     Trash2,
     MoreHorizontal,
     X,
-    Check
+    Check,
+    Edit
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -337,7 +337,7 @@ export default function BillingIndex({
         const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
         
         // Navigate to doctor summary report
-        router.get('/admin/billing/billing-reports/doctor-summary', {
+        router.get('/admin/billing/doctor-summary', {
             date_from: reportDateFrom,
             date_to: reportDateTo,
             doctor_id: doctorFilter,
@@ -651,7 +651,7 @@ export default function BillingIndex({
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="font-semibold text-green-600">
-                                                        ₱{appointment.price.toLocaleString()}
+                                                        ₱{(appointment.final_total_amount || appointment.price).toLocaleString()}
                                                     </TableCell>
                                                     <TableCell>
                                                         <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
@@ -764,9 +764,6 @@ export default function BillingIndex({
                                         <TableHeader className="bg-gray-50">
                                             <TableRow className="hover:bg-gray-50">
                                                 <TableHead className="font-semibold text-gray-700">Doctor</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Basic Salary</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Deductions</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Holiday Pay</TableHead>
                                                 <TableHead className="font-semibold text-gray-700">Incentives</TableHead>
                                                 <TableHead className="font-semibold text-gray-700">Net Payment</TableHead>
                                                 <TableHead className="font-semibold text-gray-700">Status</TableHead>
@@ -794,15 +791,6 @@ export default function BillingIndex({
                                                                 {payment.doctor?.name || 'N/A'}
                                                             </div>
                                                         </TableCell>
-                                                        <TableCell className="font-semibold">
-                                                            ₱{payment.basic_salary?.toLocaleString() || '0.00'}
-                                                        </TableCell>
-                                                        <TableCell className="text-red-600">
-                                                            -₱{payment.deductions?.toLocaleString() || '0.00'}
-                                                        </TableCell>
-                                                        <TableCell className="text-green-600">
-                                                            +₱{payment.holiday_pay?.toLocaleString() || '0.00'}
-                                                        </TableCell>
                                                         <TableCell className="text-green-600">
                                                             +₱{payment.incentives?.toLocaleString() || '0.00'}
                                                         </TableCell>
@@ -828,12 +816,6 @@ export default function BillingIndex({
                                                                     <Link href={`/admin/billing/doctor-payments/${payment.id}`}>
                                                                         <Eye className="mr-1 h-3 w-3" />
                                                                         View
-                                                                    </Link>
-                                                                </Button>
-                                                                <Button asChild size="sm" variant="outline">
-                                                                    <Link href={`/admin/billing/doctor-payments/${payment.id}/edit`}>
-                                                                        <Edit className="mr-1 h-3 w-3" />
-                                                                        Edit
                                                                     </Link>
                                                                 </Button>
                                                                 {payment.status === 'pending' && (

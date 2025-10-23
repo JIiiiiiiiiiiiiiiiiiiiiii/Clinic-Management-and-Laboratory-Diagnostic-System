@@ -35,9 +35,18 @@ export default function CreateDoctorPayment({ doctors }: CreateDoctorPaymentProp
         status: 'pending',
         notes: '',
     });
+    
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        
+        if (isSubmitting || processing) {
+            console.log('Form already submitting, ignoring duplicate submission');
+            return;
+        }
+        
+        setIsSubmitting(true);
         
         console.log('=== FORM SUBMISSION STARTED ===');
         console.log('Processing state:', processing);
@@ -73,13 +82,17 @@ export default function CreateDoctorPayment({ doctors }: CreateDoctorPaymentProp
                 console.log('Form submitted successfully');
                 console.log('Success response:', page);
                 alert('Doctor payment created successfully!');
-                // Redirect to billing index with transactions tab
-                window.location.href = '/admin/billing?tab=transactions';
+                // Redirect to doctor payments index
+                window.location.href = '/admin/billing/doctor-payments';
             },
             onError: (errors: any) => {
                 console.error('Form submission errors:', errors);
                 console.error('Error details:', JSON.stringify(errors, null, 2));
                 alert('Error creating doctor payment: ' + (errors.error || 'Unknown error'));
+                setIsSubmitting(false);
+            },
+            onFinish: () => {
+                setIsSubmitting(false);
             }
         });
     };
@@ -211,10 +224,10 @@ export default function CreateDoctorPayment({ doctors }: CreateDoctorPaymentProp
                                 <div className="flex gap-4">
                                     <Button
                                         type="submit"
-                                        disabled={processing}
+                                        disabled={processing || isSubmitting}
                                         className="flex-1"
                                     >
-                                        {processing ? 'Creating Payment...' : 'Create Payment'}
+                                        {(processing || isSubmitting) ? 'Creating Payment...' : 'Create Payment'}
                                     </Button>
                                     <Button
                                         type="button"

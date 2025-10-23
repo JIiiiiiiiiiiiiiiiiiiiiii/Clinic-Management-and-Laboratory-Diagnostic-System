@@ -40,7 +40,7 @@ interface Summary {
 }
 
 interface FinancialReportsProps {
-    transactions: {
+    transactions?: {
         data: Transaction[];
         current_page: number;
         last_page: number;
@@ -167,13 +167,9 @@ export default function FinancialReports({ transactions, summary, chartData, fil
                 format,
             });
 
-            // Add date range parameters if selected
-            if (dateRange?.from) {
-                params.append('date_from', formatDate(dateRange.from, 'yyyy-MM-dd'));
-            }
-            if (dateRange?.to) {
-                params.append('date_to', formatDate(dateRange.to, 'yyyy-MM-dd'));
-            }
+            // Only add date range parameters if user has explicitly set a custom range
+            // Don't send default current month range - let backend show all data by default
+            // This ensures exports show all transactions like the main page
 
             window.location.href = `/admin/reports/export?type=financial&${params.toString()}`;
 
@@ -284,7 +280,7 @@ export default function FinancialReports({ transactions, summary, chartData, fil
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-6">
-                            <DataTable columns={columns} data={transactions.data} searchKey="patient_name" searchPlaceholder="Search patients..." />
+                            <DataTable columns={columns} data={transactions?.data || []} searchKey="patient_name" searchPlaceholder="Search patients..." />
                         </CardContent>
                     </Card>
 

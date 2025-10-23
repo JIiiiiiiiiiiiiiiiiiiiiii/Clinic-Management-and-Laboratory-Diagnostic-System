@@ -226,7 +226,7 @@ class PatientRegistrationController extends Controller
                 'appointment_date' => $request->appointment_date,
                 'appointment_time' => $this->formatTimeForDatabase($request->appointment_time),
                 'duration' => '30 min',
-                'price' => $this->calculatePrice($request->appointment_type),
+                'price' => null, // Will be calculated using Appointment model's calculatePrice method
                 'additional_info' => $request->notes,
                 'source' => 'Online',
                 'status' => 'Pending',
@@ -234,8 +234,17 @@ class PatientRegistrationController extends Controller
 
             $appointment = \App\Models\Appointment::create($appointmentData);
 
-            // Send notification to admin for approval
-            $this->notifyAdminPendingAppointment($appointment);
+            // Calculate and set price using the model's calculatePrice method
+            $calculatedPrice = $appointment->calculatePrice();
+            $appointment->update([
+                'price' => $calculatedPrice,
+                'final_total_amount' => $calculatedPrice, // Set final_total_amount to the same as price when no lab tests
+                'total_lab_amount' => 0 // No lab tests initially
+            ]);
+
+            // Send notification to admin for approval using centralized service
+            $notificationService = app(\App\Services\NotificationService::class);
+            $notificationService->notifyNewAppointment($appointment);
 
             DB::commit();
 
@@ -320,52 +329,4 @@ class PatientRegistrationController extends Controller
         return $prices[$appointmentType] ?? 300.00;
     }
 
-    private function notifyAdminPendingAppointment($appointment)
-    {
-        try {
-            // Get all admin users
-            $adminUsers = \App\Models\User::where('role', 'admin')->get();
-
-            \Log::info('Sending notifications to admin users', [
-                'admin_count' => $adminUsers->count(),
-                'appointment_id' => $appointment->appointment_id
-            ]);
-
-            // Get patient information
-            $patient = $appointment->patient;
-            $patientName = $patient ? $patient->first_name . ' ' . $patient->last_name : 'Unknown Patient';
-
-            foreach ($adminUsers as $admin) {
-                // Create notification
-                $notification = \App\Models\Notification::create([
-                    'type' => 'appointment_request',
-                    'title' => 'New Appointment Request - Pending Approval',
-                    'message' => "Patient {$patientName} has requested an appointment for {$appointment->appointment_type} on {$appointment->appointment_date} at {$appointment->appointment_time}. Please review and approve.",
-                    'data' => [
-                        'appointment_id' => $appointment->appointment_id,
-                        'patient_name' => $patientName,
-                        'appointment_type' => $appointment->appointment_type,
-                        'appointment_date' => $appointment->appointment_date,
-                        'appointment_time' => $appointment->appointment_time,
-                        'specialist_name' => $appointment->specialist ? $appointment->specialist->name : 'Unknown Specialist',
-                        'status' => $appointment->status,
-                        'price' => $appointment->price,
-                    ],
-                    'user_id' => $admin->id,
-                    'read' => false,
-                ]);
-
-                \Log::info('Notification created successfully', [
-                    'notification_id' => $notification->id,
-                    'admin_id' => $admin->id,
-                    'admin_name' => $admin->name
-                ]);
-            }
-        } catch (\Exception $e) {
-            \Log::error('Failed to create admin notifications', [
-                'error' => $e->getMessage(),
-                'pending_appointment_id' => $pendingAppointment->id
-            ]);
-        }
-    }
 }

@@ -12,9 +12,6 @@ class DoctorSummaryReport extends Model
     protected $fillable = [
         'doctor_id',
         'payment_id',
-        'basic_salary',
-        'deductions',
-        'holiday_pay',
         'incentives',
         'total_paid',
         'payment_date',
@@ -24,9 +21,6 @@ class DoctorSummaryReport extends Model
     ];
 
     protected $casts = [
-        'basic_salary' => 'decimal:2',
-        'deductions' => 'decimal:2',
-        'holiday_pay' => 'decimal:2',
         'incentives' => 'decimal:2',
         'total_paid' => 'decimal:2',
         'payment_date' => 'date',
@@ -70,20 +64,6 @@ class DoctorSummaryReport extends Model
         return '₱' . number_format($this->total_paid, 2);
     }
 
-    public function getFormattedBasicSalaryAttribute()
-    {
-        return '₱' . number_format($this->basic_salary, 2);
-    }
-
-    public function getFormattedDeductionsAttribute()
-    {
-        return '₱' . number_format($this->deductions, 2);
-    }
-
-    public function getFormattedHolidayPayAttribute()
-    {
-        return '₱' . number_format($this->holiday_pay, 2);
-    }
 
     public function getFormattedIncentivesAttribute()
     {
