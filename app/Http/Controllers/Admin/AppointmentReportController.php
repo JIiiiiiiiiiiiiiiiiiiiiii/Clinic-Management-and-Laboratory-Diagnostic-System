@@ -28,8 +28,41 @@ class AppointmentReportController extends Controller
         
         // Set date range based on report type
         if ($reportType === 'daily' && $date) {
-            $dateFrom = $date;
-            $dateTo = $date;
+            // Check if the provided date has any appointments
+            $appointmentsOnDate = Appointment::whereDate('appointment_date', $date)->count();
+            
+            if ($appointmentsOnDate === 0) {
+                // If no appointments on the provided date, find the next available date with appointments
+                $nextAppointmentDate = Appointment::where('appointment_date', '>=', $date)
+                    ->orderBy('appointment_date', 'asc')
+                    ->value('appointment_date');
+                
+                if ($nextAppointmentDate) {
+                    $dateFrom = $nextAppointmentDate;
+                    $dateTo = $nextAppointmentDate;
+                } else {
+                    // Fallback to the original date if no future appointments
+                    $dateFrom = $date;
+                    $dateTo = $date;
+                }
+            } else {
+                $dateFrom = $date;
+                $dateTo = $date;
+            }
+        } elseif ($reportType === 'daily' && !$date) {
+            // For daily report without specific date, find the next available date with appointments
+            $nextAppointmentDate = Appointment::where('appointment_date', '>=', now()->format('Y-m-d'))
+                ->orderBy('appointment_date', 'asc')
+                ->value('appointment_date');
+            
+            if ($nextAppointmentDate) {
+                $dateFrom = $nextAppointmentDate;
+                $dateTo = $nextAppointmentDate;
+            } else {
+                // Fallback to today if no future appointments
+                $dateFrom = now()->format('Y-m-d');
+                $dateTo = now()->format('Y-m-d');
+            }
         } elseif ($reportType === 'monthly' && $month) {
             $dateFrom = $month . '-01';
             $dateTo = date('Y-m-t', strtotime($month . '-01'));
@@ -37,9 +70,9 @@ class AppointmentReportController extends Controller
             $dateFrom = $year . '-01-01';
             $dateTo = $year . '-12-31';
         } else {
-            // For initial load, show current date
-            $dateFrom = $request->get('date_from', now()->format('Y-m-d'));
-            $dateTo = $request->get('date_to', now()->format('Y-m-d'));
+            // For initial load, show current month to display more data
+            $dateFrom = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
+            $dateTo = $request->get('date_to', now()->endOfMonth()->format('Y-m-d'));
         }
         
         $status = $request->get('status', 'all');

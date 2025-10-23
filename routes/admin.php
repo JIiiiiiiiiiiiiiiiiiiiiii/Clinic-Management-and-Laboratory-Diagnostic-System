@@ -7,6 +7,7 @@ use App\Http\Controllers\Lab\LabResultController;
 use App\Http\Controllers\Lab\LabReportController;
 use App\Http\Controllers\Lab\LabExportController;
 use App\Http\Controllers\Admin\SpecialistController;
+use App\Http\Controllers\Admin\SpecialistScheduleController;
 use App\Http\Controllers\Admin\DoctorController;
 use App\Http\Controllers\Admin\NurseController;
 use App\Http\Controllers\Admin\MedTechController;
@@ -71,6 +72,9 @@ Route::prefix('admin')
                 Route::get('/{doctor}/edit', [DoctorController::class, 'edit'])->name('edit');
                 Route::put('/{doctor}', [DoctorController::class, 'update'])->name('update');
                 Route::delete('/{doctor}', [DoctorController::class, 'destroy'])->name('destroy');
+                // Schedule Management for Doctors
+                Route::get('/{doctor}/schedule', [SpecialistScheduleController::class, 'showDoctor'])->name('schedule.show');
+                Route::put('/{doctor}/schedule', [SpecialistScheduleController::class, 'updateDoctor'])->name('schedule.update');
             });
 
             // Nurse Management
@@ -81,6 +85,9 @@ Route::prefix('admin')
                 Route::get('/{nurse}/edit', [NurseController::class, 'edit'])->name('edit');
                 Route::put('/{nurse}', [NurseController::class, 'update'])->name('update');
                 Route::delete('/{nurse}', [NurseController::class, 'destroy'])->name('destroy');
+                // Schedule Management for Nurses
+                Route::get('/{nurse}/schedule', [SpecialistScheduleController::class, 'showNurse'])->name('schedule.show');
+                Route::put('/{nurse}/schedule', [SpecialistScheduleController::class, 'updateNurse'])->name('schedule.update');
             });
 
             // Med Tech Management
@@ -91,6 +98,9 @@ Route::prefix('admin')
                 Route::get('/{medtech}/edit', [MedTechController::class, 'edit'])->name('edit');
                 Route::put('/{medtech}', [MedTechController::class, 'update'])->name('update');
                 Route::delete('/{medtech}', [MedTechController::class, 'destroy'])->name('destroy');
+                // Schedule Management for Med Techs
+                Route::get('/{medtech}/schedule', [SpecialistScheduleController::class, 'showMedtech'])->name('schedule.show');
+                Route::put('/{medtech}/schedule', [SpecialistScheduleController::class, 'updateMedtech'])->name('schedule.update');
             });
         });
 

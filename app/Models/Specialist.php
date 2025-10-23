@@ -19,6 +19,11 @@ class Specialist extends Model
         'contact',
         'email',
         'status',
+        'schedule_data',
+    ];
+
+    protected $casts = [
+        'schedule_data' => 'array',
     ];
 
     // Relationships

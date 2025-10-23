@@ -81,7 +81,7 @@ export default function AppointmentsSimple({
     const [selectedDate, setSelectedDate] = useState(filters?.date || new Date().toISOString().split('T')[0]);
     const [selectedMonth, setSelectedMonth] = useState(filters?.month || new Date().toISOString().slice(0, 7));
     const [selectedYear, setSelectedYear] = useState(filters?.year || new Date().getFullYear().toString());
-    const [activeTab, setActiveTab] = useState(filters?.report_type || 'daily');
+    const [activeTab, setActiveTab] = useState(filters?.report_type || 'monthly');
     const [selectedStatus, setSelectedStatus] = useState(filters?.status || 'all');
     const [selectedSpecialist, setSelectedSpecialist] = useState(filters?.specialist_type || 'all');
     const [isLoading, setIsLoading] = useState(false);

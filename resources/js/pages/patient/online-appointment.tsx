@@ -53,6 +53,15 @@ type Doctor = {
     rating: number;
     experience: string;
     nextAvailable: string;
+    schedule_data?: {
+        monday?: string[];
+        tuesday?: string[];
+        wednesday?: string[];
+        thursday?: string[];
+        friday?: string[];
+        saturday?: string[];
+        sunday?: string[];
+    };
 };
 
 type Medtech = { 
@@ -64,6 +73,15 @@ type Medtech = {
     rating: number;
     experience: string;
     nextAvailable: string;
+    schedule_data?: {
+        monday?: string[];
+        tuesday?: string[];
+        wednesday?: string[];
+        thursday?: string[];
+        friday?: string[];
+        saturday?: string[];
+        sunday?: string[];
+    };
 };
 
 interface OnlineAppointmentProps {
@@ -245,7 +263,7 @@ export default function OnlineAppointment({
         }
     }, [isExistingPatient, patient]);
 
-    // Generate available time slots
+    // Generate available time slots based on specialist schedule
     useEffect(() => {
         if (data.appointment_date && data.specialist_id) {
             generateTimeSlots();
@@ -253,25 +271,42 @@ export default function OnlineAppointment({
     }, [data.appointment_date, data.specialist_id]);
 
     const generateTimeSlots = () => {
-        const slots = [];
-        const startHour = 8;
-        const endHour = 17;
-        
-        for (let hour = startHour; hour < endHour; hour++) {
-            for (let minute = 0; minute < 60; minute += 30) {
-                const time = new Date();
-                time.setHours(hour, minute, 0, 0);
-                const timeString = time.toLocaleTimeString('en-US', { 
-                    hour: 'numeric', 
-                    minute: '2-digit', 
-                    hour12: true 
-                });
-                slots.push({
-                    value: timeString,
-                    label: timeString
-                });
-            }
+        if (!data.specialist_id || !data.appointment_date) {
+            setAvailableTimes([]);
+            return;
         }
+
+        // Get selected specialist
+        const specialist = [...doctors, ...medtechs].find(s => s.id.toString() === data.specialist_id);
+        if (!specialist || !specialist.schedule_data) {
+            setAvailableTimes([]);
+            return;
+        }
+
+        // Get day of week from selected date
+        const selectedDate = new Date(data.appointment_date);
+        const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        
+        // Get available times for that day from specialist's schedule
+        const daySchedule = specialist.schedule_data[dayOfWeek] || [];
+        
+        // Convert times to display format
+        const slots = daySchedule.map(time => {
+            // Convert 24-hour format to 12-hour format
+            const [hours, minutes] = time.split(':');
+            const date = new Date();
+            date.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+            const timeString = date.toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit', 
+                hour12: true 
+            });
+            return {
+                value: timeString,
+                label: timeString
+            };
+        });
+
         setAvailableTimes(slots);
     };
 
@@ -473,6 +508,33 @@ export default function OnlineAppointment({
         const maxDate = new Date();
         maxDate.setDate(maxDate.getDate() + 30);
         return maxDate.toISOString().split('T')[0];
+    };
+
+    // Helper function to get specialist schedule information
+    const getSpecialistScheduleInfo = (specialist: Doctor | Medtech) => {
+        // For now, return mock data - this will be replaced with actual schedule data
+        const scheduleData = specialist.schedule_data || {};
+        
+        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        
+        const availableDays = [];
+        const allTimes = [];
+        
+        days.forEach((day, index) => {
+            if (scheduleData[day] && scheduleData[day].length > 0) {
+                availableDays.push(dayNames[index]);
+                allTimes.push(...scheduleData[day]);
+            }
+        });
+        
+        const uniqueTimes = [...new Set(allTimes)].sort();
+        
+        return {
+            availableDays: availableDays.length > 0 ? availableDays.join(', ') : 'Not scheduled',
+            availableTimes: uniqueTimes.length > 0 ? uniqueTimes.join(', ') : 'Not available',
+            nextAvailable: availableDays.length > 0 ? `${availableDays[0]} ${uniqueTimes[0] || ''}` : null
+        };
     };
 
     return (
@@ -1152,54 +1214,81 @@ export default function OnlineAppointment({
                                         </div>
                                     </div>
 
-                                    {/* Specialist Selection */}
+                                    {/* Specialist Selection - Checkbox Style */}
                                     <div className="space-y-3">
                                         <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Select Specialist</h3>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="specialist_id" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <div className="space-y-4">
+                                            <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                 <User className="h-4 w-4" />
-                                                {data.specialist_type === 'doctor' ? 'Doctor' : 'Medical Technologist'} *
+                                                {data.specialist_type === 'doctor' ? 'Available Doctors' : 'Available Medical Technologists'} *
                                             </Label>
-                                            <Select onValueChange={handleSpecialistChange} disabled={!data.specialist_type}>
-                                                <SelectTrigger id="specialist_id" className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.specialist_id ? 'border-gray-500' : ''} ${!data.specialist_type ? 'bg-gray-50' : ''}`}>
-                                                    <SelectValue placeholder={data.specialist_type ? `Select ${data.specialist_type === 'doctor' ? 'doctor' : 'medical technologist'}` : 'Select appointment type first'} />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {(data.specialist_type === 'doctor' ? doctors : medtechs).map((specialist) => (
-                                                        <SelectItem key={specialist.id} value={specialist.id.toString()}>
-                                                            <div className="flex flex-col">
-                                                                <span className="font-medium">{specialist.name}</span>
-                                                                <span className="text-sm text-gray-500">{specialist.specialization}</span>
+                                            
+                                            {/* Specialist Checkboxes */}
+                                            <div className="grid gap-4">
+                                                {(data.specialist_type === 'doctor' ? doctors : medtechs).map((specialist) => {
+                                                    const isSelected = data.specialist_id === specialist.id.toString();
+                                                    const scheduleInfo = getSpecialistScheduleInfo(specialist);
+                                                    
+                                                    return (
+                                                        <div key={specialist.id} className={`border-2 rounded-lg p-4 transition-all duration-200 ${
+                                                            isSelected 
+                                                                ? 'border-blue-500 bg-blue-50' 
+                                                                : 'border-gray-200 bg-white hover:border-gray-300'
+                                                        }`}>
+                                                            <div className="flex items-start space-x-3">
+                                                                <input
+                                                                    type="radio"
+                                                                    id={`specialist-${specialist.id}`}
+                                                                    name="specialist_id"
+                                                                    value={specialist.id.toString()}
+                                                                    checked={isSelected}
+                                                                    onChange={(e) => {
+                                                                        setData('specialist_id', e.target.value);
+                                                                        const selectedSpecialist = [...doctors, ...medtechs].find(s => s.id.toString() === e.target.value);
+                                                                        setSelectedSpecialist(selectedSpecialist || null);
+                                                                    }}
+                                                                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
+                                                                />
+                                                                <div className="flex-1">
+                                                                    <label htmlFor={`specialist-${specialist.id}`} className="cursor-pointer">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <div>
+                                                                                <h4 className="font-semibold text-gray-900">{specialist.name}</h4>
+                                                                                <p className="text-sm text-gray-600">{specialist.specialization}</p>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                                                <Star className="h-3 w-3" />
+                                                                                {specialist.rating}
+                                                                            </div>
+                                                                        </div>
+                                                                        
+                                                                        {/* Schedule Information */}
+                                                                        <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                                                                            <div className="flex items-center gap-2 text-sm text-gray-700">
+                                                                                <Calendar className="h-4 w-4" />
+                                                                                <span className="font-medium">Available:</span>
+                                                                                <span>{scheduleInfo.availableDays}</span>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                                                                                <Clock className="h-4 w-4" />
+                                                                                <span>Times: {scheduleInfo.availableTimes}</span>
+                                                                            </div>
+                                                                            {scheduleInfo.nextAvailable && (
+                                                                                <div className="text-xs text-blue-600 mt-1">
+                                                                                    Next Available: {scheduleInfo.nextAvailable}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </label>
+                                                                </div>
                                                             </div>
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            {errors.specialist_id && <p className="text-sm text-black">{errors.specialist_id}</p>}
-                                        </div>
-
-                                        {/* Selected Specialist Info */}
-                                        {selectedSpecialist && (
-                                            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="p-2 bg-blue-100 rounded-full">
-                                                        <User className="h-5 w-5 text-blue-600" />
-                                                    </div>
-                                                    <div>
-                                                        <h4 className="font-semibold text-blue-900">{selectedSpecialist.name}</h4>
-                                                        <p className="text-sm text-blue-700">{selectedSpecialist.specialization}</p>
-                                                        <div className="flex items-center gap-4 mt-2 text-xs text-blue-600">
-                                                            <span className="flex items-center gap-1">
-                                                                <Star className="h-3 w-3" />
-                                                                {selectedSpecialist.rating}
-                                                            </span>
-                                                            <span>{selectedSpecialist.experience}</span>
-                                                            <span>{selectedSpecialist.availability}</span>
                                                         </div>
-                                                    </div>
-                                                </div>
+                                                    );
+                                                })}
                                             </div>
-                                        )}
+                                            
+                                            {errors.specialist_id && <p className="text-sm text-red-600">{errors.specialist_id}</p>}
+                                        </div>
                                     </div>
 
                                     {/* Date and Time Selection */}

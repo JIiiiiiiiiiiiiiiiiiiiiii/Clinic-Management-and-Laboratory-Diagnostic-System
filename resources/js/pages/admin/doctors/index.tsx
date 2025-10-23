@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { Edit, Eye, Plus, Search, Trash2, UserCheck } from 'lucide-react';
+import { Edit, Eye, Plus, Search, Trash2, UserCheck, Calendar } from 'lucide-react';
 import { useState } from 'react';
 
 type Doctor = {
@@ -169,6 +169,12 @@ export default function DoctorIndex({ doctors }: { doctors: Doctor[] }) {
                                                                 <Link href={`/admin/doctors/${doctor.id}/edit`}>
                                                                     <Edit className="mr-2 h-4 w-4" />
                                                                     Edit
+                                                                </Link>
+                                                            </Button>
+                                                            <Button asChild size="sm" variant="outline">
+                                                                <Link href={`/admin/specialists/doctors/${doctor.id}/schedule`}>
+                                                                    <Calendar className="mr-2 h-4 w-4" />
+                                                                    Schedule
                                                                 </Link>
                                                             </Button>
                                                             <Button asChild size="sm" variant="outline">

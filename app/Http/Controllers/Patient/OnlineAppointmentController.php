@@ -44,12 +44,12 @@ class OnlineAppointmentController extends Controller
             'patient_no' => $patient ? $patient->patient_no : null
         ]);
 
-        // Get available doctors and medtechs
+        // Get available doctors and medtechs with schedule data
         $doctors = \App\Models\Specialist::where('role', 'Doctor')
             ->when(Schema::hasColumn('specialists', 'status'), function($query) {
                 return $query->where('status', 'Active');
             })
-            ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id')
+            ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id', 'schedule_data')
             ->get()
             ->map(function ($doctor) {
                 return [
@@ -61,6 +61,7 @@ class OnlineAppointmentController extends Controller
                     'rating' => 4.8,
                     'experience' => '10+ years',
                     'nextAvailable' => now()->addDays(1)->format('M d, Y g:i A'),
+                    'schedule_data' => $doctor->schedule_data,
                 ];
             });
 
@@ -68,7 +69,7 @@ class OnlineAppointmentController extends Controller
             ->when(Schema::hasColumn('specialists', 'status'), function($query) {
                 return $query->where('status', 'Active');
             })
-            ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id')
+            ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id', 'schedule_data')
             ->get()
             ->map(function ($medtech) {
                 return [
@@ -80,6 +81,7 @@ class OnlineAppointmentController extends Controller
                     'rating' => 4.9,
                     'experience' => '8+ years',
                     'nextAvailable' => now()->addDays(1)->format('M d, Y g:i A'),
+                    'schedule_data' => $medtech->schedule_data,
                 ];
             });
 

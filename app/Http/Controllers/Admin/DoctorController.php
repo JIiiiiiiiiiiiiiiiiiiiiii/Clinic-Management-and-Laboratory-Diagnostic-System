@@ -13,7 +13,20 @@ class DoctorController extends Controller
     {
         $doctors = Specialist::where('role', 'Doctor')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->map(function ($doctor) {
+                return [
+                    'id' => $doctor->specialist_id,
+                    'specialist_id' => $doctor->specialist_id,
+                    'name' => $doctor->name,
+                    'email' => $doctor->email,
+                    'specialization' => $doctor->specialization,
+                    'license_number' => $doctor->license_number ?? 'N/A',
+                    'is_active' => $doctor->status === 'Active',
+                    'created_at' => $doctor->created_at,
+                    'updated_at' => $doctor->updated_at,
+                ];
+            });
 
         return Inertia::render('admin/specialists/doctors/index', [
             'doctors' => $doctors,

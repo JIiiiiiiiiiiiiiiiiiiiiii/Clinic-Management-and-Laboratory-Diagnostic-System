@@ -19,6 +19,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Configure route model binding for specialists
+        \Illuminate\Support\Facades\Route::model('doctor', \App\Models\Specialist::class);
+        \Illuminate\Support\Facades\Route::model('nurse', \App\Models\Specialist::class);
+        \Illuminate\Support\Facades\Route::model('medtech', \App\Models\Specialist::class);
     }
 }

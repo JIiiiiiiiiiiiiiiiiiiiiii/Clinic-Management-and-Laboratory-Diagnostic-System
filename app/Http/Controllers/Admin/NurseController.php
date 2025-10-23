@@ -13,7 +13,20 @@ class NurseController extends Controller
     {
         $nurses = Specialist::where('role', 'Nurse')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->map(function ($nurse) {
+                return [
+                    'id' => $nurse->specialist_id,
+                    'specialist_id' => $nurse->specialist_id,
+                    'name' => $nurse->name,
+                    'email' => $nurse->email,
+                    'specialization' => $nurse->specialization,
+                    'license_number' => $nurse->license_number ?? 'N/A',
+                    'is_active' => $nurse->status === 'Active',
+                    'created_at' => $nurse->created_at,
+                    'updated_at' => $nurse->updated_at,
+                ];
+            });
 
         return Inertia::render('admin/specialists/nurses/index', [
             'nurses' => $nurses,

@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, Edit, Plus, Search, Trash2, UserCheck, Stethoscope, Eye, Users, UserPlus } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, Search, Trash2, UserCheck, Stethoscope, Eye, Users, UserPlus, Calendar } from 'lucide-react';
 import { useState } from 'react';
 
 type Specialist = {
@@ -269,6 +269,16 @@ export default function SpecialistIndex({ doctors, nurses, medtechs }: {
                                                             >
                                                                 <Edit className="h-4 w-4 mr-2" />
                                                                 Edit
+                                                            </Button>
+                                                        </Link>
+                                                        <Link href={`/admin/specialists/${specialist.role === 'Doctor' ? 'doctors' : specialist.role === 'Nurse' ? 'nurses' : 'medtechs'}/${specialist.id}/schedule`}>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                                                            >
+                                                                <Calendar className="h-4 w-4 mr-2" />
+                                                                Schedule
                                                             </Button>
                                                         </Link>
                                                         <Button

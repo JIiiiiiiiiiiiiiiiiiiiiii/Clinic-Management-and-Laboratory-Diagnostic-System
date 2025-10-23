@@ -13,7 +13,20 @@ class MedTechController extends Controller
     {
         $medtechs = Specialist::where('role', 'MedTech')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->map(function ($medtech) {
+                return [
+                    'id' => $medtech->specialist_id,
+                    'specialist_id' => $medtech->specialist_id,
+                    'name' => $medtech->name,
+                    'email' => $medtech->email,
+                    'specialization' => $medtech->specialization,
+                    'license_number' => $medtech->license_number ?? 'N/A',
+                    'is_active' => $medtech->status === 'Active',
+                    'created_at' => $medtech->created_at,
+                    'updated_at' => $medtech->updated_at,
+                ];
+            });
 
         return Inertia::render('admin/specialists/medtechs/index', [
             'medtechs' => $medtechs,
