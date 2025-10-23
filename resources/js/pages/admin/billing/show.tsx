@@ -129,7 +129,8 @@ export default function BillingShow({
     };
 
     const calculateSubtotal = () => {
-        return transaction.items.reduce((sum, item) => sum + parseFloat(item.total_price || 0), 0);
+        // Use total_amount from transaction for accurate subtotal
+        return typeof transaction.total_amount === 'string' ? parseFloat(transaction.total_amount) : transaction.total_amount || 0;
     };
 
     const calculateSeniorDiscount = () => {
@@ -138,13 +139,14 @@ export default function BillingShow({
     };
 
     const calculateTotalDiscount = () => {
-        const regularDiscount = parseFloat(transaction.discount_amount || 0);
+        const regularDiscount = typeof transaction.discount_amount === 'string' ? parseFloat(transaction.discount_amount) : transaction.discount_amount || 0;
         const seniorDiscount = calculateSeniorDiscount();
         return regularDiscount + seniorDiscount;
     };
 
     const calculateNetAmount = () => {
-        return calculateSubtotal() - calculateTotalDiscount();
+        // Use the final amount from the transaction, not calculated
+        return typeof transaction.amount === 'string' ? parseFloat(transaction.amount) : transaction.amount || 0;
     };
 
     const handleStatusUpdate = (newStatus: string) => {

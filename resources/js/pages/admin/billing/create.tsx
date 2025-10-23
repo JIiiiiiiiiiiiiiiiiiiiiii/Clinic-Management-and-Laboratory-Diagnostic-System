@@ -76,6 +76,37 @@ export default function BillingCreate({
     const [items, setItems] = useState<BillingItem[]>([]);
     const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
     const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+    const [transactionType, setTransactionType] = useState<string>('');
+
+    // Transaction types with pricing (same as online appointment system)
+    const transactionTypes = {
+        'general_consultation': { name: 'General Consultation', price: 300, type: 'consultation' },
+        'cbc': { name: 'Complete Blood Count (CBC)', price: 500, type: 'laboratory' },
+        'fecalysis_test': { name: 'Fecalysis Test', price: 500, type: 'laboratory' },
+        'urinarysis_test': { name: 'Urinarysis Test', price: 500, type: 'laboratory' },
+    };
+
+    // Calculate price based on transaction type
+    const calculateTransactionPrice = (type: string) => {
+        return transactionTypes[type as keyof typeof transactionTypes]?.price || 0;
+    };
+
+    // Add transaction type item
+    const addTransactionTypeItem = (type: string) => {
+        const transaction = transactionTypes[type as keyof typeof transactionTypes];
+        if (transaction) {
+            const newItem: BillingItem = {
+                id: Date.now().toString(),
+                item_type: transaction.type,
+                item_name: transaction.name,
+                item_description: `Manual transaction: ${transaction.name}`,
+                quantity: 1,
+                unit_price: transaction.price,
+                total_price: transaction.price,
+            };
+            setItems([...items, newItem]);
+        }
+    };
 
     const { data, setData, post, processing, errors } = useForm({
         patient_id: '',
@@ -233,7 +264,7 @@ export default function BillingCreate({
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {patients.map((patient) => (
-                                                    <SelectItem key={patient.patient_id} value={patient.patient_id.toString()}>
+                                                    <SelectItem key={patient.id} value={patient.id.toString()}>
                                                         {patient.last_name}, {patient.first_name} ({patient.patient_no})
                                                     </SelectItem>
                                                 ))}
@@ -429,6 +460,38 @@ export default function BillingCreate({
                                         rows={3}
                                     />
                                     {errors.notes && <p className="text-sm text-red-600">{errors.notes}</p>}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Manual Transaction Section */}
+                        <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-3 text-xl font-semibold text-gray-900">
+                                    <Calculator className="h-5 w-5 text-black" />
+                                    Manual Transaction
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    {Object.entries(transactionTypes).map(([key, transaction]) => (
+                                        <Button
+                                            key={key}
+                                            variant="outline"
+                                            className="h-20 flex flex-col items-center justify-center p-4 hover:bg-blue-50 hover:border-blue-300"
+                                            onClick={() => addTransactionTypeItem(key)}
+                                        >
+                                            <div className="text-sm font-medium text-gray-900 mb-1">
+                                                {transaction.name}
+                                            </div>
+                                            <div className="text-lg font-bold text-blue-600">
+                                                ₱{transaction.price}
+                                            </div>
+                                        </Button>
+                                    ))}
+                                </div>
+                                <div className="mt-4 text-sm text-gray-600">
+                                    <p>Click on any service above to automatically add it to your transaction with the correct pricing.</p>
                                 </div>
                             </CardContent>
                         </Card>

@@ -92,10 +92,8 @@ export default function BillingReceipt({
     };
 
     const calculateSubtotal = () => {
-        return transaction.items.reduce((sum, item) => {
-            const price = typeof item.total_price === 'string' ? parseFloat(item.total_price) : item.total_price;
-            return sum + (isNaN(price) ? 0 : price);
-        }, 0);
+        // Use total_amount from transaction for accurate subtotal
+        return typeof transaction.total_amount === 'string' ? parseFloat(transaction.total_amount) : transaction.total_amount || 0;
     };
 
     const calculateDiscount = () => {
@@ -116,7 +114,8 @@ export default function BillingReceipt({
     };
 
     const calculateNetAmount = () => {
-        return calculateSubtotal() - calculateTotalDiscount();
+        // Use the final amount from the transaction, not calculated
+        return typeof transaction.amount === 'string' ? parseFloat(transaction.amount) : transaction.amount || 0;
     };
 
     const getPaymentMethodLabel = (method: string) => {

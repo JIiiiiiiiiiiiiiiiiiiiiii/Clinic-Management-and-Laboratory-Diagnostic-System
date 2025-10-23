@@ -927,6 +927,15 @@ class BillingController extends Controller
         // Load all necessary relationships
         $transaction->load(['patient', 'doctor', 'items', 'appointmentLinks.appointment', 'createdBy']);
         
+        // Debug: Log the transaction details before processing
+        \Log::info('Transaction loaded for receipt:', [
+            'transaction_id' => $transaction->transaction_id,
+            'total_amount' => $transaction->total_amount,
+            'amount' => $transaction->amount,
+            'is_itemized' => $transaction->is_itemized,
+            'items_count_before' => $transaction->items->count()
+        ]);
+        
         // Use the new helper methods to get patient and doctor info
         $patientInfo = $transaction->getPatientInfo();
         $doctorInfo = $transaction->getDoctorInfo();
@@ -952,6 +961,26 @@ class BillingController extends Controller
                 ];
             })->toArray()
         ]);
+        
+        // Debug: Log items count and details
+        \Log::info('Items debug:', [
+            'items_count' => $transaction->items->count(),
+            'is_itemized' => $transaction->is_itemized,
+            'items' => $transaction->items->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'item_name' => $item->item_name,
+                    'item_type' => $item->item_type,
+                    'total_price' => $item->total_price
+                ];
+            })->toArray()
+        ]);
+        
+        // If no items exist, this means the transaction was created without proper items
+        // This should not happen for manual transactions, so log an error
+        if ($transaction->items->isEmpty() && $transaction->total_amount > 0) {
+            \Log::error('No items found for transaction ' . $transaction->transaction_id . ' - this indicates a data integrity issue');
+        }
         
         \Log::info('Receipt data loaded:', [
             'transaction_id' => $transaction->transaction_id,

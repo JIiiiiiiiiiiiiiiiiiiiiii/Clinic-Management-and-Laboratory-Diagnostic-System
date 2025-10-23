@@ -114,7 +114,7 @@ const getPermissionBasedNavigation = (permissions: any, userRole: string) => {
         },
         {
           title: "Patient Transfer",
-          url: "/admin/patient/transfer",
+          url: "/admin/patient-transfers",
           show: getSubItemAccess('patients', 'Patient Transfer'),
         },
         {

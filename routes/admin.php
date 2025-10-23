@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\PatientController;
+use App\Http\Controllers\Admin\PatientTransferController;
 use App\Http\Controllers\Lab\LabTestController;
 use App\Http\Controllers\Lab\LabOrderController;
 use App\Http\Controllers\Lab\LabResultController;
@@ -57,6 +58,20 @@ Route::prefix('admin')
                 'update' => 'patient.update',
                 'destroy' => 'patient.destroy',
             ]);
+        });
+
+        // Patient Transfer routes - All staff with transfer permission can access
+        Route::middleware(['module.access:patients'])->group(function () {
+            Route::prefix('patient-transfers')->name('patient.transfer.')->group(function () {
+                Route::get('/', [PatientTransferController::class, 'index'])->name('index');
+                Route::get('/create', [PatientTransferController::class, 'create'])->name('create');
+                Route::post('/', [PatientTransferController::class, 'store'])->name('store');
+                Route::get('/{transfer}', [PatientTransferController::class, 'show'])->name('show');
+                Route::put('/{transfer}', [PatientTransferController::class, 'update'])->name('update');
+                Route::delete('/{transfer}', [PatientTransferController::class, 'destroy'])->name('destroy');
+                Route::post('/{transfer}/complete', [PatientTransferController::class, 'complete'])->name('complete');
+                Route::post('/{transfer}/cancel', [PatientTransferController::class, 'cancel'])->name('cancel');
+            });
         });
 
 
@@ -160,8 +175,8 @@ Route::prefix('admin')
         Route::prefix('billing')->name('billing.')->middleware(['module.access:billing'])->group(function () {
             // Main billing routes
             Route::get('/', [App\Http\Controllers\Admin\BillingController::class, 'index'])->name('index');
-            Route::get('/create', [App\Http\Controllers\Admin\BillingController::class, 'create'])->name('create');
-            Route::post('/', [App\Http\Controllers\Admin\BillingController::class, 'store'])->name('store');
+            Route::get('/create', [App\Http\Controllers\Admin\ManualTransactionController::class, 'create'])->name('create');
+            Route::post('/', [App\Http\Controllers\Admin\ManualTransactionController::class, 'store'])->name('store');
             Route::get('/export', [App\Http\Controllers\Admin\BillingController::class, 'export'])->name('export');
             
             // Appointment-based billing routes (MUST come before parameterized routes)
@@ -205,6 +220,7 @@ Route::prefix('admin')
             Route::get('/enhanced-hmo-report/{report}', [EnhancedHmoReportController::class, 'show'])->name('enhanced-hmo-report.show');
             Route::get('/enhanced-hmo-report/{report}/export', [EnhancedHmoReportController::class, 'export'])->name('enhanced-hmo-report.export');
             
+
             // Doctor Payments - Redirect to billing index with doctor payments tab
             Route::prefix('doctor-payments')->name('doctor-payments.')->group(function () {
                 Route::get('/', function () {
@@ -233,6 +249,15 @@ Route::prefix('admin')
             });
 
             
+            // Manual Transaction routes (MUST come before parameterized routes)
+            Route::prefix('manual-transactions')->name('manual-transactions.')->group(function () {
+                Route::get('/{manualTransaction}', [App\Http\Controllers\Admin\ManualTransactionController::class, 'show'])->name('show');
+                Route::get('/{manualTransaction}/edit', [App\Http\Controllers\Admin\ManualTransactionController::class, 'edit'])->name('edit');
+                Route::put('/{manualTransaction}', [App\Http\Controllers\Admin\ManualTransactionController::class, 'update'])->name('update');
+                Route::delete('/{manualTransaction}', [App\Http\Controllers\Admin\ManualTransactionController::class, 'destroy'])->name('destroy');
+                Route::put('/{manualTransaction}/status', [App\Http\Controllers\Admin\ManualTransactionController::class, 'updateStatus'])->name('status.update');
+            });
+
             // Parameterized routes (MUST come after all specific routes)
             Route::get('/{transaction}', [App\Http\Controllers\Admin\BillingController::class, 'show'])->name('show');
             Route::get('/{transaction}/edit', [App\Http\Controllers\Admin\BillingController::class, 'edit'])->name('edit');
@@ -287,6 +312,7 @@ Route::prefix('admin')
 
             
         });
+
 
         // Appointments Routes - Doctor, nurse and admin only
         Route::prefix('appointments')->name('appointments.')->middleware(['role:doctor,nurse,admin'])->group(function () {
