@@ -70,7 +70,7 @@ class RoleBasedAccess
                 return 'patient.dashboard';
             case 'hospital_admin':
             case 'hospital_staff':
-                return 'hospital.dashboard';
+                return 'admin.dashboard';
             default:
                 return 'admin.dashboard';
         }

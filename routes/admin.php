@@ -407,8 +407,8 @@ Route::prefix('admin')
             Route::get('/api/by-subcategory', [ClinicProcedureController::class, 'getBySubcategory'])->name('api.by-subcategory');
         });
 
-        // Analytics and Reporting Routes - Admin only
-        Route::prefix('analytics')->name('analytics.')->middleware(['role:admin'])->group(function () {
+        // Analytics and Reporting Routes - Admin and Hospital roles
+        Route::prefix('analytics')->name('analytics.')->middleware(['role:admin,hospital_admin,hospital_staff'])->group(function () {
             Route::get('/', [AnalyticsController::class, 'index'])->name('index');
             Route::get('/patients', [AnalyticsController::class, 'getPatientReport'])->name('patients');
             Route::get('/specialists', [AnalyticsController::class, 'getSpecialistReport'])->name('specialists');
@@ -461,13 +461,13 @@ Route::prefix('admin')
                 Route::get('/export', [App\Http\Controllers\Admin\AppointmentReportController::class, 'export'])->name('export');
             });
             
-            // Legacy hospital reports (keeping for backward compatibility)
-            Route::get('/appointments-legacy', [App\Http\Controllers\Hospital\HospitalReportController::class, 'appointments'])->name('appointments.legacy');
-            Route::get('/specialist-management', [App\Http\Controllers\Hospital\HospitalReportController::class, 'specialistManagement'])->name('specialist.management');
-            Route::get('/billing', [App\Http\Controllers\Hospital\HospitalReportController::class, 'transactions'])->name('billing');
-            Route::get('/transfers', [App\Http\Controllers\Hospital\HospitalReportController::class, 'transfers'])->name('transfers');
-            Route::get('/clinic-operations', [App\Http\Controllers\Hospital\HospitalReportController::class, 'clinicOperations'])->name('clinic.operations');
-            Route::get('/export/{type}', [App\Http\Controllers\Hospital\HospitalReportController::class, 'export'])->name('export.legacy');
+            // Legacy hospital reports (redirected to admin reports)
+            Route::get('/appointments-legacy', [App\Http\Controllers\Admin\ReportsController::class, 'appointments'])->name('appointments.legacy');
+            Route::get('/specialist-management', [App\Http\Controllers\Admin\ReportsController::class, 'analytics'])->name('specialist.management');
+            Route::get('/billing', [App\Http\Controllers\Admin\ReportsController::class, 'financial'])->name('billing');
+            Route::get('/transfers', [App\Http\Controllers\Admin\ReportsController::class, 'patients'])->name('transfers');
+            Route::get('/clinic-operations', [App\Http\Controllers\Admin\ReportsController::class, 'analytics'])->name('clinic.operations');
+            Route::get('/export/{type}', [App\Http\Controllers\Admin\ReportsController::class, 'export'])->name('export.legacy');
         });
 
 

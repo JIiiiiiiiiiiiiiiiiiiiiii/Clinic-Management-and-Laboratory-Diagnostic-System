@@ -613,6 +613,9 @@ class ReportsController extends Controller
         switch ($user->role) {
             case 'admin':
                 return true; // Full access
+            case 'hospital_admin':
+            case 'hospital_staff':
+                return in_array($reportType, ['patients', 'financial', 'analytics']); // Hospital roles have access to patients, financial, and analytics reports
             case 'doctor':
                 return in_array($reportType, ['patients', 'laboratory', 'appointments']);
             case 'cashier':

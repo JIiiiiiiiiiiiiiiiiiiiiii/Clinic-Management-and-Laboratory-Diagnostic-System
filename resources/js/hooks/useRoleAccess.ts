@@ -199,7 +199,7 @@ export function useRoleAccess() {
             return '/patient/dashboard';
         }
         if (isHospital) {
-            return '/hospital/dashboard';
+            return '/admin/dashboard';
         }
         // Default to admin dashboard for staff or undefined roles
         return '/admin/dashboard';

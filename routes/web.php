@@ -42,7 +42,6 @@ Route::middleware(['auth:session'])->prefix('api/billing')->group(function () {
 // Load split route files
 require __DIR__ . '/admin.php';
 require __DIR__ . '/patient.php';
-require __DIR__ . '/hospital.php';
 require __DIR__.'/settings.php';
 
 // Load complete API routes
@@ -75,14 +74,7 @@ Route::get('/patients', function () {
         return redirect('/login');
     }
 
-    // Get user role and redirect accordingly
-    $user = Auth::user();
-    $mappedRole = $user->getMappedRole();
-    
-    if ($mappedRole === 'hospital_admin') {
-        return redirect()->route('hospital.patients.index');
-    } else {
-        return redirect()->route('admin.patient.index');
-    }
+    // All staff (including hospital) use admin routes
+    return redirect()->route('admin.patient.index');
 })->name('patients');
 

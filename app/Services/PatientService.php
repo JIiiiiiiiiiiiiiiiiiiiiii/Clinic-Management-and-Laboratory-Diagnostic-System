@@ -17,6 +17,41 @@ class PatientService
                 $validatedData['age'] = $this->calculateAge($validatedData['birthdate']);
             }
 
+            // Map form fields to database fields FIRST
+            if (empty($validatedData['emergency_name']) && !empty($validatedData['informant_name'])) {
+                $validatedData['emergency_name'] = $validatedData['informant_name'];
+            }
+            if (empty($validatedData['emergency_relation']) && !empty($validatedData['relationship'])) {
+                $validatedData['emergency_relation'] = $validatedData['relationship'];
+            }
+
+            // Log the mapped data for debugging
+            Log::info('Patient creation - mapped data', [
+                'emergency_name' => $validatedData['emergency_name'] ?? 'NOT_SET',
+                'emergency_relation' => $validatedData['emergency_relation'] ?? 'NOT_SET',
+                'informant_name' => $validatedData['informant_name'] ?? 'NOT_SET',
+                'relationship' => $validatedData['relationship'] ?? 'NOT_SET'
+            ]);
+
+            // Ensure address field is populated (use present_address if address is not provided)
+            if (empty($validatedData['address']) && !empty($validatedData['present_address'])) {
+                $validatedData['address'] = $validatedData['present_address'];
+            }
+
+            // Set required arrival fields if not provided
+            if (empty($validatedData['arrival_date'])) {
+                $validatedData['arrival_date'] = now()->format('Y-m-d');
+            }
+            if (empty($validatedData['arrival_time'])) {
+                $validatedData['arrival_time'] = now()->format('H:i:s');
+            }
+            if (empty($validatedData['time_seen'])) {
+                $validatedData['time_seen'] = now()->format('H:i:s');
+            }
+            if (empty($validatedData['attending_physician'])) {
+                $validatedData['attending_physician'] = 'To be assigned';
+            }
+
             // Validate required fields
             $this->validateRequiredFields($validatedData);
 
@@ -166,14 +201,47 @@ class PatientService
             'sex',
             'mobile_no',
             'present_address', // Use actual database column name
-            'emergency_name', // Use actual database column name
-            'emergency_relation' // Use actual database column name
+            'address', // Add address field which is required in database
+            'arrival_date', // Required field
+            'arrival_time', // Required field
+            'time_seen', // Required field
+            'attending_physician', // Required field
         ];
 
         foreach ($requiredFields as $field) {
             if (empty($data[$field])) {
                 throw new \InvalidArgumentException("The {$field} field is required.");
             }
+        }
+
+        // Check emergency contact fields (either emergency_name or informant_name)
+        $hasEmergencyName = !empty($data['emergency_name']);
+        $hasInformantName = !empty($data['informant_name']);
+        
+        Log::info('Emergency field validation', [
+            'emergency_name' => $data['emergency_name'] ?? 'NOT_SET',
+            'informant_name' => $data['informant_name'] ?? 'NOT_SET',
+            'has_emergency_name' => $hasEmergencyName,
+            'has_informant_name' => $hasInformantName
+        ]);
+        
+        if (!$hasEmergencyName && !$hasInformantName) {
+            throw new \InvalidArgumentException("The emergency_name or informant_name field is required.");
+        }
+
+        // Check emergency relation fields (either emergency_relation or relationship)
+        $hasEmergencyRelation = !empty($data['emergency_relation']);
+        $hasRelationship = !empty($data['relationship']);
+        
+        Log::info('Emergency relation field validation', [
+            'emergency_relation' => $data['emergency_relation'] ?? 'NOT_SET',
+            'relationship' => $data['relationship'] ?? 'NOT_SET',
+            'has_emergency_relation' => $hasEmergencyRelation,
+            'has_relationship' => $hasRelationship
+        ]);
+        
+        if (!$hasEmergencyRelation && !$hasRelationship) {
+            throw new \InvalidArgumentException("The emergency_relation or relationship field is required.");
         }
     }
 
