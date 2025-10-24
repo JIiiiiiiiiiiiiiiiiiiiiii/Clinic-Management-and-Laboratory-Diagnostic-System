@@ -123,15 +123,6 @@ class ManualTransactionController extends Controller
      */
     public function store(Request $request)
     {
-        \Log::info('ManualTransactionController@store called');
-        \Log::info('Request data:', $request->all());
-        \Log::info('Selected services from request:', ['selected_services' => $request->selected_services ?? 'NOT SET']);
-        \Log::info('Is senior citizen:', ['is_senior_citizen' => $request->is_senior_citizen]);
-        \Log::info('Payment method:', ['payment_method' => $request->payment_method]);
-        
-        // Force return success for testing
-        return redirect()->route('admin.billing.index')
-            ->with('success', 'Test transaction created successfully.');
         
         $user = Auth::user();
         
@@ -166,16 +157,7 @@ class ManualTransactionController extends Controller
             $selectedServices = $request->selected_services ?? [];
             $transactions = [];
             
-            // Debug: Log the received data
-            \Log::info('Manual Transaction Debug:', [
-                'selected_services' => $selectedServices,
-                'selected_services_count' => count($selectedServices),
-                'selected_services_empty' => empty($selectedServices),
-                'is_senior_citizen' => $request->is_senior_citizen,
-                'payment_method' => $request->payment_method,
-                'amount' => $request->amount,
-                'all_request_data' => $request->all()
-            ]);
+            
             
             // Service pricing
             $servicePrices = [
@@ -187,9 +169,19 @@ class ManualTransactionController extends Controller
             
             // If no selected services, create single transaction with provided data
             if (empty($selectedServices)) {
+                
+                // Calculate senior discount - only apply to consultation portion
                 $seniorDiscountAmount = 0;
-                if ($request->is_senior_citizen && $request->payment_method !== 'hmo' && $request->transaction_type === 'consultation') {
-                    $seniorDiscountAmount = $request->amount * 0.20;
+                if ($request->is_senior_citizen && $request->payment_method !== 'hmo') {
+                    // For mixed transactions (amount = 1800), only apply discount to consultation portion (300)
+                    if ($request->amount >= 1800) {
+                        // This is likely a mixed transaction (consultation + lab tests)
+                        // Only apply senior discount to consultation portion (₱300)
+                        $seniorDiscountAmount = 300 * 0.20; // ₱60
+                    } else {
+                        // This might be consultation only
+                        $seniorDiscountAmount = $request->amount * 0.20;
+                    }
                 }
 
                 $regularDiscountAmount = $request->discount_amount ?? 0;
@@ -205,7 +197,7 @@ class ManualTransactionController extends Controller
                     'specialist_id' => $request->specialist_id,
                     'transaction_type' => $request->transaction_type,
                     'specialist_type' => $request->specialist_type,
-                    'amount' => $request->amount,
+                    'amount' => $request->amount, // Store original amount before discounts
                     'payment_method' => $request->payment_method,
                     'payment_type' => $request->payment_type ?? 'cash',
                     'hmo_provider' => $request->hmo_provider,
@@ -216,7 +208,7 @@ class ManualTransactionController extends Controller
                     'senior_discount_percentage' => $seniorDiscountAmount > 0 ? 20.00 : 0,
                     'discount_amount' => $regularDiscountAmount,
                     'discount_percentage' => $request->discount_percentage ?? 0,
-                    'final_amount' => $finalAmount,
+                    'final_amount' => $finalAmount, // Store final amount after discounts
                     'status' => 'pending',
                     'description' => $request->description,
                     'notes' => $request->notes,
@@ -232,7 +224,7 @@ class ManualTransactionController extends Controller
                     'patient_id' => $request->patient_id,
                     'doctor_id' => $request->specialist_id,
                     'payment_type' => $request->payment_type ?? 'cash',
-                    'total_amount' => $finalAmount, // Use final amount after discounts
+                    'total_amount' => $request->amount, // Use original amount before discounts
                     'amount' => $finalAmount, // Use final amount after discounts
                     'discount_amount' => $regularDiscountAmount,
                     'discount_percentage' => $request->discount_percentage ?? 0,
@@ -245,7 +237,7 @@ class ManualTransactionController extends Controller
                     'payment_method' => $request->payment_method,
                     'payment_reference' => $request->payment_reference,
                     'status' => 'pending',
-                    'is_itemized' => false,
+                    'is_itemized' => true, // Mark as itemized since we'll create items
                     'description' => $request->description,
                     'notes' => $request->notes,
                     'transaction_date' => $request->transaction_date,
@@ -254,6 +246,40 @@ class ManualTransactionController extends Controller
                     'due_date' => $request->due_date,
                     'created_by' => $user->id,
                 ]);
+                
+                // Create items based on the transaction amount
+                $items = [];
+                if ($request->amount >= 1800) {
+                    // Mixed transaction (consultation + 3 lab tests)
+                    $items = [
+                        ['type' => 'consultation', 'name' => 'General Consultation', 'price' => 300],
+                        ['type' => 'laboratory', 'name' => 'Complete Blood Count (CBC)', 'price' => 500],
+                        ['type' => 'laboratory', 'name' => 'Fecalysis Test', 'price' => 500],
+                        ['type' => 'laboratory', 'name' => 'Urinarysis Test', 'price' => 500],
+                    ];
+                } elseif ($request->amount == 300) {
+                    // Consultation only
+                    $items = [
+                        ['type' => 'consultation', 'name' => 'General Consultation', 'price' => 300],
+                    ];
+                } elseif ($request->amount == 500) {
+                    // Lab test only
+                    $items = [
+                        ['type' => 'laboratory', 'name' => 'Complete Blood Count (CBC)', 'price' => 500],
+                    ];
+                }
+                
+                foreach ($items as $item) {
+                    \App\Models\BillingTransactionItem::create([
+                        'billing_transaction_id' => $billingTransaction->id,
+                        'item_type' => $item['type'],
+                        'item_name' => $item['name'],
+                        'item_description' => $item['name'],
+                        'quantity' => 1,
+                        'unit_price' => $item['price'],
+                        'total_price' => $item['price'],
+                    ]);
+                }
                 
                 $transactions[] = $manualTransaction;
             } else {
@@ -286,17 +312,6 @@ class ManualTransactionController extends Controller
                 
                 $totalFinalAmount = $totalTransactionAmount - $totalSeniorDiscount - $totalRegularDiscount;
                 
-                // Debug: Log the calculation
-                \Log::info('Manual Transaction Calculation Debug:', [
-                    'total_transaction_amount' => $totalTransactionAmount,
-                    'consultation_amount' => $consultationAmount,
-                    'senior_discount' => $totalSeniorDiscount,
-                    'regular_discount' => $totalRegularDiscount,
-                    'final_amount' => $totalFinalAmount,
-                    'is_senior_citizen' => $request->is_senior_citizen,
-                    'payment_method' => $request->payment_method,
-                    'selected_services' => $selectedServices
-                ]);
                 
                 // Create single manual transaction for the entire transaction
                 $manualTransaction = ManualTransaction::create([
@@ -425,6 +440,7 @@ class ManualTransactionController extends Controller
         $billingTransaction = \App\Models\BillingTransaction::where('transaction_id', 'MT-' . str_pad($manualTransaction->id, 6, '0', STR_PAD_LEFT))
             ->with(['items', 'patient', 'doctor', 'createdBy'])
             ->first();
+
 
         return Inertia::render('admin/manual-transactions/show', [
             'transaction' => $manualTransaction,

@@ -233,9 +233,6 @@ export default function ManualTransactionCreate({
             selected_services: selectedServices, // Include for potential future use
         };
         
-        // Debug: Log the form data being sent
-        console.log('Form data being sent:', formData);
-        console.log('Selected services:', selectedServices);
         
         post('/admin/billing', formData);
     };

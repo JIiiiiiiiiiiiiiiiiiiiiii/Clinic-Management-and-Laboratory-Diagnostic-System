@@ -331,15 +331,15 @@ export default function ManualTransactionShow({
                         )}
 
                         {/* Transaction Items */}
-                        {billingTransaction && billingTransaction.items && billingTransaction.items.length > 0 && (
-                            <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-3 text-xl font-semibold text-gray-900">
-                                        <FileText className="h-5 w-5 text-black" />
-                                        Transaction Items
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-6">
+                        <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-3 text-xl font-semibold text-gray-900">
+                                    <FileText className="h-5 w-5 text-black" />
+                                    Transaction Items
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                {billingTransaction && billingTransaction.items && billingTransaction.items.length > 0 ? (
                                     <div className="overflow-x-auto">
                                         <Table>
                                             <TableHeader>
@@ -364,9 +364,17 @@ export default function ManualTransactionShow({
                                             </TableBody>
                                         </Table>
                                     </div>
-                                </CardContent>
-                            </Card>
-                        )}
+                                ) : (
+                                    <div className="text-center py-8 text-gray-500">
+                                        <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                                        <p>No transaction items found</p>
+                                        <p className="text-sm mt-2">
+                                            {!billingTransaction ? 'Billing transaction not found' : 'Items not available'}
+                                        </p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
 
                         {/* Description and Notes */}
                         {(transaction.description || transaction.notes) && (
