@@ -63,14 +63,28 @@ Route::prefix('admin')
         // Patient Transfer routes - All staff with transfer permission can access
         Route::middleware(['module.access:patients'])->group(function () {
             Route::prefix('patient-transfers')->name('patient.transfer.')->group(function () {
-                Route::get('/', [PatientTransferController::class, 'index'])->name('index');
-                Route::get('/create', [PatientTransferController::class, 'create'])->name('create');
-                Route::post('/', [PatientTransferController::class, 'store'])->name('store');
-                Route::get('/{transfer}', [PatientTransferController::class, 'show'])->name('show');
-                Route::put('/{transfer}', [PatientTransferController::class, 'update'])->name('update');
-                Route::delete('/{transfer}', [PatientTransferController::class, 'destroy'])->name('destroy');
-                Route::post('/{transfer}/complete', [PatientTransferController::class, 'complete'])->name('complete');
-                Route::post('/{transfer}/cancel', [PatientTransferController::class, 'cancel'])->name('cancel');
+                Route::get('/transfers', [PatientTransferController::class, 'index'])->name('transfers.index');
+                Route::get('/transfers/create', [PatientTransferController::class, 'create'])->name('transfers.create');
+                Route::post('/transfers', [PatientTransferController::class, 'store'])->name('transfers.store');
+                Route::get('/transfers/{transfer}', [PatientTransferController::class, 'show'])->name('transfers.show');
+                Route::put('/transfers/{transfer}', [PatientTransferController::class, 'update'])->name('transfers.update');
+                Route::delete('/transfers/{transfer}', [PatientTransferController::class, 'destroy'])->name('transfers.destroy');
+                Route::post('/transfers/{transfer}/complete', [PatientTransferController::class, 'complete'])->name('transfers.complete');
+                Route::post('/transfers/{transfer}/cancel', [PatientTransferController::class, 'cancel'])->name('transfers.cancel');
+            });
+        });
+
+        // Patient Transfer Registration routes - New cross-approval system
+        Route::middleware(['module.access:patients'])->group(function () {
+            Route::prefix('patient-transfers')->name('patient.transfer.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\PatientTransferRegistrationController::class, 'index'])->name('index');
+                Route::get('/registrations', [\App\Http\Controllers\PatientTransferRegistrationController::class, 'index'])->name('registrations.index');
+                Route::get('/registrations/create', [\App\Http\Controllers\PatientTransferRegistrationController::class, 'create'])->name('registrations.create');
+                Route::post('/registrations', [\App\Http\Controllers\PatientTransferRegistrationController::class, 'store'])->name('registrations.store');
+                Route::get('/registrations/{transfer}', [\App\Http\Controllers\PatientTransferRegistrationController::class, 'show'])->name('registrations.show');
+                Route::post('/registrations/{transfer}/approve', [\App\Http\Controllers\PatientTransferRegistrationController::class, 'approve'])->name('registrations.approve');
+                Route::post('/registrations/{transfer}/reject', [\App\Http\Controllers\PatientTransferRegistrationController::class, 'reject'])->name('registrations.reject');
+                Route::get('/history', [\App\Http\Controllers\PatientTransferRegistrationController::class, 'history'])->name('history');
             });
         });
 

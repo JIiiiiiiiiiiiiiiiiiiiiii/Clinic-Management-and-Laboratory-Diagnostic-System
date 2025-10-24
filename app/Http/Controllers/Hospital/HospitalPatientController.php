@@ -102,17 +102,27 @@ class HospitalPatientController extends Controller
             'current_medications' => 'nullable|string',
         ]);
 
-        // Generate patient ID
-        $patientId = 'P' . str_pad(Patient::count() + 1, 6, '0', STR_PAD_LEFT);
-
-        $patient = Patient::create([
-            ...$validated,
-            'patient_id' => $patientId,
-            'created_by' => auth()->id(),
+        // Instead of creating patient directly, create a transfer record
+        $user = auth()->user();
+        
+        $transfer = PatientTransfer::create([
+            'patient_id' => null, // Will be set when approved
+            'patient_data' => $validated,
+            'registration_type' => 'hospital',
+            'approval_status' => 'pending',
+            'requested_by' => $user->id,
+            'transfer_reason' => 'Hospital patient registration request',
+            'priority' => 'medium',
+            'status' => 'pending',
+            'transferred_by' => $user->id,
+            'transfer_date' => now(),
         ]);
 
-        return redirect()->route('hospital.patients.show', $patient)
-            ->with('success', 'Patient created successfully.');
+        // Create history record
+        $transfer->createHistoryRecord('created', $user->id, 'Hospital patient registration request created');
+
+        return redirect()->route('admin.patient.transfer.registrations.index')
+            ->with('success', 'Patient registration request submitted successfully. Waiting for admin approval.');
     }
 
     public function show(Patient $patient): Response

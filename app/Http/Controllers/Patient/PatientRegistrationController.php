@@ -167,7 +167,7 @@ class PatientRegistrationController extends Controller
                     ->withInput();
             }
 
-            // Create patient record - use actual database column names
+            // Instead of creating patient directly, create a transfer record
             $patientData = [
                 'last_name' => $request->last_name,
                 'first_name' => $request->first_name,
@@ -177,25 +177,39 @@ class PatientRegistrationController extends Controller
                 'sex' => $request->sex,
                 'civil_status' => $request->civil_status,
                 'nationality' => $request->nationality,
-                'present_address' => $request->present_address, // Use actual database column name
+                'present_address' => $request->present_address,
                 'telephone_no' => $request->telephone_no,
                 'mobile_no' => $request->mobile_no,
-                'informant_name' => $request->informant_name, // Use actual database column name
-                'relationship' => $request->relationship, // Use actual database column name
-                'company_name' => $request->company_name, // Use actual database column name
+                'informant_name' => $request->informant_name,
+                'relationship' => $request->relationship,
+                'company_name' => $request->company_name,
                 'hmo_name' => $request->hmo_name,
-                'hmo_company_id_no' => $request->hmo_company_id_no, // Use actual database column name
-                'validation_approval_code' => $request->validation_approval_code, // Use actual database column name
+                'hmo_company_id_no' => $request->hmo_company_id_no,
+                'validation_approval_code' => $request->validation_approval_code,
                 'validity' => $request->validity,
                 'drug_allergies' => $request->drug_allergies,
                 'past_medical_history' => $request->past_medical_history,
                 'family_history' => $request->family_history,
-                'social_personal_history' => $request->social_personal_history, // Use actual database column name
-                'obstetrics_gynecology_history' => $request->obstetrics_gynecology_history, // Use actual database column name
+                'social_personal_history' => $request->social_personal_history,
+                'obstetrics_gynecology_history' => $request->obstetrics_gynecology_history,
             ];
 
-            $patientData['user_id'] = $user->id;
-            $patient = $this->patientService->createPatient($patientData);
+            // Create patient transfer record instead of direct patient
+            $transfer = \App\Models\PatientTransfer::create([
+                'patient_id' => null, // Will be set when approved
+                'patient_data' => $patientData,
+                'registration_type' => 'patient', // Patient self-registration
+                'approval_status' => 'pending',
+                'requested_by' => $user->id,
+                'transfer_reason' => 'Patient self-registration request',
+                'priority' => 'medium',
+                'status' => 'pending',
+                'transferred_by' => $user->id,
+                'transfer_date' => now(),
+            ]);
+
+            // Create history record
+            $transfer->createHistoryRecord('created', $user->id, 'Patient self-registration request created');
 
             // Create appointment
             $specialist = User::find($request->specialist_id);
@@ -249,7 +263,7 @@ class PatientRegistrationController extends Controller
             DB::commit();
 
             return redirect()->route('patient.dashboard')
-                ->with('success', 'Registration and appointment request submitted successfully! You will be notified once it\'s approved by the admin.')
+                ->with('success', 'Patient registration request submitted successfully! You will be notified once it\'s approved by the admin.')
                 ->with('pending_appointment_id', $pendingAppointment->id);
 
         } catch (\Exception $e) {
