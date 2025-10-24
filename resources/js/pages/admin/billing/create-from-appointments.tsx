@@ -30,6 +30,7 @@ type PendingAppointment = {
     patient_id: string;
     appointment_type: string;
     price: number;
+    total_lab_amount?: number;
     final_total_amount?: number;
     appointment_date: string;
     appointment_time: string;
@@ -85,15 +86,32 @@ export default function CreateFromAppointments({
         selectedAppointments.includes(apt.id)
     );
 
-    const totalAmount = selectedAppointmentsData.reduce((sum, apt) => sum + (apt.final_total_amount || apt.price), 0);
+    // Calculate total amount - use final_total_amount if available, otherwise calculate from price + lab tests
+    const totalAmount = selectedAppointmentsData.reduce((sum, apt) => {
+        if (apt.final_total_amount && apt.final_total_amount > 0) {
+            return sum + Number(apt.final_total_amount);
+        }
+        // Fallback: calculate from price + lab tests
+        const labAmount = Number(apt.total_lab_amount) || 0;
+        return sum + (Number(apt.price) || 0) + labAmount;
+    }, 0);
     
     // Calculate senior citizen discount (20% on consultation appointments including lab tests)
     const consultationAppointments = selectedAppointmentsData.filter(apt => 
         apt.appointment_type === 'consultation' || apt.appointment_type === 'general_consultation'
     );
-    const consultationAmount = consultationAppointments.reduce((sum, apt) => sum + (apt.final_total_amount || apt.price), 0);
+    
+    // Calculate senior citizen discount - only apply to consultation portion (not lab tests)
+    const consultationAmount = consultationAppointments.reduce((sum, apt) => sum + (Number(apt.price) || 0), 0);
     const seniorDiscountAmount = isSeniorCitizen && paymentMethod !== 'hmo' ? (consultationAmount * 0.20) : 0;
     const finalAmount = totalAmount - seniorDiscountAmount;
+    
+    // Debug logging
+    console.log('Debug - Appointment data:', selectedAppointmentsData);
+    console.log('Debug - Total amount:', totalAmount);
+    console.log('Debug - Consultation amount:', consultationAmount);
+    console.log('Debug - Senior discount amount:', seniorDiscountAmount);
+    console.log('Debug - Final amount:', finalAmount);
 
     const handleAppointmentToggle = (appointmentId: number) => {
         setSelectedAppointments(prev => 

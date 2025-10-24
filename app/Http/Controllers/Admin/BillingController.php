@@ -378,16 +378,9 @@ class BillingController extends Controller
                 return in_array($apt->appointment_type, ['consultation', 'general_consultation']);
             });
             
-            // Calculate consultation amount including lab tests for senior discount
+            // Calculate senior citizen discount - only apply to consultation portion (not lab tests)
             $consultationAmount = $consultationAppointments->sum('price');
-            $consultationLabAmount = 0;
-            foreach ($consultationAppointments as $appointment) {
-                $consultationLabAmount += $appointment->total_lab_amount ?? 0;
-            }
-            $totalConsultationAmount = $consultationAmount + $consultationLabAmount;
-            
-            // Senior citizen discount applies to consultation + lab tests for consultation appointments
-            $seniorDiscountAmount = $isSeniorCitizen && $request->payment_method !== 'hmo' ? ($totalConsultationAmount * 0.20) : 0;
+            $seniorDiscountAmount = $isSeniorCitizen && $request->payment_method !== 'hmo' ? ($consultationAmount * 0.20) : 0;
             $finalAmount = $totalAmount - $seniorDiscountAmount;
 
             // Generate unique transaction ID (increment like patient ID)
@@ -731,12 +724,12 @@ class BillingController extends Controller
                 
                 // If senior citizen discount exists, apply it to the new total
                 if ($transaction->is_senior_citizen && $transaction->senior_discount_amount > 0) {
-                    // Calculate the senior discount percentage based on consultation items
+                    // Calculate the senior discount percentage based on consultation items only (not lab tests)
                     $consultationItems = $transaction->appointmentLinks->filter(function($link) {
                         return in_array($link->appointment->appointment_type, ['consultation', 'general_consultation']);
                     });
                     $consultationAmount = $consultationItems->sum('appointment_price');
-                    $seniorDiscountAmount = $consultationAmount * 0.20; // 20% discount
+                    $seniorDiscountAmount = $consultationAmount * 0.20; // 20% discount only on consultation
                     $newAmount = $newTotalAmount - $seniorDiscountAmount;
                     
                     // Update the senior discount amount
