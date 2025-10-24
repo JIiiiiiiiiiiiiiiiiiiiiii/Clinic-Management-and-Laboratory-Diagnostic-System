@@ -41,6 +41,7 @@ type SupplyItem = {
 type SupplyStats = {
     totalItems: number;
     lowStock: number;
+    outOfStock: number;
     consumedItems: number;
     rejectedItems: number;
 };
@@ -68,6 +69,21 @@ export default function SupplyItems({
     stats,
 }: SupplyItemsProps) {
     const [searchTerm, setSearchTerm] = useState('');
+
+    const handleDelete = (itemId: number, itemName: string) => {
+        if (confirm(`Are you sure you want to delete "${itemName}"? This action cannot be undone.`)) {
+            router.delete(`/admin/inventory/${itemId}`, {
+                onSuccess: () => {
+                    // Show success message
+                    alert('Item deleted successfully!');
+                },
+                onError: (errors) => {
+                    console.error('Error deleting item:', errors);
+                    alert('Failed to delete item. Please try again.');
+                }
+            });
+        }
+    };
 
     const filteredDoctorNurse = doctorNurseItems.filter((item) => {
         const search = searchTerm.toLowerCase();
@@ -134,7 +150,7 @@ export default function SupplyItems({
                         }
                     >
                         {/* Statistics Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                             <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
                                 <div className="flex items-center gap-2 mb-2">
                                     <Package className="h-4 w-4 text-black" />
@@ -142,12 +158,19 @@ export default function SupplyItems({
                                 </div>
                                 <div className="text-2xl font-bold text-gray-900">{stats.totalItems}</div>
                             </div>
-                            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <div className="bg-orange-50 rounded-lg p-4 border border-orange-200 shadow-sm">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <AlertTriangle className="h-4 w-4 text-black" />
-                                    <span className="text-sm font-medium text-gray-800">Low Stock</span>
+                                    <AlertTriangle className="h-4 w-4 text-orange-600" />
+                                    <span className="text-sm font-medium text-orange-800">Low Stock</span>
                                 </div>
-                                <div className="text-2xl font-bold text-gray-900">{stats.lowStock}</div>
+                                <div className="text-2xl font-bold text-orange-900">{stats.lowStock}</div>
+                            </div>
+                            <div className="bg-red-50 rounded-lg p-4 border border-red-200 shadow-sm">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <AlertTriangle className="h-4 w-4 text-red-600" />
+                                    <span className="text-sm font-medium text-red-800">Out of Stock</span>
+                                </div>
+                                <div className="text-2xl font-bold text-red-900">{stats.outOfStock}</div>
                             </div>
                             <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
                                 <div className="flex items-center gap-2 mb-2">
@@ -223,7 +246,10 @@ export default function SupplyItems({
                                                         <TableCell className="text-sm text-black">{item.category}</TableCell>
                                                         <TableCell className="text-sm text-black">{item.stock} {item.unit}</TableCell>
                                                         <TableCell>
-                                                            <Badge variant={item.status === 'Low Stock' ? 'destructive' : 'default'}>
+                                                            <Badge 
+                                                                variant={item.status === 'Out of Stock' ? 'destructive' : item.status === 'Low Stock' ? 'secondary' : 'default'}
+                                                                className={item.status === 'Low Stock' ? 'bg-orange-100 text-orange-800 border-orange-200' : ''}
+                                                            >
                                                                 {item.status}
                                                             </Badge>
                                                         </TableCell>
@@ -246,6 +272,15 @@ export default function SupplyItems({
                                                                         <Eye className="mr-1 h-3 w-3" />
                                                                         View
                                                                     </Link>
+                                                                </Button>
+                                                                <Button 
+                                                                    size="sm" 
+                                                                    variant="destructive"
+                                                                    onClick={() => handleDelete(item.id, item.item_name)}
+                                                                    className="hover:bg-red-700"
+                                                                >
+                                                                    <Trash2 className="mr-1 h-3 w-3" />
+                                                                    Delete
                                                                 </Button>
                                                             </div>
                                                         </TableCell>
@@ -301,7 +336,10 @@ export default function SupplyItems({
                                                         <TableCell className="text-sm text-black">{item.category}</TableCell>
                                                         <TableCell className="text-sm text-black">{item.stock} {item.unit}</TableCell>
                                                         <TableCell>
-                                                            <Badge variant={item.status === 'Low Stock' ? 'destructive' : 'default'}>
+                                                            <Badge 
+                                                                variant={item.status === 'Out of Stock' ? 'destructive' : item.status === 'Low Stock' ? 'secondary' : 'default'}
+                                                                className={item.status === 'Low Stock' ? 'bg-orange-100 text-orange-800 border-orange-200' : ''}
+                                                            >
                                                                 {item.status}
                                                             </Badge>
                                                         </TableCell>
@@ -324,6 +362,15 @@ export default function SupplyItems({
                                                                         <Eye className="mr-1 h-3 w-3" />
                                                                         View
                                                                     </Link>
+                                                                </Button>
+                                                                <Button 
+                                                                    size="sm" 
+                                                                    variant="destructive"
+                                                                    onClick={() => handleDelete(item.id, item.item_name)}
+                                                                    className="hover:bg-red-700"
+                                                                >
+                                                                    <Trash2 className="mr-1 h-3 w-3" />
+                                                                    Delete
                                                                 </Button>
                                                             </div>
                                                         </TableCell>

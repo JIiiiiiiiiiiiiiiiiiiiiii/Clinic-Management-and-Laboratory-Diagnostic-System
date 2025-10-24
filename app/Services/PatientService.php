@@ -293,9 +293,13 @@ class PatientService
     {
         return [
             'total_patients' => Patient::count(),
-            'active_patients' => Patient::count(),
-            'patients_with_visits' => 0,
+            'active_patients' => Patient::where('status', 'Active')->count(),
+            'inactive_patients' => Patient::where('status', 'Inactive')->count(),
             'new_patients_this_month' => Patient::whereMonth('created_at', now()->month)->count(),
+            'patients_with_appointments' => Patient::whereHas('appointments')->count(),
+            'patients_with_completed_visits' => Patient::whereHas('appointments', function($query) {
+                $query->where('status', 'Completed');
+            })->count(),
             'patients_by_gender' => Patient::selectRaw('sex, COUNT(*) as count')
                 ->groupBy('sex')
                 ->pluck('count', 'sex')
@@ -306,7 +310,13 @@ class PatientService
                 '31-50' => Patient::whereBetween('age', [31, 50])->count(),
                 '51-70' => Patient::whereBetween('age', [51, 70])->count(),
                 '70+' => Patient::where('age', '>', 70)->count(),
-            ]
+            ],
+            'patients_by_civil_status' => Patient::selectRaw('civil_status, COUNT(*) as count')
+                ->groupBy('civil_status')
+                ->pluck('count', 'civil_status')
+                ->toArray(),
+            'senior_citizens' => Patient::where('age', '>=', 60)->count(),
+            'patients_with_insurance' => Patient::whereNotNull('hmo_name')->count(),
         ];
     }
 

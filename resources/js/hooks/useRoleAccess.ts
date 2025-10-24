@@ -114,12 +114,15 @@ export function useRoleAccess() {
                 return false;
             case 'hospital_admin':
             case 'hospital_staff':
-                // Hospital users only have access to patients and reports
+                // Hospital users have access to patients, reports, and inventory
                 if (module === 'patients') {
                     return ['create', 'read', 'update', 'delete', 'transfer'].includes(action);
                 }
                 if (module === 'reports') {
                     return ['read', 'export'].includes(action);
+                }
+                if (module === 'inventory') {
+                    return ['create', 'read', 'update', 'delete'].includes(action);
                 }
                 return false;
             case 'patient':

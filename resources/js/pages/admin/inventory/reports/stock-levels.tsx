@@ -62,10 +62,12 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
     };
 
     const getStockStatus = (product: Product) => {
-        if (product.current_stock <= product.minimum_stock_level) {
-            return { status: 'low', color: 'destructive', text: 'Low Stock' };
+        if (product.current_stock === 0) {
+            return { status: 'out', color: 'destructive', text: 'Out of Stock' };
+        } else if (product.current_stock <= product.minimum_stock_level) {
+            return { status: 'low', color: 'secondary', text: 'Low Stock' };
         } else if (product.current_stock >= product.maximum_stock_level) {
-            return { status: 'high', color: 'secondary', text: 'High Stock' };
+            return { status: 'high', color: 'default', text: 'High Stock' };
         }
         return { status: 'normal', color: 'default', text: 'Normal' };
     };
@@ -208,7 +210,12 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                                                     <div className="font-medium text-gray-900">{product.minimum_stock_level}</div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge variant="destructive" className="px-3 py-1">Low Stock</Badge>
+                                                    <Badge 
+                                                        variant="secondary" 
+                                                        className="px-3 py-1 bg-orange-100 text-orange-800 border-orange-200"
+                                                    >
+                                                        Low Stock
+                                                    </Badge>
                                                 </TableCell>
                                                 <TableCell>
                                                     <Button
@@ -272,7 +279,16 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Badge variant={stockStatus.color as any} className="px-3 py-1">{stockStatus.text}</Badge>
+                                                        <Badge 
+                                                            variant={stockStatus.color as any} 
+                                                            className={`px-3 py-1 ${
+                                                                stockStatus.status === 'out' ? 'bg-red-100 text-red-800 border-red-200' :
+                                                                stockStatus.status === 'low' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                                                                ''
+                                                            }`}
+                                                        >
+                                                            {stockStatus.text}
+                                                        </Badge>
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="font-medium text-gray-900">

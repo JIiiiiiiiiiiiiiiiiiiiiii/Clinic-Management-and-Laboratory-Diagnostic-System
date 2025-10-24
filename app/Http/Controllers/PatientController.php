@@ -65,6 +65,7 @@ class PatientController extends Controller
                 'middle_name',
                 'sex',
                 'age',
+                'birthdate',
                 'mobile_no',
                 'address', // Fixed: was 'present_address'
                 'created_at',

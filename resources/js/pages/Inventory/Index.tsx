@@ -1,5 +1,8 @@
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
@@ -7,51 +10,63 @@ import { Head, Link, router } from '@inertiajs/react';
 import { 
     Package, 
     AlertTriangle, 
+    Clock, 
     TrendingDown, 
+    CheckCircle, 
     BarChart3, 
+    TrendingUp, 
     Users,
+    ArrowUp,
+    ArrowDown,
+    Search,
     Plus,
+    Edit,
+    Eye,
     Trash2,
     FlaskConical
 } from 'lucide-react';
+import { useState } from 'react';
 
 type InventoryStats = {
-    totalSupplies: number;
-    lowStockItems: number;
-    totalConsumed: number;
-    totalRejected: number;
+    total_products: number;
+    low_stock_products: number;
+    expiring_soon: number;
+    expired_stock: number;
+    total_value: number;
+    recent_transactions: number;
 };
 
-type DoctorNurseItem = {
+type PendingApproval = {
     id: number;
-    item_name: string;
-    item_code: string;
-    category: string;
-    unit: string;
-    stock: number;
-    consumed: number;
-    rejected: number;
-    status: string;
-    low_stock_alert: number;
+    product_name: string;
+    quantity: number;
+    type: string;
+    requested_by: string;
+    created_at: string;
 };
 
-type MedTechItem = {
+type RecentTransaction = {
     id: number;
-    item_name: string;
-    item_code: string;
-    category: string;
-    unit: string;
-    stock: number;
-    consumed: number;
-    rejected: number;
-    status: string;
-    low_stock_alert: number;
+    product_name: string;
+    quantity: number;
+    type: 'in' | 'out';
+    reason: string;
+    created_at: string;
 };
 
-interface InventoryIndexProps {
+type LowStockItem = {
+    id: number;
+    name: string;
+    current_stock: number;
+    minimum_stock: number;
+    unit: string;
+};
+
+interface InventoryDashboardProps {
     stats: InventoryStats;
-    doctorNurseItems: DoctorNurseItem[];
-    medTechItems: MedTechItem[];
+    pendingApprovals: PendingApproval[];
+    recentTransactions: RecentTransaction[];
+    lowStockItems: LowStockItem[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -61,11 +76,18 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function InventoryIndex({
+export default function InventoryDashboard({
     stats,
-    doctorNurseItems = [],
-    medTechItems = [],
-}: InventoryIndexProps) {
+    pendingApprovals = [],
+    recentTransactions = [],
+    lowStockItems = [],
+}: InventoryDashboardProps) {
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredLowStock = lowStockItems.filter((item) => {
+        const search = searchTerm.toLowerCase();
+        return item.name.toLowerCase().includes(search);
+    });
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -87,7 +109,7 @@ export default function InventoryIndex({
                                         <Package className="h-6 w-6 text-black" />
                                     </div>
                                     <div>
-                                        <div className="text-3xl font-bold text-black">{stats.totalSupplies}</div>
+                                        <div className="text-3xl font-bold text-black">{stats.total_products}</div>
                                         <div className="text-black text-sm font-medium">Total Items</div>
                                     </div>
                                 </div>
@@ -98,117 +120,148 @@ export default function InventoryIndex({
 
                 {/* Main content */}
                 <div className="w-full">
-                    {/* Action Buttons */}
-                    <div className="mb-6 flex gap-4 justify-end">
-                        <Button 
-                            onClick={() => router.visit('/admin/inventory/supply-items')}
-                            className="bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-sm font-semibold rounded-xl"
-                        >
-                            <Package className="mr-2 h-4 w-4" />
-                            View all Supply Items
-                        </Button>
-                        <Button 
-                            onClick={() => router.visit('/admin/inventory/create')}
-                            className="bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-sm font-semibold rounded-xl"
-                        >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Supply Item
-                        </Button>
-                    </div>
-                    
                     <PatientInfoCard
                         title="Inventory Overview"
                         icon={<Package className="h-5 w-5 text-black" />}
                         actions={
                             <div className="flex items-center gap-2">
                                 <Button 
-                                    onClick={() => router.visit('/admin/inventory/create')}
+                                    onClick={() => router.visit('/admin/inventory/transactions/create')}
+                                    className="bg-gray-600 hover:bg-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
+                                >
+                                    <Package className="mr-2 h-4 w-4" />
+                                    Record Movement
+                                </Button>
+                                <Button 
+                                    onClick={() => router.visit('/admin/inventory/products/create')}
                                     className="bg-gray-600 hover:bg-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
                                 >
                                     <Plus className="mr-2 h-4 w-4" />
                                     Add Item
                                 </Button>
-                                <Button 
-                                    onClick={() => router.visit('/admin/inventory/reports')}
-                                    className="bg-gray-600 hover:bg-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
-                                >
-                                    <BarChart3 className="mr-2 h-4 w-4" />
-                                    Reports
-                                </Button>
                             </div>
                         }
                     >
-                        {/* Statistics Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Package className="h-4 w-4 text-black" />
-                                    <span className="text-sm font-medium text-gray-800">Total Items</span>
+                            {/* Statistics Grid */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                                <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Package className="h-4 w-4 text-black" />
+                                        <span className="text-sm font-medium text-gray-800">Total Items</span>
+                                    </div>
+                                    <div className="text-2xl font-bold text-gray-900">{stats.total_products}</div>
                                 </div>
-                                <div className="text-2xl font-bold text-gray-900">{stats.totalSupplies}</div>
-                            </div>
-                            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <AlertTriangle className="h-4 w-4 text-black" />
-                                    <span className="text-sm font-medium text-gray-800">Low Stock</span>
+                                <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <AlertTriangle className="h-4 w-4 text-black" />
+                                        <span className="text-sm font-medium text-gray-800">Low Stock</span>
+                                    </div>
+                                    <div className="text-2xl font-bold text-gray-900">{stats.low_stock_products}</div>
                                 </div>
-                                <div className="text-2xl font-bold text-gray-900">{stats.lowStockItems}</div>
-                            </div>
-                            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <TrendingDown className="h-4 w-4 text-black" />
-                                    <span className="text-sm font-medium text-gray-800">Consumed</span>
+                                <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Clock className="h-4 w-4 text-black" />
+                                        <span className="text-sm font-medium text-gray-800">Expiring Soon</span>
+                                    </div>
+                                    <div className="text-2xl font-bold text-gray-900">{stats.expiring_soon}</div>
                                 </div>
-                                <div className="text-2xl font-bold text-gray-900">{stats.totalConsumed}</div>
-                            </div>
-                            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Trash2 className="h-4 w-4 text-black" />
-                                    <span className="text-sm font-medium text-gray-800">Rejected</span>
+                                <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <TrendingDown className="h-4 w-4 text-black" />
+                                        <span className="text-sm font-medium text-gray-800">Expired</span>
+                                    </div>
+                                    <div className="text-2xl font-bold text-gray-900">{stats.expired_stock}</div>
                                 </div>
-                                <div className="text-2xl font-bold text-gray-900">{stats.totalRejected}</div>
                             </div>
-                        </div>
 
-                        {/* Quick Navigation */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                            <Card className="hover:shadow-lg transition-shadow">
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Users className="h-5 w-5" />
-                                        Doctor & Nurse Items
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold text-gray-900 mb-2">{doctorNurseItems.length}</div>
-                                    <p className="text-sm text-gray-600 mb-4">Items assigned to Doctor & Nurse</p>
-                                    <Button asChild className="w-full">
-                                        <Link href="/admin/inventory/doctor-nurse">
-                                            View Items
-                                        </Link>
-                                    </Button>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="hover:shadow-lg transition-shadow">
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <FlaskConical className="h-5 w-5" />
-                                        Med Tech Items
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold text-gray-900 mb-2">{medTechItems.length}</div>
-                                    <p className="text-sm text-gray-600 mb-4">Items assigned to Med Tech</p>
-                                    <Button asChild className="w-full">
-                                        <Link href="/admin/inventory/medtech">
-                                            View Items
-                                        </Link>
-                                    </Button>
-                                </CardContent>
-                            </Card>
-                        </div>
-
+                            {/* Low Stock Items Table */}
+                            <div className="mb-6">
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="relative flex-1 max-w-md">
+                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                        <Input
+                                            placeholder="Search low stock items..."
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            className="pl-10 h-12 border-gray-200 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                    <Table>
+                                    <TableHeader className="bg-gray-50">
+                                        <TableRow className="hover:bg-gray-100">
+                                            <TableHead className="font-semibold text-black">
+                                                    <div className="flex items-center gap-2">
+                                                        <AlertTriangle className="h-4 w-4" />
+                                                        Item Name
+                                                    </div>
+                                                </TableHead>
+                                            <TableHead className="font-semibold text-black">Current Stock</TableHead>
+                                            <TableHead className="font-semibold text-black">Minimum Stock</TableHead>
+                                            <TableHead className="font-semibold text-black">Unit</TableHead>
+                                            <TableHead className="font-semibold text-black">Status</TableHead>
+                                            <TableHead className="font-semibold text-black">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {filteredLowStock.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={6} className="text-center py-8">
+                                                        <div className="flex flex-col items-center">
+                                                            <Package className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                                        <h3 className="mb-2 text-lg font-semibold text-black">{searchTerm ? 'No items found' : 'No low stock items'}</h3>
+                                                        <p className="text-black">
+                                                                {searchTerm ? 'Try adjusting your search terms' : 'All items are well stocked'}
+                                                            </p>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                filteredLowStock.map((item) => (
+                                                    <TableRow key={item.id} className="hover:bg-gray-50">
+                                                        <TableCell className="font-medium">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="p-1 bg-gray-100 rounded-full">
+                                                                    <AlertTriangle className="h-4 w-4 text-black" />
+                                                                </div>
+                                                                {item.name}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-sm text-black">{item.current_stock}</TableCell>
+                                                        <TableCell className="text-sm text-black">{item.minimum_stock}</TableCell>
+                                                        <TableCell className="text-sm text-black">{item.unit}</TableCell>
+                                                        <TableCell>
+                                                            <Badge 
+                                                                variant="secondary"
+                                                                className="bg-orange-100 text-orange-800 border-orange-200"
+                                                            >
+                                                                Low Stock
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex gap-2">
+                                                                <Button asChild size="sm">
+                                                                    <Link href={`/admin/inventory/products/${item.id}/edit`}>
+                                                                        <Edit className="mr-1 h-3 w-3" />
+                                                                        Edit
+                                                                    </Link>
+                                                                </Button>
+                                                                <Button asChild size="sm" variant="outline">
+                                                                    <Link href={`/admin/inventory/products/${item.id}`}>
+                                                                        <Eye className="mr-1 h-3 w-3" />
+                                                                        View
+                                                                    </Link>
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
                     </PatientInfoCard>
                 </div>
             </div>

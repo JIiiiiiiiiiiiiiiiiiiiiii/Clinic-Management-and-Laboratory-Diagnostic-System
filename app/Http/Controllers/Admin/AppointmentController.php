@@ -381,6 +381,8 @@ class AppointmentController extends Controller
             'contact_number' => $appointment->contact_number,
             'appointment_type' => $appointment->appointment_type,
             'price' => $appointment->price,
+            'total_lab_amount' => $appointment->total_lab_amount ?? 0,
+            'final_total_amount' => $appointment->final_total_amount ?? $appointment->price,
             'specialist_type' => $appointment->specialist_type,
             'specialist_name' => $appointment->specialist_name,
             'specialist_id' => $appointment->specialist_id,

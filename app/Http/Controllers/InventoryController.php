@@ -11,32 +11,37 @@ class InventoryController extends Controller
 {
     public function index()
     {
-        // Use fresh database queries to ensure latest values
-        $totalSupplies = InventoryItem::count();
-        $lowStockItems = InventoryItem::lowStock()->count();
-        $totalConsumed = InventoryItem::sum('consumed');
-        $totalRejected = InventoryItem::sum('rejected');
+        // Enhanced inventory dashboard with clickable cards
+        $stats = [
+            'total_items' => InventoryItem::count(),
+            'low_stock_items' => InventoryItem::lowStock()->count(),
+            'out_of_stock_items' => InventoryItem::where('stock', 0)->count(),
+            'total_suppliers' => 0, // Set to 0 if no suppliers table
+            'total_movements_today' => InventoryMovement::whereDate('created_at', today())->count(),
+        ];
 
-        $doctorNurseItems = InventoryItem::byAssignedTo('Doctor & Nurse')->get();
-        $medTechItems = InventoryItem::byAssignedTo('Med Tech')->get();
+        $recentMovements = InventoryMovement::with(['inventoryItem'])
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+
+        $lowStockItems = InventoryItem::lowStock()
+            ->orderBy('stock', 'asc')
+            ->limit(10)
+            ->get();
 
         // Debug logging for stats
-        \Log::info('Inventory Index Stats:', [
-            'totalSupplies' => $totalSupplies,
-            'lowStockItems' => $lowStockItems,
-            'totalConsumed' => $totalConsumed,
-            'totalRejected' => $totalRejected,
+        \Log::info('Enhanced Inventory Index Stats:', [
+            'total_items' => $stats['total_items'],
+            'low_stock_items' => $stats['low_stock_items'],
+            'out_of_stock_items' => $stats['out_of_stock_items'],
+            'lowStockItems_count' => $lowStockItems->count(),
         ]);
 
-        return Inertia::render('Inventory/Index', [
-            'stats' => [
-                'totalSupplies' => $totalSupplies,
-                'lowStockItems' => $lowStockItems,
-                'totalConsumed' => $totalConsumed,
-                'totalRejected' => $totalRejected,
-            ],
-            'doctorNurseItems' => $doctorNurseItems,
-            'medTechItems' => $medTechItems,
+        return Inertia::render('admin/inventory/enhanced/index', [
+            'stats' => $stats,
+            'recentMovements' => $recentMovements,
+            'lowStockItems' => $lowStockItems,
         ]);
     }
 
@@ -131,7 +136,7 @@ class InventoryController extends Controller
         $item = InventoryItem::findOrFail($id);
         $item->delete();
 
-        return redirect()->route('admin.inventory.index')->with('success', 'Product deleted successfully!');
+        return redirect()->route('admin.inventory.supply-items')->with('success', 'Product deleted successfully!');
     }
 
     public function doctorNurse()
@@ -214,12 +219,14 @@ class InventoryController extends Controller
         // Calculate combined stats
         $totalItems = InventoryItem::count();
         $lowStockItems = InventoryItem::lowStock()->count();
+        $outOfStockItems = InventoryItem::where('stock', 0)->count();
         $totalConsumed = InventoryItem::sum('consumed');
         $totalRejected = InventoryItem::sum('rejected');
 
         $stats = [
             'totalItems' => $totalItems,
             'lowStock' => $lowStockItems,
+            'outOfStock' => $outOfStockItems,
             'consumedItems' => $totalConsumed,
             'rejectedItems' => $totalRejected,
         ];

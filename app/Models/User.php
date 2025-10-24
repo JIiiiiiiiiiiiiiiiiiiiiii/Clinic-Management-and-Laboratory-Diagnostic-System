@@ -301,7 +301,7 @@ class User extends Authenticatable
                 return in_array($module, ['billing', 'reports']);
             case 'hospital_staff':
             case 'hospital_admin':
-                return in_array($module, ['patients', 'reports', 'billing']);
+                return in_array($module, ['patients', 'reports', 'billing', 'inventory']);
             case 'patient':
                 return in_array($module, ['patients']);
             default:
@@ -385,6 +385,9 @@ class User extends Authenticatable
                 }
                 if ($module === 'billing') {
                     return ['read', 'export']; // Read access to billing for financial reports
+                }
+                if ($module === 'inventory') {
+                    return ['create', 'read', 'update', 'delete']; // Full access to inventory management
                 }
                 return [];
             case 'patient':
