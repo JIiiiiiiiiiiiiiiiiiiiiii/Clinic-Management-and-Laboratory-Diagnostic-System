@@ -88,7 +88,7 @@ class User extends Authenticatable
         $mappedRole = $this->getMappedRole();
 
         if ($mappedRole === 'patient') {
-            return route('patient.dashboard');
+            return route('home');
         }
 
         // All other roles (staff) go to admin dashboard

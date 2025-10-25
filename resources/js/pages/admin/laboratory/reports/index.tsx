@@ -24,7 +24,8 @@ type OrderLite = {
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Laboratory Reports', href: '/admin/laboratory/reports' },
+    { title: 'Laboratory', href: '/admin/laboratory' },
+    { title: 'Reports', href: '/admin/laboratory/reports' },
 ];
 
 export default function LaboratoryReportsIndex({ orders = [], tests = [] }: { orders?: OrderLite[]; tests?: LabTest[] }) {

@@ -16,8 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { PatientPageLayout, PatientActionButton, PatientFormSection, PatientInfoCard } from '@/components/patient/PatientPageLayout';
-import AppLayout from '@/layouts/app-layout';
+import SharedNavigation from '@/components/SharedNavigation';
 import { type BreadcrumbItem } from '@/types';
 import { CreatePatientItem } from '@/types/patients';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
@@ -418,8 +417,12 @@ export default function RegisterAndBook({
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Register & Book Appointment" />
+        <div className="min-h-screen bg-white">
+            <Head title="Register & Book Appointment - SJHI Industrial Clinic" />
+            
+            {/* Shared Navigation */}
+            <SharedNavigation user={user} currentPath="/patient/register-and-book" notifications={notifications} unreadCount={unreadCount} />
+            
             <div className="flex flex-1 flex-col gap-6 p-6">
                 <div className="@container/main flex flex-1 flex-col gap-6">
                     {/* Header Section */}
@@ -598,10 +601,14 @@ export default function RegisterAndBook({
                     <form onSubmit={submit} className="space-y-6">
                         {/* Step 1: Personal Information */}
                         {currentStep === 1 && (
-                            <PatientInfoCard
-                                title="Personal Information"
-                                icon={getStepIcon(1)}
-                            >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {getStepIcon(1)}
+                                        Personal Information
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                 <div className="space-y-6">
                                     {/* Name Section */}
                                     <div className="space-y-3">
@@ -748,15 +755,20 @@ export default function RegisterAndBook({
                                         </div>
                                     </div>
                                 </div>
-                            </PatientInfoCard>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Step 2: Contact Details */}
                         {currentStep === 2 && (
-                            <PatientInfoCard
-                                title="Contact Details"
-                                icon={getStepIcon(2)}
-                            >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {getStepIcon(2)}
+                                        Contact Details
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                 <div className="space-y-6">
                                     {/* Address Section */}
                                     <div className="space-y-3">
@@ -817,15 +829,20 @@ export default function RegisterAndBook({
                                         </div>
                                     </div>
                                 </div>
-                            </PatientInfoCard>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Step 3: Emergency Contact */}
                         {currentStep === 3 && (
-                            <PatientInfoCard
-                                title="Emergency Contact"
-                                icon={getStepIcon(3)}
-                            >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {getStepIcon(3)}
+                                        Emergency Contact
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                 <div className="space-y-6">
                                     {/* Emergency Contact Information */}
                                     <div className="space-y-3">
@@ -862,15 +879,20 @@ export default function RegisterAndBook({
                                         </div>
                                     </div>
                                 </div>
-                            </PatientInfoCard>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Step 4: Insurance & Financial */}
                         {currentStep === 4 && (
-                            <PatientInfoCard
-                                title="Insurance & Financial"
-                                icon={getStepIcon(4)}
-                            >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {getStepIcon(4)}
+                                        Insurance & Financial
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                 <div className="grid gap-6 md:grid-cols-2">
                                     <div className="space-y-3">
                                         <Label htmlFor="company_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -936,15 +958,20 @@ export default function RegisterAndBook({
                                         />
                                     </div>
                                 </div>
-                            </PatientInfoCard>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Step 5: Medical History */}
                         {currentStep === 5 && (
-                            <PatientInfoCard
-                                title="Medical History"
-                                icon={getStepIcon(5)}
-                            >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {getStepIcon(5)}
+                                        Medical History
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                 <div className="space-y-6">
                                     <div className="grid gap-6 md:grid-cols-2">
                                         <div className="space-y-3">
@@ -1037,15 +1064,20 @@ export default function RegisterAndBook({
                                         />
                                     </div>
                                 </div>
-                            </PatientInfoCard>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Step 6: Appointment Booking */}
                         {currentStep === 6 && (
-                            <PatientInfoCard
-                                title="Appointment Booking"
-                                icon={getStepIcon(6)}
-                            >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {getStepIcon(6)}
+                                        Appointment Booking
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                 <div className="space-y-6">
                                     {/* Appointment Type Selection */}
                                     <div className="space-y-3">
@@ -1234,7 +1266,8 @@ export default function RegisterAndBook({
                                         </div>
                                     )}
                                 </div>
-                            </PatientInfoCard>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Navigation Buttons */}
@@ -1298,6 +1331,6 @@ export default function RegisterAndBook({
                     </form>
                 </div>
             </div>
-        </AppLayout>
+        </div>
     );
 }

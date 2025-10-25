@@ -262,9 +262,9 @@ class PatientRegistrationController extends Controller
 
             DB::commit();
 
-            return redirect()->route('patient.dashboard')
+            return redirect()->route('home')
                 ->with('success', 'Patient registration request submitted successfully! You will be notified once it\'s approved by the admin.')
-                ->with('pending_appointment_id', $pendingAppointment->id);
+                ->with('pending_appointment_id', $appointment->id);
 
         } catch (\Exception $e) {
             DB::rollBack();

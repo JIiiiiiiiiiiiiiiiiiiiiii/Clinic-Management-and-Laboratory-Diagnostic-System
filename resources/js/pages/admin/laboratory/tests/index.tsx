@@ -8,7 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, Edit, Plus, TestTube, Trash2, Search, FlaskConical, ArrowUpDown } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, TestTube, Trash2, Search, FlaskConical, ArrowUpDown, FileText } from 'lucide-react';
 import { useState } from 'react';
 import {
     ColumnDef,
@@ -33,6 +33,10 @@ type TestRow = {
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
+    {
+        title: 'Laboratory',
+        href: '/admin/laboratory',
+    },
     {
         title: 'Test Templates',
         href: '/admin/laboratory/tests',
@@ -143,29 +147,67 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Lab Test Templates" />
             <div className="min-h-screen bg-gray-50 p-6">
-                {/* Header Section */}
-                <div className="mb-8">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-6">
-                            <div>
-                                <h1 className="text-4xl font-semibold text-black mb-4">Lab Test Templates</h1>
-                                <p className="text-sm text-black mt-1">Manage laboratory diagnostic test templates and configurations</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
-                                        <TestTube className="h-6 w-6 text-black" />
-                                    </div>
-                                    <div>
-                                        <div className="text-3xl font-bold text-gray-900">{tests.length}</div>
-                                        <div className="text-gray-600 text-sm font-medium">Total Tests</div>
-                                    </div>
+                {/* Statistics Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <Card className="bg-white border border-gray-200">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">Total Tests</p>
+                                    <p className="text-3xl font-bold text-gray-900">{tests.length}</p>
+                                    <p className="text-sm text-gray-500">All test templates</p>
+                                </div>
+                                <div className="p-3 bg-blue-100 rounded-full">
+                                    <TestTube className="h-6 w-6 text-blue-600" />
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                        </CardContent>
+                    </Card>
+                    
+                    <Card className="bg-white border border-gray-200">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">Active Tests</p>
+                                    <p className="text-3xl font-bold text-gray-900">{tests.filter(test => test.is_active).length}</p>
+                                    <p className="text-sm text-gray-500">Currently available</p>
+                                </div>
+                                <div className="p-3 bg-green-100 rounded-full">
+                                    <FlaskConical className="h-6 w-6 text-green-600" />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    
+                    <Card className="bg-white border border-gray-200">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">Inactive Tests</p>
+                                    <p className="text-3xl font-bold text-gray-900">{tests.filter(test => !test.is_active).length}</p>
+                                    <p className="text-sm text-gray-500">Disabled templates</p>
+                                </div>
+                                <div className="p-3 bg-gray-100 rounded-full">
+                                    <TestTube className="h-6 w-6 text-gray-600" />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    
+                    <Card className="bg-white border border-gray-200">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">Latest Version</p>
+                                    <p className="text-3xl font-bold text-gray-900">{Math.max(...tests.map(test => test.version), 0)}</p>
+                                    <p className="text-sm text-gray-500">Template version</p>
+                                </div>
+                                <div className="p-3 bg-purple-100 rounded-full">
+                                    <FileText className="h-6 w-6 text-purple-600" />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
 
                 {/* Tests Section */}

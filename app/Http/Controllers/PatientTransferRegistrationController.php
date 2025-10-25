@@ -21,13 +21,8 @@ class PatientTransferRegistrationController extends Controller
     {
         $user = auth()->user();
         
-        // Build the base query
+        // Build the base query - get ALL transfers regardless of status
         $query = PatientTransfer::with(['patient', 'requestedBy', 'approvedBy']);
-
-        // Show pending approvals by default, but allow filtering
-        if ($request->get('status') !== 'all') {
-            $query->pendingApproval();
-        }
 
         // Filter based on user role for cross-approval system
         if ($user->role === 'admin') {
@@ -38,7 +33,27 @@ class PatientTransferRegistrationController extends Controller
             $query->byRegistrationType('admin');
         }
 
+        // Apply status filter if provided
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('approval_status', $request->status);
+        }
+
         $transfers = $query->orderBy('created_at', 'desc')->paginate(15);
+
+        // Calculate statistics
+        $allTransfers = PatientTransfer::query();
+        if ($user->role === 'admin') {
+            $allTransfers->byRegistrationType('hospital');
+        } elseif (in_array($user->role, ['hospital_admin', 'hospital_staff'])) {
+            $allTransfers->byRegistrationType('admin');
+        }
+
+        $statistics = [
+            'total_transfers' => $allTransfers->count(),
+            'pending_transfers' => $allTransfers->clone()->where('approval_status', 'pending')->count(),
+            'approved_transfers' => $allTransfers->clone()->where('approval_status', 'approved')->count(),
+            'rejected_transfers' => $allTransfers->clone()->where('approval_status', 'rejected')->count(),
+        ];
 
         // Transform the data to ensure patient_data is properly formatted
         $transfers->getCollection()->transform(function ($transfer) {
@@ -74,6 +89,7 @@ class PatientTransferRegistrationController extends Controller
         return Inertia::render('admin/patient-transfers/index', [
             'transfers' => $transfers,
             'userRole' => $user->role,
+            'statistics' => $statistics,
         ]);
     }
 
@@ -171,8 +187,47 @@ class PatientTransferRegistrationController extends Controller
     {
         $transfer->load(['patient', 'requestedBy', 'approvedBy', 'transferHistory.actionByUser']);
 
+        // Transform the transfer data for better display
+        $transferData = [
+            'id' => $transfer->id,
+            'patient_data' => $transfer->patient_data ?: [
+                'first_name' => 'N/A',
+                'last_name' => 'N/A',
+                'middle_name' => '',
+                'birthdate' => null,
+                'age' => null,
+                'sex' => 'N/A',
+                'mobile_no' => 'N/A',
+            ],
+            'registration_type' => $transfer->registration_type,
+            'approval_status' => $transfer->approval_status,
+            'requested_by' => [
+                'id' => $transfer->requestedBy->id,
+                'name' => $transfer->requestedBy->name,
+                'role' => $transfer->requestedBy->role,
+            ],
+            'approved_by' => $transfer->approvedBy ? [
+                'id' => $transfer->approvedBy->id,
+                'name' => $transfer->approvedBy->name,
+                'role' => $transfer->approvedBy->role,
+            ] : null,
+            'created_at' => $transfer->created_at,
+            'approval_date' => $transfer->approval_date,
+            'approval_notes' => $transfer->approval_notes,
+            'transfer_reason' => $transfer->transfer_reason,
+            'priority' => $transfer->priority,
+            'status' => $transfer->status,
+            'patient_id' => $transfer->patient_id,
+            'transferred_by' => $transfer->transferred_by,
+            'transfer_date' => $transfer->transfer_date,
+        ];
+
+        // Get transfer history
+        $transferHistory = $transfer->transferHistory()->with('actionByUser')->orderBy('action_date', 'desc')->get();
+
         return Inertia::render('admin/patient-transfers/show', [
-            'transfer' => $transfer,
+            'transfer' => $transferData,
+            'transferHistory' => $transferHistory,
         ]);
     }
 
@@ -262,9 +317,19 @@ class PatientTransferRegistrationController extends Controller
 
         $history = $query->paginate(20);
 
+        // Calculate statistics
+        $allHistory = PatientTransferHistory::query();
+        $statistics = [
+            'total_actions' => $allHistory->count(),
+            'created_count' => $allHistory->clone()->where('action', 'created')->count(),
+            'approved_count' => $allHistory->clone()->where('action', 'accepted')->count(),
+            'rejected_count' => $allHistory->clone()->where('action', 'rejected')->count(),
+        ];
+
         return Inertia::render('admin/patient-transfers/history', [
             'history' => $history,
             'filters' => $request->only(['action', 'role', 'date_from', 'date_to', 'year', 'month']),
+            'statistics' => $statistics,
         ]);
     }
 }

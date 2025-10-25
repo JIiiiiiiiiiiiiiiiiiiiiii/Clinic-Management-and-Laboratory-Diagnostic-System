@@ -69,7 +69,7 @@ class SimpleUser implements Authenticatable
     public function getRedirectPath(): string
     {
         if ($this->role === 'patient') {
-            return route('patient.dashboard.simple');
+            return route('home');
         }
         return route('admin.dashboard');
     }

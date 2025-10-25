@@ -16,8 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { PatientPageLayout, PatientActionButton, PatientFormSection, PatientInfoCard } from '@/components/patient/PatientPageLayout';
-import AppLayout from '@/layouts/app-layout';
+import SharedNavigation from '@/components/SharedNavigation';
 import { type BreadcrumbItem } from '@/types';
 import { CreatePatientItem } from '@/types/patients';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
@@ -91,6 +90,16 @@ interface OnlineAppointmentProps {
     medtechs: Medtech[];
     appointmentTypes: Record<string, string>;
     isExistingPatient?: boolean;
+    notifications?: Array<{
+        id: number;
+        type: string;
+        title: string;
+        message: string;
+        read: boolean;
+        created_at: string;
+        data: any;
+    }>;
+    unreadCount?: number;
 }
 
 export default function OnlineAppointment({ 
@@ -99,7 +108,9 @@ export default function OnlineAppointment({
     doctors = [], 
     medtechs = [], 
     appointmentTypes = {},
-    isExistingPatient = false
+    isExistingPatient = false,
+    notifications = [],
+    unreadCount = 0
 }: OnlineAppointmentProps) {
     const page = usePage();
     const flash = (page.props as any).flash || {};
@@ -109,6 +120,12 @@ export default function OnlineAppointment({
 
     const { data, setData, processing, errors, reset, post } = useForm<CreatePatientItem & { 
         force_create?: boolean;
+        email_address?: string;
+        insurance_company?: string;
+        hmo_id_no?: string;
+        approval_code?: string;
+        social_history?: string;
+        obgyn_history?: string;
         // Appointment fields
         appointment_type: string;
         specialist_type: 'doctor' | 'medtech';
@@ -136,6 +153,7 @@ export default function OnlineAppointment({
         present_address: '',
         telephone_no: '',
         mobile_no: '',
+        email_address: '',
 
         // Emergency Contact
         informant_name: '',
@@ -263,6 +281,31 @@ export default function OnlineAppointment({
         }
     }, [isExistingPatient, patient]);
 
+    // Auto-fill basic information for logged-in patients (even if no patient record exists)
+    useEffect(() => {
+        if (user && !isExistingPatient) {
+            // Pre-fill basic user information
+            setData(prevData => ({
+                ...prevData,
+                // Use user's name if available
+                first_name: user.name ? user.name.split(' ')[0] : prevData.first_name,
+                last_name: user.name && user.name.split(' ').length > 1 ? user.name.split(' ').slice(1).join(' ') : prevData.last_name,
+                // Pre-fill email if available
+                email_address: user.email || prevData.email_address,
+            }));
+        }
+    }, [user, isExistingPatient]);
+
+    // Debug logging for form data
+    useEffect(() => {
+        console.log('Form data updated:', {
+            appointment_type: data.appointment_type,
+            sex: data.sex,
+            civil_status: data.civil_status,
+            appointment_time: data.appointment_time
+        });
+    }, [data.appointment_type, data.sex, data.civil_status, data.appointment_time]);
+
     // Generate available time slots based on specialist schedule
     useEffect(() => {
         if (data.appointment_date && data.specialist_id) {
@@ -288,10 +331,10 @@ export default function OnlineAppointment({
         const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
         
         // Get available times for that day from specialist's schedule
-        const daySchedule = specialist.schedule_data[dayOfWeek] || [];
+        const daySchedule = (specialist.schedule_data as any)[dayOfWeek] || [];
         
         // Convert times to display format
-        const slots = daySchedule.map(time => {
+        const slots = daySchedule.map((time: string) => {
             // Convert 24-hour format to 12-hour format
             const [hours, minutes] = time.split(':');
             const date = new Date();
@@ -518,13 +561,14 @@ export default function OnlineAppointment({
         const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
         const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         
-        const availableDays = [];
-        const allTimes = [];
+        const availableDays: string[] = [];
+        const allTimes: string[] = [];
         
         days.forEach((day, index) => {
-            if (scheduleData[day] && scheduleData[day].length > 0) {
+            const daySchedule = (scheduleData as any)[day];
+            if (daySchedule && daySchedule.length > 0) {
                 availableDays.push(dayNames[index]);
-                allTimes.push(...scheduleData[day]);
+                allTimes.push(...daySchedule);
             }
         });
         
@@ -538,38 +582,14 @@ export default function OnlineAppointment({
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Online Appointment" />
+        <div className="min-h-screen bg-white">
+            <Head title="Online Appointment - SJHI Industrial Clinic" />
+            
+            {/* Shared Navigation */}
+            <SharedNavigation user={user} currentPath="/patient/online-appointment" notifications={notifications} unreadCount={unreadCount} />
+            
             <div className="flex flex-1 flex-col gap-6 p-6">
                 <div className="@container/main flex flex-1 flex-col gap-6">
-                    {/* Header Section */}
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div>
-                                <h1 className="text-4xl font-bold text-black">
-                                    {isExistingPatient ? 'Book New Appointment' : 'Online Appointment'}
-                                </h1>
-                                <p className="text-sm text-gray-600 mt-1">
-                                    {isExistingPatient 
-                                        ? 'You are already registered. Book your appointment below.'
-                                        : 'Complete your registration and submit an appointment request for admin approval'
-                                    }
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <Button
-                                variant="outline"
-                                asChild
-                                className="hover:bg-gray-50"
-                            >
-                                <Link href="/patient/dashboard">
-                                    <ArrowLeft className="mr-2 h-4 w-4" />
-                                    Back to Dashboard
-                                </Link>
-                            </Button>
-                        </div>
-                    </div>
 
                     {/* Progress Stepper */}
                     <Card className="holographic-card shadow-lg overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50">
@@ -727,10 +747,14 @@ export default function OnlineAppointment({
                     <form onSubmit={submit} className="space-y-6">
                         {/* Step 1: Personal Information */}
                         {currentStep === 1 && (
-                            <PatientInfoCard
-                                title="Personal Information"
-                                icon={getStepIcon(1)}
-                            >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {getStepIcon(1)}
+                                        Personal Information
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                 <div className="space-y-6">
                                     {/* Name Section */}
                                     <div className="space-y-3">
@@ -822,7 +846,10 @@ export default function OnlineAppointment({
                                                     <Heart className="h-4 w-4" />
                                                     Sex *
                                                 </Label>
-                                                <Select onValueChange={(value: 'male' | 'female') => setData('sex', value)} defaultValue={data.sex}>
+                                                <Select 
+                                                    value={data.sex} 
+                                                    onValueChange={(value: 'male' | 'female') => setData('sex', value)}
+                                                >
                                                     <SelectTrigger id="sex" className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.sex ? 'border-gray-500' : ''}`} style={{ width: '100%', minWidth: '0' }}>
                                                         <SelectValue placeholder="Select sex" />
                                                     </SelectTrigger>
@@ -860,7 +887,10 @@ export default function OnlineAppointment({
                                                     <Heart className="h-4 w-4" />
                                                     Civil Status *
                                                 </Label>
-                                                <Select onValueChange={(value: 'single' | 'married' | 'widowed' | 'divorced' | 'separated') => setData('civil_status', value)} defaultValue={data.civil_status}>
+                                                <Select 
+                                                    value={data.civil_status} 
+                                                    onValueChange={(value: 'single' | 'married' | 'widowed' | 'divorced' | 'separated') => setData('civil_status', value)}
+                                                >
                                                     <SelectTrigger id="civil_status" className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.civil_status ? 'border-gray-500' : ''}`}>
                                                         <SelectValue placeholder="Select civil status" />
                                                     </SelectTrigger>
@@ -877,15 +907,20 @@ export default function OnlineAppointment({
                                         </div>
                                     </div>
                                 </div>
-                            </PatientInfoCard>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Step 2: Contact Details */}
                         {currentStep === 2 && (
-                            <PatientInfoCard
-                                title="Contact Details"
-                                icon={getStepIcon(2)}
-                            >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {getStepIcon(2)}
+                                        Contact Details
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                 <div className="space-y-6">
                                     {/* Address Section */}
                                     <div className="space-y-3">
@@ -910,7 +945,7 @@ export default function OnlineAppointment({
 
                                     {/* Contact Numbers Section */}
                                     <div className="space-y-3">
-                                        <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Contact Numbers</h3>
+                                        <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Contact Information</h3>
                                         <div className="grid gap-4 md:grid-cols-2">
                                             <div className="space-y-2">
                                                 <Label htmlFor="telephone_no" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -944,17 +979,38 @@ export default function OnlineAppointment({
                                                 {errors.mobile_no && <p className="text-sm text-black">{errors.mobile_no}</p>}
                                             </div>
                                         </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="email_address" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                <Mail className="h-4 w-4" />
+                                                Email Address
+                                            </Label>
+                                            <Input
+                                                id="email_address"
+                                                name="email_address"
+                                                type="email"
+                                                autoComplete="email"
+                                                value={data.email_address}
+                                                onChange={(e) => setData('email_address', e.target.value)}
+                                                className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                                placeholder="Enter email address"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
-                            </PatientInfoCard>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Step 3: Emergency Contact */}
                         {currentStep === 3 && (
-                            <PatientInfoCard
-                                title="Emergency Contact"
-                                icon={getStepIcon(3)}
-                            >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {getStepIcon(3)}
+                                        Emergency Contact
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                 <div className="space-y-6">
                                     {/* Emergency Contact Information */}
                                     <div className="space-y-3">
@@ -991,15 +1047,20 @@ export default function OnlineAppointment({
                                         </div>
                                     </div>
                                 </div>
-                            </PatientInfoCard>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Step 4: Insurance & Financial */}
                         {currentStep === 4 && (
-                            <PatientInfoCard
-                                title="Insurance & Financial"
-                                icon={getStepIcon(4)}
-                            >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {getStepIcon(4)}
+                                        Insurance & Financial
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                 <div className="grid gap-6 md:grid-cols-2">
                                     <div className="space-y-3">
                                         <Label htmlFor="company_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -1065,15 +1126,20 @@ export default function OnlineAppointment({
                                         />
                                     </div>
                                 </div>
-                            </PatientInfoCard>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Step 5: Medical History */}
                         {currentStep === 5 && (
-                            <PatientInfoCard
-                                title="Medical History"
-                                icon={getStepIcon(5)}
-                            >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {getStepIcon(5)}
+                                        Medical History
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                 <div className="space-y-6">
                                     <div className="grid gap-6 md:grid-cols-2">
                                         <div className="space-y-3">
@@ -1166,15 +1232,20 @@ export default function OnlineAppointment({
                                         />
                                     </div>
                                 </div>
-                            </PatientInfoCard>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Step 6: Appointment Booking */}
                         {currentStep === 6 && (
-                            <PatientInfoCard
-                                title="Appointment Booking"
-                                icon={getStepIcon(6)}
-                            >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {getStepIcon(6)}
+                                        Appointment Booking
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                 <div className="space-y-6">
                                     {/* Appointment Type Selection */}
                                     <div className="space-y-3">
@@ -1185,7 +1256,10 @@ export default function OnlineAppointment({
                                                     <Stethoscope className="h-4 w-4" />
                                                     Appointment Type *
                                                 </Label>
-                                                <Select onValueChange={(value) => setData('appointment_type', value)}>
+                                                <Select 
+                                                    value={data.appointment_type} 
+                                                    onValueChange={(value) => setData('appointment_type', value)}
+                                                >
                                                     <SelectTrigger id="appointment_type" className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.appointment_type ? 'border-gray-500' : ''}`}>
                                                         <SelectValue placeholder="Select appointment type" />
                                                     </SelectTrigger>
@@ -1316,7 +1390,10 @@ export default function OnlineAppointment({
                                                     <Clock3 className="h-4 w-4" />
                                                     Appointment Time *
                                                 </Label>
-                                                <Select onValueChange={(value) => setData('appointment_time', value)}>
+                                                <Select 
+                                                    value={data.appointment_time} 
+                                                    onValueChange={(value) => setData('appointment_time', value)}
+                                                >
                                                     <SelectTrigger id="appointment_time" className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.appointment_time ? 'border-gray-500' : ''}`}>
                                                         <SelectValue placeholder="Select time" />
                                                     </SelectTrigger>
@@ -1380,7 +1457,8 @@ export default function OnlineAppointment({
                                         </div>
                                     )}
                                 </div>
-                            </PatientInfoCard>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Navigation Buttons */}
@@ -1443,6 +1521,6 @@ export default function OnlineAppointment({
                     </form>
                 </div>
             </div>
-        </AppLayout>
+        </div>
     );
 }

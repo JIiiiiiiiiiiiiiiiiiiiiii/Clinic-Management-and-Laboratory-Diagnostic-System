@@ -157,6 +157,29 @@ class Appointment extends Model
         return $this->checkForDuplicates() !== null;
     }
 
+    // Accessors
+    public function getStatusColorAttribute()
+    {
+        return match($this->status) {
+            'Pending' => 'yellow',
+            'Confirmed' => 'green',
+            'Completed' => 'blue',
+            'Cancelled' => 'red',
+            'No Show' => 'gray',
+            default => 'gray'
+        };
+    }
+
+    public function getFormattedPriceAttribute()
+    {
+        return '₱' . number_format($this->price ?? 0, 2);
+    }
+
+    public function getBillingStatusAttribute()
+    {
+        return $this->billing_status ?? 'pending';
+    }
+
     /**
      * Boot the model with date validation and unique key generation
      */

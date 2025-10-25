@@ -46,13 +46,13 @@ import {
     Calendar as CalendarIcon, CheckCircle, Clock, Filter, Plus, Search, Stethoscope, Edit, Eye, UserCheck, Bell, CalendarDays, Users, X, Save, Trash2, TestTube,
     ArrowUpDown, ArrowUp, ArrowDown, ChevronsUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Settings2, EyeOff, MoreHorizontal, ChevronDown
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import RealtimeNotificationBell from '@/components/RealtimeNotificationBell';
 import { format } from 'date-fns';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/admin/dashboard' },
     { title: 'Appointments', href: '/admin/appointments' },
+    { title: 'All Appointments', href: '/admin/appointments' },
 ];
 
 // Start with empty appointments list - in real app this would come from props
@@ -349,6 +349,10 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = useState({});
     const [globalFilter, setGlobalFilter] = useState(filters?.search || '');
+    const [pagination, setPagination] = useState({
+        pageIndex: 0,
+        pageSize: 10,
+    });
     
     // Filter states
     const [statusFilter, setStatusFilter] = useState(filters?.status || 'all');
@@ -417,16 +421,18 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
 
     // Handle sorting - removed custom sorting, using SortableTable instead
 
-    // Statistics
-    const totalAppointments = appointmentsList.length;
-    const confirmedAppointments = appointmentsList.filter(apt => apt.status === 'Confirmed').length;
-    const onlineBookings = appointmentsList.filter(apt => apt.appointment_source === 'online').length;
-    const pendingAppointments = appointmentsList.filter(apt => apt.status === 'Pending').length;
+    // Statistics - optimized with useMemo
+    const stats = useMemo(() => ({
+        totalAppointments: appointmentsList.length,
+        confirmedAppointments: appointmentsList.filter(apt => apt.status === 'Confirmed').length,
+        onlineBookings: appointmentsList.filter(apt => apt.appointment_source === 'online').length,
+        pendingAppointments: appointmentsList.filter(apt => apt.status === 'Pending').length,
+        todayAppointments: appointmentsList.filter(apt => apt.appointment_date === new Date().toISOString().split('T')[0]).length,
+    }), [appointmentsList]);
 
+    const { totalAppointments, confirmedAppointments, onlineBookings, pendingAppointments, todayAppointments } = stats;
 
-    const todayAppointments = appointmentsList.filter(apt => apt.appointment_date === new Date().toISOString().split('T')[0]);
-
-    const handleEditAppointment = (appointment: any) => {
+    const handleEditAppointment = useCallback((appointment: any) => {
         setSelectedAppointment(appointment);
         setEditForm({
             patientName: appointment.patient_name,
@@ -443,12 +449,12 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
             contactNumber: appointment.contact_number
         });
         setShowEditModal(true);
-    };
+    }, []);
 
-    const handleViewAppointment = (appointment: any) => {
+    const handleViewAppointment = useCallback((appointment: any) => {
         setSelectedAppointment(appointment);
         setShowViewModal(true);
-    };
+    }, []);
 
     const handleSaveEdit = () => {
         if (!editForm.patientName || !editForm.doctor || !editForm.date || !editForm.time) {
@@ -498,10 +504,10 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
     };
 
     // Handler functions
-    const handleDeleteAppointment = (appointment: any) => {
+    const handleDeleteAppointment = useCallback((appointment: any) => {
         setAppointmentToDelete(appointment);
         setDeleteConfirmOpen(true);
-    };
+    }, []);
 
     const confirmDelete = () => {
         if (appointmentToDelete) {
@@ -542,16 +548,37 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
         router.visit(route('admin.appointments.walk-in'));
     };
 
-    const handleAddLabTests = (appointment: any) => {
+    const handleAddLabTests = useCallback((appointment: any) => {
         // Allow lab tests to be added to appointments without requiring existing billing transactions
         // The billing transaction will be created later with the complete total including lab tests
         router.visit(route('admin.appointments.show-add-lab-tests', appointment.id));
-    };
+    }, []);
 
-    // Initialize table
-    const columns = createColumns(handleDeleteAppointment, handleEditAppointment, handleViewAppointment, handleAddLabTests);
+    // Apply additional filters using table's built-in filtering - optimized with useMemo
+    const preFilteredData = useMemo(() => {
+        return appointmentsList.filter(appointment => {
+            const matchesStatus = statusFilter === 'all' || appointment.status?.toLowerCase() === statusFilter.toLowerCase();
+            
+            // Fix date filtering logic
+            let matchesDate = true;
+            if (dateFilter) {
+                const filterDate = dateFilter.toISOString().split('T')[0];
+                const appointmentDate = appointment.appointment_date;
+                matchesDate = appointmentDate === filterDate;
+            }
+            
+            const matchesDoctor = doctorFilter === 'all' || appointment.specialist_id === doctorFilter;
+            return matchesStatus && matchesDate && matchesDoctor;
+        });
+    }, [appointmentsList, statusFilter, dateFilter, doctorFilter]);
+
+    // Initialize table - optimized columns with useMemo
+    const columns = useMemo(() => 
+        createColumns(handleDeleteAppointment, handleEditAppointment, handleViewAppointment, handleAddLabTests), 
+        [handleDeleteAppointment, handleEditAppointment, handleViewAppointment, handleAddLabTests]
+    );
     const table = useReactTable({
-        data: appointmentsList || [],
+        data: preFilteredData || [],
         columns,
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
@@ -579,24 +606,9 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
             columnVisibility,
             rowSelection,
             globalFilter,
+            pagination,
         },
-    });
-
-    // Apply additional filters
-    const filteredData = table.getFilteredRowModel().rows.filter(row => {
-        const appointment = row.original;
-        const matchesStatus = statusFilter === 'all' || appointment.status?.toLowerCase() === statusFilter.toLowerCase();
-        
-        // Fix date filtering logic
-        let matchesDate = true;
-        if (dateFilter) {
-            const filterDate = dateFilter.toISOString().split('T')[0];
-            const appointmentDate = appointment.appointment_date;
-            matchesDate = appointmentDate === filterDate;
-        }
-        
-        const matchesDoctor = doctorFilter === 'all' || appointment.specialist_id === doctorFilter;
-        return matchesStatus && matchesDate && matchesDoctor;
+        onPaginationChange: setPagination,
     });
 
 
@@ -642,92 +654,64 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Appointments" />
-            <div className="min-h-screen bg-white p-6">
-                {/* Header Section */}
-                <div className="mb-8">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-6">
-                                    <div>
-                                <h1 className="text-4xl font-semibold text-black mb-4">Appointments</h1>
-                                <p className="text-sm text-black mt-1">Manage patient appointments and online scheduling</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            {/* Real-time Notification Bell */}
-                            <RealtimeNotificationBell 
-                                userRole="admin"
-                                initialNotifications={notifications}
-                                unreadCount={unreadCount}
-                            />
-                            
-                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
-                                        <Calendar className="h-6 w-6 text-black" />
-                                    </div>
-                                    <div>
-                                        <div className="text-3xl font-bold text-black">{totalAppointments}</div>
-                                        <div className="text-black text-sm font-medium">Total Appointments</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Quick Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <Card className="shadow-lg border-0 rounded-xl bg-white">
+            <div className="min-h-screen bg-gray-50 p-6">
+                {/* Statistics Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <Card className="bg-white border border-gray-200">
                         <CardContent className="p-6">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-gray-100 rounded-lg">
-                                    <CheckCircle className="h-6 w-6 text-black" />
-                                </div>
+                            <div className="flex items-center justify-between">
                                 <div>
-                                    <div className="text-2xl font-bold text-black">{confirmedAppointments}</div>
-                                    <div className="text-black text-sm font-medium">Confirmed</div>
+                                    <p className="text-sm font-medium text-gray-600">Total Appointments</p>
+                                    <p className="text-3xl font-bold text-gray-900">{totalAppointments}</p>
+                                    <p className="text-sm text-gray-500">All scheduled appointments</p>
+                                </div>
+                                <div className="p-3 bg-blue-100 rounded-full">
+                                    <Calendar className="h-6 w-6 text-blue-600" />
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
                     
-                    <Card className="shadow-lg border-0 rounded-xl bg-white">
+                    <Card className="bg-white border border-gray-200">
                         <CardContent className="p-6">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-gray-100 rounded-lg">
-                                    <Clock className="h-6 w-6 text-black" />
-                                </div>
+                            <div className="flex items-center justify-between">
                                 <div>
-                                    <div className="text-2xl font-bold text-black">{pendingAppointments}</div>
-                                    <div className="text-black text-sm font-medium">Pending</div>
+                                    <p className="text-sm font-medium text-gray-600">Confirmed</p>
+                                    <p className="text-3xl font-bold text-gray-900">{confirmedAppointments}</p>
+                                    <p className="text-sm text-gray-500">Confirmed appointments</p>
+                                </div>
+                                <div className="p-3 bg-green-100 rounded-full">
+                                    <CheckCircle className="h-6 w-6 text-green-600" />
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
                     
-                    <Card className="shadow-lg border-0 rounded-xl bg-white">
+                    <Card className="bg-white border border-gray-200">
                         <CardContent className="p-6">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-gray-100 rounded-lg">
-                                    <CalendarDays className="h-6 w-6 text-black" />
-                                </div>
+                            <div className="flex items-center justify-between">
                                 <div>
-                                    <div className="text-2xl font-bold text-black">{onlineBookings}</div>
-                                    <div className="text-black text-sm font-medium">Online Bookings</div>
+                                    <p className="text-sm font-medium text-gray-600">Pending</p>
+                                    <p className="text-3xl font-bold text-gray-900">{pendingAppointments}</p>
+                                    <p className="text-sm text-gray-500">Awaiting confirmation</p>
+                                </div>
+                                <div className="p-3 bg-yellow-100 rounded-full">
+                                    <Clock className="h-6 w-6 text-yellow-600" />
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
                     
-                    <Card className="shadow-lg border-0 rounded-xl bg-white">
+                    <Card className="bg-white border border-gray-200">
                         <CardContent className="p-6">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-gray-100 rounded-lg">
-                                    <Users className="h-6 w-6 text-black" />
-                                </div>
+                            <div className="flex items-center justify-between">
                                 <div>
-                                    <div className="text-2xl font-bold text-black">{doctors.length}</div>
-                                    <div className="text-black text-sm font-medium">Available Doctors</div>
+                                    <p className="text-sm font-medium text-gray-600">Online Bookings</p>
+                                    <p className="text-3xl font-bold text-gray-900">{onlineBookings}</p>
+                                    <p className="text-sm text-gray-500">Patient self-booked</p>
+                                </div>
+                                <div className="p-3 bg-purple-100 rounded-full">
+                                    <CalendarDays className="h-6 w-6 text-purple-600" />
                                 </div>
                             </div>
                         </CardContent>
@@ -739,7 +723,7 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                     <CardHeader className="bg-white border-b border-gray-200">
                         <CardTitle className="flex items-center gap-3 text-xl font-semibold text-black">
                             <Calendar className="h-5 w-5 text-black" />
-                            Appointments ({filteredData.length})
+                            Appointments ({table.getFilteredRowModel().rows.length})
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6">
@@ -839,7 +823,7 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                             Columns <ChevronDown className="ml-2 h-4 w-4" />
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
+                                    <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
                                         {table
                                             .getAllColumns()
                                             .filter((column) => column.getCanHide())
@@ -849,9 +833,12 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                                         key={column.id}
                                                         className="capitalize"
                                                         checked={column.getIsVisible()}
-                                                        onCheckedChange={(value) =>
-                                                            column.toggleVisibility(!!value)
-                                                        }
+                                                        onCheckedChange={(value) => {
+                                                            column.toggleVisibility(!!value);
+                                                        }}
+                                                        onSelect={(e) => {
+                                                            e.preventDefault();
+                                                        }}
                                                     >
                                                         {column.id}
                                                     </DropdownMenuCheckboxItem>
@@ -884,8 +871,8 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                     ))}
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredData?.length ? (
-                                        filteredData.map((row) => (
+                                    {table.getRowModel().rows?.length ? (
+                                        table.getRowModel().rows.map((row) => (
                                             <TableRow
                                                 key={row.id}
                                                 data-state={row.getIsSelected() && "selected"}
@@ -917,8 +904,7 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                         {/* Pagination */}
                         <div className="flex items-center justify-between px-2 py-4">
                             <div className="text-muted-foreground flex-1 text-sm">
-                                {table.getFilteredSelectedRowModel().rows.length} of{" "}
-                                {table.getFilteredRowModel().rows.length} row(s) selected.
+                                Showing {table.getRowModel().rows.length} of {table.getFilteredRowModel().rows.length} appointments
                             </div>
                             <div className="flex items-center space-x-6 lg:space-x-8">
                                 <div className="flex items-center space-x-2">

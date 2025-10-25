@@ -45,6 +45,18 @@ export default function PendingAppointmentsIndex({
     pendingAppointments 
 }: PendingAppointmentsIndexProps) {
     
+    // Calculate statistics
+    const stats = {
+        totalPending: pendingAppointments.length,
+        onlineAppointments: pendingAppointments.filter(apt => apt.appointment_source === 'online').length,
+        walkInAppointments: pendingAppointments.filter(apt => apt.appointment_source === 'walk_in').length,
+        todayAppointments: pendingAppointments.filter(apt => {
+            const today = new Date().toDateString();
+            const appointmentDate = new Date(apt.appointment_date).toDateString();
+            return appointmentDate === today;
+        }).length,
+    };
+    
     const handleRemoveAppointment = (appointmentId: number) => {
         if (confirm('Are you sure you want to remove this pending appointment? This action cannot be undone.')) {
             // Use Inertia to delete the appointment
@@ -83,27 +95,73 @@ export default function PendingAppointmentsIndex({
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Pending Appointments" />
-            <div className="min-h-screen bg-white p-6">
-                {/* Header Section */}
-                <div className="mb-8">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-6">
-                            <div>
-                                <h1 className="text-4xl font-semibold text-black mb-4">Pending Appointments</h1>
-                                <p className="text-sm text-black mt-1">Review and approve patient appointment requests</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
-                                <Bell className="h-4 w-4 mr-1" />
-                                {pendingAppointments.length} Pending
-                            </Badge>
-                        </div>
-                    </div>
-                </div>
+            <div className="min-h-screen bg-gray-50">
+                <div className="p-6">
+                    {/* Statistics Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Total Pending</p>
+                                        <p className="text-3xl font-bold text-gray-900">{stats.totalPending}</p>
+                                        <p className="text-sm text-gray-500">All pending appointments</p>
+                                    </div>
+                                    <div className="p-3 bg-yellow-100 rounded-full">
+                                        <Bell className="h-6 w-6 text-yellow-600" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
 
-                {/* Pending Appointments Table */}
-                <Card className="shadow-lg border-0 rounded-xl bg-white">
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Online</p>
+                                        <p className="text-3xl font-bold text-gray-900">{stats.onlineAppointments}</p>
+                                        <p className="text-sm text-gray-500">Online bookings</p>
+                                    </div>
+                                    <div className="p-3 bg-blue-100 rounded-full">
+                                        <Calendar className="h-6 w-6 text-blue-600" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Walk-in</p>
+                                        <p className="text-3xl font-bold text-gray-900">{stats.walkInAppointments}</p>
+                                        <p className="text-sm text-gray-500">Walk-in appointments</p>
+                                    </div>
+                                    <div className="p-3 bg-green-100 rounded-full">
+                                        <User className="h-6 w-6 text-green-600" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Today</p>
+                                        <p className="text-3xl font-bold text-gray-900">{stats.todayAppointments}</p>
+                                        <p className="text-sm text-gray-500">Scheduled today</p>
+                                    </div>
+                                    <div className="p-3 bg-orange-100 rounded-full">
+                                        <Clock className="h-6 w-6 text-orange-600" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Data Table */}
+                    <Card className="bg-white border border-gray-200">
                     <CardHeader className="bg-white border-b border-gray-200">
                         <CardTitle className="flex items-center gap-3 text-xl font-semibold text-black">
                             <AlertCircle className="h-5 w-5 text-yellow-600" />
@@ -231,8 +289,9 @@ export default function PendingAppointmentsIndex({
                                 </p>
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
         </AppLayout>
     );

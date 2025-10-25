@@ -6,12 +6,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { DatePickerWithLabel } from '@/components/ui/date-picker';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertCircle, CheckCircle, Clock, Download, Eye, FileText, Plus, Search, XCircle, ArrowUpDown, Filter, X } from 'lucide-react';
-import { useState } from 'react';
+import { AlertCircle, CheckCircle, Clock, Download, Eye, FileText, Plus, Search, XCircle, ArrowUpDown, Filter } from 'lucide-react';
+import { useState, useMemo, useCallback } from 'react';
 import { format } from 'date-fns';
 import {
     ColumnDef,
@@ -46,6 +45,10 @@ type Order = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
+        title: 'Laboratory',
+        href: '/admin/laboratory',
+    },
+    {
         title: 'Lab Orders',
         href: '/admin/laboratory/orders',
     },
@@ -61,27 +64,47 @@ const statusConfig = {
 export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [sorting, setSorting] = useState<SortingState>([]);
-    const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
-    const [statusFilter, setStatusFilter] = useState<string>('all');
 
     const safeOrders = Array.isArray(orders) ? orders : [];
 
-    // Filter orders based on search term, date, and status
-    const filteredOrders = safeOrders.filter((order) => {
-        const matchesSearch = !searchTerm || 
-            order.id.toString().includes(searchTerm.toLowerCase()) ||
-            (order.patient && `${order.patient.first_name} ${order.patient.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            order.lab_tests.some(test => test.name.toLowerCase().includes(searchTerm.toLowerCase()));
-        
-        const matchesDate = !dateFilter || 
-            new Date(order.created_at).toDateString() === dateFilter.toDateString();
-        
-        const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-        
-        return matchesSearch && matchesDate && matchesStatus;
-    });
+    // Calculate statistics with memoization
+    const stats = useMemo(() => ({
+        totalOrders: safeOrders.length,
+        orderedOrders: safeOrders.filter(order => order.status === 'ordered').length,
+        processingOrders: safeOrders.filter(order => order.status === 'processing').length,
+        completedOrders: safeOrders.filter(order => order.status === 'completed').length,
+        cancelledOrders: safeOrders.filter(order => order.status === 'cancelled').length,
+    }), [safeOrders]);
 
-    const columns: ColumnDef<Order>[] = [
+    // Filter orders based on search term with memoization
+    const filteredOrders = useMemo(() => {
+        if (!searchTerm) return safeOrders;
+        
+        const searchLower = searchTerm.toLowerCase();
+        return safeOrders.filter((order) => {
+            return order.id.toString().includes(searchLower) ||
+                (order.patient && `${order.patient.first_name} ${order.patient.last_name}`.toLowerCase().includes(searchLower)) ||
+                order.lab_tests.some(test => test.name.toLowerCase().includes(searchLower));
+        });
+    }, [safeOrders, searchTerm]);
+
+    const handleEnterResults = useCallback((orderId: number) => {
+        router.visit(`/admin/laboratory/orders/${orderId}/results`);
+    }, []);
+
+    const handleUpdateStatus = useCallback((orderId: number, newStatus: string) => {
+        router.put(
+            `/admin/laboratory/orders/${orderId}/status`,
+            { status: newStatus },
+            {
+                onError: (errors) => {
+                    console.error('Status update failed:', errors);
+                },
+            },
+        );
+    }, []);
+
+    const columns: ColumnDef<Order>[] = useMemo(() => [
         {
             accessorKey: 'id',
             header: 'Order #',
@@ -162,7 +185,7 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                 );
             },
         },
-    ];
+    ], [handleEnterResults, handleUpdateStatus]);
 
     const table = useReactTable({
         data: filteredOrders,
@@ -197,53 +220,79 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
         );
     };
 
-    const handleEnterResults = (orderId: number) => {
-        router.visit(`/admin/laboratory/orders/${orderId}/results`);
-    };
-
-    const handleUpdateStatus = (orderId: number, newStatus: string) => {
-        router.put(
-            `/admin/laboratory/orders/${orderId}/status`,
-            { status: newStatus },
-            {
-                onError: (errors) => {
-                    console.error('Status update failed:', errors);
-                },
-            },
-        );
-    };
-
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Lab Orders" />
-            <div className="min-h-screen bg-white p-6">
-                {/* Header Section */}
-                <div className="mb-8">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-6">
-                            <Heading title="Lab Orders" description="Manage laboratory orders and results" icon={FileText} />
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <div className="flex h-20 w-52 items-center overflow-hidden rounded-xl border bg-white px-6 py-4 shadow-lg">
-                                <div className="flex items-center gap-3">
-                                    <div className="rounded-lg bg-gray-100 p-2">
-                                        <FileText className="h-6 w-6 text-black" />
-                                    </div>
+            <div className="min-h-screen bg-gray-50">
+                <div className="p-6">
+                    {/* Statistics Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
                                     <div>
-                                        <div className="text-3xl leading-tight font-bold whitespace-nowrap text-gray-900">{orders.length}</div>
-                                        <div className="text-sm font-medium whitespace-nowrap text-gray-600">Total Orders</div>
+                                        <p className="text-sm font-medium text-gray-600">Total Orders</p>
+                                        <p className="text-3xl font-bold text-gray-900">{stats.totalOrders}</p>
+                                        <p className="text-sm text-gray-500">All lab orders</p>
+                                    </div>
+                                    <div className="p-3 bg-blue-100 rounded-full">
+                                        <FileText className="h-6 w-6 text-blue-600" />
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                            </CardContent>
+                        </Card>
 
-                {/* Orders Section */}
-                <Card className="bg-white border border-gray-200">
-                    <CardContent className="p-6">
-                        {/* Table Controls */}
-                        <div className="flex items-center py-4 gap-4 flex-wrap">
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Ordered</p>
+                                        <p className="text-3xl font-bold text-gray-900">{stats.orderedOrders}</p>
+                                        <p className="text-sm text-gray-500">New orders</p>
+                                    </div>
+                                    <div className="p-3 bg-yellow-100 rounded-full">
+                                        <Clock className="h-6 w-6 text-yellow-600" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Processing</p>
+                                        <p className="text-3xl font-bold text-gray-900">{stats.processingOrders}</p>
+                                        <p className="text-sm text-gray-500">In progress</p>
+                                    </div>
+                                    <div className="p-3 bg-orange-100 rounded-full">
+                                        <AlertCircle className="h-6 w-6 text-orange-600" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Completed</p>
+                                        <p className="text-3xl font-bold text-gray-900">{stats.completedOrders}</p>
+                                        <p className="text-sm text-gray-500">Finished orders</p>
+                                    </div>
+                                    <div className="p-3 bg-green-100 rounded-full">
+                                        <CheckCircle className="h-6 w-6 text-green-600" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Data Table */}
+                    <Card className="bg-white border border-gray-200">
+                        <CardContent className="p-6">
+                            {/* Table Controls */}
+                            <div className="flex items-center py-4">
                             <Input
                                 placeholder="Search orders..."
                                 value={searchTerm}
@@ -251,59 +300,10 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                 className="max-w-sm"
                             />
                             
-                            {/* Date Filter */}
-                            <div className="flex items-center gap-2">
-                                <DatePickerWithLabel 
-                                    label="Filter by Date" 
-                                    placeholder="Select date"
-                                    date={dateFilter}
-                                    setDate={setDateFilter}
-                                />
-                                {dateFilter && (
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setDateFilter(undefined)}
-                                        className="h-8 w-8 p-0"
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </Button>
-                                )}
-                            </div>
-
-                            {/* Status Filter */}
-                            <div className="flex items-center gap-2">
-                                <label className="text-sm font-medium">Status:</label>
-                                <select
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="h-10 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                    <option value="all">All Status</option>
-                                    <option value="ordered">Ordered</option>
-                                    <option value="processing">Processing</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="cancelled">Cancelled</option>
-                                </select>
-                            </div>
-
-                            {/* Clear Filters Button */}
-                            <Button
-                                variant="outline"
-                                onClick={() => {
-                                    setSearchTerm('');
-                                    setDateFilter(undefined);
-                                    setStatusFilter('all');
-                                }}
-                                className="flex items-center gap-2"
-                            >
-                                <X className="h-4 w-4" />
-                                Clear Filters
-                            </Button>
 
                             <Button
                                 asChild
-                                className="bg-green-600 hover:bg-green-700 text-white"
+                                className="bg-green-600 hover:bg-green-700 text-white ml-4"
                             >
                                 <Link href="/admin/laboratory/orders/create">
                                     <Plus className="h-4 w-4 mr-2" />
@@ -466,8 +466,9 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                 </div>
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
         </AppLayout>
     );

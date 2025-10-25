@@ -11,13 +11,60 @@ import { Calendar, CheckCircle, Clock, Plus, Search, Stethoscope, Edit, Eye, Cal
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/admin/dashboard' },
     { title: 'Appointments', href: '/admin/appointments' },
+    { title: 'All Appointments', href: '/admin/appointments' },
     { title: 'Doctor Availability', href: '/admin/appointments/availability' },
 ];
 
 // Mock data - in real app this would come from props
-// Removed hardcoded sample data - data should be passed from controller
+const doctorSchedules = [
+    {
+        id: 1,
+        doctor: 'Dr. Maria Santos',
+        specialization: 'General Practice',
+        status: 'Active',
+        availableSlots: 8,
+        bookedSlots: 3,
+        totalSlots: 12,
+        schedule: {
+            'Monday': { start: '8:00 AM', end: '5:00 PM' },
+            'Tuesday': { start: '8:00 AM', end: '5:00 PM' },
+            'Wednesday': { start: '8:00 AM', end: '5:00 PM' },
+            'Thursday': { start: '8:00 AM', end: '5:00 PM' },
+            'Friday': { start: '8:00 AM', end: '5:00 PM' }
+        }
+    },
+    {
+        id: 2,
+        doctor: 'Dr. Juan Dela Cruz',
+        specialization: 'Cardiology',
+        status: 'Active',
+        availableSlots: 6,
+        bookedSlots: 4,
+        totalSlots: 10,
+        schedule: {
+            'Monday': { start: '9:00 AM', end: '4:00 PM' },
+            'Tuesday': { start: '9:00 AM', end: '4:00 PM' },
+            'Wednesday': { start: '9:00 AM', end: '4:00 PM' },
+            'Thursday': { start: '9:00 AM', end: '4:00 PM' },
+            'Friday': { start: '9:00 AM', end: '4:00 PM' }
+        }
+    },
+    {
+        id: 3,
+        doctor: 'Dr. Lisa Garcia',
+        specialization: 'Pediatrics',
+        status: 'Part-time',
+        availableSlots: 4,
+        bookedSlots: 2,
+        totalSlots: 6,
+        schedule: {
+            'Monday': { start: '10:00 AM', end: '2:00 PM' },
+            'Wednesday': { start: '10:00 AM', end: '2:00 PM' },
+            'Friday': { start: '10:00 AM', end: '2:00 PM' }
+        }
+    }
+];
 
 const timeSlots = [
     '8:00 AM', '8:30 AM', '9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM',
@@ -156,7 +203,7 @@ export default function DoctorAvailability() {
                         <CardContent className="p-6">
                             <div className="flex items-center gap-4">
                                 <div className="p-3 bg-gray-100 rounded-lg">
-                                    <Time className="h-6 w-6 text-black" />
+                                    <Clock className="h-6 w-6 text-black" />
                                 </div>
                                 <div>
                                     <div className="text-2xl font-bold text-black">

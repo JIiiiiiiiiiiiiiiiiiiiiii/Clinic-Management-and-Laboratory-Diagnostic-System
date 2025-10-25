@@ -389,6 +389,12 @@ Route::prefix('admin')
                 ]);
             })->name('walk-in');
             Route::post('/walk-in', [AppointmentController::class, 'storeWalkIn'])->name('walk-in.store');
+            
+            // Doctor availability management - Admin only (must be before dynamic routes)
+            Route::get('/availability', function () {
+                return Inertia::render('admin/appointments/availability');
+            })->name('availability')->middleware(['role:admin']);
+            
             Route::post('/', [AppointmentController::class, 'store'])->name('store');
             Route::get('/{appointment}', [AppointmentController::class, 'show'])->name('show');
             Route::get('/{appointment}/edit', [AppointmentController::class, 'edit'])->name('edit');
@@ -398,11 +404,6 @@ Route::prefix('admin')
             Route::put('/{appointment}/status', [AppointmentController::class, 'updateStatus'])->name('status.update');
             Route::get('/api/by-date', [AppointmentController::class, 'getByDate'])->name('api.by-date');
             Route::get('/api/stats', [AppointmentController::class, 'getStats'])->name('api.stats');
-            
-            // Doctor availability management - Admin only
-            Route::get('/availability', function () {
-                return Inertia::render('admin/appointments/availability');
-            })->name('availability')->middleware(['role:admin']);
         });
 
         // Visits Routes - Doctor and admin only

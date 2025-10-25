@@ -12,8 +12,8 @@ import { ArrowLeft, Calculator, CheckCircle, Stethoscope, TestTube, X } from 'lu
 import { useState, useEffect } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/admin/dashboard' },
     { title: 'Appointments', href: '/admin/appointments' },
+    { title: 'All Appointments', href: '/admin/appointments' },
     { title: 'Add Lab Tests', href: '#' },
 ];
 

@@ -61,7 +61,7 @@ class AuthenticatedSessionController extends Controller
                 
                 // Redirect based on role
                 if ($user->role === 'patient') {
-                    return redirect()->route('patient.dashboard.simple');
+                    return redirect()->route('home');
                 } else {
                     return redirect()->route('admin.dashboard');
                 }

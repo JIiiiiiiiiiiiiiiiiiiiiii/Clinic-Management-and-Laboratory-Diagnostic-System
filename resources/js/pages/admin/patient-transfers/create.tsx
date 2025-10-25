@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, Link } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +7,33 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Save, ArrowRight } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { 
+    ArrowLeft, Save, ArrowRight, User, MapPin, Phone, Heart, 
+    Shield, FileText, Activity, Stethoscope, Plus, CheckCircle, 
+    AlertCircle, Building, CreditCard, History, Users, Clock, 
+    Mail, GraduationCap, Home, Briefcase, Globe, UserCheck, 
+    Zap, ChevronRight, ChevronLeft, UserPlus, ClipboardList, 
+    FileText as FileTextIcon, TrendingUp, BarChart3, PieChart, 
+    LineChart, Calendar, CalendarDays, ChevronDown
+} from 'lucide-react';
+import { type BreadcrumbItem } from '@/types';
+
+const breadcrumbs: BreadcrumbItem[] = [
+    {
+        title: 'Patient Management',
+        href: '/admin/patient',
+    },
+    {
+        title: 'Patient Transfer',
+        href: '/admin/patient-transfers',
+    },
+    {
+        title: 'Add Patient',
+        href: '/admin/patient-transfers/create',
+    },
+];
 
 interface Props {
     registrationType: 'admin' | 'hospital';
@@ -16,7 +42,7 @@ interface Props {
 
 export default function CreatePatientTransfer({ registrationType, userRole }: Props) {
     const [currentStep, setCurrentStep] = useState(1);
-    const totalSteps = 5;
+    const totalSteps = 6;
 
     const { data, setData, processing, errors, post } = useForm({
         // Patient Identification
@@ -56,18 +82,19 @@ export default function CreatePatientTransfer({ registrationType, userRole }: Pr
         family_history: '',
         social_personal_history: '',
         obstetrics_gynecology_history: '',
+
+        // Transfer Information
+        reason_for_transfer: '',
     });
 
-    // Compute age from birthdate
-    const onBirthdateChange = (value: string) => {
-        setData('birthdate', value);
-        if (value) {
-            const today = new Date();
-            const birthDate = new Date(value);
-            const age = today.getFullYear() - birthDate.getFullYear();
-            setData('age', age);
-        }
-    };
+    const steps = [
+        { id: 1, title: 'Patient Information', description: 'Basic patient details' },
+        { id: 2, title: 'Contact Details', description: 'Address and contact information' },
+        { id: 3, title: 'Emergency Contact', description: 'Emergency contact information' },
+        { id: 4, title: 'Insurance & Financial', description: 'Insurance and financial details' },
+        { id: 5, title: 'Medical History', description: 'Medical history and allergies' },
+        { id: 6, title: 'Transfer Details', description: 'Reason for transfer' },
+    ];
 
     const nextStep = () => {
         if (currentStep < totalSteps) {
@@ -86,67 +113,87 @@ export default function CreatePatientTransfer({ registrationType, userRole }: Pr
         post(route('admin.patient.transfer.registrations.store'));
     };
 
-    const renderStep = () => {
-        switch (currentStep) {
+    const renderStep = (step: number) => {
+        switch (step) {
             case 1:
                 return (
                     <div className="space-y-6">
-                        <h3 className="text-lg font-semibold">Patient Identification</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <Label htmlFor="last_name">Last Name *</Label>
+                                <Label htmlFor="last_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <User className="h-4 w-4" />
+                                    Last Name *
+                                </Label>
                                 <Input
                                     id="last_name"
                                     value={data.last_name}
                                     onChange={(e) => setData('last_name', e.target.value)}
-                                    className={errors.last_name ? 'border-red-500' : ''}
+                                    className="mt-1"
+                                    required
                                 />
-                                {errors.last_name && <p className="text-red-500 text-sm">{errors.last_name}</p>}
+                                {errors.last_name && <p className="text-red-500 text-sm mt-1">{errors.last_name}</p>}
                             </div>
                             <div>
-                                <Label htmlFor="first_name">First Name *</Label>
+                                <Label htmlFor="first_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <User className="h-4 w-4" />
+                                    First Name *
+                                </Label>
                                 <Input
                                     id="first_name"
                                     value={data.first_name}
                                     onChange={(e) => setData('first_name', e.target.value)}
-                                    className={errors.first_name ? 'border-red-500' : ''}
+                                    className="mt-1"
+                                    required
                                 />
-                                {errors.first_name && <p className="text-red-500 text-sm">{errors.first_name}</p>}
+                                {errors.first_name && <p className="text-red-500 text-sm mt-1">{errors.first_name}</p>}
                             </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <Label htmlFor="middle_name">Middle Name</Label>
+                                <Label htmlFor="middle_name" className="text-sm font-semibold text-gray-700">Middle Name</Label>
                                 <Input
                                     id="middle_name"
                                     value={data.middle_name}
                                     onChange={(e) => setData('middle_name', e.target.value)}
+                                    className="mt-1"
                                 />
                             </div>
                             <div>
-                                <Label htmlFor="birthdate">Birthdate *</Label>
+                                <Label htmlFor="birthdate" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <Calendar className="h-4 w-4" />
+                                    Date of Birth *
+                                </Label>
                                 <Input
                                     id="birthdate"
                                     type="date"
                                     value={data.birthdate}
-                                    onChange={(e) => onBirthdateChange(e.target.value)}
-                                    className={errors.birthdate ? 'border-red-500' : ''}
+                                    onChange={(e) => setData('birthdate', e.target.value)}
+                                    className="mt-1"
+                                    required
                                 />
-                                {errors.birthdate && <p className="text-red-500 text-sm">{errors.birthdate}</p>}
+                                {errors.birthdate && <p className="text-red-500 text-sm mt-1">{errors.birthdate}</p>}
                             </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <Label htmlFor="age">Age *</Label>
+                                <Label htmlFor="age" className="text-sm font-semibold text-gray-700">Age *</Label>
                                 <Input
                                     id="age"
                                     type="number"
                                     value={data.age}
-                                    onChange={(e) => setData('age', parseInt(e.target.value))}
-                                    className={errors.age ? 'border-red-500' : ''}
+                                    onChange={(e) => setData('age', parseInt(e.target.value) || 0)}
+                                    className="mt-1"
+                                    required
                                 />
-                                {errors.age && <p className="text-red-500 text-sm">{errors.age}</p>}
+                                {errors.age && <p className="text-red-500 text-sm mt-1">{errors.age}</p>}
                             </div>
                             <div>
-                                <Label htmlFor="sex">Sex *</Label>
-                                <Select value={data.sex} onValueChange={(value) => setData('sex', value)}>
-                                    <SelectTrigger>
+                                <Label htmlFor="sex" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <Heart className="h-4 w-4" />
+                                    Sex *
+                                </Label>
+                                <Select value={data.sex} onValueChange={(value: 'male' | 'female') => setData('sex', value)}>
+                                    <SelectTrigger className="mt-1">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -154,37 +201,14 @@ export default function CreatePatientTransfer({ registrationType, userRole }: Pr
                                         <SelectItem value="female">Female</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                {errors.sex && <p className="text-red-500 text-sm">{errors.sex}</p>}
+                                {errors.sex && <p className="text-red-500 text-sm mt-1">{errors.sex}</p>}
                             </div>
                         </div>
-                    </div>
-                );
-
-            case 2:
-                return (
-                    <div className="space-y-6">
-                        <h3 className="text-lg font-semibold">Demographics</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <Label htmlFor="occupation">Occupation</Label>
-                                <Input
-                                    id="occupation"
-                                    value={data.occupation}
-                                    onChange={(e) => setData('occupation', e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="religion">Religion</Label>
-                                <Input
-                                    id="religion"
-                                    value={data.religion}
-                                    onChange={(e) => setData('religion', e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="civil_status">Civil Status *</Label>
-                                <Select value={data.civil_status} onValueChange={(value) => setData('civil_status', value)}>
-                                    <SelectTrigger>
+                                <Label htmlFor="civil_status" className="text-sm font-semibold text-gray-700">Civil Status *</Label>
+                                <Select value={data.civil_status} onValueChange={(value: 'single' | 'married' | 'widowed' | 'divorced' | 'separated') => setData('civil_status', value)}>
+                                    <SelectTrigger className="mt-1">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -195,15 +219,65 @@ export default function CreatePatientTransfer({ registrationType, userRole }: Pr
                                         <SelectItem value="separated">Separated</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                {errors.civil_status && <p className="text-red-500 text-sm">{errors.civil_status}</p>}
+                                {errors.civil_status && <p className="text-red-500 text-sm mt-1">{errors.civil_status}</p>}
                             </div>
                             <div>
-                                <Label htmlFor="nationality">Nationality</Label>
+                                <Label htmlFor="nationality" className="text-sm font-semibold text-gray-700">Nationality</Label>
                                 <Input
                                     id="nationality"
                                     value={data.nationality}
                                     onChange={(e) => setData('nationality', e.target.value)}
+                                    className="mt-1"
                                 />
+                            </div>
+                        </div>
+                    </div>
+                );
+
+            case 2:
+                return (
+                    <div className="space-y-6">
+                        <div>
+                            <Label htmlFor="present_address" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                <MapPin className="h-4 w-4" />
+                                Present Address *
+                            </Label>
+                            <Textarea
+                                id="present_address"
+                                value={data.present_address}
+                                onChange={(e) => setData('present_address', e.target.value)}
+                                className="mt-1"
+                                rows={3}
+                                required
+                            />
+                            {errors.present_address && <p className="text-red-500 text-sm mt-1">{errors.present_address}</p>}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <Label htmlFor="telephone_no" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <Phone className="h-4 w-4" />
+                                    Telephone Number
+                                </Label>
+                                <Input
+                                    id="telephone_no"
+                                    value={data.telephone_no}
+                                    onChange={(e) => setData('telephone_no', e.target.value)}
+                                    className="mt-1"
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="mobile_no" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <Phone className="h-4 w-4" />
+                                    Mobile Number *
+                                </Label>
+                                <Input
+                                    id="mobile_no"
+                                    value={data.mobile_no}
+                                    onChange={(e) => setData('mobile_no', e.target.value)}
+                                    className="mt-1"
+                                    required
+                                />
+                                {errors.mobile_no && <p className="text-red-500 text-sm mt-1">{errors.mobile_no}</p>}
                             </div>
                         </div>
                     </div>
@@ -212,35 +286,27 @@ export default function CreatePatientTransfer({ registrationType, userRole }: Pr
             case 3:
                 return (
                     <div className="space-y-6">
-                        <h3 className="text-lg font-semibold">Contact Information</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="md:col-span-2">
-                                <Label htmlFor="present_address">Present Address *</Label>
-                                <Textarea
-                                    id="present_address"
-                                    value={data.present_address}
-                                    onChange={(e) => setData('present_address', e.target.value)}
-                                    className={errors.present_address ? 'border-red-500' : ''}
-                                />
-                                {errors.present_address && <p className="text-red-500 text-sm">{errors.present_address}</p>}
-                            </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <Label htmlFor="telephone_no">Telephone Number</Label>
+                                <Label htmlFor="informant_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <User className="h-4 w-4" />
+                                    Emergency Contact Name
+                                </Label>
                                 <Input
-                                    id="telephone_no"
-                                    value={data.telephone_no}
-                                    onChange={(e) => setData('telephone_no', e.target.value)}
+                                    id="informant_name"
+                                    value={data.informant_name}
+                                    onChange={(e) => setData('informant_name', e.target.value)}
+                                    className="mt-1"
                                 />
                             </div>
                             <div>
-                                <Label htmlFor="mobile_no">Mobile Number *</Label>
+                                <Label htmlFor="relationship" className="text-sm font-semibold text-gray-700">Relationship</Label>
                                 <Input
-                                    id="mobile_no"
-                                    value={data.mobile_no}
-                                    onChange={(e) => setData('mobile_no', e.target.value)}
-                                    className={errors.mobile_no ? 'border-red-500' : ''}
+                                    id="relationship"
+                                    value={data.relationship}
+                                    onChange={(e) => setData('relationship', e.target.value)}
+                                    className="mt-1"
                                 />
-                                {errors.mobile_no && <p className="text-red-500 text-sm">{errors.mobile_no}</p>}
                             </div>
                         </div>
                     </div>
@@ -249,54 +315,49 @@ export default function CreatePatientTransfer({ registrationType, userRole }: Pr
             case 4:
                 return (
                     <div className="space-y-6">
-                        <h3 className="text-lg font-semibold">Emergency Contact & Insurance</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <Label htmlFor="informant_name">Emergency Contact Name</Label>
-                                <Input
-                                    id="informant_name"
-                                    value={data.informant_name}
-                                    onChange={(e) => setData('informant_name', e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="relationship">Relationship</Label>
-                                <Input
-                                    id="relationship"
-                                    value={data.relationship}
-                                    onChange={(e) => setData('relationship', e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="company_name">Company Name</Label>
+                                <Label htmlFor="company_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <Building className="h-4 w-4" />
+                                    Company Name
+                                </Label>
                                 <Input
                                     id="company_name"
                                     value={data.company_name}
                                     onChange={(e) => setData('company_name', e.target.value)}
+                                    className="mt-1"
                                 />
                             </div>
                             <div>
-                                <Label htmlFor="hmo_name">HMO Name</Label>
+                                <Label htmlFor="hmo_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <Shield className="h-4 w-4" />
+                                    HMO Name
+                                </Label>
                                 <Input
                                     id="hmo_name"
                                     value={data.hmo_name}
                                     onChange={(e) => setData('hmo_name', e.target.value)}
+                                    className="mt-1"
                                 />
                             </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <Label htmlFor="hmo_company_id_no">HMO Company ID No.</Label>
+                                <Label htmlFor="hmo_company_id_no" className="text-sm font-semibold text-gray-700">HMO ID Number</Label>
                                 <Input
                                     id="hmo_company_id_no"
                                     value={data.hmo_company_id_no}
                                     onChange={(e) => setData('hmo_company_id_no', e.target.value)}
+                                    className="mt-1"
                                 />
                             </div>
                             <div>
-                                <Label htmlFor="validation_approval_code">Validation/Approval Code</Label>
+                                <Label htmlFor="validation_approval_code" className="text-sm font-semibold text-gray-700">Approval Code</Label>
                                 <Input
                                     id="validation_approval_code"
                                     value={data.validation_approval_code}
                                     onChange={(e) => setData('validation_approval_code', e.target.value)}
+                                    className="mt-1"
                                 />
                             </div>
                         </div>
@@ -306,56 +367,79 @@ export default function CreatePatientTransfer({ registrationType, userRole }: Pr
             case 5:
                 return (
                     <div className="space-y-6">
-                        <h3 className="text-lg font-semibold">Medical History & Allergies</h3>
-                        <div className="grid grid-cols-1 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <Label htmlFor="drug_allergies">Drug Allergies</Label>
-                                <Textarea
+                                <Label htmlFor="drug_allergies" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <AlertCircle className="h-4 w-4" />
+                                    Drug Allergies
+                                </Label>
+                                <Input
                                     id="drug_allergies"
                                     value={data.drug_allergies}
                                     onChange={(e) => setData('drug_allergies', e.target.value)}
+                                    className="mt-1"
                                 />
                             </div>
                             <div>
-                                <Label htmlFor="food_allergies">Food Allergies</Label>
-                                <Textarea
+                                <Label htmlFor="food_allergies" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <AlertCircle className="h-4 w-4" />
+                                    Food Allergies
+                                </Label>
+                                <Input
                                     id="food_allergies"
                                     value={data.food_allergies}
                                     onChange={(e) => setData('food_allergies', e.target.value)}
+                                    className="mt-1"
                                 />
                             </div>
-                            <div>
-                                <Label htmlFor="past_medical_history">Past Medical History</Label>
-                                <Textarea
-                                    id="past_medical_history"
-                                    value={data.past_medical_history}
-                                    onChange={(e) => setData('past_medical_history', e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="family_history">Family History</Label>
-                                <Textarea
-                                    id="family_history"
-                                    value={data.family_history}
-                                    onChange={(e) => setData('family_history', e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="social_personal_history">Social/Personal History</Label>
-                                <Textarea
-                                    id="social_personal_history"
-                                    value={data.social_personal_history}
-                                    onChange={(e) => setData('social_personal_history', e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="obstetrics_gynecology_history">Obstetrics/Gynecology History</Label>
-                                <Textarea
-                                    id="obstetrics_gynecology_history"
-                                    value={data.obstetrics_gynecology_history}
-                                    onChange={(e) => setData('obstetrics_gynecology_history', e.target.value)}
-                                />
-                            </div>
+                        </div>
+                        <div>
+                            <Label htmlFor="past_medical_history" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                <FileText className="h-4 w-4" />
+                                Past Medical History
+                            </Label>
+                            <Textarea
+                                id="past_medical_history"
+                                value={data.past_medical_history}
+                                onChange={(e) => setData('past_medical_history', e.target.value)}
+                                className="mt-1"
+                                rows={3}
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor="family_history" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                <Users className="h-4 w-4" />
+                                Family History
+                            </Label>
+                            <Textarea
+                                id="family_history"
+                                value={data.family_history}
+                                onChange={(e) => setData('family_history', e.target.value)}
+                                className="mt-1"
+                                rows={3}
+                            />
+                        </div>
+                    </div>
+                );
+
+            case 6:
+                return (
+                    <div className="space-y-6">
+                        <div>
+                            <Label htmlFor="reason_for_transfer" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                <FileText className="h-4 w-4" />
+                                Reason for Transfer *
+                            </Label>
+                            <Textarea
+                                id="reason_for_transfer"
+                                value={data.reason_for_transfer}
+                                onChange={(e) => setData('reason_for_transfer', e.target.value)}
+                                className="mt-1"
+                                rows={4}
+                                placeholder="Please provide a detailed reason for this patient transfer..."
+                                required
+                            />
+                            {errors.reason_for_transfer && <p className="text-red-500 text-sm mt-1">{errors.reason_for_transfer}</p>}
                         </div>
                     </div>
                 );
@@ -366,80 +450,102 @@ export default function CreatePatientTransfer({ registrationType, userRole }: Pr
     };
 
     return (
-        <AppLayout
-            title="Register New Patient"
-            renderHeader={() => (
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-xl font-semibold text-gray-900">Register New Patient</h2>
-                        <p className="text-sm text-gray-600">
-                            {registrationType === 'admin' 
-                                ? 'Register patient for admin approval' 
-                                : 'Register patient for hospital approval'
-                            }
-                        </p>
-                    </div>
-                    <Button
-                        variant="outline"
-                        onClick={() => window.history.back()}
-                        className="flex items-center gap-2"
-                    >
-                        <ArrowLeft className="w-4 h-4" />
-                        Back
-                    </Button>
-                </div>
-            )}
-        >
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Register New Patient" />
+            <div className="min-h-screen bg-gray-50">
 
-            <div className="py-6">
-                <div className="max-w-4xl mx-auto sm:px-6 lg:px-8">
+                <div className="p-6">
+                    {/* Progress Stepper */}
+                    <Card className="mb-6">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                {steps.map((step, index) => (
+                                    <div key={step.id} className="flex items-center">
+                                        <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+                                            currentStep >= step.id 
+                                                ? 'bg-blue-600 text-white' 
+                                                : 'bg-gray-200 text-gray-600'
+                                        }`}>
+                                            {currentStep > step.id ? (
+                                                <CheckCircle className="h-5 w-5" />
+                                            ) : (
+                                                <span className="text-sm font-medium">{step.id}</span>
+                                            )}
+                                        </div>
+                                        <div className="ml-3">
+                                            <p className={`text-sm font-medium ${
+                                                currentStep >= step.id ? 'text-blue-600' : 'text-gray-500'
+                                            }`}>
+                                                {step.title}
+                                            </p>
+                                            <p className="text-xs text-gray-500">{step.description}</p>
+                                        </div>
+                                        {index < steps.length - 1 && (
+                                            <div className={`w-16 h-0.5 mx-4 ${
+                                                currentStep > step.id ? 'bg-blue-600' : 'bg-gray-200'
+                                            }`} />
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Form */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Patient Registration Form</CardTitle>
+                            <CardTitle className="flex items-center gap-2">
+                                <UserPlus className="h-5 w-5" />
+                                {steps[currentStep - 1].title}
+                            </CardTitle>
                             <CardDescription>
-                                Step {currentStep} of {totalSteps} - Complete all required fields
+                                {steps[currentStep - 1].description}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <form onSubmit={handleSubmit}>
-                                {renderStep()}
+                                {renderStep(currentStep)}
                                 
-                                <div className="flex items-center justify-between mt-8 pt-6 border-t">
-                                    <div className="flex items-center gap-3">
-                                        {currentStep > 1 && (
-                                            <Button
-                                                type="button"
-                                                onClick={prevStep}
-                                                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 h-12 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold"
-                                            >
-                                                <ArrowLeft className="mr-2 h-5 w-5" />
-                                                Previous Step
-                                            </Button>
-                                        )}
-                                    </div>
+                                <Separator className="my-6" />
+                                
+                                <div className="flex justify-between">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={prevStep}
+                                        disabled={currentStep === 1}
+                                    >
+                                        <ChevronLeft className="mr-2 h-4 w-4" />
+                                        Previous
+                                    </Button>
                                     
-                                    <div className="flex items-center gap-3">
-                                        {currentStep < totalSteps ? (
-                                            <Button
-                                                type="button"
-                                                onClick={nextStep}
-                                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 h-12 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold"
-                                            >
-                                                Next Step
-                                                <ArrowRight className="ml-2 h-5 w-5" />
-                                            </Button>
-                                        ) : (
-                                            <Button 
-                                                disabled={processing} 
-                                                type="submit"
-                                                className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 h-12 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold"
-                                            >
-                                                <Save className="mr-3 h-6 w-6" />
-                                                {processing ? 'Submitting Registration...' : 'Submit Registration Request'}
-                                            </Button>
-                                        )}
-                                    </div>
+                                    {currentStep < totalSteps ? (
+                                        <Button
+                                            type="button"
+                                            onClick={nextStep}
+                                        >
+                                            Next
+                                            <ChevronRight className="ml-2 h-4 w-4" />
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            type="submit"
+                                            disabled={processing}
+                                            className="bg-blue-600 hover:bg-blue-700"
+                                        >
+                                            {processing ? (
+                                                <>
+                                                    <Activity className="mr-2 h-4 w-4 animate-spin" />
+                                                    Submitting...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Save className="mr-2 h-4 w-4" />
+                                                    Submit Registration
+                                                </>
+                                            )}
+                                        </Button>
+                                    )}
                                 </div>
                             </form>
                         </CardContent>

@@ -21,15 +21,17 @@ class RedirectBasedOnRole
 
             // If user is a patient
             if ($mappedRole === 'patient') {
-                // If they're trying to access admin routes, redirect to patient dashboard
+                // If they're trying to access admin routes, redirect to home
                 if ($request->is('admin*')) {
-                    return redirect()->route('patient.dashboard');
+                    return redirect()->route('home');
                 }
 
-                // If they're on the root or generic dashboard, redirect to patient dashboard
-                if ($request->is('/') || $request->is('/dashboard')) {
-                    return redirect()->route('patient.dashboard');
+                // If they're on the generic dashboard, redirect to home
+                if ($request->is('/dashboard')) {
+                    return redirect()->route('home');
                 }
+                
+                // Don't redirect if they're already on the home route to prevent loops
             }
             // If user is hospital staff - use admin routes with role-based restrictions
             else if (in_array($mappedRole, ['hospital_admin', 'hospital_staff'])) {
@@ -43,6 +45,8 @@ class RedirectBasedOnRole
                 if ($request->is('/') || $request->is('/dashboard')) {
                     return redirect()->route('admin.dashboard');
                 }
+                
+                // Don't redirect if they're already on admin routes to prevent loops
             }
             // If user is staff (admin, doctor, lab tech, medtech, cashier)
             else if (in_array($mappedRole, ['admin', 'doctor', 'laboratory_technologist', 'medtech', 'cashier'])) {
@@ -60,6 +64,8 @@ class RedirectBasedOnRole
                 if ($request->is('/') || $request->is('/dashboard')) {
                     return redirect()->route('admin.dashboard');
                 }
+                
+                // Don't redirect if they're already on admin routes to prevent loops
             }
             // If role is unknown, default to admin dashboard (safer default)
             else {
@@ -70,6 +76,8 @@ class RedirectBasedOnRole
                 if ($request->is('/') || $request->is('/dashboard')) {
                     return redirect()->route('admin.dashboard');
                 }
+                
+                // Don't redirect if they're already on admin routes to prevent loops
             }
         }
 

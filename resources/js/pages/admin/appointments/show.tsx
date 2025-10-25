@@ -44,6 +44,7 @@ type Appointment = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Appointments', href: '/admin/appointments' },
+    { title: 'All Appointments', href: '/admin/appointments' },
     { title: 'Appointment Details', href: '/admin/appointments/show' },
 ];
 

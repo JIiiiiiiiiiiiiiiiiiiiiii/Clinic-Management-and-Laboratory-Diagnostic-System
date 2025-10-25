@@ -40,7 +40,7 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/admin/patient',
     },
     {
-        title: 'Register New Patient',
+        title: 'Add Patient',
         href: '/admin/patient/register',
     },
 ];
@@ -204,21 +204,11 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <div>
-                                <h1 className="text-4xl font-bold text-black">Register New Patient</h1>
-                                <p className="text-sm text-gray-600 mt-1">Complete patient registration with step-by-step process</p>
+                                {/* Header content removed as requested */}
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
-                            <Button
-                                variant="outline"
-                                asChild
-                                className="hover:bg-gray-50"
-                            >
-                                <Link href="/admin/patient">
-                                    <ArrowLeft className="mr-2 h-4 w-4" />
-                                    Back to Patients
-                                </Link>
-                            </Button>
+                            {/* Back button removed as requested */}
                         </div>
                     </div>
                     {/* Progress Stepper */}

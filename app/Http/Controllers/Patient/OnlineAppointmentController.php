@@ -92,6 +92,27 @@ class OnlineAppointmentController extends Controller
             'urinarysis_test' => 'Urinarysis Test',
         ];
 
+        // Get notifications for the user
+        $notifications = Notification::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get()
+            ->map(function ($notification) {
+                return [
+                    'id' => $notification->id,
+                    'type' => $notification->type,
+                    'title' => $notification->title,
+                    'message' => $notification->message,
+                    'read' => $notification->read,
+                    'created_at' => $notification->created_at->format('M d, Y H:i'),
+                    'data' => $notification->data,
+                ];
+            });
+
+        $unreadCount = Notification::where('user_id', $user->id)
+            ->where('read', false)
+            ->count();
+
         return Inertia::render('patient/online-appointment', [
             'user' => $user,
             'patient' => $patient,
@@ -99,6 +120,8 @@ class OnlineAppointmentController extends Controller
             'medtechs' => $medtechs,
             'appointmentTypes' => $appointmentTypes,
             'isExistingPatient' => $patient !== null, // Use existing patient if available
+            'notifications' => $notifications,
+            'unreadCount' => $unreadCount,
             'cache_bust' => time(), // Force refresh to prevent caching issues
         ]);
     }

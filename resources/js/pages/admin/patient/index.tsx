@@ -175,11 +175,11 @@ const createColumns = (handleDeletePatient: (patient: PatientItem) => void): Col
         ),
     },
     {
-        accessorKey: "present_address",
+        accessorKey: "display_address",
         header: "Address",
         cell: ({ row }) => (
-            <div className="text-sm max-w-[200px] truncate" title={row.getValue("present_address")}>
-                {row.getValue("present_address") || "N/A"}
+            <div className="text-sm max-w-[200px] truncate" title={row.getValue("display_address")}>
+                {row.getValue("display_address") || "N/A"}
             </div>
         ),
     },
@@ -303,7 +303,7 @@ export default function Patient(props: {
                 patient.last_name?.toLowerCase().includes(search) ||
                 patient.patient_no?.toLowerCase().includes(search) ||
                 patient.mobile_no?.toLowerCase().includes(search) ||
-                patient.present_address?.toLowerCase().includes(search)
+                patient.display_address?.toLowerCase().includes(search)
             );
         },
         state: {
@@ -434,7 +434,7 @@ export default function Patient(props: {
                                             Columns <ChevronDown className="ml-2 h-4 w-4" />
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
+                                    <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
                                         {table
                                             .getAllColumns()
                                             .filter((column) => column.getCanHide())
@@ -444,9 +444,12 @@ export default function Patient(props: {
                                                         key={column.id}
                                                         className="capitalize"
                                                         checked={column.getIsVisible()}
-                                                        onCheckedChange={(value) =>
-                                                            column.toggleVisibility(!!value)
-                                                        }
+                                                        onCheckedChange={(value) => {
+                                                            column.toggleVisibility(!!value);
+                                                        }}
+                                                        onSelect={(e) => {
+                                                            e.preventDefault();
+                                                        }}
                                                     >
                                                         {column.id}
                                                     </DropdownMenuCheckboxItem>

@@ -22,6 +22,8 @@ export interface PatientItem {
 
     // Contact Information
     present_address: string;
+    address?: string; // Legacy address field
+    display_address?: string; // Computed field for display
     telephone_no: string;
     mobile_no: string;
 
@@ -87,6 +89,8 @@ export interface CreatePatientItem {
 
     // Contact Information
     present_address: string;
+    address?: string; // Legacy address field
+    display_address?: string; // Computed field for display
     telephone_no: string;
     mobile_no: string;
 

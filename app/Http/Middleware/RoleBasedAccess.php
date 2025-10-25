@@ -67,7 +67,7 @@ class RoleBasedAccess
 
         switch ($role) {
             case 'patient':
-                return 'patient.dashboard';
+                return 'home';
             case 'hospital_admin':
             case 'hospital_staff':
                 return 'admin.dashboard';

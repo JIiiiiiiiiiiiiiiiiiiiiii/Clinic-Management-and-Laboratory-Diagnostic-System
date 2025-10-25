@@ -1,17 +1,11 @@
-import { PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
+import SharedNavigation from '@/components/SharedNavigation';
 import { Head } from '@inertiajs/react';
 import { Calendar, FileText, Heart, User } from 'lucide-react';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Patient Dashboard', href: '/patient/dashboard' },
-    { title: 'Medical Records', href: '/patient/records' },
-];
 
 interface PatientRecordsProps {
     user: {
@@ -44,6 +38,16 @@ interface PatientRecordsProps {
             created_at: string;
         }>;
     };
+    notifications?: Array<{
+        id: number;
+        type: string;
+        title: string;
+        message: string;
+        read: boolean;
+        created_at: string;
+        data: any;
+    }>;
+    unreadCount?: number;
 }
 
 const getStatusBadge = (status: string) => {
@@ -56,33 +60,65 @@ const getStatusBadge = (status: string) => {
     return statusConfig[status as keyof typeof statusConfig] || 'bg-gray-100 text-gray-800';
 };
 
-export default function PatientRecords({ user, patient, records }: PatientRecordsProps) {
+export default function PatientRecords({ user, patient, records, notifications = [], unreadCount = 0 }: PatientRecordsProps) {
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Medical Records" />
+        <div className="min-h-screen bg-white">
+            <Head title="Medical Records - SJHI Industrial Clinic" />
+            
+            {/* Shared Navigation */}
+            <SharedNavigation user={user} currentPath="/patient/records" notifications={notifications} unreadCount={unreadCount} />
+            
             <div className="min-h-screen bg-gray-50 p-6">
-                <div className="mb-8">
-                    <h1 className="text-4xl font-bold text-black">Medical Records</h1>
-                    <p className="text-gray-500">Your complete medical history and treatment records</p>
-                </div>
 
                 {/* Summary Cards */}
                 <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
-                    <PatientInfoCard title="Total Records" icon={<FileText className="h-5 w-5 text-blue-600" />}>
-                        <div className="text-2xl font-bold">0</div>
-                    </PatientInfoCard>
+                    <Card>
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-blue-600">Total Records</p>
+                                    <div className="text-2xl font-bold">0</div>
+                                </div>
+                                <FileText className="h-5 w-5 text-blue-600" />
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                    <PatientInfoCard title="Active Treatments" icon={<Heart className="h-5 w-5 text-red-600" />}>
-                        <div className="text-2xl font-bold text-blue-600">0</div>
-                    </PatientInfoCard>
+                    <Card>
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-red-600">Active Treatments</p>
+                                    <div className="text-2xl font-bold text-blue-600">0</div>
+                                </div>
+                                <Heart className="h-5 w-5 text-red-600" />
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                    <PatientInfoCard title="Last Visit" icon={<Calendar className="h-5 w-5 text-green-600" />}>
-                        <div className="text-2xl font-bold text-green-600">N/A</div>
-                    </PatientInfoCard>
+                    <Card>
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-green-600">Last Visit</p>
+                                    <div className="text-2xl font-bold text-green-600">N/A</div>
+                                </div>
+                                <Calendar className="h-5 w-5 text-green-600" />
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                    <PatientInfoCard title="Primary Doctor" icon={<User className="h-5 w-5 text-purple-600" />}>
-                        <div className="text-2xl font-bold text-purple-600">St. James Clinic</div>
-                    </PatientInfoCard>
+                    <Card>
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-purple-600">Primary Doctor</p>
+                                    <div className="text-2xl font-bold text-purple-600">St. James Clinic</div>
+                                </div>
+                                <User className="h-5 w-5 text-purple-600" />
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
 
                 {/* Medical Records Table */}
@@ -126,6 +162,6 @@ export default function PatientRecords({ user, patient, records }: PatientRecord
                     </CardContent>
                 </Card>
             </div>
-        </AppLayout>
+        </div>
     );
 }

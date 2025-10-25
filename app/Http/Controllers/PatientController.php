@@ -67,10 +67,18 @@ class PatientController extends Controller
                 'age',
                 'birthdate',
                 'mobile_no',
-                'address', // Fixed: was 'present_address'
+                'present_address',
+                'address',
                 'created_at',
                 'updated_at'
             ])->paginate(15);
+
+            // Transform the data to ensure address is properly displayed
+            $patients->getCollection()->transform(function ($patient) {
+                // Use present_address if available, otherwise fall back to address
+                $patient->display_address = $patient->present_address ?: $patient->address ?: 'Not provided';
+                return $patient;
+            });
 
 
             // Get patient statistics

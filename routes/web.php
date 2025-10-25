@@ -5,23 +5,39 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia as InertiaResponse;
 use App\Models\User;
+use App\Models\Patient;
+use App\Models\Notification;
 
 Route::get('/', function () {
-    if (Auth::check()) {
-        // User is logged in, redirect to appropriate dashboard
-        $user = Auth::user();
-        $mappedRole = $user->getMappedRole();
-        
-        if ($mappedRole === 'patient') {
-            return redirect()->route('patient.dashboard.simple');
-        } else {
-            return redirect()->route('admin.dashboard');
-        }
-    } else {
-        // User is not logged in, redirect to login
-        return redirect()->route('login');
+    $user = auth()->user();
+    $patient = null;
+    $notifications = [];
+    $unreadCount = 0;
+    
+    // If user is logged in, get their data
+    if ($user) {
+        $patient = Patient::where('user_id', $user->id)->first();
+        $notifications = Notification::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+        $unreadCount = Notification::where('user_id', $user->id)
+            ->where('read', false)
+            ->count();
     }
+    
+    return Inertia::render('patient/home', [
+        'user' => $user,
+        'patient' => $patient,
+        'notifications' => $notifications,
+        'unreadCount' => $unreadCount,
+    ]);
 })->name('home');
+
+// Redirect /patient/home to / for consistency
+Route::get('/patient/home', function () {
+    return redirect('/');
+})->name('patient.home');
 
 // API endpoints (using web routes for proper session handling)
 Route::middleware(['auth:session'])->post('/api/appointments/online', [App\Http\Controllers\Api\OnlineAppointmentController::class, 'store']);
@@ -62,7 +78,7 @@ Route::get('/dashboard', function () {
     $mappedRole = $user->getMappedRole();
     
     if ($mappedRole === 'patient') {
-        return redirect()->route('patient.dashboard.simple');
+        return redirect()->route('home');
     } else {
         return redirect()->route('admin.dashboard');
     }
