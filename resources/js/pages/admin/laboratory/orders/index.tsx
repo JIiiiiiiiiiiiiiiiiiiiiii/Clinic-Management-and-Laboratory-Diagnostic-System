@@ -6,11 +6,23 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DatePickerWithLabel } from '@/components/ui/date-picker';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertCircle, CheckCircle, Clock, Download, Eye, FileText, Plus, Search, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, Download, Eye, FileText, Plus, Search, XCircle, ArrowUpDown, Filter, X } from 'lucide-react';
 import { useState } from 'react';
+import { format } from 'date-fns';
+import {
+    ColumnDef,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+} from '@tanstack/react-table';
 
 type Order = {
     id: number;
@@ -48,17 +60,121 @@ const statusConfig = {
 
 export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
     const [searchTerm, setSearchTerm] = useState('');
+    const [sorting, setSorting] = useState<SortingState>([]);
+    const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
+    const [statusFilter, setStatusFilter] = useState<string>('all');
 
     const safeOrders = Array.isArray(orders) ? orders : [];
-    const filteredOrders = safeOrders.filter((order) => {
-        const patientName = `${order.patient?.first_name ?? ''} ${order.patient?.last_name ?? ''}`.trim().toLowerCase();
-        const testNames = (order.lab_tests || [])
-            .map((test) => test.name)
-            .join(' ')
-            .toLowerCase();
-        const search = searchTerm.toLowerCase();
 
-        return patientName.includes(search) || testNames.includes(search) || order.id.toString().includes(search);
+    // Filter orders based on search term, date, and status
+    const filteredOrders = safeOrders.filter((order) => {
+        const matchesSearch = !searchTerm || 
+            order.id.toString().includes(searchTerm.toLowerCase()) ||
+            (order.patient && `${order.patient.first_name} ${order.patient.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            order.lab_tests.some(test => test.name.toLowerCase().includes(searchTerm.toLowerCase()));
+        
+        const matchesDate = !dateFilter || 
+            new Date(order.created_at).toDateString() === dateFilter.toDateString();
+        
+        const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+        
+        return matchesSearch && matchesDate && matchesStatus;
+    });
+
+    const columns: ColumnDef<Order>[] = [
+        {
+            accessorKey: 'id',
+            header: 'Order #',
+        },
+        {
+            accessorKey: 'patient',
+            header: 'Patient',
+            cell: ({ row }) => {
+                const patient = row.getValue('patient') as Order['patient'];
+                return (
+                    <div>
+                        <div className="font-medium">
+                            {patient ? `${patient.last_name}, ${patient.first_name}` : '—'}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                            {patient ? `${patient.age} years, ${patient.sex}` : 'Unknown patient'}
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'lab_tests',
+            header: 'Tests Ordered',
+            cell: ({ row }) => {
+                const tests = row.getValue('lab_tests') as Order['lab_tests'];
+                return (
+                    <div className="flex flex-wrap gap-1">
+                        {(tests || []).map((test) => (
+                            <Badge key={test.id} variant="outline" className="text-xs">
+                                {test.name}
+                            </Badge>
+                        ))}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'status',
+            header: 'Status',
+            cell: ({ row }) => {
+                return getStatusBadge(row.getValue('status') as keyof typeof statusConfig);
+            },
+        },
+        {
+            accessorKey: 'created_at',
+            header: 'Ordered',
+            cell: ({ row }) => {
+                return <span className="text-sm text-gray-600">{new Date(row.getValue('created_at')).toLocaleString()}</span>;
+            },
+        },
+        {
+            id: 'actions',
+            header: 'Actions',
+            cell: ({ row }) => {
+                const order = row.original;
+                return (
+                    <div className="flex gap-2">
+                        <Button asChild>
+                            <Link href={`/admin/laboratory/orders/${order.id}`}>
+                                <Eye className="mr-1 h-4 w-4" />
+                                View Order
+                            </Link>
+                        </Button>
+                        <Button onClick={() => handleEnterResults(order.id)} disabled={order.status === 'cancelled'}>
+                            <FileText className="mr-1 h-4 w-4" />
+                            Results
+                        </Button>
+                        {order.status === 'ordered' && (
+                            <Button variant="outline" onClick={() => handleUpdateStatus(order.id, 'processing')}>
+                                Start
+                            </Button>
+                        )}
+                        {order.status === 'processing' && (
+                            <Button onClick={() => handleUpdateStatus(order.id, 'completed')}>Complete</Button>
+                        )}
+                    </div>
+                );
+            },
+        },
+    ];
+
+    const table = useReactTable({
+        data: filteredOrders,
+        columns,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onSortingChange: setSorting,
+        state: {
+            sorting,
+        },
     });
 
     const getStatusBadge = (status: keyof typeof statusConfig) => {
@@ -124,36 +240,81 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                 </div>
 
                 {/* Orders Section */}
-                <Card className="mb-8 shadow-lg">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                        <div className="flex items-center gap-3">
-                            <div className="rounded-lg bg-gray-100 p-2">
-                                <FileText className="h-6 w-6 text-black" />
+                <Card className="bg-white border border-gray-200">
+                    <CardContent className="p-6">
+                        {/* Table Controls */}
+                        <div className="flex items-center py-4 gap-4 flex-wrap">
+                            <Input
+                                placeholder="Search orders..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="max-w-sm"
+                            />
+                            
+                            {/* Date Filter */}
+                            <div className="flex items-center gap-2">
+                                <DatePickerWithLabel 
+                                    label="Filter by Date" 
+                                    placeholder="Select date"
+                                    date={dateFilter}
+                                    setDate={setDateFilter}
+                                />
+                                {dateFilter && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setDateFilter(undefined)}
+                                        className="h-8 w-8 p-0"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                )}
                             </div>
-                            <div>
-                                <CardTitle className="text-lg font-semibold text-gray-900">Lab Orders</CardTitle>
-                                <p className="mt-1 text-sm text-gray-500">Search and manage laboratory orders</p>
+
+                            {/* Status Filter */}
+                            <div className="flex items-center gap-2">
+                                <label className="text-sm font-medium">Status:</label>
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value)}
+                                    className="h-10 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="all">All Status</option>
+                                    <option value="ordered">Ordered</option>
+                                    <option value="processing">Processing</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="cancelled">Cancelled</option>
+                                </select>
                             </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button asChild>
-                                            <Link href="/admin/laboratory/orders/create">
-                                                <Plus className="mr-2 h-5 w-5" />
-                                                New Order
-                                            </Link>
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Create New Order</TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
+
+                            {/* Clear Filters Button */}
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setSearchTerm('');
+                                    setDateFilter(undefined);
+                                    setStatusFilter('all');
+                                }}
+                                className="flex items-center gap-2"
+                            >
+                                <X className="h-4 w-4" />
+                                Clear Filters
+                            </Button>
+
+                            <Button
+                                asChild
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                            >
+                                <Link href="/admin/laboratory/orders/create">
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    New Order
+                                </Link>
+                            </Button>
+                            
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="outline">
-                                        <Download className="mr-2 h-5 w-5" />
-                                        Export
+                                    <Button variant="outline" className="ml-auto">
+                                        Export <Download className="ml-2 h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
@@ -169,114 +330,141 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
-                    </CardHeader>
-                    <CardContent className="p-6">
-                        <div className="mb-6">
-                            <div className="flex items-center gap-4">
-                                <div className="relative max-w-md flex-1">
-                                    <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
-                                    <Input
-                                        placeholder="Search by patient name, test name, or order ID..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="h-12 rounded-xl border-gray-300 pl-10 shadow-sm focus:border-gray-500 focus:ring-gray-500"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                        <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                
+                        {/* Table */}
+                        <div className="rounded-md border">
                             <Table>
-                                <TableHeader className="bg-gray-50">
-                                    <TableRow className="hover:bg-gray-50">
-                                        <TableHead className="font-semibold text-gray-700">
-                                            <div className="flex items-center gap-2">
-                                                <FileText className="h-4 w-4" />
-                                                Order #
-                                            </div>
-                                        </TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Patient</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Tests Ordered</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Ordered</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Actions</TableHead>
-                                    </TableRow>
+                                <TableHeader>
+                                    {table.getHeaderGroups().map((headerGroup) => (
+                                        <TableRow key={headerGroup.id}>
+                                            {headerGroup.headers.map((header) => (
+                                                <TableHead key={header.id}>
+                                                    {header.isPlaceholder
+                                                        ? null
+                                                        : (
+                                                            <div
+                                                                className={
+                                                                    header.column.getCanSort()
+                                                                        ? 'cursor-pointer select-none flex items-center'
+                                                                        : 'flex items-center'
+                                                                }
+                                                                onClick={header.column.getToggleSortingHandler()}
+                                                            >
+                                                                {flexRender(
+                                                                    header.column.columnDef.header,
+                                                                    header.getContext()
+                                                                )}
+                                                                {header.column.getCanSort() && (
+                                                                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                </TableHead>
+                                            ))}
+                                        </TableRow>
+                                    ))}
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredOrders.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={6} className="py-8 text-center">
-                                                <div className="flex flex-col items-center">
-                                                    <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                                                    <h3 className="mb-2 text-lg font-semibold text-gray-600">
-                                                        {searchTerm ? 'No orders found' : 'No lab orders yet'}
-                                                    </h3>
-                                                    <p className="text-gray-500">
-                                                        {searchTerm
-                                                            ? 'Try adjusting your search terms'
-                                                            : 'Lab orders will appear here when created for patients'}
-                                                    </p>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        filteredOrders.map((order) => (
-                                            <TableRow key={order.id} className="hover:bg-gray-50">
-                                                <TableCell className="font-medium">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="rounded-full bg-gray-100 p-1">
-                                                            <FileText className="h-4 w-4 text-black" />
-                                                        </div>
-                                                        #{order.id}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div>
-                                                        <div className="font-medium">
-                                                            {order.patient ? `${order.patient.last_name}, ${order.patient.first_name}` : '—'}
-                                                        </div>
-                                                        <div className="text-sm text-gray-500">
-                                                            {order.patient ? `${order.patient.age} years, ${order.patient.sex}` : 'Unknown patient'}
-                                                        </div>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {(order.lab_tests || []).map((test) => (
-                                                            <Badge key={test.id} variant="outline" className="text-xs">
-                                                                {test.name}
-                                                            </Badge>
-                                                        ))}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>{getStatusBadge(order.status)}</TableCell>
-                                                <TableCell className="text-sm text-gray-600">{new Date(order.created_at).toLocaleString()}</TableCell>
-                                                <TableCell>
-                                                    <div className="flex gap-2">
-                                                        <Button asChild>
-                                                            <Link href={`/admin/laboratory/orders/${order.id}`}>
-                                                                <Eye className="mr-1 h-4 w-4" />
-                                                                View Order
-                                                            </Link>
-                                                        </Button>
-                                                        <Button onClick={() => handleEnterResults(order.id)} disabled={order.status === 'cancelled'}>
-                                                            <FileText className="mr-1 h-4 w-4" />
-                                                            Results
-                                                        </Button>
-                                                        {order.status === 'ordered' && (
-                                                            <Button variant="outline" onClick={() => handleUpdateStatus(order.id, 'processing')}>
-                                                                Start
-                                                            </Button>
+                                    {table.getRowModel().rows?.length ? (
+                                        table.getRowModel().rows.map((row) => (
+                                            <TableRow
+                                                key={row.id}
+                                                data-state={row.getIsSelected() && 'selected'}
+                                            >
+                                                {row.getVisibleCells().map((cell) => (
+                                                    <TableCell key={cell.id}>
+                                                        {flexRender(
+                                                            cell.column.columnDef.cell,
+                                                            cell.getContext()
                                                         )}
-                                                        {order.status === 'processing' && (
-                                                            <Button onClick={() => handleUpdateStatus(order.id, 'completed')}>Complete</Button>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
+                                                    </TableCell>
+                                                ))}
                                             </TableRow>
                                         ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={columns.length}
+                                                className="h-24 text-center"
+                                            >
+                                                No results.
+                                            </TableCell>
+                                        </TableRow>
                                     )}
                                 </TableBody>
                             </Table>
+                        </div>
+
+                        {/* Pagination */}
+                        <div className="flex items-center justify-between px-2 py-4">
+                            <div className="text-muted-foreground flex-1 text-sm">
+                                {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                                {table.getFilteredRowModel().rows.length} row(s) selected.
+                            </div>
+                            <div className="flex items-center space-x-6 lg:space-x-8">
+                                <div className="flex items-center space-x-2">
+                                    <p className="text-sm font-medium">Rows per page</p>
+                                    <select 
+                                        className="h-8 w-[70px] rounded border border-gray-300 px-2 text-sm"
+                                        value={table.getState().pagination.pageSize}
+                                        onChange={(e) => {
+                                            table.setPageSize(Number(e.target.value))
+                                        }}
+                                    >
+                                        {[10, 20, 30, 40, 50].map((pageSize) => (
+                                            <option key={pageSize} value={pageSize}>
+                                                {pageSize}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                    Page {table.getState().pagination.pageIndex + 1} of{" "}
+                                    {table.getPageCount()}
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <button
+                                        className="hidden size-8 lg:flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                                        onClick={() => table.setPageIndex(0)}
+                                        disabled={!table.getCanPreviousPage()}
+                                    >
+                                        <span className="sr-only">Go to first page</span>
+                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        className="size-8 flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                                        onClick={() => table.previousPage()}
+                                        disabled={!table.getCanPreviousPage()}
+                                    >
+                                        <span className="sr-only">Go to previous page</span>
+                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        className="size-8 flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                                        onClick={() => table.nextPage()}
+                                        disabled={!table.getCanNextPage()}
+                                    >
+                                        <span className="sr-only">Go to next page</span>
+                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        className="hidden size-8 lg:flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                                        onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                                        disabled={!table.getCanNextPage()}
+                                    >
+                                        <span className="sr-only">Go to last page</span>
+                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>

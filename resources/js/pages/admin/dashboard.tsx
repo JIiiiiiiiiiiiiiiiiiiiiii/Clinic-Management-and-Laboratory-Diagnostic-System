@@ -10,6 +10,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Area, AreaChart, ResponsiveContainer, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { useMemo } from 'react';
 import { 
     Users, 
     Calendar, 
@@ -70,12 +71,7 @@ export default function Dashboard() {
     const analyticsData = dashboard?.analyticsData || {};
     const miniTables = dashboard?.miniTables || {};
 
-    // Debug logging for chart data
-    console.log('Dashboard Data:', {
-        diagnosisData,
-        consultationData,
-        stats
-    });
+    // Debug logging for chart data - removed for performance
 
     // Fallback data for charts
     const fallbackDiagnosisData = [
@@ -163,6 +159,23 @@ export default function Dashboard() {
     };
 
     const quickActions = getQuickActions(user?.role || 'admin');
+
+    // Memoize random data to prevent re-renders
+    const memoizedRandomData = useMemo(() => {
+        const diagnoses = ['Diabetes', 'Hypertension', 'Anxiety Disorder', 'Dermatitis', 'Gastritis'];
+        const genders = ['Male', 'Female'];
+        const statuses = ['Critical', 'Stable', 'Mild'];
+        
+        return {
+            age: Math.floor(Math.random() * 50) + 20,
+            birthDate: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000 * 30).toLocaleDateString(),
+            gender: genders[Math.floor(Math.random() * genders.length)],
+            diagnosis: diagnoses[Math.floor(Math.random() * diagnoses.length)],
+            status: statuses[Math.floor(Math.random() * statuses.length)],
+            isCritical: Math.random() > 0.7,
+            isStable: Math.random() > 0.4,
+        };
+    }, []);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -743,8 +756,8 @@ export default function Dashboard() {
                                                 </div>
                                             </div>
                                         )}
-                                    </div>
-                                    
+                            </div>
+                            
                                     <div className="flex items-center justify-center gap-4 mt-4 flex-wrap">
                                         <div className="flex items-center gap-2">
                                             <div className="w-3 h-3 bg-green-600 rounded-full"></div>
@@ -1028,29 +1041,29 @@ export default function Dashboard() {
                                                 {appointment.appointment_date}
                                             </TableCell>
                                             <TableCell className="text-sm text-gray-600">
-                                                {Math.floor(Math.random() * 50) + 20}
+                                                {memoizedRandomData.age}
                                             </TableCell>
                                             <TableCell className="text-sm text-gray-600">
-                                                {new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000 * 30).toLocaleDateString()}
+                                                {memoizedRandomData.birthDate}
                                             </TableCell>
                                             <TableCell className="text-sm text-gray-600">
-                                                {Math.random() > 0.5 ? 'Male' : 'Female'}
+                                                {memoizedRandomData.gender}
                                             </TableCell>
                                             <TableCell className="text-sm text-gray-600">
-                                                {['Diabetes', 'Hypertension', 'Anxiety Disorder', 'Dermatitis', 'Gastritis'][Math.floor(Math.random() * 5)]}
+                                                {memoizedRandomData.diagnosis}
                                             </TableCell>
                                             <TableCell>
                                                 <Badge 
-                                                    variant={Math.random() > 0.7 ? 'destructive' : Math.random() > 0.4 ? 'default' : 'secondary'}
+                                                    variant={memoizedRandomData.isCritical ? 'destructive' : memoizedRandomData.isStable ? 'default' : 'secondary'}
                                                     className={
-                                                        Math.random() > 0.7 
+                                                        memoizedRandomData.isCritical 
                                                             ? 'bg-red-100 text-red-800' 
-                                                            : Math.random() > 0.4
+                                                            : memoizedRandomData.isStable
                                                             ? 'bg-green-100 text-green-800'
                                                             : 'bg-blue-100 text-blue-800'
                                                     }
                                                 >
-                                                    {Math.random() > 0.7 ? 'Critical' : Math.random() > 0.4 ? 'Stable' : 'Mild'}
+                                                    {memoizedRandomData.status}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>

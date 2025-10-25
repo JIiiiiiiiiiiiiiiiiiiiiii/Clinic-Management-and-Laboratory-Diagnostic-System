@@ -221,17 +221,13 @@ const createColumns = (handleDeletePatient: (patient: PatientItem) => void): Col
                             Copy patient number
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                            <Link href={`/admin/patient/${patient.patient_id}`}>
-                                <Eye className="mr-2 h-4 w-4" />
-                                View patient
-                            </Link>
+                        <DropdownMenuItem onClick={() => router.visit(`/admin/patient/${(patient as any).id}`)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View patient
                         </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                            <Link href={`/admin/patient/${patient.patient_id}/edit`}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit patient
-                            </Link>
+                        <DropdownMenuItem onClick={() => router.visit(`/admin/patient/${(patient as any).id}/edit`)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit patient
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -326,7 +322,7 @@ export default function Patient(props: {
 
     const confirmDelete = () => {
         if (patientToDelete) {
-            router.delete(`/admin/patient/${patientToDelete.patient_id}`, {
+            router.delete(`/admin/patient/${(patientToDelete as any).id}`, {
                 onSuccess: () => {
                     setDeleteConfirmOpen(false);
                     setPatientToDelete(null);
@@ -511,8 +507,7 @@ export default function Patient(props: {
                                             </TableBody>
                                         </Table>
                                     </div>
-                                    
-                                {/* Pagination */}
+                            {/* Pagination */}
                             <div className="flex items-center justify-between px-2 py-4">
                                 <div className="text-muted-foreground flex-1 text-sm">
                                     {table.getFilteredSelectedRowModel().rows.length} of{" "}
@@ -586,10 +581,10 @@ export default function Patient(props: {
                                         </Button>
                                     </div>
                                 </div>
-                                        </div>
+                            </div>
                         </CardContent>
                     </Card>
-                                    </div>
+                </div>
 
                 {/* Success Dialog */}
                 <AlertDialog open={open} onOpenChange={setOpen}>

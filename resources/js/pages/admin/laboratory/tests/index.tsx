@@ -8,8 +8,18 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, Edit, Plus, TestTube, Trash2, Search, FlaskConical } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, TestTube, Trash2, Search, FlaskConical, ArrowUpDown } from 'lucide-react';
 import { useState } from 'react';
+import {
+    ColumnDef,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+} from '@tanstack/react-table';
 
 type TestRow = {
     id: number;
@@ -31,13 +41,89 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
     const [searchTerm, setSearchTerm] = useState('');
+    const [sorting, setSorting] = useState<SortingState>([]);
 
-    const filteredTests = tests.filter((test) => {
-        const search = searchTerm.toLowerCase();
-        return (
-            test.name.toLowerCase().includes(search) ||
-            test.code.toLowerCase().includes(search)
-        );
+    const columns: ColumnDef<TestRow>[] = [
+        {
+            accessorKey: 'name',
+            header: 'Test Name',
+        },
+        {
+            accessorKey: 'code',
+            header: 'Code',
+            cell: ({ row }) => {
+                return <span className="text-sm text-gray-600 font-mono">{row.getValue('code')}</span>;
+            },
+        },
+        {
+            accessorKey: 'fields_schema',
+            header: 'Fields',
+            cell: ({ row }) => {
+                const test = row.original;
+                const fieldCount = getFieldCount(test);
+                return <span className="text-sm text-gray-600">{fieldCount} fields</span>;
+            },
+        },
+        {
+            accessorKey: 'version',
+            header: 'Version',
+            cell: ({ row }) => {
+                return <span className="text-sm text-gray-600">v{row.getValue('version')}</span>;
+            },
+        },
+        {
+            accessorKey: 'is_active',
+            header: 'Status',
+            cell: ({ row }) => {
+                const isActive = row.getValue('is_active') as boolean;
+                return (
+                    <Badge variant={isActive ? 'default' : 'secondary'}>
+                        {isActive ? 'Active' : 'Inactive'}
+                    </Badge>
+                );
+            },
+        },
+        {
+            accessorKey: 'created_at',
+            header: 'Created',
+            cell: ({ row }) => {
+                return <span className="text-sm text-gray-600">{new Date(row.getValue('created_at')).toLocaleDateString()}</span>;
+            },
+        },
+        {
+            id: 'actions',
+            header: 'Actions',
+            cell: ({ row }) => {
+                const test = row.original;
+                return (
+                    <div className="flex gap-2">
+                        <Button asChild>
+                            <Link href={`/admin/laboratory/tests/${test.id}/edit`}>
+                                <Edit className="mr-1 h-4 w-4" />
+                                Edit
+                            </Link>
+                        </Button>
+                        <Button variant="destructive" onClick={() => handleDelete(test.id, test.name)}>
+                            <Trash2 className="mr-1 h-4 w-4" />
+                            Delete
+                        </Button>
+                    </div>
+                );
+            },
+        },
+    ];
+
+    const table = useReactTable({
+        data: tests,
+        columns,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onSortingChange: setSorting,
+        state: {
+            sorting,
+        },
     });
 
     const handleDelete = (testId: number, testName: string) => {
@@ -82,159 +168,165 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
                     </div>
                 </div>
 
-                {/* Two-column layout: left table, right quick tips */}
-                <div className="grid gap-6 md:grid-cols-3 items-start">
-                    <Card className="md:col-span-2 shadow-lg">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-gray-100 rounded-lg">
-                                    <TestTube className="h-6 w-6 text-black" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-lg font-semibold text-gray-900">Test Templates</CardTitle>
-                                    <p className="text-sm text-gray-500 mt-1">Search and manage laboratory test templates</p>
-                                </div>
-                            </div>
-                            <Button asChild>
+                {/* Tests Section */}
+                <Card className="bg-white border border-gray-200">
+                    <CardContent className="p-6">
+                        {/* Table Controls */}
+                        <div className="flex items-center py-4">
+                            <Input
+                                placeholder="Search tests..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="max-w-sm"
+                            />
+                            <Button
+                                asChild
+                                className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                            >
                                 <Link href="/admin/laboratory/tests/create">
-                                    <Plus className="mr-3 h-6 w-6" />
+                                    <Plus className="h-4 w-4 mr-2" />
                                     Add New Test
                                 </Link>
                             </Button>
-                        </CardHeader>
-                        <CardContent className="p-6">
-                        <div className="mb-6">
-                            <div className="flex items-center gap-4">
-                                <div className="relative flex-1 max-w-md">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        placeholder="Search tests by name or code..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-10 h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
-                                    />
-                                </div>
-                            </div>
                         </div>
-                        <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                
+                        {/* Table */}
+                        <div className="rounded-md border">
                             <Table>
-                                <TableHeader className="bg-gray-50">
-                                    <TableRow className="hover:bg-gray-50">
-                                        <TableHead className="font-semibold text-gray-700">
-                                            <div className="flex items-center gap-2">
-                                                <TestTube className="h-4 w-4" />
-                                                Test Name
-                                            </div>
-                                        </TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Code</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Fields</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Version</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Created</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Actions</TableHead>
-                                    </TableRow>
+                                <TableHeader>
+                                    {table.getHeaderGroups().map((headerGroup) => (
+                                        <TableRow key={headerGroup.id}>
+                                            {headerGroup.headers.map((header) => (
+                                                <TableHead key={header.id}>
+                                                    {header.isPlaceholder
+                                                        ? null
+                                                        : (
+                                                            <div
+                                                                className={
+                                                                    header.column.getCanSort()
+                                                                        ? 'cursor-pointer select-none flex items-center'
+                                                                        : 'flex items-center'
+                                                                }
+                                                                onClick={header.column.getToggleSortingHandler()}
+                                                            >
+                                                                {flexRender(
+                                                                    header.column.columnDef.header,
+                                                                    header.getContext()
+                                                                )}
+                                                                {header.column.getCanSort() && (
+                                                                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                </TableHead>
+                                            ))}
+                                        </TableRow>
+                                    ))}
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredTests.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={7} className="text-center py-8">
-                                                <div className="flex flex-col items-center">
-                                                    <TestTube className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                                                    <h3 className="mb-2 text-lg font-semibold text-gray-600">{searchTerm ? 'No tests found' : 'No test templates yet'}</h3>
-                                                    <p className="text-gray-500">
-                                                        {searchTerm ? 'Try adjusting your search terms' : 'Create your first laboratory test template to get started'}
-                                                    </p>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        filteredTests.map((test) => (
-                                            <TableRow key={test.id} className="hover:bg-gray-50">
-                                                <TableCell className="font-medium">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="p-1 bg-gray-100 rounded-full">
-                                                            <TestTube className="h-4 w-4 text-black" />
-                                                        </div>
-                                                        {test.name}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-sm text-gray-600 font-mono">{test.code}</TableCell>
-                                                <TableCell className="text-sm text-gray-600">{getFieldCount(test)} fields</TableCell>
-                                                <TableCell className="text-sm text-gray-600">v{test.version}</TableCell>
-                                                <TableCell>
-                                                    <Badge variant={test.is_active ? 'default' : 'secondary'}>
-                                                        {test.is_active ? 'Active' : 'Inactive'}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-sm text-gray-600">{new Date(test.created_at).toLocaleDateString()}</TableCell>
-                                                <TableCell>
-                                                    <div className="flex gap-3">
-                                                        <Button asChild>
-                                                            <Link href={`/admin/laboratory/tests/${test.id}/edit`}>
-                                                                <Edit className="mr-2 h-4 w-4" />
-                                                                Edit
-                                                            </Link>
-                                                        </Button>
-                                                        <Button variant="destructive" onClick={() => handleDelete(test.id, test.name)}>
-                                                            <Trash2 className="mr-2 h-4 w-4" />
-                                                            Delete
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
+                                    {table.getRowModel().rows?.length ? (
+                                        table.getRowModel().rows.map((row) => (
+                                            <TableRow
+                                                key={row.id}
+                                                data-state={row.getIsSelected() && 'selected'}
+                                            >
+                                                {row.getVisibleCells().map((cell) => (
+                                                    <TableCell key={cell.id}>
+                                                        {flexRender(
+                                                            cell.column.columnDef.cell,
+                                                            cell.getContext()
+                                                        )}
+                                                    </TableCell>
+                                                ))}
                                             </TableRow>
                                         ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={columns.length}
+                                                className="h-24 text-center"
+                                            >
+                                                No results.
+                                            </TableCell>
+                                        </TableRow>
                                     )}
                                 </TableBody>
                             </Table>
                         </div>
-                        </CardContent>
-                    </Card>
-                    <Card className="shadow-lg sticky top-0 self-start">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-gray-100 rounded-lg">
-                                    <FlaskConical className="h-6 w-6 text-black" />
+
+                        {/* Pagination */}
+                        <div className="flex items-center justify-between px-2 py-4">
+                            <div className="text-muted-foreground flex-1 text-sm">
+                                {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                                {table.getFilteredRowModel().rows.length} row(s) selected.
+                            </div>
+                            <div className="flex items-center space-x-6 lg:space-x-8">
+                                <div className="flex items-center space-x-2">
+                                    <p className="text-sm font-medium">Rows per page</p>
+                                    <select 
+                                        className="h-8 w-[70px] rounded border border-gray-300 px-2 text-sm"
+                                        value={table.getState().pagination.pageSize}
+                                        onChange={(e) => {
+                                            table.setPageSize(Number(e.target.value))
+                                        }}
+                                    >
+                                        {[10, 20, 30, 40, 50].map((pageSize) => (
+                                            <option key={pageSize} value={pageSize}>
+                                                {pageSize}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
-                                <div>
-                                    <CardTitle className="text-lg font-semibold text-gray-900">Quick Tips</CardTitle>
-                                    <p className="text-sm text-gray-500 mt-1">Best practices for test templates</p>
+                                <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                    Page {table.getState().pagination.pageIndex + 1} of{" "}
+                                    {table.getPageCount()}
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <button
+                                        className="hidden size-8 lg:flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                                        onClick={() => table.setPageIndex(0)}
+                                        disabled={!table.getCanPreviousPage()}
+                                    >
+                                        <span className="sr-only">Go to first page</span>
+                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        className="size-8 flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                                        onClick={() => table.previousPage()}
+                                        disabled={!table.getCanPreviousPage()}
+                                    >
+                                        <span className="sr-only">Go to previous page</span>
+                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        className="size-8 flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                                        onClick={() => table.nextPage()}
+                                        disabled={!table.getCanNextPage()}
+                                    >
+                                        <span className="sr-only">Go to next page</span>
+                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        className="hidden size-8 lg:flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                                        onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                                        disabled={!table.getCanNextPage()}
+                                    >
+                                        <span className="sr-only">Go to last page</span>
+                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
                                 </div>
                             </div>
-                        </CardHeader>
-                        <CardContent className="p-6">
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <div className="space-y-3">
-                                    <div className="p-3 bg-gray-50 rounded-lg border">
-                                        <div className="font-semibold text-gray-800 mb-1">Active Tests</div>
-                                        <div className="text-sm text-gray-600">Active tests can be ordered for patients</div>
-                                    </div>
-                                    <div className="p-3 bg-gray-50 rounded-lg border">
-                                        <div className="font-semibold text-gray-800 mb-1">Inactive Tests</div>
-                                        <div className="text-sm text-gray-600">Hidden from ordering but can be edited</div>
-                                    </div>
-                                    <div className="p-3 bg-gray-50 rounded-lg border">
-                                        <div className="font-semibold text-gray-800 mb-1">Version Control</div>
-                                        <div className="text-sm text-gray-600">Version numbers help track changes to test templates</div>
-                                    </div>
-                                </div>
-                                <div className="space-y-3">
-                                    <div className="p-3 bg-gray-50 rounded-lg border">
-                                        <div className="font-semibold text-gray-800 mb-1">Test Codes</div>
-                                        <div className="text-sm text-gray-600">Short and unique codes like "CBC" or "UA"</div>
-                                    </div>
-                                    <div className="p-3 bg-gray-50 rounded-lg border">
-                                        <div className="font-semibold text-gray-800 mb-1">Field Organization</div>
-                                        <div className="text-sm text-gray-600">Group related fields in logical sections</div>
-                                    </div>
-                                    <div className="p-3 bg-gray-50 rounded-lg border">
-                                        <div className="font-semibold text-gray-800 mb-1">Required Fields</div>
-                                        <div className="text-sm text-gray-600">Mark essential fields as required for data completeness</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         </AppLayout>
     );

@@ -1,17 +1,54 @@
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import SortableTable from '@/components/SortableTable';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    DropdownMenu,
+    DropdownMenuCheckboxItem,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import {
+    ColumnDef,
+    ColumnFiltersState,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+    VisibilityState,
+} from '@tanstack/react-table';
 import { safeFormatDate, safeFormatTime } from '@/utils/dateTime';
-import { Calendar, CheckCircle, Clock, Filter, Plus, Search, Stethoscope, Edit, Eye, UserCheck, Bell, CalendarDays, Users, X, Save, Trash2, TestTube } from 'lucide-react';
+import { 
+    Calendar as CalendarIcon, CheckCircle, Clock, Filter, Plus, Search, Stethoscope, Edit, Eye, UserCheck, Bell, CalendarDays, Users, X, Save, Trash2, TestTube,
+    ArrowUpDown, ArrowUp, ArrowDown, ChevronsUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Settings2, EyeOff, MoreHorizontal, ChevronDown
+} from 'lucide-react';
 import { useState, useEffect } from 'react';
 import RealtimeNotificationBell from '@/components/RealtimeNotificationBell';
+import { format } from 'date-fns';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/admin/dashboard' },
@@ -31,6 +68,252 @@ const appointmentTypes = [
     { id: 'cbc', name: 'CBC (Complete Blood Count)', requiresDoctor: false, requiresMedTech: true },
     { id: 'urinalysis', name: 'Urinalysis', requiresDoctor: false, requiresMedTech: true },
 ];
+
+// Column definitions for the appointments data table
+const createColumns = (handleDeleteAppointment: (appointment: any) => void, handleEditAppointment: (appointment: any) => void, handleViewAppointment: (appointment: any) => void, handleAddLabTests: (appointment: any) => void): ColumnDef<any>[] => [
+    {
+        accessorKey: "patient_id",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Patient ID
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium text-center">{row.getValue("patient_id")}</div>
+        ),
+    },
+    {
+        accessorKey: "patient_name",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Patient
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const appointment = row.original;
+            return (
+                <div>
+                    <div className="font-medium">{appointment.patient_name}</div>
+                    <div className="text-sm text-gray-500">{appointment.contact_number}</div>
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "specialist_name",
+        header: "Doctor",
+        cell: ({ row }) => {
+            const appointment = row.original;
+            return (
+                <div>
+                    <div className="font-medium">{appointment.specialist_name}</div>
+                    <div className="text-sm text-gray-500">{appointment.duration}</div>
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "appointment_date",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Date & Time
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const appointment = row.original;
+            return (
+                <div>
+                    <div className="font-medium">{safeFormatDate(appointment.appointment_date)}</div>
+                    <div className="text-sm text-gray-500">{safeFormatTime(appointment.appointment_time)}</div>
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "appointment_type",
+        header: "Type",
+        cell: ({ row }) => {
+            const type = row.getValue("appointment_type") as string;
+            return (
+                <Badge className={getTypeBadge(type)}>
+                    {type}
+                </Badge>
+            );
+        },
+    },
+    {
+        accessorKey: "source",
+        header: "Source",
+        cell: ({ row }) => {
+            const source = row.getValue("source") as string;
+            return (
+                <Badge className={source === 'Online' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}>
+                    {source}
+                </Badge>
+            );
+        },
+    },
+    {
+        accessorKey: "status",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Status
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const status = row.getValue("status") as string;
+            return (
+                <Badge className={getStatusBadge(status)}>
+                    {status}
+                </Badge>
+            );
+        },
+    },
+    {
+        accessorKey: "final_total_amount",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Amount
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const appointment = row.original;
+            return (
+                <div className="text-right">
+                    <div className="font-medium">
+                        ₱{appointment.final_total_amount?.toLocaleString() || appointment.price?.toLocaleString() || '0'}
+                    </div>
+                    {appointment.total_lab_amount > 0 && (
+                        <div className="text-xs text-blue-600">
+                            +₱{appointment.total_lab_amount?.toLocaleString()} lab
+                        </div>
+                    )}
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "created_at",
+        header: "Created",
+        cell: ({ row }) => {
+            const date = new Date(row.getValue("created_at"));
+            return (
+                <div className="text-sm">
+                    {date.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    })}
+                </div>
+            );
+        },
+    },
+    {
+        id: "actions",
+        enableHiding: false,
+        cell: ({ row }) => {
+            const appointment = row.original;
+
+            return (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => handleViewAppointment(appointment)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View appointment
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEditAppointment(appointment)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit appointment
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleAddLabTests(appointment)}>
+                            <TestTube className="mr-2 h-4 w-4" />
+                            Add Lab Tests
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                            onClick={() => handleDeleteAppointment(appointment)}
+                            className="text-red-600"
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete appointment
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )
+        },
+    },
+];
+
+// Helper functions for badge styling
+const getStatusBadge = (status: string) => {
+    switch (status) {
+        case 'Confirmed':
+            return 'bg-green-100 text-green-800';
+        case 'Pending':
+            return 'bg-yellow-100 text-yellow-800';
+        case 'Cancelled':
+            return 'bg-red-100 text-red-800';
+        case 'Completed':
+            return 'bg-blue-100 text-blue-800';
+        default:
+            return 'bg-gray-100 text-gray-800';
+    }
+};
+
+const getTypeBadge = (type: string) => {
+    switch (type) {
+        case 'New Consultation':
+            return 'bg-purple-100 text-purple-800';
+        case 'Follow-up':
+            return 'bg-indigo-100 text-indigo-800';
+        case 'Emergency':
+            return 'bg-red-100 text-red-800';
+        default:
+            return 'bg-gray-100 text-gray-800';
+    }
+};
 
 interface AppointmentsIndexProps {
     appointments: {
@@ -59,11 +342,21 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
         console.log('Appointments data received:', appointments);
         setAppointmentsList(appointments.data);
     }, [appointments.data]);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all');
-    const [dateFilter, setDateFilter] = useState('all');
-    const [doctorFilter, setDoctorFilter] = useState('all');
-    const [showOnlineSchedule, setShowOnlineSchedule] = useState(false);
+
+    // TanStack Table state
+    const [sorting, setSorting] = useState<SortingState>([]);
+    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+    const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+    const [rowSelection, setRowSelection] = useState({});
+    const [globalFilter, setGlobalFilter] = useState(filters?.search || '');
+    
+    // Filter states
+    const [statusFilter, setStatusFilter] = useState(filters?.status || 'all');
+    const [dateFilter, setDateFilter] = useState<Date | undefined>(filters?.date ? new Date(filters.date) : undefined);
+    const [doctorFilter, setDoctorFilter] = useState(filters?.specialist || 'all');
+    const [datePickerOpen, setDatePickerOpen] = useState(false);
+    
+    // Modal states
     const [showEditModal, setShowEditModal] = useState(false);
     const [showViewModal, setShowViewModal] = useState(false);
     const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
@@ -71,13 +364,17 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
     const [showNotifications, setShowNotifications] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     
+    // Delete confirmation state
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [appointmentToDelete, setAppointmentToDelete] = useState<any | null>(null);
+    
     // Sorting state - removed custom sorting, using SortableTable instead
     
     // Initialize filters from props
     useEffect(() => {
-        if (filters.search) setSearchTerm(filters.search);
+        if (filters.search) setGlobalFilter(filters.search);
         if (filters.status) setStatusFilter(filters.status);
-        if (filters.date) setDateFilter(filters.date);
+        if (filters.date) setDateFilter(new Date(filters.date));
         if (filters.specialist) setDoctorFilter(filters.specialist);
     }, [filters]);
 
@@ -120,50 +417,14 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
 
     // Handle sorting - removed custom sorting, using SortableTable instead
 
-    const filteredAppointments = appointmentsList.filter(appointment => {
-        const matchesSearch = (appointment.patient_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            (appointment.specialist_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            (appointment.patient_id || '').toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === 'all' || (appointment.status || '').toLowerCase() === statusFilter.toLowerCase();
-        const matchesDate = dateFilter === 'all' || appointment.appointment_date === dateFilter;
-        const matchesDoctor = doctorFilter === 'all' || appointment.specialist_id === doctorFilter;
-        return matchesSearch && matchesStatus && matchesDate && matchesDoctor;
-    });
-
-const getStatusBadge = (status: string) => {
-        switch (status) {
-            case 'Confirmed':
-                return 'bg-gray-100 text-black';
-            case 'Pending':
-                return 'bg-gray-100 text-black';
-            case 'Cancelled':
-                return 'bg-gray-100 text-black';
-            case 'Completed':
-                return 'bg-gray-100 text-black';
-            default:
-                return 'bg-gray-100 text-gray-800';
-        }
-};
-
-const getTypeBadge = (type: string) => {
-        switch (type) {
-            case 'New Consultation':
-                return 'bg-gray-100 text-black';
-            case 'Follow-up':
-                return 'bg-gray-100 text-black';
-            case 'Emergency':
-                return 'bg-gray-100 text-black';
-            default:
-                return 'bg-gray-100 text-gray-800';
-        }
-    };
-
-
-    const todayAppointments = appointmentsList.filter(apt => apt.appointment_date === new Date().toISOString().split('T')[0]);
+    // Statistics
     const totalAppointments = appointmentsList.length;
     const confirmedAppointments = appointmentsList.filter(apt => apt.status === 'Confirmed').length;
     const onlineBookings = appointmentsList.filter(apt => apt.appointment_source === 'online').length;
     const pendingAppointments = appointmentsList.filter(apt => apt.status === 'Pending').length;
+
+
+    const todayAppointments = appointmentsList.filter(apt => apt.appointment_date === new Date().toISOString().split('T')[0]);
 
     const handleEditAppointment = (appointment: any) => {
         setSelectedAppointment(appointment);
@@ -236,30 +497,31 @@ const getTypeBadge = (type: string) => {
         });
     };
 
-    const handleDeleteAppointment = (appointmentId: number) => {
-        if (confirm('Are you sure you want to delete this appointment?')) {
-            // Get appointment details before deletion
-            const appointmentToDelete = appointmentsList.find(apt => apt.id === appointmentId);
-            
-            // Delete appointment via API
-            router.delete(route('admin.appointments.destroy', appointmentId), {
+    // Handler functions
+    const handleDeleteAppointment = (appointment: any) => {
+        setAppointmentToDelete(appointment);
+        setDeleteConfirmOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (appointmentToDelete) {
+            router.delete(route('admin.appointments.destroy', appointmentToDelete.id), {
                 onSuccess: (page) => {
                     // Add notification for appointment deletion
-                    if (appointmentToDelete) {
-                        const deleteNotification = {
-                            id: Date.now(),
-                            type: 'appointment_deleted',
-                            title: 'Appointment Deleted',
-                            message: `${appointmentToDelete.patient_name}'s appointment has been deleted`,
-                            appointmentId: appointmentId,
-                            timestamp: new Date(),
-                            read: false
-                        };
-                        setNotifications(prev => [deleteNotification, ...prev]);
-                        setUnreadCount(prev => prev + 1);
-                    }
+                    const deleteNotification = {
+                        id: Date.now(),
+                        type: 'appointment_deleted',
+                        title: 'Appointment Deleted',
+                        message: `${appointmentToDelete.patient_name}'s appointment has been deleted`,
+                        appointmentId: appointmentToDelete.id,
+                        timestamp: new Date(),
+                        read: false
+                    };
+                    setNotifications(prev => [deleteNotification, ...prev]);
+                    setUnreadCount(prev => prev + 1);
                     
-                    alert('Appointment deleted successfully!');
+                    setDeleteConfirmOpen(false);
+                    setAppointmentToDelete(null);
                 },
                 onError: (errors) => {
                     console.error('Error deleting appointment:', errors);
@@ -285,6 +547,57 @@ const getTypeBadge = (type: string) => {
         // The billing transaction will be created later with the complete total including lab tests
         router.visit(route('admin.appointments.show-add-lab-tests', appointment.id));
     };
+
+    // Initialize table
+    const columns = createColumns(handleDeleteAppointment, handleEditAppointment, handleViewAppointment, handleAddLabTests);
+    const table = useReactTable({
+        data: appointmentsList || [],
+        columns,
+        onSortingChange: setSorting,
+        onColumnFiltersChange: setColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onColumnVisibilityChange: setColumnVisibility,
+        onRowSelectionChange: setRowSelection,
+        onGlobalFilterChange: setGlobalFilter,
+        globalFilterFn: (row, columnId, value) => {
+            const search = value.toLowerCase();
+            const appointment = row.original;
+            return (
+                appointment.patient_name?.toLowerCase().includes(search) ||
+                appointment.specialist_name?.toLowerCase().includes(search) ||
+                appointment.patient_id?.toLowerCase().includes(search) ||
+                appointment.contact_number?.toLowerCase().includes(search) ||
+                appointment.appointment_type?.toLowerCase().includes(search)
+            );
+        },
+        state: {
+            sorting,
+            columnFilters,
+            columnVisibility,
+            rowSelection,
+            globalFilter,
+        },
+    });
+
+    // Apply additional filters
+    const filteredData = table.getFilteredRowModel().rows.filter(row => {
+        const appointment = row.original;
+        const matchesStatus = statusFilter === 'all' || appointment.status?.toLowerCase() === statusFilter.toLowerCase();
+        
+        // Fix date filtering logic
+        let matchesDate = true;
+        if (dateFilter) {
+            const filterDate = dateFilter.toISOString().split('T')[0];
+            const appointmentDate = appointment.appointment_date;
+            matchesDate = appointmentDate === filterDate;
+        }
+        
+        const matchesDoctor = doctorFilter === 'all' || appointment.specialist_id === doctorFilter;
+        return matchesStatus && matchesDate && matchesDoctor;
+    });
 
 
     const addNotification = (appointment: any) => {
@@ -421,226 +734,263 @@ const getTypeBadge = (type: string) => {
                     </Card>
                 </div>
 
-                {/* Search and Filters */}
-                <Card className="shadow-lg border-0 rounded-xl bg-white mb-6">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                                    <Input
-                                        placeholder="Search appointments..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-10 w-80"
-                                    />
-                                </div>
-                                <select
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
-                                >
-                                    <option value="all">All Status</option>
-                                    <option value="confirmed">Confirmed</option>
-                                    <option value="pending">Pending</option>
-                                    <option value="cancelled">Cancelled</option>
-                                    <option value="completed">Completed</option>
-                                </select>
-                                <select
-                                    value={doctorFilter}
-                                    onChange={(e) => setDoctorFilter(e.target.value)}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
-                                >
-                                    <option value="all">All Doctors</option>
-                                    {doctors.map(doctor => (
-                                        <option key={doctor.id} value={doctor.id}>{doctor.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <Button 
-                                    onClick={handleNewAppointment}
-                                    className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-                                >
-                                    <CalendarDays className="h-4 w-4" />
-                                    Walk-in Appointment
-                            </Button>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-
-                        {/* Appointments Table */}
+                {/* Appointments Table with Integrated Filters */}
                 <Card className="shadow-lg border-0 rounded-xl bg-white">
                     <CardHeader className="bg-white border-b border-gray-200">
                         <CardTitle className="flex items-center gap-3 text-xl font-semibold text-black">
                             <Calendar className="h-5 w-5 text-black" />
-                            Appointments ({filteredAppointments.length})
+                            Appointments ({filteredData.length})
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6">
-                        <SortableTable
-                            data={filteredAppointments}
-                            defaultSort={{ key: 'patient_id', direction: 'asc' }}
-                            columns={[
-                                {
-                                    key: 'patient_id',
-                                    label: 'Patient ID',
-                                    sortable: true,
-                                    className: 'font-medium',
-                                    render: (value, appointment) => (
-                                        <div className="text-center">
-                                            <div className="font-medium text-black">{appointment.patient?.sequence_number || appointment.patient_id}</div>
-                                        </div>
-                                    )
-                                },
-                                {
-                                    key: 'patient_name',
-                                    label: 'Patient',
-                                    sortable: false,
-                                    className: 'font-medium',
-                                    render: (value, appointment) => (
-                                        <div>
-                                            <div className="font-medium text-black">{appointment.patient_name}</div>
-                                            <div className="text-sm text-gray-500">{appointment.contactNumber}</div>
-                                        </div>
-                                    )
-                                },
-                                {
-                                    key: 'specialist_name',
-                                    label: 'Doctor',
-                                    sortable: false,
-                                    render: (value, appointment) => (
-                                        <div>
-                                            <div className="font-medium text-black">{appointment.specialist_name}</div>
-                                            <div className="text-sm text-gray-500">{appointment.duration}</div>
-                                        </div>
-                                    )
-                                },
-                                {
-                                    key: 'appointment_date',
-                                    label: 'Date & Time',
-                                    sortable: false,
-                                    render: (value, appointment) => (
-                                        <div>
-                                            <div className="font-medium text-black">{safeFormatDate(appointment.appointment_date)}</div>
-                                            <div className="text-sm text-gray-500">{safeFormatTime(appointment.appointment_time)}</div>
-                                        </div>
-                                    )
-                                },
-                                {
-                                    key: 'appointment_type',
-                                    label: 'Type',
-                                    sortable: false,
-                                    render: (value, appointment) => (
-                                        <Badge className={getTypeBadge(appointment.appointment_type)}>
-                                            {appointment.appointment_type}
-                                        </Badge>
-                                    )
-                                },
-                                {
-                                    key: 'source',
-                                    label: 'Source',
-                                    sortable: false,
-                                    render: (value, appointment) => (
-                                        <Badge className={appointment.source === 'Online' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}>
-                                            {appointment.source}
-                                        </Badge>
-                                    )
-                                },
-                                {
-                                    key: 'status',
-                                    label: 'Status',
-                                    sortable: false,
-                                    render: (value, appointment) => (
-                                        <Badge className={getStatusBadge(appointment.status)}>
-                                            {appointment.status}
-                                        </Badge>
-                                    )
-                                },
-                                {
-                                    key: 'final_total_amount',
-                                    label: 'Amount',
-                                    sortable: true,
-                                    render: (value, appointment) => (
-                                        <div className="text-right">
-                                            <div className="font-medium text-black">
-                                                ₱{appointment.final_total_amount?.toLocaleString() || appointment.price?.toLocaleString() || '0'}
-                                            </div>
-                                            {appointment.total_lab_amount > 0 && (
-                                                <div className="text-xs text-blue-600">
-                                                    +₱{appointment.total_lab_amount?.toLocaleString()} lab
-                                                </div>
-                                            )}
-                                        </div>
-                                    )
-                                },
-                                {
-                                    key: 'created_at',
-                                    label: 'Created',
-                                    sortable: false,
-                                    render: (value, appointment) => (
-                                        <div className="text-sm text-gray-600">
-                                            {safeFormatDate(appointment.created_at)}
-                                        </div>
-                                    )
-                                },
-                                {
-                                    key: 'actions',
-                                    label: 'Actions',
-                                    sortable: false,
-                                    render: (value, appointment) => (
-                                        <div className="flex items-center gap-3">
-                                            {appointment.confirmationSent && (
-                                                <Bell className="h-4 w-4 text-black" />
-                                            )}
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handleEditAppointment(appointment)}
-                                                className="text-black border-gray-300 hover:bg-gray-50 min-w-[75px] px-3"
+                        {/* Table Controls */}
+                        <div className="flex flex-wrap items-center gap-4 py-4">
+                            <div className="flex items-center gap-4 flex-1 min-w-0">
+                                <Input
+                                    placeholder="Search appointments..."
+                                    value={globalFilter ?? ""}
+                                    onChange={(event) => setGlobalFilter(event.target.value)}
+                                    className="max-w-sm"
+                                />
+                                
+                                <Button
+                                    onClick={handleNewAppointment}
+                                    className="bg-green-600 hover:bg-green-700 text-white"
+                                >
+                                    <CalendarDays className="h-4 w-4 mr-2" />
+                                    Walk-in Appointment
+                                </Button>
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                                {/* Status Filter */}
+                                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                    <SelectTrigger className="w-[150px]">
+                                        <SelectValue placeholder="Filter by status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Status</SelectItem>
+                                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                                        <SelectItem value="pending">Pending</SelectItem>
+                                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                                        <SelectItem value="completed">Completed</SelectItem>
+                                    </SelectContent>
+                                </Select>
+
+                                {/* Date Filter */}
+                                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            data-empty={!dateFilter}
+                                            className="data-[empty=true]:text-muted-foreground w-[180px] justify-start text-left font-normal"
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {dateFilter ? format(dateFilter, "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    {datePickerOpen && (
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={dateFilter}
+                                                onSelect={(date) => {
+                                                    setDateFilter(date);
+                                                    setDatePickerOpen(false);
+                                                }}
+                                                initialFocus
+                                                disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                                            />
+                                        </PopoverContent>
+                                    )}
+                                </Popover>
+
+                                {/* Doctor Filter */}
+                                <Select value={doctorFilter} onValueChange={setDoctorFilter}>
+                                    <SelectTrigger className="w-[150px]">
+                                        <SelectValue placeholder="Filter by doctor" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Doctors</SelectItem>
+                                        {doctors.map(doctor => (
+                                            <SelectItem key={doctor.id} value={doctor.id}>{doctor.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+
+                                {/* Clear Filters Button */}
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        setGlobalFilter('');
+                                        setStatusFilter('all');
+                                        setDateFilter(undefined);
+                                        setDoctorFilter('all');
+                                    }}
+                                >
+                                    <X className="mr-2 h-4 w-4" />
+                                    Clear
+                                </Button>
+
+                                {/* Column Visibility */}
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline">
+                                            Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        {table
+                                            .getAllColumns()
+                                            .filter((column) => column.getCanHide())
+                                            .map((column) => {
+                                                return (
+                                                    <DropdownMenuCheckboxItem
+                                                        key={column.id}
+                                                        className="capitalize"
+                                                        checked={column.getIsVisible()}
+                                                        onCheckedChange={(value) =>
+                                                            column.toggleVisibility(!!value)
+                                                        }
+                                                    >
+                                                        {column.id}
+                                                    </DropdownMenuCheckboxItem>
+                                                )
+                                            })}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                        </div>
+                                
+                        {/* Table */}
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    {table.getHeaderGroups().map((headerGroup) => (
+                                        <TableRow key={headerGroup.id}>
+                                            {headerGroup.headers.map((header) => {
+                                                return (
+                                                    <TableHead key={header.id}>
+                                                        {header.isPlaceholder
+                                                            ? null
+                                                            : flexRender(
+                                                                header.column.columnDef.header,
+                                                                header.getContext()
+                                                        )}
+                                                    </TableHead>
+                                                )
+                                            })}
+                                        </TableRow>
+                                    ))}
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredData?.length ? (
+                                        filteredData.map((row) => (
+                                            <TableRow
+                                                key={row.id}
+                                                data-state={row.getIsSelected() && "selected"}
                                             >
-                                                <Edit className="h-4 w-4 mr-1" />
-                                                Edit
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handleViewAppointment(appointment)}
-                                                className="text-black border-gray-300 hover:bg-gray-50 min-w-[75px] px-3"
+                                                {row.getVisibleCells().map((cell) => (
+                                                    <TableCell key={cell.id}>
+                                                        {flexRender(
+                                                            cell.column.columnDef.cell,
+                                                            cell.getContext()
+                                                        )}
+                                                    </TableCell>
+                                                ))}
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={columns.length}
+                                                className="h-24 text-center"
                                             >
-                                                <Eye className="h-4 w-4 mr-1" />
-                                                View
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handleAddLabTests(appointment)}
-                                                className="text-blue-600 border-blue-300 hover:bg-blue-50 min-w-[100px] px-3"
-                                            >
-                                                <TestTube className="h-4 w-4 mr-1" />
-                                                Add Lab Tests
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handleDeleteAppointment(appointment.id)}
-                                                className="text-black border-gray-300 hover:bg-gray-50 min-w-[75px] px-3"
-                                            >
-                                                <Trash2 className="h-4 w-4 mr-1" />
-                                                Delete
-                                            </Button>
-                                        </div>
-                                    )
-                                }
-                            ]}
-                            defaultSort={{ key: 'id', direction: 'asc' }}
-                            emptyMessage={appointmentsList.length === 0 ? 'No appointments yet. Click "New Appointment" to create your first appointment.' : 'No appointments found matching your search criteria.'}
-                            emptyIcon={Calendar}
-                        />
+                                                No results.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                        
+                        {/* Pagination */}
+                        <div className="flex items-center justify-between px-2 py-4">
+                            <div className="text-muted-foreground flex-1 text-sm">
+                                {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                                {table.getFilteredRowModel().rows.length} row(s) selected.
+                            </div>
+                            <div className="flex items-center space-x-6 lg:space-x-8">
+                                <div className="flex items-center space-x-2">
+                                    <p className="text-sm font-medium">Rows per page</p>
+                                    <Select
+                                        value={`${table.getState().pagination.pageSize}`}
+                                        onValueChange={(value) => {
+                                            table.setPageSize(Number(value))
+                                        }}
+                                    >
+                                        <SelectTrigger className="h-8 w-[70px]">
+                                            <SelectValue placeholder={table.getState().pagination.pageSize} />
+                                        </SelectTrigger>
+                                        <SelectContent side="top">
+                                            {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                    {pageSize}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                    Page {table.getState().pagination.pageIndex + 1} of{" "}
+                                    {table.getPageCount()}
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="hidden size-8 lg:flex"
+                                        onClick={() => table.setPageIndex(0)}
+                                        disabled={!table.getCanPreviousPage()}
+                                    >
+                                        <span className="sr-only">Go to first page</span>
+                                        <ChevronsLeft className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="size-8"
+                                        onClick={() => table.previousPage()}
+                                        disabled={!table.getCanPreviousPage()}
+                                    >
+                                        <span className="sr-only">Go to previous page</span>
+                                        <ChevronLeft className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="size-8"
+                                        onClick={() => table.nextPage()}
+                                        disabled={!table.getCanNextPage()}
+                                    >
+                                        <span className="sr-only">Go to next page</span>
+                                        <ChevronRight className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="hidden size-8 lg:flex"
+                                        onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                                        disabled={!table.getCanNextPage()}
+                                    >
+                                        <span className="sr-only">Go to last page</span>
+                                        <ChevronsRight className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
                     </CardContent>
-                    </Card>
+                </Card>
                     
                 {/* Edit Appointment Modal */}
                 {showEditModal && selectedAppointment && (
@@ -914,6 +1264,24 @@ const getTypeBadge = (type: string) => {
                     </div>
                 )}
 
+                {/* Delete Confirmation Dialog */}
+                <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Appointment</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to delete the appointment for <strong>{appointmentToDelete?.patient_name}</strong>? 
+                                This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
+                                Delete Appointment
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </div>
         </AppLayout>
     );

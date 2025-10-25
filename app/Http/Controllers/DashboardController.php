@@ -143,35 +143,37 @@ class DashboardController extends Controller
             'role' => $user->role ?? 'admin'
         ];
 
-                return Inertia::render('admin/dashboard', [
-                    'dashboard' => [
-                        'user' => $userInfo,
-                        'stats' => $stats,
-                        'recent_appointments' => $recentAppointments,
-                        'today_appointments' => $todayAppointments,
-                        'notifications' => $notifications,
-                        'totals' => $totals,
-                        'recent' => $recent,
-                        'diagnosisData' => $diagnosisData,
-                        'consultationData' => $consultationData,
-                        'patientDemographics' => $patientDemographics,
-                        'appointmentTrends' => $appointmentTrends,
-                        'analyticsData' => $analyticsData,
-                        'miniTables' => $miniTables,
-                    ],
-                    'auth' => [
-                        'user' => $userInfo,
-                    ],
-                    'user' => $userInfo,
-                    'stats' => $stats,
-                    'recent_appointments' => $recentAppointments,
-                    'today_appointments' => $todayAppointments,
-                    'notifications' => $notifications,
-                    'diagnosisData' => $diagnosisData,
-                    'consultationData' => $consultationData,
-                    'patientDemographics' => $patientDemographics,
-                    'appointmentTrends' => $appointmentTrends,
-                ]);
+        return Inertia::render('admin/dashboard', [
+            'dashboard' => [
+                'user' => $userInfo,
+                'stats' => $stats,
+                'recent_appointments' => $recentAppointments,
+                'today_appointments' => $todayAppointments,
+                'notifications' => $notifications,
+                'totals' => $totals,
+                'recent' => $recent,
+                'diagnosisData' => $diagnosisData,
+                'consultationData' => $consultationData,
+                'patientDemographics' => $patientDemographics,
+                'appointmentTrends' => $appointmentTrends,
+                'analyticsData' => $analyticsData,
+                'miniTables' => $miniTables,
+            ],
+            'auth' => [
+                'user' => $userInfo,
+            ],
+            'user' => $userInfo,
+            'stats' => $stats,
+            'recent_appointments' => $recentAppointments,
+            'today_appointments' => $todayAppointments,
+            'notifications' => $notifications,
+            'diagnosisData' => $diagnosisData,
+            'consultationData' => $consultationData,
+            'patientDemographics' => $patientDemographics,
+            'appointmentTrends' => $appointmentTrends,
+            'analyticsData' => $analyticsData,
+            'miniTables' => $miniTables,
+        ]);
     }
 
     private function getRoleSpecificStats($role, $user)
