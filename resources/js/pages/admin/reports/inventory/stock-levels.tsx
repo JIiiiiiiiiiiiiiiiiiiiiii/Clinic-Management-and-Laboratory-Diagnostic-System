@@ -10,18 +10,9 @@ import { Head, router } from '@inertiajs/react';
 import { ArrowLeft, Download, Package, TrendingDown, TrendingUp } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Reports',
-        href: '/admin/reports',
-    },
-    {
-        title: 'Inventory',
-        href: '/admin/reports/inventory',
-    },
-    {
-        title: 'Stock Levels Report',
-        href: '/admin/reports/inventory/stock-levels',
-    },
+    { title: 'Reports', href: '/admin/reports' },
+    { title: 'Inventory', href: '/admin/reports/inventory' },
+    { title: 'Stock Levels Report', href: '/admin/reports/inventory/stock-levels' },
 ];
 
 interface Product {

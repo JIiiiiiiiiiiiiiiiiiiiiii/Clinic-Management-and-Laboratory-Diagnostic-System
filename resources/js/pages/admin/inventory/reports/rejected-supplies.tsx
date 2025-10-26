@@ -548,6 +548,7 @@ export default function RejectedSuppliesReport({ rejectedSupplies, summary, filt
                         </CardContent>
                     </Card>
                 </div>
+            </div>
         </AppLayout>
     );
 }

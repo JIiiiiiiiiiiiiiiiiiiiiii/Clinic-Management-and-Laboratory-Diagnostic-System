@@ -14,18 +14,9 @@ import { ArrowLeft, Calendar, Download, Users } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Reports',
-        href: '/admin/reports',
-    },
-    {
-        title: 'Inventory',
-        href: '/admin/reports/inventory',
-    },
-    {
-        title: 'Usage by Location Report',
-        href: '/admin/reports/inventory/usage-by-location',
-    },
+    { title: 'Reports', href: '/admin/reports' },
+    { title: 'Inventory', href: '/admin/reports/inventory' },
+    { title: 'Usage by Location Report', href: '/admin/reports/inventory/usage-by-location' },
 ];
 
 interface LocationUsage {

@@ -14,11 +14,8 @@ import {
     Calendar,
     DollarSign,
     Download,
-    FileSpreadsheet,
-    FileText,
     FlaskConical,
     Package,
-    Printer,
     TrendingUp,
     UserCheck,
     Users,
@@ -82,21 +79,13 @@ interface Props {
     };
 }
 
-const breadcrumbs = [
-    { label: 'Dashboard', href: '/admin/dashboard' },
-    { label: 'Reports', href: '/admin/reports' },
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Reports', href: '/admin/reports' },
 ];
 
 export default function ReportsAndAnalytics({ summary, recentReports, filterOptions, user, metadata, chartData }: Props) {
     const [activeTab, setActiveTab] = useState('overview');
 
-    const handleExport = (format: string, reportType: string) => {
-        const params = new URLSearchParams({
-            type: reportType,
-            format: format,
-        });
-        window.location.href = `/admin/reports/export?${params.toString()}`;
-    };
 
     const reportSections = [
         {
@@ -169,31 +158,8 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
     return (
         <AppLayout breadcrumbs={breadcrumbs as any}>
             <Head title="Reports Overview" />
-            <div className="min-h-screen bg-gray-50 p-6">
-                <div className="mx-auto max-w-7xl">
-                    {/* Header */}
-                <div className="mb-8">
-                    <div className="flex items-center justify-between">
-                                    <div>
-                                <h1 className="text-3xl font-bold text-gray-900">Reports Overview</h1>
-                                <p className="mt-2 text-gray-600">Comprehensive reporting system for clinic management and decision support</p>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button variant="outline" onClick={() => window.print()}>
-                                    <Printer className="mr-2 h-4 w-4" />
-                                    Print
-                                </Button>
-                                <Button variant="outline" onClick={() => handleExport('excel', 'summary')}>
-                                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                                    Export Excel
-                                </Button>
-                                <Button variant="outline" onClick={() => handleExport('pdf', 'summary')}>
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    Export PDF
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
+            <div className="min-h-screen bg-gray-50">
+                <div className="p-6">
 
                     {/* Report Sections */}
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -592,7 +558,7 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
                                                     <TableCell>
                                                         <Button variant="outline" size="sm">
                                                             <Download className="h-4 w-4" />
-                                                                </Button>
+                                                        </Button>
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -629,9 +595,6 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
                                                 <Button asChild className="flex-1">
                                                     <a href={section.href}>View Report</a>
                                                 </Button>
-                                                <Button variant="outline" size="sm" onClick={() => handleExport('pdf', section.id)}>
-                                                    <Download className="h-4 w-4" />
-                                                </Button>
                                 </div>
                                         </CardContent>
                                     </Card>
@@ -640,30 +603,6 @@ export default function ReportsAndAnalytics({ summary, recentReports, filterOpti
                         </TabsContent>
                     </Tabs>
 
-                    {/* Footer */}
-                    <Card className="mt-8">
-                        <CardContent className="pt-6">
-                            <div className="flex items-center justify-between text-sm text-gray-600">
-                                <div>
-                                    <p>
-                                        <strong>Generated:</strong> {metadata?.generated_at || new Date().toLocaleString()}
-                                    </p>
-                                    <p>
-                                        <strong>Generated By:</strong> {metadata?.generated_by || user?.name || 'System'} (
-                                        {metadata?.generated_by_role || user?.role || 'User'})
-                                    </p>
-                                </div>
-                                <div className="text-right">
-                                    <p>
-                                        <strong>System Version:</strong> {metadata?.system_version || '1.0.0'}
-                                    </p>
-                                    <p>
-                                        <strong>Clinic:</strong> St. James Clinic Management System
-                                    </p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
                 </div>
             </div>
         </AppLayout>

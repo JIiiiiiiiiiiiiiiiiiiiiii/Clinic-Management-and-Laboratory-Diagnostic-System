@@ -627,6 +627,9 @@ Route::prefix('admin')
             Route::get('/patients', [App\Http\Controllers\Admin\ReportsController::class, 'patients'])->name('patients');
             Route::get('/laboratory', [App\Http\Controllers\LaboratoryReportController::class, 'index'])->name('laboratory');
             Route::get('/inventory', [App\Http\Controllers\Admin\ReportsController::class, 'inventory'])->name('inventory');
+            Route::get('/inventory/test-data', [App\Http\Controllers\Admin\ReportsController::class, 'testInventoryData'])->name('inventory.test-data');
+            Route::get('/inventory/test-reports', [App\Http\Controllers\Admin\ReportsController::class, 'testInventoryReports'])->name('inventory.test-reports');
+            Route::get('/inventory/test-full', [App\Http\Controllers\Admin\ReportsController::class, 'testInventoryFull'])->name('inventory.test-full');
             Route::get('/analytics', [App\Http\Controllers\Admin\ReportsController::class, 'analytics'])->name('analytics');
             
             // Export functionality

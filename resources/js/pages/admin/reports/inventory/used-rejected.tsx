@@ -14,18 +14,9 @@ import { ArrowLeft, Calendar, Download, FileText, AlertTriangle, CheckCircle } f
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Reports',
-        href: '/admin/reports',
-    },
-    {
-        title: 'Inventory',
-        href: '/admin/reports/inventory',
-    },
-    {
-        title: 'Used/Rejected Supplies Report',
-        href: '/admin/reports/inventory/used-rejected',
-    },
+    { title: 'Reports', href: '/admin/reports' },
+    { title: 'Inventory', href: '/admin/reports/inventory' },
+    { title: 'Used/Rejected Supplies Report', href: '/admin/reports/inventory/used-rejected' },
 ];
 
 interface UsedRejectedSupply {

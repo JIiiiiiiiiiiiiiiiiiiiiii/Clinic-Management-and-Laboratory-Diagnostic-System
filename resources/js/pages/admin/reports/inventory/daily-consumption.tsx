@@ -13,18 +13,9 @@ import { ArrowLeft, Calendar, Download, TrendingDown } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Reports',
-        href: '/admin/reports',
-    },
-    {
-        title: 'Inventory',
-        href: '/admin/reports/inventory',
-    },
-    {
-        title: 'Daily Consumption Report',
-        href: '/admin/reports/inventory/daily-consumption',
-    },
+    { title: 'Reports', href: '/admin/reports' },
+    { title: 'Inventory', href: '/admin/reports/inventory' },
+    { title: 'Daily Consumption Report', href: '/admin/reports/inventory/daily-consumption' },
 ];
 
 interface DailyConsumption {

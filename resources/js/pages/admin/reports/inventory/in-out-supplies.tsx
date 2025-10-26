@@ -14,18 +14,9 @@ import { ArrowDown, ArrowLeft, ArrowUp, BarChart3, Calendar, Download } from 'lu
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Reports',
-        href: '/admin/reports',
-    },
-    {
-        title: 'Inventory',
-        href: '/admin/reports/inventory',
-    },
-    {
-        title: 'In/Out Supplies Report',
-        href: '/admin/reports/inventory/in-out-supplies',
-    },
+    { title: 'Reports', href: '/admin/reports' },
+    { title: 'Inventory', href: '/admin/reports/inventory' },
+    { title: 'In/Out Supplies Report', href: '/admin/reports/inventory/in-out-supplies' },
 ];
 
 interface SupplyTransaction {

@@ -56,7 +56,10 @@ class Supply extends Model
 
     public function getCurrentStockAttribute()
     {
-        return $this->stockLevels()->sum('current_stock');
+        // Calculate current stock from transactions
+        $incoming = $this->transactions()->where('type', 'in')->sum('quantity');
+        $outgoing = $this->transactions()->where('type', 'out')->sum('quantity');
+        return $incoming - $outgoing;
     }
 
     public function getAvailableStockAttribute()
@@ -66,7 +69,7 @@ class Supply extends Model
 
     public function getTotalValueAttribute()
     {
-        return $this->stockLevels()->sum('total_value');
+        return $this->current_stock * $this->unit_cost;
     }
 
     public function getIsLowStockAttribute()

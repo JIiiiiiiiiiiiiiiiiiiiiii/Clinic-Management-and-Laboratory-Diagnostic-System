@@ -61,7 +61,8 @@ type LaboratoryReportsIndexProps = {
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Laboratory Reports', href: '/laboratory-reports' },
+    { title: 'Reports', href: '/admin/reports' },
+    { title: 'Laboratory Reports', href: '/admin/reports/laboratory' },
 ];
 
 // Column definitions for the laboratory orders table
@@ -351,6 +352,65 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Laboratory Reports" />
             <div className="min-h-screen bg-gray-50 p-6">
+
+                {/* Insight Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-lg">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-blue-100 text-sm font-medium">Total Orders</p>
+                                    <p className="text-3xl font-bold">{data.total_orders}</p>
+                                    <p className="text-blue-100 text-xs mt-1">All time orders</p>
+                                </div>
+                                <TestTube className="h-8 w-8 text-blue-200" />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white border-0 shadow-lg">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-green-100 text-sm font-medium">Completed</p>
+                                    <p className="text-3xl font-bold">{data.completed_orders}</p>
+                                    <p className="text-green-100 text-xs mt-1">
+                                        {data.completion_rate.toFixed(1)}% completion rate
+                                    </p>
+                                </div>
+                                <CheckCircle className="h-8 w-8 text-green-200" />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-r from-orange-500 to-orange-600 text-white border-0 shadow-lg">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-orange-100 text-sm font-medium">Pending</p>
+                                    <p className="text-3xl font-bold">{data.pending_orders}</p>
+                                    <p className="text-orange-100 text-xs mt-1">
+                                        {data.total_orders > 0 ? ((data.pending_orders / data.total_orders) * 100).toFixed(1) : 0}% of total
+                                    </p>
+                                </div>
+                                <Clock className="h-8 w-8 text-orange-200" />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0 shadow-lg">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-purple-100 text-sm font-medium">Test Types</p>
+                                    <p className="text-3xl font-bold">{Object.keys(data.test_summary).length}</p>
+                                    <p className="text-purple-100 text-xs mt-1">Different test types</p>
+                                </div>
+                                <TrendingUp className="h-8 w-8 text-purple-200" />
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
 
                 {/* Unified Reports Interface */}
                 <PatientInfoCard
