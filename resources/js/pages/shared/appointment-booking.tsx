@@ -423,8 +423,12 @@ export default function AppointmentBooking({
 
     const breadcrumbs: BreadcrumbItem[] = [
         {
-            title: isAdmin ? 'Admin Panel' : 'Patient Portal',
+            title: isAdmin ? 'Appointments' : 'Patient Portal',
             href: isAdmin ? '/admin/appointments' : '/patient/dashboard',
+        },
+        {
+            title: isAdmin ? 'All Appointments' : 'Online Appointment',
+            href: isAdmin ? '/admin/appointments' : '/patient/online-appointment',
         },
         {
             title: isAdmin ? 'Walk-in Appointment' : 'Online Appointment',
@@ -437,37 +441,36 @@ export default function AppointmentBooking({
             <Head title={isAdmin ? "Create Walk-in Appointment" : "Create New Appointment"} />
             <div className="flex flex-1 flex-col gap-6 p-6">
                 <div className="@container/main flex flex-1 flex-col gap-6">
-                    {/* Header Section */}
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div>
-                                <h1 className="text-4xl font-bold text-black">
-                                    {isAdmin ? 'Create Walk-in Appointment' : (isExistingPatient ? 'Book New Appointment' : 'Online Appointment')}
-                                </h1>
-                                <p className="text-sm text-gray-600 mt-1">
-                                    {isAdmin 
-                                        ? 'Create a new appointment for a walk-in patient'
-                                        : (isExistingPatient 
+                    {/* Header Section - Hidden for Admin */}
+                    {!isAdmin && (
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div>
+                                    <h1 className="text-4xl font-bold text-black">
+                                        {isExistingPatient ? 'Book New Appointment' : 'Online Appointment'}
+                                    </h1>
+                                    <p className="text-sm text-gray-600 mt-1">
+                                        {isExistingPatient 
                                             ? 'You are already registered. Book your appointment below.'
                                             : 'Complete your registration and submit an appointment request for admin approval'
-                                        )
-                                    }
-                                </p>
+                                        }
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <Button
+                                    variant="outline"
+                                    asChild
+                                    className="hover:bg-gray-50"
+                                >
+                                    <Link href={backUrl || "/patient/dashboard"}>
+                                        <ArrowLeft className="mr-2 h-4 w-4" />
+                                        Back to Dashboard
+                                    </Link>
+                                </Button>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <Button
-                                variant="outline"
-                                asChild
-                                className="hover:bg-gray-50"
-                            >
-                                <Link href={backUrl || (isAdmin ? "/admin/appointments" : "/patient/dashboard")}>
-                                    <ArrowLeft className="mr-2 h-4 w-4" />
-                                    Back to {isAdmin ? 'Appointments' : 'Dashboard'}
-                                </Link>
-                            </Button>
-                        </div>
-                    </div>
+                    )}
 
                     {/* Progress Stepper */}
                     <Card className="holographic-card shadow-lg overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50">

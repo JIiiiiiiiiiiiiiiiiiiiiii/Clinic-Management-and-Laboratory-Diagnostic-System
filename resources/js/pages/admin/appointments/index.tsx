@@ -23,8 +23,6 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
@@ -44,7 +42,8 @@ import {
 import { safeFormatDate, safeFormatTime } from '@/utils/dateTime';
 import { 
     Calendar as CalendarIcon, CheckCircle, Clock, Filter, Plus, Search, Stethoscope, Edit, Eye, UserCheck, Bell, CalendarDays, Users, X, Save, Trash2, TestTube,
-    ArrowUpDown, ArrowUp, ArrowDown, ChevronsUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Settings2, EyeOff, MoreHorizontal, ChevronDown
+    ArrowUpDown, ArrowUp, ArrowDown, ChevronsUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Settings2, EyeOff, MoreHorizontal, ChevronDown,
+    ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, CheckCircle2, XCircle, User, AlertCircle
 } from 'lucide-react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import RealtimeNotificationBell from '@/components/RealtimeNotificationBell';
@@ -54,6 +53,28 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Appointments', href: '/admin/appointments' },
     { title: 'All Appointments', href: '/admin/appointments' },
 ];
+
+// Time slots for calendar view (8 AM - 5 PM)
+const timeSlots = [
+    '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', 
+    '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00'
+];
+
+// Generate days of week based on current date
+const getDaysOfWeek = (date: Date) => {
+    const startOfWeek = new Date(date);
+    startOfWeek.setDate(date.getDate() - date.getDay() + 1); // Start from Monday
+    
+    return Array.from({ length: 5 }, (_, i) => {
+        const day = new Date(startOfWeek);
+        day.setDate(startOfWeek.getDate() + i);
+        return {
+            name: day.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+            date: day.getDate().toString(),
+            fullDate: day.toISOString().split('T')[0]
+        };
+    });
+};
 
 // Start with empty appointments list - in real app this would come from props
 // Cache bust: 2025-01-15 - All mock data removed
@@ -336,6 +357,8 @@ interface AppointmentsIndexProps {
 export default function AppointmentsIndex({ appointments, filters, nextPatientId, doctors = [], medtechs = [] }: AppointmentsIndexProps & { nextPatientId?: string }) {
     const { permissions } = useRoleAccess();
     const [appointmentsList, setAppointmentsList] = useState(appointments.data);
+    const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list' as 'list' | 'calendar');
+    const [currentDate, setCurrentDate] = useState(new Date());
     
     // Update local state when props change
     useEffect(() => {
@@ -358,7 +381,6 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
     const [statusFilter, setStatusFilter] = useState(filters?.status || 'all');
     const [dateFilter, setDateFilter] = useState<Date | undefined>(filters?.date ? new Date(filters.date) : undefined);
     const [doctorFilter, setDoctorFilter] = useState(filters?.specialist || 'all');
-    const [datePickerOpen, setDatePickerOpen] = useState(false);
     
     // Modal states
     const [showEditModal, setShowEditModal] = useState(false);
@@ -554,6 +576,65 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
         router.visit(route('admin.appointments.show-add-lab-tests', appointment.id));
     }, []);
 
+    // Calendar helper functions
+    const getAppointmentStatusColor = (status: string) => {
+        switch (status?.toLowerCase()) {
+            case 'completed':
+                return 'bg-green-100 border-green-200 text-green-800';
+            case 'cancelled':
+            case 'canceled':
+                return 'bg-red-100 border-red-200 text-red-800';
+            case 'confirmed':
+            case 'scheduled':
+                return 'bg-blue-100 border-blue-200 text-blue-800';
+            case 'pending':
+                return 'bg-orange-100 border-orange-200 text-orange-800';
+            default:
+                return 'bg-gray-100 border-gray-200 text-gray-800';
+        }
+    };
+
+    const getAppointmentStatusIcon = (status: string) => {
+        switch (status?.toLowerCase()) {
+            case 'completed':
+                return <CheckCircle2 className="h-4 w-4" />;
+            case 'cancelled':
+            case 'canceled':
+                return <XCircle className="h-4 w-4" />;
+            case 'confirmed':
+            case 'scheduled':
+                return <Clock className="h-4 w-4" />;
+            case 'pending':
+                return <User className="h-4 w-4" />;
+            default:
+                return <AlertCircle className="h-4 w-4" />;
+        }
+    };
+
+    const getAppointmentsForDay = (date: string) => {
+        return appointmentsList.filter(apt => {
+            const appointmentDate = apt.appointment_date;
+            if (typeof appointmentDate === 'string') {
+                return appointmentDate.split('T')[0] === date;
+            }
+            return false;
+        });
+    };
+
+    const getAppointmentAtTime = (date: string, time: string) => {
+        const dayAppointments = getAppointmentsForDay(date);
+        return dayAppointments.find(apt => {
+            const appointmentTime = apt.appointment_time;
+            if (typeof appointmentTime === 'string') {
+                const timeStr = appointmentTime.includes('T') 
+                    ? appointmentTime.split('T')[1]?.substring(0, 5)
+                    : appointmentTime.substring(0, 5);
+                return timeStr === time;
+            }
+            return false;
+        });
+    };
+
     // Apply additional filters using table's built-in filtering - optimized with useMemo
     const preFilteredData = useMemo(() => {
         return appointmentsList.filter(appointment => {
@@ -666,7 +747,7 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                     <p className="text-sm text-gray-500">All scheduled appointments</p>
                                 </div>
                                 <div className="p-3 bg-blue-100 rounded-full">
-                                    <Calendar className="h-6 w-6 text-blue-600" />
+                                    <CalendarIcon className="h-6 w-6 text-blue-600" />
                                 </div>
                             </div>
                         </CardContent>
@@ -718,16 +799,16 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                     </Card>
                 </div>
 
-                {/* Appointments Table with Integrated Filters */}
-                <Card className="shadow-lg border-0 rounded-xl bg-white">
+                {/* Controls Section - Always Visible */}
+                <Card className="shadow-lg border-0 rounded-xl bg-white mb-6">
                     <CardHeader className="bg-white border-b border-gray-200">
                         <CardTitle className="flex items-center gap-3 text-xl font-semibold text-black">
-                            <Calendar className="h-5 w-5 text-black" />
+                            <CalendarIcon className="h-5 w-5 text-black" />
                             Appointments ({table.getFilteredRowModel().rows.length})
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6">
-                        {/* Table Controls */}
+                        {/* Controls */}
                         <div className="flex flex-wrap items-center gap-4 py-4">
                             <div className="flex items-center gap-4 flex-1 min-w-0">
                                 <Input
@@ -746,78 +827,90 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                 </Button>
                             </div>
                             
-                            <div className="flex items-center gap-4">
-                                {/* Status Filter */}
-                                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                    <SelectTrigger className="w-[150px]">
-                                        <SelectValue placeholder="Filter by status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Status</SelectItem>
-                                        <SelectItem value="confirmed">Confirmed</SelectItem>
-                                        <SelectItem value="pending">Pending</SelectItem>
-                                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                                        <SelectItem value="completed">Completed</SelectItem>
-                                    </SelectContent>
-                                </Select>
-
-                                {/* Date Filter */}
-                                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            data-empty={!dateFilter}
-                                            className="data-[empty=true]:text-muted-foreground w-[180px] justify-start text-left font-normal"
-                                        >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {dateFilter ? format(dateFilter, "PPP") : <span>Pick a date</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    {datePickerOpen && (
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar
-                                                mode="single"
-                                                selected={dateFilter}
-                                                onSelect={(date) => {
-                                                    setDateFilter(date);
-                                                    setDatePickerOpen(false);
-                                                }}
-                                                initialFocus
-                                                disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                                            />
-                                        </PopoverContent>
-                                    )}
-                                </Popover>
-
-                                {/* Doctor Filter */}
-                                <Select value={doctorFilter} onValueChange={setDoctorFilter}>
-                                    <SelectTrigger className="w-[150px]">
-                                        <SelectValue placeholder="Filter by doctor" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Doctors</SelectItem>
-                                        {doctors.map(doctor => (
-                                            <SelectItem key={doctor.id} value={doctor.id}>{doctor.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-
-                                {/* Clear Filters Button */}
+                            <div className="flex items-center gap-2">
                                 <Button
-                                    variant="outline"
-                                    onClick={() => {
-                                        setGlobalFilter('');
-                                        setStatusFilter('all');
-                                        setDateFilter(undefined);
-                                        setDoctorFilter('all');
-                                    }}
+                                    variant={(viewMode as string) === 'list' ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setViewMode('list' as 'list' | 'calendar')}
                                 >
-                                    <X className="mr-2 h-4 w-4" />
-                                    Clear
+                                    List
                                 </Button>
+                                <Button
+                                    variant={(viewMode as string) === 'calendar' ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setViewMode('calendar' as 'list' | 'calendar')}
+                                >
+                                    Calendar
+                                </Button>
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                                {/* Status Filter - Only show in List view */}
+                                {viewMode === 'list' && (
+                                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                        <SelectTrigger className="w-[150px]">
+                                            <SelectValue placeholder="Filter by status" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Status</SelectItem>
+                                            <SelectItem value="confirmed">Confirmed</SelectItem>
+                                            <SelectItem value="pending">Pending</SelectItem>
+                                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                                            <SelectItem value="completed">Completed</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                )}
 
-                                {/* Column Visibility */}
-                                <DropdownMenu>
+                                {/* Date Filter - Only show in List view */}
+                                {viewMode === 'list' && (
+                                    <div className="relative">
+                                        <Input
+                                            type="date"
+                                            value={dateFilter ? format(dateFilter, "yyyy-MM-dd") : ""}
+                                            onChange={(e) => {
+                                                const date = e.target.value ? new Date(e.target.value) : undefined;
+                                                setDateFilter(date);
+                                            }}
+                                            className="w-[180px]"
+                                            placeholder="Pick a date"
+                                        />
+                                    </div>
+                                )}
+
+                                {/* Doctor Filter - Only show in List view */}
+                                {viewMode === 'list' && (
+                                    <Select value={doctorFilter} onValueChange={setDoctorFilter}>
+                                        <SelectTrigger className="w-[150px]">
+                                            <SelectValue placeholder="Filter by doctor" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Doctors</SelectItem>
+                                            {doctors.map(doctor => (
+                                                <SelectItem key={doctor.id} value={doctor.id}>{doctor.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+
+                                {/* Clear Filters Button - Only show in List view */}
+                                {viewMode === 'list' && (
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => {
+                                            setGlobalFilter('');
+                                            setStatusFilter('all');
+                                            setDateFilter(undefined);
+                                            setDoctorFilter('all');
+                                        }}
+                                    >
+                                        <X className="mr-2 h-4 w-4" />
+                                        Clear
+                                    </Button>
+                                )}
+
+                                {/* Column Visibility - Only show in List view */}
+                                {viewMode === 'list' && (
+                                    <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <Button variant="outline">
                                             Columns <ChevronDown className="ml-2 h-4 w-4" />
@@ -846,11 +939,18 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                             })}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
+                                )}
                             </div>
                         </div>
-                                
-                        {/* Table */}
-                        <div className="rounded-md border">
+                    </CardContent>
+                </Card>
+
+                {/* Appointments Table - List View */}
+                {viewMode === 'list' && (
+                    <Card className="shadow-lg border-0 rounded-xl bg-white">
+                        <CardContent className="p-6">
+                            {/* Table */}
+                            <div className="rounded-md border">
                             <Table>
                                 <TableHeader>
                                     {table.getHeaderGroups().map((headerGroup) => (
@@ -975,8 +1075,9 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                 </div>
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                )}
                     
                 {/* Edit Appointment Modal */}
                 {showEditModal && selectedAppointment && (
@@ -1268,6 +1369,100 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
+
+                {/* Calendar View */}
+                {viewMode === 'calendar' && (
+                    <div className="mb-6">
+                        <Card className="shadow-lg border-0 rounded-xl bg-white">
+                            <CardContent className="p-0">
+                                <div className="overflow-x-auto">
+                                    <div className="min-w-[800px]">
+                                        {/* Calendar Header */}
+                                        <div className="grid grid-cols-6 border-b border-gray-200">
+                                            <div className="p-4 text-sm font-medium text-gray-500">GMT +7</div>
+                                            {getDaysOfWeek(currentDate).map((day, index) => (
+                                                <div key={index} className="p-4 text-center border-l border-gray-200">
+                                                    <div className="text-sm font-medium text-gray-900">{day.name}</div>
+                                                    <div className="text-lg font-semibold text-gray-900">{day.date}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Calendar Grid */}
+                                        <div className="relative">
+                                            {/* Time slots */}
+                                            {timeSlots.map((time, timeIndex) => (
+                                                <div key={time} className="grid grid-cols-6 border-b border-gray-100">
+                                                    {/* Time column */}
+                                                    <div className="p-3 text-sm text-gray-500 border-r border-gray-200">
+                                                        {time}
+                                                    </div>
+                                                    
+                                                    {/* Day columns */}
+                                                    {getDaysOfWeek(currentDate).map((day, dayIndex) => {
+                                                        const appointment = getAppointmentAtTime(day.fullDate, time);
+                                                        const currentTime = new Date().toLocaleTimeString('en-US', { 
+                                                            hour12: false, 
+                                                            hour: '2-digit', 
+                                                            minute: '2-digit' 
+                                                        });
+                                                        const isCurrentTime = time === currentTime.split(':').slice(0, 2).join(':');
+                                                        
+                                                        return (
+                                                            <div 
+                                                                key={`${day.fullDate}-${time}`}
+                                                                className="relative p-2 border-r border-gray-200 min-h-[60px] hover:bg-gray-50 cursor-pointer"
+                                                            >
+                                                                {appointment ? (
+                                                                    <div className={`p-2 rounded-lg border ${getAppointmentStatusColor(appointment.status)}`}>
+                                                                        <div className="flex items-center justify-center gap-1 mb-1">
+                                                                            {getAppointmentStatusIcon(appointment.status)}
+                                                                            <span className="text-xs font-medium">{appointment.patient_name}</span>
+                                                                        </div>
+                                                                        <div className="text-xs text-gray-600 text-center">{appointment.appointment_type}</div>
+                                                                        <div className="flex items-center justify-between mt-2">
+                                                                            <span className="text-xs">{appointment.specialist_name}</span>
+                                                                            <div className="flex items-center gap-1">
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    className="h-6 w-6 p-0"
+                                                                                    onClick={() => handleViewAppointment(appointment)}
+                                                                                >
+                                                                                    <Eye className="h-3 w-3" />
+                                                                                </Button>
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    className="h-6 w-6 p-0"
+                                                                                    onClick={() => handleEditAppointment(appointment)}
+                                                                                >
+                                                                                    <Edit className="h-3 w-3" />
+                                                                                </Button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="h-full flex items-center justify-center text-gray-400 text-xs">
+                                                                        {isCurrentTime && (
+                                                                            <div className="absolute left-0 right-0 top-0 h-0.5 bg-blue-500">
+                                                                                <div className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 rounded-full"></div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
             </div>
         </AppLayout>
     );

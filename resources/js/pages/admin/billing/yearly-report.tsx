@@ -4,6 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
@@ -16,9 +18,29 @@ import {
     FileText,
     Download,
     Receipt,
-    CreditCard
+    CreditCard,
+    ArrowUpDown,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
+    Search
 } from 'lucide-react';
 import { useState } from 'react';
+import {
+    ColumnDef,
+    ColumnFiltersState,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+    VisibilityState,
+} from '@tanstack/react-table';
+import * as React from 'react';
 
 type Transaction = {
     id: number;
@@ -54,6 +76,211 @@ type Summary = {
     doctor_payment_count: number;
 };
 
+// Column definitions for the transactions table
+const createTransactionColumns = (): ColumnDef<Transaction>[] => [
+    {
+        accessorKey: "type",
+        header: "Type",
+        cell: ({ row }) => {
+            const type = row.getValue("type") as string;
+            const typeConfig = {
+                billing: { label: 'BILLING', color: 'bg-green-100 text-green-800' },
+                doctor_payment: { label: 'DOCTOR PAYMENT', color: 'bg-blue-100 text-blue-800' },
+                expense: { label: 'EXPENSE', color: 'bg-red-100 text-red-800' },
+                appointment: { label: 'APPOINTMENT', color: 'bg-yellow-100 text-yellow-800' }
+            };
+            const config = typeConfig[type as keyof typeof typeConfig] || { label: type.toUpperCase(), color: 'bg-gray-100 text-gray-800' };
+            
+            return (
+                <Badge className={config.color}>
+                    {config.label}
+                </Badge>
+            );
+        },
+    },
+    {
+        accessorKey: "transaction_id",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Transaction ID
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">{row.getValue("transaction_id")}</div>
+        ),
+    },
+    {
+        accessorKey: "patient_name",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Patient/Source
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const transaction = row.original;
+            return (
+                <div>
+                    <div className="font-medium">{row.getValue("patient_name")}</div>
+                    {transaction.items_count > 0 && (
+                        <div className="text-sm text-gray-500">
+                            {transaction.items_count} items
+                        </div>
+                    )}
+                    {transaction.appointments_count > 0 && (
+                        <div className="text-sm text-gray-500">
+                            {transaction.appointments_count} appointments
+                        </div>
+                    )}
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "specialist_name",
+        header: "Specialist",
+        cell: ({ row }) => (
+            <div>{row.getValue("specialist_name")}</div>
+        ),
+    },
+    {
+        accessorKey: "amount",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Amount
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const transaction = row.original;
+            return (
+                <div className={`font-semibold ${
+                    transaction.amount < 0 ? 'text-red-600' : 'text-green-600'
+                }`}>
+                    {transaction.amount < 0 ? '-' : ''}₱{Math.abs(transaction.amount).toLocaleString()}
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "payment_method",
+        header: "Payment Method",
+        cell: ({ row }) => (
+            <Badge variant="outline" className="bg-gray-100 text-gray-800">
+                {row.getValue("payment_method")?.toString().replace('_', ' ').toUpperCase()}
+            </Badge>
+        ),
+    },
+    {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => {
+            const status = row.getValue("status") as string;
+            const statusConfig = {
+                paid: { label: 'Paid', color: 'bg-green-100 text-green-800' },
+                approved: { label: 'Approved', color: 'bg-green-100 text-green-800' },
+                pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800' },
+                cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-800' }
+            };
+            const config = statusConfig[status as keyof typeof statusConfig] || { label: status, color: 'bg-gray-100 text-gray-800' };
+            
+            return (
+                <Badge className={config.color}>
+                    {config.label}
+                </Badge>
+            );
+        },
+    },
+];
+
+// Column definitions for the expenses table
+const createExpenseColumns = (): ColumnDef<Expense>[] => [
+    {
+        accessorKey: "expense_name",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Expense
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">{row.getValue("expense_name")}</div>
+        ),
+    },
+    {
+        accessorKey: "expense_category",
+        header: "Category",
+        cell: ({ row }) => (
+            <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                {row.getValue("expense_category")?.toString().replace('_', ' ')}
+            </Badge>
+        ),
+    },
+    {
+        accessorKey: "amount",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Amount
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-semibold">
+                ₱{row.getValue("amount")?.toLocaleString()}
+            </div>
+        ),
+    },
+    {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => {
+            const status = row.getValue("status") as string;
+            const statusConfig = {
+                approved: { label: 'Approved', color: 'bg-green-100 text-green-800' },
+                pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800' }
+            };
+            const config = statusConfig[status as keyof typeof statusConfig] || { label: status, color: 'bg-gray-100 text-gray-800' };
+            
+            return (
+                <Badge className={config.color}>
+                    {config.label}
+                </Badge>
+            );
+        },
+    },
+];
+
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Billing', href: '/admin/billing' },
     { title: 'Transaction Report', href: '/admin/billing/transaction-report' },
@@ -72,6 +299,86 @@ export default function YearlyReport({
     year: string;
 }) {
     const [selectedYear, setSelectedYear] = useState(year);
+
+    // TanStack Table state for transactions
+    const [transactionSorting, setTransactionSorting] = React.useState<SortingState>([]);
+    const [transactionColumnFilters, setTransactionColumnFilters] = React.useState<ColumnFiltersState>([]);
+    const [transactionColumnVisibility, setTransactionColumnVisibility] = React.useState<VisibilityState>({});
+    const [transactionRowSelection, setTransactionRowSelection] = React.useState({});
+    const [transactionGlobalFilter, setTransactionGlobalFilter] = React.useState('');
+
+    // TanStack Table state for expenses
+    const [expenseSorting, setExpenseSorting] = React.useState<SortingState>([]);
+    const [expenseColumnFilters, setExpenseColumnFilters] = React.useState<ColumnFiltersState>([]);
+    const [expenseColumnVisibility, setExpenseColumnVisibility] = React.useState<VisibilityState>({});
+    const [expenseRowSelection, setExpenseRowSelection] = React.useState({});
+    const [expenseGlobalFilter, setExpenseGlobalFilter] = React.useState('');
+
+    // Initialize transaction table
+    const transactionColumns = createTransactionColumns();
+    const transactionTable = useReactTable({
+        data: transactions || [],
+        columns: transactionColumns,
+        onSortingChange: setTransactionSorting,
+        onColumnFiltersChange: setTransactionColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onColumnVisibilityChange: setTransactionColumnVisibility,
+        onRowSelectionChange: setTransactionRowSelection,
+        onGlobalFilterChange: setTransactionGlobalFilter,
+        globalFilterFn: (row, columnId, value) => {
+            const search = value.toLowerCase();
+            const transaction = row.original;
+            return (
+                transaction.transaction_id?.toLowerCase().includes(search) ||
+                transaction.patient_name?.toLowerCase().includes(search) ||
+                transaction.specialist_name?.toLowerCase().includes(search) ||
+                transaction.type?.toLowerCase().includes(search) ||
+                transaction.status?.toLowerCase().includes(search)
+            );
+        },
+        state: {
+            sorting: transactionSorting,
+            columnFilters: transactionColumnFilters,
+            columnVisibility: transactionColumnVisibility,
+            rowSelection: transactionRowSelection,
+            globalFilter: transactionGlobalFilter,
+        },
+    });
+
+    // Initialize expense table
+    const expenseColumns = createExpenseColumns();
+    const expenseTable = useReactTable({
+        data: expenses || [],
+        columns: expenseColumns,
+        onSortingChange: setExpenseSorting,
+        onColumnFiltersChange: setExpenseColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onColumnVisibilityChange: setExpenseColumnVisibility,
+        onRowSelectionChange: setExpenseRowSelection,
+        onGlobalFilterChange: setExpenseGlobalFilter,
+        globalFilterFn: (row, columnId, value) => {
+            const search = value.toLowerCase();
+            const expense = row.original;
+            return (
+                expense.expense_name?.toLowerCase().includes(search) ||
+                expense.expense_category?.toLowerCase().includes(search) ||
+                expense.status?.toLowerCase().includes(search)
+            );
+        },
+        state: {
+            sorting: expenseSorting,
+            columnFilters: expenseColumnFilters,
+            columnVisibility: expenseColumnVisibility,
+            rowSelection: expenseRowSelection,
+            globalFilter: expenseGlobalFilter,
+        },
+    });
 
     const handleYearChange = () => {
         router.get('/admin/billing/billing-reports/yearly', {
@@ -249,23 +556,89 @@ export default function YearlyReport({
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-6">
-                            <div className="overflow-x-auto rounded-xl border border-gray-200">
+                            {/* Table Controls */}
+                            <div className="flex items-center py-4">
+                                <Input
+                                    placeholder="Search transactions..."
+                                    value={transactionGlobalFilter ?? ""}
+                                    onChange={(event) => setTransactionGlobalFilter(event.target.value)}
+                                    className="max-w-sm"
+                                />
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" className="ml-auto">
+                                            Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                                        {transactionTable
+                                            .getAllColumns()
+                                            .filter((column) => column.getCanHide())
+                                            .map((column) => {
+                                                return (
+                                                    <DropdownMenuCheckboxItem
+                                                        key={column.id}
+                                                        className="capitalize"
+                                                        checked={column.getIsVisible()}
+                                                        onCheckedChange={(value) => {
+                                                            column.toggleVisibility(!!value);
+                                                        }}
+                                                        onSelect={(e) => {
+                                                            e.preventDefault();
+                                                        }}
+                                                    >
+                                                        {column.id}
+                                                    </DropdownMenuCheckboxItem>
+                                                )
+                                            })}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+
+                            {/* Transactions Table */}
+                            <div className="rounded-md border">
                                 <Table>
-                                    <TableHeader className="bg-gray-50">
-                                        <TableRow className="hover:bg-gray-50">
-                                            <TableHead className="font-semibold text-gray-700">Type</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Transaction ID</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Patient/Source</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Specialist</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Amount</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Payment Method</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                                        </TableRow>
+                                    <TableHeader>
+                                        {transactionTable.getHeaderGroups().map((headerGroup) => (
+                                            <TableRow key={headerGroup.id}>
+                                                {headerGroup.headers.map((header) => {
+                                                    return (
+                                                        <TableHead key={header.id}>
+                                                            {header.isPlaceholder
+                                                                ? null
+                                                                : flexRender(
+                                                                    header.column.columnDef.header,
+                                                                    header.getContext()
+                                                            )}
+                                                        </TableHead>
+                                                    )
+                                                })}
+                                            </TableRow>
+                                        ))}
                                     </TableHeader>
                                     <TableBody>
-                                        {transactions.length === 0 ? (
+                                        {transactionTable.getRowModel().rows?.length ? (
+                                            transactionTable.getRowModel().rows.map((row) => (
+                                                <TableRow
+                                                    key={row.id}
+                                                    data-state={row.getIsSelected() && "selected"}
+                                                >
+                                                    {row.getVisibleCells().map((cell) => (
+                                                        <TableCell key={cell.id}>
+                                                            {flexRender(
+                                                                cell.column.columnDef.cell,
+                                                                cell.getContext()
+                                                            )}
+                                                        </TableCell>
+                                                    ))}
+                                                </TableRow>
+                                            ))
+                                        ) : (
                                             <TableRow>
-                                                <TableCell colSpan={7} className="text-center py-8">
+                                                <TableCell
+                                                    colSpan={transactionColumns.length}
+                                                    className="h-24 text-center"
+                                                >
                                                     <div className="flex flex-col items-center">
                                                         <CreditCard className="mx-auto mb-4 h-12 w-12 text-gray-400" />
                                                         <h3 className="mb-2 text-lg font-semibold text-gray-600">No transactions found</h3>
@@ -273,69 +646,85 @@ export default function YearlyReport({
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
-                                        ) : (
-                                            transactions.map((transaction) => (
-                                                <TableRow key={transaction.id} className="hover:bg-gray-50">
-                                                    <TableCell>
-                                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                            transaction.type === 'billing' 
-                                                                ? 'bg-green-100 text-green-800' 
-                                                                : transaction.type === 'doctor_payment'
-                                                                ? 'bg-blue-100 text-blue-800'
-                                                                : transaction.type === 'expense'
-                                                                ? 'bg-red-100 text-red-800'
-                                                                : 'bg-yellow-100 text-yellow-800'
-                                                        }`}>
-                                                            {transaction.type.replace('_', ' ').toUpperCase()}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell className="font-medium">
-                                                        {transaction.transaction_id}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="font-medium">
-                                                            {transaction.patient_name}
-                                                        </div>
-                                                        {transaction.items_count > 0 && (
-                                                            <div className="text-sm text-gray-500">
-                                                                {transaction.items_count} items
-                                                            </div>
-                                                        )}
-                                                        {transaction.appointments_count > 0 && (
-                                                            <div className="text-sm text-gray-500">
-                                                                {transaction.appointments_count} appointments
-                                                            </div>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {transaction.specialist_name}
-                                                    </TableCell>
-                                                    <TableCell className={`font-semibold ${
-                                                        transaction.amount < 0 ? 'text-red-600' : 'text-green-600'
-                                                    }`}>
-                                                        {transaction.amount < 0 ? '-' : ''}₱{Math.abs(transaction.amount).toLocaleString()}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                                            {transaction.payment_method.replace('_', ' ').toUpperCase()}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                            transaction.status === 'paid' || transaction.status === 'approved'
-                                                                ? 'bg-green-100 text-green-800' 
-                                                                : transaction.status === 'pending'
-                                                                ? 'bg-yellow-100 text-yellow-800'
-                                                                : 'bg-red-100 text-red-800'
-                                                        }`}>
-                                                            {transaction.status}
-                                                        </span>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
                                         )}
                                     </TableBody>
                                 </Table>
+                            </div>
+                            
+                            {/* Pagination */}
+                            <div className="flex items-center justify-between px-2 py-4">
+                                <div className="text-muted-foreground flex-1 text-sm">
+                                    {transactionTable.getFilteredSelectedRowModel().rows.length} of{" "}
+                                    {transactionTable.getFilteredRowModel().rows.length} row(s) selected.
+                                </div>
+                                <div className="flex items-center space-x-6 lg:space-x-8">
+                                    <div className="flex items-center space-x-2">
+                                        <p className="text-sm font-medium">Rows per page</p>
+                                        <Select
+                                            value={`${transactionTable.getState().pagination.pageSize}`}
+                                            onValueChange={(value) => {
+                                                transactionTable.setPageSize(Number(value))
+                                            }}
+                                        >
+                                            <SelectTrigger className="h-8 w-[70px]">
+                                                <SelectValue placeholder={transactionTable.getState().pagination.pageSize} />
+                                            </SelectTrigger>
+                                            <SelectContent side="top">
+                                                {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                        {pageSize}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                        Page {transactionTable.getState().pagination.pageIndex + 1} of{" "}
+                                        {transactionTable.getPageCount()}
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="hidden size-8 lg:flex"
+                                            onClick={() => transactionTable.setPageIndex(0)}
+                                            disabled={!transactionTable.getCanPreviousPage()}
+                                        >
+                                            <span className="sr-only">Go to first page</span>
+                                            <ChevronsLeft className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="size-8"
+                                            onClick={() => transactionTable.previousPage()}
+                                            disabled={!transactionTable.getCanPreviousPage()}
+                                        >
+                                            <span className="sr-only">Go to previous page</span>
+                                            <ChevronLeft className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="size-8"
+                                            onClick={() => transactionTable.nextPage()}
+                                            disabled={!transactionTable.getCanNextPage()}
+                                        >
+                                            <span className="sr-only">Go to next page</span>
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="hidden size-8 lg:flex"
+                                            onClick={() => transactionTable.setPageIndex(transactionTable.getPageCount() - 1)}
+                                            disabled={!transactionTable.getCanNextPage()}
+                                        >
+                                            <span className="sr-only">Go to last page</span>
+                                            <ChevronsRight className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
@@ -349,20 +738,89 @@ export default function YearlyReport({
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-6">
-                            <div className="overflow-x-auto rounded-xl border border-gray-200">
+                            {/* Table Controls */}
+                            <div className="flex items-center py-4">
+                                <Input
+                                    placeholder="Search expenses..."
+                                    value={expenseGlobalFilter ?? ""}
+                                    onChange={(event) => setExpenseGlobalFilter(event.target.value)}
+                                    className="max-w-sm"
+                                />
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" className="ml-auto">
+                                            Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                                        {expenseTable
+                                            .getAllColumns()
+                                            .filter((column) => column.getCanHide())
+                                            .map((column) => {
+                                                return (
+                                                    <DropdownMenuCheckboxItem
+                                                        key={column.id}
+                                                        className="capitalize"
+                                                        checked={column.getIsVisible()}
+                                                        onCheckedChange={(value) => {
+                                                            column.toggleVisibility(!!value);
+                                                        }}
+                                                        onSelect={(e) => {
+                                                            e.preventDefault();
+                                                        }}
+                                                    >
+                                                        {column.id}
+                                                    </DropdownMenuCheckboxItem>
+                                                )
+                                            })}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+
+                            {/* Expenses Table */}
+                            <div className="rounded-md border">
                                 <Table>
-                                    <TableHeader className="bg-gray-50">
-                                        <TableRow className="hover:bg-gray-50">
-                                            <TableHead className="font-semibold text-gray-700">Expense</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Category</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Amount</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                                        </TableRow>
+                                    <TableHeader>
+                                        {expenseTable.getHeaderGroups().map((headerGroup) => (
+                                            <TableRow key={headerGroup.id}>
+                                                {headerGroup.headers.map((header) => {
+                                                    return (
+                                                        <TableHead key={header.id}>
+                                                            {header.isPlaceholder
+                                                                ? null
+                                                                : flexRender(
+                                                                    header.column.columnDef.header,
+                                                                    header.getContext()
+                                                            )}
+                                                        </TableHead>
+                                                    )
+                                                })}
+                                            </TableRow>
+                                        ))}
                                     </TableHeader>
                                     <TableBody>
-                                        {expenses.length === 0 ? (
+                                        {expenseTable.getRowModel().rows?.length ? (
+                                            expenseTable.getRowModel().rows.map((row) => (
+                                                <TableRow
+                                                    key={row.id}
+                                                    data-state={row.getIsSelected() && "selected"}
+                                                >
+                                                    {row.getVisibleCells().map((cell) => (
+                                                        <TableCell key={cell.id}>
+                                                            {flexRender(
+                                                                cell.column.columnDef.cell,
+                                                                cell.getContext()
+                                                            )}
+                                                        </TableCell>
+                                                    ))}
+                                                </TableRow>
+                                            ))
+                                        ) : (
                                             <TableRow>
-                                                <TableCell colSpan={4} className="text-center py-8">
+                                                <TableCell
+                                                    colSpan={expenseColumns.length}
+                                                    className="h-24 text-center"
+                                                >
                                                     <div className="flex flex-col items-center">
                                                         <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
                                                         <h3 className="mb-2 text-lg font-semibold text-gray-600">No expenses found</h3>
@@ -370,34 +828,85 @@ export default function YearlyReport({
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
-                                        ) : (
-                                            expenses.map((expense) => (
-                                                <TableRow key={expense.id} className="hover:bg-gray-50">
-                                                    <TableCell className="font-medium">
-                                                        {expense.expense_name}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                            {expense.expense_category.replace('_', ' ')}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell className="font-semibold">
-                                                        ₱{expense.amount.toLocaleString()}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                            expense.status === 'approved' 
-                                                                ? 'bg-green-100 text-green-800' 
-                                                                : 'bg-yellow-100 text-yellow-800'
-                                                        }`}>
-                                                            {expense.status}
-                                                        </span>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
                                         )}
                                     </TableBody>
                                 </Table>
+                            </div>
+                            
+                            {/* Pagination */}
+                            <div className="flex items-center justify-between px-2 py-4">
+                                <div className="text-muted-foreground flex-1 text-sm">
+                                    {expenseTable.getFilteredSelectedRowModel().rows.length} of{" "}
+                                    {expenseTable.getFilteredRowModel().rows.length} row(s) selected.
+                                </div>
+                                <div className="flex items-center space-x-6 lg:space-x-8">
+                                    <div className="flex items-center space-x-2">
+                                        <p className="text-sm font-medium">Rows per page</p>
+                                        <Select
+                                            value={`${expenseTable.getState().pagination.pageSize}`}
+                                            onValueChange={(value) => {
+                                                expenseTable.setPageSize(Number(value))
+                                            }}
+                                        >
+                                            <SelectTrigger className="h-8 w-[70px]">
+                                                <SelectValue placeholder={expenseTable.getState().pagination.pageSize} />
+                                            </SelectTrigger>
+                                            <SelectContent side="top">
+                                                {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                        {pageSize}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                        Page {expenseTable.getState().pagination.pageIndex + 1} of{" "}
+                                        {expenseTable.getPageCount()}
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="hidden size-8 lg:flex"
+                                            onClick={() => expenseTable.setPageIndex(0)}
+                                            disabled={!expenseTable.getCanPreviousPage()}
+                                        >
+                                            <span className="sr-only">Go to first page</span>
+                                            <ChevronsLeft className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="size-8"
+                                            onClick={() => expenseTable.previousPage()}
+                                            disabled={!expenseTable.getCanPreviousPage()}
+                                        >
+                                            <span className="sr-only">Go to previous page</span>
+                                            <ChevronLeft className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="size-8"
+                                            onClick={() => expenseTable.nextPage()}
+                                            disabled={!expenseTable.getCanNextPage()}
+                                        >
+                                            <span className="sr-only">Go to next page</span>
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="hidden size-8 lg:flex"
+                                            onClick={() => expenseTable.setPageIndex(expenseTable.getPageCount() - 1)}
+                                            disabled={!expenseTable.getCanNextPage()}
+                                        >
+                                            <span className="sr-only">Go to last page</span>
+                                            <ChevronsRight className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>

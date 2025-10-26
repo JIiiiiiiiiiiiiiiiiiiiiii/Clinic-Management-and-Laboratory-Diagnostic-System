@@ -1,13 +1,51 @@
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    DropdownMenu,
+    DropdownMenuCheckboxItem,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { Edit, Plus, Search, Trash2, UserCheck, Stethoscope, Calendar } from 'lucide-react';
-import { useState } from 'react';
+import {
+    ColumnDef,
+    ColumnFiltersState,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+    VisibilityState,
+} from '@tanstack/react-table';
+import { 
+    Edit, Eye, Plus, Search, Filter, Calendar, User, Phone, Mail, MapPin, Clock, 
+    Stethoscope, CheckCircle, AlertCircle, XCircle, Activity, TrendingUp,
+    FileText, Heart, Calendar as CalendarIcon, UserCheck, BarChart3, ArrowLeft, ArrowRight, UserPlus, Users, Trash2,
+    Download, Upload, MoreHorizontal, ChevronDown, Bell, Settings, Grid, List, ArrowUpDown, ArrowUp, ArrowDown,
+    ChevronsUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Settings2, EyeOff
+} from 'lucide-react';
+import * as React from 'react';
 
 type MedTech = {
     id: number;
@@ -31,167 +69,470 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
+// Column definitions for the med tech data table
+const createColumns = (handleDeleteMedTech: (medtech: MedTech) => void): ColumnDef<MedTech>[] => [
+    {
+        accessorKey: "name",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Name
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">{row.getValue("name")}</div>
+        ),
+    },
+    {
+        accessorKey: "email",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Email
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="text-sm">{row.getValue("email") || "N/A"}</div>
+        ),
+    },
+    {
+        accessorKey: "specialization",
+        header: "Specialization",
+        cell: ({ row }) => (
+            <div className="text-sm">{row.getValue("specialization") || "N/A"}</div>
+        ),
+    },
+    {
+        accessorKey: "license_number",
+        header: "License Number",
+        cell: ({ row }) => (
+            <div className="text-sm">{row.getValue("license_number") || "N/A"}</div>
+        ),
+    },
+    {
+        accessorKey: "is_active",
+        header: "Status",
+        cell: ({ row }) => {
+            const isActive = row.getValue("is_active") as boolean;
+            return (
+                <Badge variant={isActive ? "default" : "secondary"} className={isActive ? "bg-green-600 text-white" : "bg-gray-100 text-gray-800"}>
+                    {isActive ? "Active" : "Inactive"}
+                </Badge>
+            );
+        },
+    },
+    {
+        accessorKey: "created_at",
+        header: "Date Created",
+        cell: ({ row }) => {
+            const date = new Date(row.getValue("created_at"));
+            return (
+                <div className="text-sm">
+                    {date.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    })}
+                </div>
+            );
+        },
+    },
+    {
+        id: "actions",
+        enableHiding: false,
+        cell: ({ row }) => {
+            const medtech = row.original;
+
+            return (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem
+                            onClick={() => navigator.clipboard.writeText(medtech.email)}
+                        >
+                            Copy email
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => router.visit(`/admin/specialists/medtechs/${medtech.id}`)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View med tech
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => router.visit(`/admin/specialists/medtechs/${medtech.id}/edit`)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit med tech
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => router.visit(`/admin/specialists/medtechs/${medtech.id}/schedule`)}>
+                            <Calendar className="mr-2 h-4 w-4" />
+                            View Schedule
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                            onClick={() => handleDeleteMedTech(medtech)}
+                            className="text-red-600"
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete med tech
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )
+        },
+    },
+];
+
 export default function MedTechIndex({ medtechs }: { medtechs: MedTech[] }) {
-    const [searchTerm, setSearchTerm] = useState('');
+    // TanStack Table state
+    const [sorting, setSorting] = React.useState<SortingState>([]);
+    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+    const [rowSelection, setRowSelection] = React.useState({});
+    const [globalFilter, setGlobalFilter] = React.useState('');
+    
+    // Delete confirmation state
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
+    const [medtechToDelete, setMedtechToDelete] = React.useState<MedTech | null>(null);
 
-    const filteredMedTechs = medtechs.filter(medtech =>
-        medtech.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        medtech.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (medtech.specialization && medtech.specialization.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    // Delete handler functions
+    const handleDeleteMedTech = (medtech: MedTech) => {
+        setMedtechToDelete(medtech);
+        setDeleteConfirmOpen(true);
+    };
 
-    const handleDelete = (medtechId: number) => {
-        if (confirm('Are you sure you want to delete this med tech?')) {
-            router.delete(`/admin/specialists/medtechs/${medtechId}`);
+    const confirmDelete = () => {
+        if (medtechToDelete) {
+            router.delete(`/admin/specialists/medtechs/${medtechToDelete.id}`, {
+                onSuccess: () => {
+                    setDeleteConfirmOpen(false);
+                    setMedtechToDelete(null);
+                },
+            });
         }
     };
+
+    // Initialize table
+    const columns = createColumns(handleDeleteMedTech);
+    const table = useReactTable({
+        data: medtechs || [],
+        columns,
+        onSortingChange: setSorting,
+        onColumnFiltersChange: setColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onColumnVisibilityChange: setColumnVisibility,
+        onRowSelectionChange: setRowSelection,
+        onGlobalFilterChange: setGlobalFilter,
+        globalFilterFn: (row, columnId, value) => {
+            const search = value.toLowerCase();
+            const medtech = row.original;
+            return (
+                medtech.name?.toLowerCase().includes(search) ||
+                medtech.email?.toLowerCase().includes(search) ||
+                medtech.specialization?.toLowerCase().includes(search)
+            ) || false;
+        },
+        state: {
+            sorting,
+            columnFilters,
+            columnVisibility,
+            rowSelection,
+            globalFilter,
+        },
+    });
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Med Tech Management" />
-            <div className="min-h-screen bg-white p-6">
-                {/* Header Section */}
-                <div className="mb-8">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-6">
-                            <div>
-                                <h1 className="text-4xl font-semibold text-black mb-4">Med Tech Management</h1>
-                                <p className="text-sm text-black mt-1">Manage clinic medical technologists and lab staff</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
-                                        <UserCheck className="h-6 w-6 text-black" />
-                                    </div>
+            <div className="min-h-screen bg-gray-50">
+                <div className="p-6">
+                    {/* Statistics Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
                                     <div>
-                                        <div className="text-3xl font-bold text-black">{medtechs.length}</div>
-                                        <div className="text-black text-sm font-medium">Total Med Techs</div>
+                                        <p className="text-sm font-medium text-gray-600">Total Med Techs</p>
+                                        <p className="text-3xl font-bold text-gray-900">{medtechs.length}</p>
+                                        <p className="text-sm text-gray-500">All medical technologists</p>
+                                    </div>
+                                    <div className="p-3 bg-orange-100 rounded-full">
+                                        <Eye className="h-6 w-6 text-orange-600" />
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                            </CardContent>
+                        </Card>
 
-                {/* Search and Actions */}
-                <Card className="shadow-lg border-0 rounded-xl bg-white mb-6">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                                    <Input
-                                        placeholder="Search med techs..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-10 w-80"
-                                    />
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Active Med Techs</p>
+                                        <p className="text-3xl font-bold text-gray-900">{medtechs.filter(m => m.is_active).length}</p>
+                                        <p className="text-sm text-gray-500">Currently active</p>
+                                    </div>
+                                    <div className="p-3 bg-blue-100 rounded-full">
+                                        <CheckCircle className="h-6 w-6 text-blue-600" />
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <Link href="/admin/specialists/medtechs/create">
-                                    <Button className="bg-black hover:bg-gray-800 text-white px-6 py-2 rounded-lg flex items-center gap-2">
-                                        <Plus className="h-4 w-4" />
-                                        Add Med Tech
-                                    </Button>
-                                </Link>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                            </CardContent>
+                        </Card>
 
-                {/* Med Techs Table */}
-                <Card className="shadow-lg border-0 rounded-xl bg-white">
-                    <CardHeader className="bg-white border-b border-gray-200">
-                        <CardTitle className="flex items-center gap-3 text-xl font-semibold text-black">
-                            <Stethoscope className="h-5 w-5 text-black" />
-                            Med Techs ({filteredMedTechs.length})
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-gray-50">
-                                        <TableHead className="text-black font-semibold">Name</TableHead>
-                                        <TableHead className="text-black font-semibold">Email</TableHead>
-                                        <TableHead className="text-black font-semibold">Specialization</TableHead>
-                                        <TableHead className="text-black font-semibold">License Number</TableHead>
-                                        <TableHead className="text-black font-semibold">Status</TableHead>
-                                        <TableHead className="text-black font-semibold">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {filteredMedTechs.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                                                No med techs found
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        filteredMedTechs.map((medtech) => (
-                                            <TableRow key={medtech.id} className="hover:bg-gray-50">
-                                                <TableCell className="font-medium text-black">
-                                                    {medtech.name}
-                                                </TableCell>
-                                                <TableCell className="text-black">{medtech.email}</TableCell>
-                                                <TableCell className="text-black">
-                                                    {medtech.specialization || 'N/A'}
-                                                </TableCell>
-                                                <TableCell className="text-black">
-                                                    {medtech.license_number || 'N/A'}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge
-                                                        variant={medtech.is_active ? 'default' : 'secondary'}
-                                                        className={medtech.is_active ? 'bg-gray-100 text-black' : 'bg-gray-100 text-gray-800'}
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Specializations</p>
+                                        <p className="text-3xl font-bold text-gray-900">{new Set(medtechs.map(m => m.specialization).filter(Boolean)).size}</p>
+                                        <p className="text-sm text-gray-500">Unique specializations</p>
+                                    </div>
+                                    <div className="p-3 bg-green-100 rounded-full">
+                                        <Activity className="h-6 w-6 text-green-600" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">New This Month</p>
+                                        <p className="text-3xl font-bold text-gray-900">
+                                            {medtechs.filter(m => {
+                                                const created = new Date(m.created_at);
+                                                const now = new Date();
+                                                return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
+                                            }).length}
+                                        </p>
+                                        <p className="text-sm text-gray-500">Recently added</p>
+                                    </div>
+                                    <div className="p-3 bg-purple-100 rounded-full">
+                                        <TrendingUp className="h-6 w-6 text-purple-600" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Data Table */}
+                    <Card className="bg-white border border-gray-200">
+                        <CardContent className="p-6">
+                            {/* Table Controls */}
+                            <div className="flex items-center py-4">
+                                <Input
+                                    placeholder="Search med techs..."
+                                    value={globalFilter ?? ""}
+                                    onChange={(event) => setGlobalFilter(event.target.value)}
+                                    className="max-w-sm"
+                                />
+                                <Button
+                                    asChild
+                                    className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                                >
+                                    <Link href="/admin/specialists/medtechs/create">
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Add Med Tech
+                                    </Link>
+                                </Button>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" className="ml-auto">
+                                            Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                                        {table
+                                            .getAllColumns()
+                                            .filter((column) => column.getCanHide())
+                                            .map((column) => {
+                                                return (
+                                                    <DropdownMenuCheckboxItem
+                                                        key={column.id}
+                                                        className="capitalize"
+                                                        checked={column.getIsVisible()}
+                                                        onCheckedChange={(value) => {
+                                                            column.toggleVisibility(!!value);
+                                                        }}
+                                                        onSelect={(e) => {
+                                                            e.preventDefault();
+                                                        }}
                                                     >
-                                                        {medtech.is_active ? 'Active' : 'Inactive'}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        <Link href={`/admin/specialists/medtechs/${medtech.id}/edit`}>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                className="text-black border-gray-300 hover:bg-gray-50"
-                                                            >
-                                                                <Edit className="h-4 w-4 mr-2" />
-                                                                Edit
-                                                            </Button>
-                                                        </Link>
-                                                        <Link href={`/admin/specialists/medtechs/${medtech.id}/schedule`}>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                className="text-blue-600 border-blue-300 hover:bg-blue-50"
-                                                            >
-                                                                <Calendar className="h-4 w-4 mr-2" />
-                                                                Schedule
-                                                            </Button>
-                                                        </Link>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => handleDelete(medtech.id)}
-                                                            className="text-black border-gray-300 hover:bg-gray-50"
-                                                        >
-                                                            <Trash2 className="h-4 w-4 mr-2" />
-                                                            Delete
-                                                        </Button>
-                                                    </div>
+                                                        {column.id}
+                                                    </DropdownMenuCheckboxItem>
+                                                )
+                                            })}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                                    
+                            {/* Table */}
+                            <div className="rounded-md border">
+                                <Table>
+                                    <TableHeader>
+                                        {table.getHeaderGroups().map((headerGroup) => (
+                                            <TableRow key={headerGroup.id}>
+                                                {headerGroup.headers.map((header) => {
+                                                    return (
+                                                        <TableHead key={header.id}>
+                                                            {header.isPlaceholder
+                                                                ? null
+                                                                : flexRender(
+                                                                    header.column.columnDef.header,
+                                                                    header.getContext()
+                                                                )}
+                                                        </TableHead>
+                                                    )
+                                                })}
+                                            </TableRow>
+                                        ))}
+                                    </TableHeader>
+                                    <TableBody>
+                                        {table.getRowModel().rows?.length ? (
+                                            table.getRowModel().rows.map((row) => (
+                                                <TableRow
+                                                    key={row.id}
+                                                    data-state={row.getIsSelected() && "selected"}
+                                                >
+                                                    {row.getVisibleCells().map((cell) => (
+                                                        <TableCell key={cell.id}>
+                                                            {flexRender(
+                                                                cell.column.columnDef.cell,
+                                                                cell.getContext()
+                                                            )}
+                                                        </TableCell>
+                                                    ))}
+                                                </TableRow>
+                                            ))
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell
+                                                    colSpan={columns.length}
+                                                    className="h-24 text-center"
+                                                >
+                                                    No results.
                                                 </TableCell>
                                             </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </CardContent>
-                </Card>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                            
+                            {/* Pagination */}
+                            <div className="flex items-center justify-between px-2 py-4">
+                                <div className="text-muted-foreground flex-1 text-sm">
+                                    {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                                    {table.getFilteredRowModel().rows.length} row(s) selected.
+                                </div>
+                                <div className="flex items-center space-x-6 lg:space-x-8">
+                                    <div className="flex items-center space-x-2">
+                                        <p className="text-sm font-medium">Rows per page</p>
+                                        <Select
+                                            value={`${table.getState().pagination.pageSize}`}
+                                            onValueChange={(value) => {
+                                                table.setPageSize(Number(value))
+                                            }}
+                                        >
+                                            <SelectTrigger className="h-8 w-[70px]">
+                                                <SelectValue placeholder={table.getState().pagination.pageSize} />
+                                            </SelectTrigger>
+                                            <SelectContent side="top">
+                                                {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                        {pageSize}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                        Page {table.getState().pagination.pageIndex + 1} of{" "}
+                                        {table.getPageCount()}
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="hidden size-8 lg:flex"
+                                            onClick={() => table.setPageIndex(0)}
+                                            disabled={!table.getCanPreviousPage()}
+                                        >
+                                            <span className="sr-only">Go to first page</span>
+                                            <ChevronsLeft className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="size-8"
+                                            onClick={() => table.previousPage()}
+                                            disabled={!table.getCanPreviousPage()}
+                                        >
+                                            <span className="sr-only">Go to previous page</span>
+                                            <ChevronLeft className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="size-8"
+                                            onClick={() => table.nextPage()}
+                                            disabled={!table.getCanNextPage()}
+                                        >
+                                            <span className="sr-only">Go to next page</span>
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="hidden size-8 lg:flex"
+                                            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                                            disabled={!table.getCanNextPage()}
+                                        >
+                                            <span className="sr-only">Go to last page</span>
+                                            <ChevronsRight className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Delete Confirmation Dialog */}
+                <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Med Tech</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to delete <strong>{medtechToDelete?.name}</strong>? 
+                                This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
+                                Delete Med Tech
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </div>
         </AppLayout>
     );

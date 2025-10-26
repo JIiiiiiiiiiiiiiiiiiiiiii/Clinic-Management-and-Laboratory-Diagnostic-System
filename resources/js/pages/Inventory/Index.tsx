@@ -103,17 +103,6 @@ export default function InventoryDashboard({
                             </div>
                         </div>
                         <div className="flex items-center gap-4">
-                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
-                                        <Package className="h-6 w-6 text-black" />
-                                    </div>
-                                    <div>
-                                        <div className="text-3xl font-bold text-black">{stats.total_products}</div>
-                                        <div className="text-black text-sm font-medium">Total Items</div>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -143,14 +132,7 @@ export default function InventoryDashboard({
                         }
                     >
                             {/* Statistics Grid */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                                <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Package className="h-4 w-4 text-black" />
-                                        <span className="text-sm font-medium text-gray-800">Total Items</span>
-                                    </div>
-                                    <div className="text-2xl font-bold text-gray-900">{stats.total_products}</div>
-                                </div>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                                 <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
                                     <div className="flex items-center gap-2 mb-2">
                                         <AlertTriangle className="h-4 w-4 text-black" />

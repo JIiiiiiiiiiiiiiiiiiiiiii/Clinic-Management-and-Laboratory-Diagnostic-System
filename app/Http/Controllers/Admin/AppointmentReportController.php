@@ -21,48 +21,15 @@ class AppointmentReportController extends Controller
     public function index(Request $request)
     {
         // Handle new filter parameters for daily/monthly/yearly reports
-        $reportType = $request->get('report_type', 'daily');
+        $reportType = $request->get('report_type', 'all');
         $date = $request->get('date');
         $month = $request->get('month');
         $year = $request->get('year');
         
         // Set date range based on report type
         if ($reportType === 'daily' && $date) {
-            // Check if the provided date has any appointments
-            $appointmentsOnDate = Appointment::whereDate('appointment_date', $date)->count();
-            
-            if ($appointmentsOnDate === 0) {
-                // If no appointments on the provided date, find the next available date with appointments
-                $nextAppointmentDate = Appointment::where('appointment_date', '>=', $date)
-                    ->orderBy('appointment_date', 'asc')
-                    ->value('appointment_date');
-                
-                if ($nextAppointmentDate) {
-                    $dateFrom = $nextAppointmentDate;
-                    $dateTo = $nextAppointmentDate;
-                } else {
-                    // Fallback to the original date if no future appointments
-                    $dateFrom = $date;
-                    $dateTo = $date;
-                }
-            } else {
-                $dateFrom = $date;
-                $dateTo = $date;
-            }
-        } elseif ($reportType === 'daily' && !$date) {
-            // For daily report without specific date, find the next available date with appointments
-            $nextAppointmentDate = Appointment::where('appointment_date', '>=', now()->format('Y-m-d'))
-                ->orderBy('appointment_date', 'asc')
-                ->value('appointment_date');
-            
-            if ($nextAppointmentDate) {
-                $dateFrom = $nextAppointmentDate;
-                $dateTo = $nextAppointmentDate;
-            } else {
-                // Fallback to today if no future appointments
-                $dateFrom = now()->format('Y-m-d');
-                $dateTo = now()->format('Y-m-d');
-            }
+            $dateFrom = $date;
+            $dateTo = $date;
         } elseif ($reportType === 'monthly' && $month) {
             $dateFrom = $month . '-01';
             $dateTo = date('Y-m-t', strtotime($month . '-01'));
@@ -70,9 +37,9 @@ class AppointmentReportController extends Controller
             $dateFrom = $year . '-01-01';
             $dateTo = $year . '-12-31';
         } else {
-            // For initial load, show current month to display more data
-            $dateFrom = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
-            $dateTo = $request->get('date_to', now()->endOfMonth()->format('Y-m-d'));
+            // For 'all' report type or initial load, show all appointments (no date filtering)
+            $dateFrom = null;
+            $dateTo = null;
         }
         
         $status = $request->get('status', 'all');
@@ -103,7 +70,12 @@ class AppointmentReportController extends Controller
      */
     private function getSummaryStatistics($dateFrom, $dateTo, $status = 'all', $specialistType = 'all')
     {
-        $query = Appointment::whereBetween('appointment_date', [$dateFrom, $dateTo]);
+        $query = Appointment::query();
+        
+        // Only apply date filtering if dates are provided
+        if ($dateFrom && $dateTo) {
+            $query->whereBetween('appointment_date', [$dateFrom, $dateTo]);
+        }
 
         // Apply status filter
         if ($status !== 'all') {
@@ -143,10 +115,15 @@ class AppointmentReportController extends Controller
      */
     private function getAppointments($dateFrom, $dateTo, $status = 'all', $specialistType = 'all')
     {
-        $query = Appointment::with(['patient', 'specialist'])
-            ->whereBetween('appointment_date', [$dateFrom, $dateTo])
-            ->orderBy('appointment_date', 'desc')
-            ->orderBy('appointment_time', 'desc');
+        $query = Appointment::with(['patient', 'specialist']);
+        
+        // Only apply date filtering if dates are provided
+        if ($dateFrom && $dateTo) {
+            $query->whereBetween('appointment_date', [$dateFrom, $dateTo]);
+        }
+        
+        $query->orderBy('appointment_date', 'desc')
+              ->orderBy('appointment_time', 'desc');
 
         // Apply status filter
         if ($status !== 'all') {
@@ -161,13 +138,13 @@ class AppointmentReportController extends Controller
         return $query->get()->map(function ($appointment) {
             return [
                 'id' => $appointment->id,
-                'appointment_code' => $appointment->appointment_code ?? 'A' . str_pad($appointment->id, 4, '0', STR_PAD_LEFT),
-                'patient_name' => $appointment->patient_name ?? $appointment->patient?->name ?? 'N/A',
+                'appointment_code' => 'A' . str_pad($appointment->id, 4, '0', STR_PAD_LEFT),
+                'patient_name' => $appointment->patient ? trim($appointment->patient->first_name . ' ' . $appointment->patient->last_name) : 'Unknown Patient',
                 'patient_id' => $appointment->patient_id,
-                'contact_number' => $appointment->contact_number ?? $appointment->patient?->contact_number ?? 'N/A',
+                'contact_number' => $appointment->patient ? $appointment->patient->mobile_no : 'N/A',
                 'appointment_type' => $appointment->appointment_type,
                 'specialist_type' => $appointment->specialist_type,
-                'specialist_name' => $appointment->specialist_name ?? $appointment->specialist?->name ?? 'N/A',
+                'specialist_name' => $appointment->specialist ? $appointment->specialist->name : 'Unknown Specialist',
                 'specialist_id' => $appointment->specialist_id,
                 'appointment_date' => $appointment->appointment_date,
                 'appointment_time' => $appointment->appointment_time,
@@ -201,8 +178,9 @@ class AppointmentReportController extends Controller
             $dateFrom = $request->get('year') . '-01-01';
             $dateTo = $request->get('year') . '-12-31';
         } else {
-            $dateFrom = now()->format('Y-m-d');
-            $dateTo = now()->format('Y-m-d');
+            // For export without specific date range, show all appointments
+            $dateFrom = null;
+            $dateTo = null;
         }
 
         $status = $request->get('status', 'all');
@@ -234,8 +212,9 @@ class AppointmentReportController extends Controller
             $dateFrom = $request->get('year') . '-01-01';
             $dateTo = $request->get('year') . '-12-31';
         } else {
-            $dateFrom = now()->format('Y-m-d');
-            $dateTo = now()->format('Y-m-d');
+            // For export without specific date range, show all appointments
+            $dateFrom = null;
+            $dateTo = null;
         }
 
         $status = $request->get('status', 'all');

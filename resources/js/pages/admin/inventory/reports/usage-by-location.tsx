@@ -157,7 +157,7 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
                         </div>
 
                         {/* Summary Cards */}
-                        <div className="grid gap-6 md:grid-cols-3 mb-8">
+                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5 mb-8">
                             <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
@@ -211,45 +211,89 @@ export default function UsageByLocationReport({ usageByLocation, filters }: Usag
                                     </div>
                                 </div>
                             </div>
+
+                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <Calendar className="h-6 w-6 text-black" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-lg font-bold text-black">Total Quantity</h4>
+                                            <p className="text-gray-600 text-sm">Total units consumed</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-3xl font-bold text-black">
+                                        {Object.values(usageByLocation || {})
+                                            .flat()
+                                            .reduce((sum, usage: any) => sum + (Number(usage?.total_quantity) || 0), 0)}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <Users className="h-6 w-6 text-black" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-lg font-bold text-black">Avg per Location</h4>
+                                            <p className="text-gray-600 text-sm">Average usage per location</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-3xl font-bold text-black">
+                                        {Object.keys(usageByLocation || {}).length > 0 
+                                            ? (Object.values(usageByLocation || {})
+                                                .flat()
+                                                .reduce((sum, usage: any) => sum + (Number(usage?.total_quantity) || 0), 0) / Object.keys(usageByLocation || {}).length).toFixed(1)
+                                            : 0}
+                                    </div>
+                                </div>
+                            </div>
                 </div>
 
                         {/* Location Summary */}
                         <div className="mb-8">
                             <h4 className="text-lg font-semibold text-black mb-4">Location Summary</h4>
                         {Object.keys(usageByLocation || {}).length > 0 ? (
-                            <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                <Table>
-                                    <TableHeader className="bg-gray-50">
-                                        <TableRow className="hover:bg-gray-50">
-                                            <TableHead className="font-semibold text-gray-700">Location</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Products Used</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Total Quantity</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Total Cost</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {Object.keys(usageByLocation || {}).map((location) => {
-                                            const totals = getTotalUsageByLocation(location);
-                                            return (
-                                                <TableRow key={location} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100">
-                                                    <TableCell>
-                                                        <div className="font-medium text-gray-900">{location}</div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="outline" className="px-3 py-1">{totals.productCount}</Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="font-medium text-gray-900">{totals.totalQuantity}</div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="font-medium text-gray-900">₱{totals.totalCost.toFixed(2)}</div>
-                                                    </TableCell>
+                            <Card className="bg-white border border-gray-200">
+                                <CardContent className="p-6">
+                                    <div className="overflow-x-auto rounded-md border">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Location</TableHead>
+                                                    <TableHead>Products Used</TableHead>
+                                                    <TableHead>Total Quantity</TableHead>
+                                                    <TableHead>Total Cost</TableHead>
                                                 </TableRow>
-                                            );
-                                        })}
-                                    </TableBody>
-                                </Table>
-                            </div>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {Object.keys(usageByLocation || {}).map((location) => {
+                                                    const totals = getTotalUsageByLocation(location);
+                                                    return (
+                                                        <TableRow key={location}>
+                                                            <TableCell>
+                                                                <div className="font-medium">{location}</div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Badge variant="outline">{totals.productCount}</Badge>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className="font-medium">{totals.totalQuantity}</div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className="font-medium">₱{totals.totalCost.toFixed(2)}</div>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         ) : (
                             <div className="py-12 text-center">
                                 <div className="p-6 bg-gray-50 rounded-2xl">

@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -5,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
@@ -25,9 +27,28 @@ import {
     Stethoscope,
     CheckCircle,
     XCircle,
-    AlertCircle
+    AlertCircle,
+    ArrowUpDown,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight
 } from 'lucide-react';
 import { useState } from 'react';
+import {
+    ColumnDef,
+    ColumnFiltersState,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+    VisibilityState,
+} from '@tanstack/react-table';
+import * as React from 'react';
 
 type Summary = {
     total_appointments: number;
@@ -69,6 +90,199 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Appointments', href: '/admin/reports/appointments' },
 ];
 
+// Column definitions for the appointments table
+const columns: ColumnDef<Appointment>[] = [
+    {
+        accessorKey: 'appointment_code',
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Appointment Code
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">{row.getValue("appointment_code")}</div>
+        ),
+    },
+    {
+        accessorKey: 'patient_name',
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Patient Name
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const appointment = row.original;
+            return (
+                <div>
+                    <div className="font-medium">{appointment.patient_name}</div>
+                    <div className="text-xs text-gray-500">ID: {appointment.patient_id}</div>
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: 'contact_number',
+        header: "Contact",
+        cell: ({ row }) => (
+            <div className="text-sm">{row.getValue("contact_number")}</div>
+        ),
+    },
+    {
+        accessorKey: 'specialist_name',
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Specialist
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const appointment = row.original;
+            return (
+                <div>
+                    <div className="font-medium">{appointment.specialist_name}</div>
+                    <div className="text-xs text-gray-500">{appointment.specialist_type}</div>
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: 'appointment_date',
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Date
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const date = new Date(row.getValue("appointment_date"));
+            return (
+                <div className="text-sm">
+                    {date.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    })}
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: 'appointment_time',
+        header: "Time",
+        cell: ({ row }) => (
+            <div className="text-sm">{row.getValue("appointment_time")}</div>
+        ),
+    },
+    {
+        accessorKey: 'price',
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Price
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">₱{Number(row.getValue("price") || 0).toFixed(2)}</div>
+        ),
+    },
+    {
+        accessorKey: 'status',
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Status
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const status = row.getValue("status") as string;
+            const getStatusIcon = (status: string) => {
+                switch (status.toLowerCase()) {
+                    case 'completed':
+                        return <CheckCircle className="h-4 w-4 text-green-500" />;
+                    case 'confirmed':
+                        return <Clock className="h-4 w-4 text-blue-500" />;
+                    case 'pending':
+                        return <AlertCircle className="h-4 w-4 text-orange-500" />;
+                    case 'cancelled':
+                        return <XCircle className="h-4 w-4 text-red-500" />;
+                    default:
+                        return <AlertCircle className="h-4 w-4 text-gray-500" />;
+                }
+            };
+            const getStatusColor = (status: string) => {
+                switch (status.toLowerCase()) {
+                    case 'completed':
+                        return 'bg-green-100 text-green-800 border-green-200';
+                    case 'confirmed':
+                        return 'bg-blue-100 text-blue-800 border-blue-200';
+                    case 'pending':
+                        return 'bg-orange-100 text-orange-800 border-orange-200';
+                    case 'cancelled':
+                        return 'bg-red-100 text-red-800 border-red-200';
+                    default:
+                        return 'bg-gray-100 text-gray-800 border-gray-200';
+                }
+            };
+            return (
+                <Badge className={`${getStatusColor(status)} border`}>
+                    {getStatusIcon(status)}
+                    <span className="ml-1">{status}</span>
+                </Badge>
+            );
+        },
+    },
+    {
+        accessorKey: 'source',
+        header: "Source",
+        cell: ({ row }) => {
+            const source = row.getValue("source") as string;
+            return (
+                <Badge variant="outline" className="capitalize">
+                    {source}
+                </Badge>
+            );
+        },
+    },
+];
+
 export default function AppointmentsSimple({ 
     summary,
     appointments = [],
@@ -85,6 +299,14 @@ export default function AppointmentsSimple({
     const [selectedStatus, setSelectedStatus] = useState(filters?.status || 'all');
     const [selectedSpecialist, setSelectedSpecialist] = useState(filters?.specialist_type || 'all');
     const [isLoading, setIsLoading] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
+
+    // TanStack Table state
+    const [sorting, setSorting] = React.useState<SortingState>([]);
+    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+    const [rowSelection, setRowSelection] = React.useState({});
+    const [globalFilter, setGlobalFilter] = React.useState('');
 
     // Provide default values for summary
     const defaultSummary: Summary = {
@@ -182,25 +404,68 @@ export default function AppointmentsSimple({
         });
     };
 
-    const handleExport = (reportType: string, format: string) => {
-        const params: any = { 
-            format, 
-            report_type: reportType,
-            status: selectedStatus,
-            specialist_type: selectedSpecialist
-        };
-        
-        if (reportType === 'daily') {
-            params.date = selectedDate;
-        } else if (reportType === 'monthly') {
-            params.month = selectedMonth;
-        } else if (reportType === 'yearly') {
-            params.year = selectedYear;
-        }
+    const handleExport = async (reportType: string, format: string) => {
+        try {
+            setIsExporting(true);
+            const params: any = { 
+                format, 
+                report_type: reportType,
+                status: selectedStatus,
+                specialist_type: selectedSpecialist
+            };
+            
+            if (reportType === 'daily') {
+                params.date = selectedDate;
+            } else if (reportType === 'monthly') {
+                params.month = selectedMonth;
+            } else if (reportType === 'yearly') {
+                params.year = selectedYear;
+            }
 
-        const exportUrl = `/admin/reports/appointments/export?${new URLSearchParams(params).toString()}`;
-        window.open(exportUrl, '_blank');
+            window.location.href = `/admin/reports/appointments/export?${new URLSearchParams(params).toString()}`;
+
+            setTimeout(() => {
+                setIsExporting(false);
+            }, 2000);
+        } catch (error) {
+            console.error('Export failed:', error);
+            setIsExporting(false);
+        }
     };
+
+    // Initialize table
+    const table = useReactTable({
+        data: appointments || [],
+        columns,
+        onSortingChange: setSorting,
+        onColumnFiltersChange: setColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onColumnVisibilityChange: setColumnVisibility,
+        onRowSelectionChange: setRowSelection,
+        onGlobalFilterChange: setGlobalFilter,
+        globalFilterFn: (row, columnId, value) => {
+            const search = value.toLowerCase();
+            const appointment = row.original;
+            return (
+                appointment.patient_name?.toLowerCase().includes(search) ||
+                appointment.appointment_code?.toLowerCase().includes(search) ||
+                appointment.specialist_name?.toLowerCase().includes(search) ||
+                appointment.contact_number?.toLowerCase().includes(search) ||
+                appointment.status?.toLowerCase().includes(search) ||
+                appointment.source?.toLowerCase().includes(search)
+            );
+        },
+        state: {
+            sorting,
+            columnFilters,
+            columnVisibility,
+            rowSelection,
+            globalFilter,
+        },
+    });
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -496,26 +761,106 @@ export default function AppointmentsSimple({
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-6">
-                                <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                    <Table className="min-w-full">
-                                        <TableHeader className="bg-gray-50">
-                                            <TableRow className="hover:bg-gray-50">
-                                                <TableHead className="font-semibold text-gray-700 w-24">Code</TableHead>
-                                                <TableHead className="font-semibold text-gray-700 w-32">Patient</TableHead>
-                                                <TableHead className="font-semibold text-gray-700 w-28">Contact</TableHead>
-                                                <TableHead className="font-semibold text-gray-700 w-32">Type</TableHead>
-                                                <TableHead className="font-semibold text-gray-700 w-32">Specialist</TableHead>
-                                                <TableHead className="font-semibold text-gray-700 w-28">Date</TableHead>
-                                                <TableHead className="font-semibold text-gray-700 w-20">Time</TableHead>
-                                                <TableHead className="font-semibold text-gray-700 w-24">Status</TableHead>
-                                                <TableHead className="font-semibold text-gray-700 w-20">Source</TableHead>
-                                                <TableHead className="font-semibold text-gray-700 w-24">Amount</TableHead>
-                                            </TableRow>
+                                {/* Table Controls */}
+                                <div className="flex items-center py-4">
+                                    <Input
+                                        placeholder="Search appointments..."
+                                        value={globalFilter ?? ""}
+                                        onChange={(event) => setGlobalFilter(event.target.value)}
+                                        className="max-w-sm"
+                                    />
+                                    <Button
+                                        onClick={() => handleExport(activeTab, 'excel')}
+                                        disabled={isExporting}
+                                        className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                                    >
+                                        <Download className="h-4 w-4 mr-2" />
+                                        Export Excel
+                                    </Button>
+                                    <Button
+                                        onClick={() => handleExport(activeTab, 'pdf')}
+                                        disabled={isExporting}
+                                        variant="outline"
+                                        className="ml-2"
+                                    >
+                                        <FileText className="h-4 w-4 mr-2" />
+                                        Export PDF
+                                    </Button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="outline" className="ml-auto">
+                                                Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                                            {table
+                                                .getAllColumns()
+                                                .filter((column) => column.getCanHide())
+                                                .map((column) => {
+                                                    return (
+                                                        <DropdownMenuCheckboxItem
+                                                            key={column.id}
+                                                            className="capitalize"
+                                                            checked={column.getIsVisible()}
+                                                            onCheckedChange={(value) => {
+                                                                column.toggleVisibility(!!value);
+                                                            }}
+                                                            onSelect={(e) => {
+                                                                e.preventDefault();
+                                                            }}
+                                                        >
+                                                            {column.id}
+                                                        </DropdownMenuCheckboxItem>
+                                                    )
+                                                })}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+                                        
+                                {/* Table */}
+                                <div className="rounded-md border">
+                                    <Table>
+                                        <TableHeader>
+                                            {table.getHeaderGroups().map((headerGroup) => (
+                                                <TableRow key={headerGroup.id}>
+                                                    {headerGroup.headers.map((header) => {
+                                                        return (
+                                                            <TableHead key={header.id}>
+                                                                {header.isPlaceholder
+                                                                    ? null
+                                                                    : flexRender(
+                                                                        header.column.columnDef.header,
+                                                                        header.getContext()
+                                                                    )}
+                                                            </TableHead>
+                                                        )
+                                                    })}
+                                                </TableRow>
+                                            ))}
                                         </TableHeader>
                                         <TableBody>
-                                            {!appointments || appointments.length === 0 ? (
+                                            {table.getRowModel().rows?.length ? (
+                                                table.getRowModel().rows.map((row) => (
+                                                    <TableRow
+                                                        key={row.id}
+                                                        data-state={row.getIsSelected() && "selected"}
+                                                    >
+                                                        {row.getVisibleCells().map((cell) => (
+                                                            <TableCell key={cell.id}>
+                                                                {flexRender(
+                                                                    cell.column.columnDef.cell,
+                                                                    cell.getContext()
+                                                                )}
+                                                            </TableCell>
+                                                        ))}
+                                                    </TableRow>
+                                                ))
+                                            ) : (
                                                 <TableRow>
-                                                    <TableCell colSpan={9} className="text-center py-8">
+                                                    <TableCell
+                                                        colSpan={columns.length}
+                                                        className="h-24 text-center"
+                                                    >
                                                         <div className="flex flex-col items-center">
                                                             <Calendar className="mx-auto mb-4 h-12 w-12 text-gray-400" />
                                                             <h3 className="mb-2 text-lg font-semibold text-gray-600">No appointments found</h3>
@@ -523,83 +868,85 @@ export default function AppointmentsSimple({
                                                         </div>
                                                     </TableCell>
                                                 </TableRow>
-                                            ) : (
-                                                appointments && appointments.length > 0 ? appointments.map((appointment) => (
-                                                    <TableRow key={appointment.id} className="hover:bg-gray-50">
-                                                        <TableCell className="font-medium w-24">
-                                                            <div className="flex items-center gap-1">
-                                                                <Calendar className="h-3 w-3 text-gray-500" />
-                                                                <span className="text-xs font-mono">
-                                                                    {appointment.appointment_code || `A${appointment.id.toString().padStart(4, '0')}`}
-                                                                </span>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="font-medium w-32">
-                                                            <div className="flex items-center gap-1">
-                                                                <User className="h-3 w-3 text-gray-500" />
-                                                                <span className="text-sm truncate" title={appointment.patient_name}>
-                                                                    {appointment.patient_name}
-                                                                </span>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="w-28">
-                                                            <div className="flex items-center gap-1">
-                                                                <Phone className="h-3 w-3 text-gray-500" />
-                                                                <span className="text-xs truncate" title={appointment.contact_number}>
-                                                                    {appointment.contact_number}
-                                                                </span>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="w-32">
-                                                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium truncate block">
-                                                                {appointment.appointment_type}
-                                                            </span>
-                                                        </TableCell>
-                                                        <TableCell className="w-32">
-                                                            <div className="flex items-center gap-1">
-                                                                <Stethoscope className="h-3 w-3 text-gray-500" />
-                                                                <span className="text-sm truncate" title={appointment.specialist_name}>
-                                                                    {appointment.specialist_name}
-                                                                </span>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="text-gray-600 w-28">
-                                                            <div className="text-sm">
-                                                                {formatDate(appointment.appointment_date)}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="w-20">
-                                                            <div className="text-sm text-gray-500">
-                                                                {formatTime(appointment.appointment_time)}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="w-24">
-                                                            <div className="flex items-center gap-1">
-                                                                {getStatusIcon(appointment.status)}
-                                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>
-                                                                    {appointment.status}
-                                                                </span>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="w-20">
-                                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                                appointment.source === 'Online' 
-                                                                    ? 'bg-green-100 text-green-800' 
-                                                                    : 'bg-orange-100 text-orange-800'
-                                                            }`}>
-                                                                {appointment.source}
-                                                            </span>
-                                                        </TableCell>
-                                                        <TableCell className="font-semibold text-green-600 w-24">
-                                                            <span className="text-sm">
-                                                                ₱{appointment.price.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                            </span>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )) : null
                                             )}
                                         </TableBody>
                                     </Table>
+                                </div>
+                                
+                                {/* Pagination */}
+                                <div className="flex items-center justify-between px-2 py-4">
+                                    <div className="text-muted-foreground flex-1 text-sm">
+                                        {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                                        {table.getFilteredRowModel().rows.length} row(s) selected.
+                                    </div>
+                                    <div className="flex items-center space-x-6 lg:space-x-8">
+                                        <div className="flex items-center space-x-2">
+                                            <p className="text-sm font-medium">Rows per page</p>
+                                            <Select
+                                                value={`${table.getState().pagination.pageSize}`}
+                                                onValueChange={(value) => {
+                                                    table.setPageSize(Number(value))
+                                                }}
+                                            >
+                                                <SelectTrigger className="h-8 w-[70px]">
+                                                    <SelectValue placeholder={table.getState().pagination.pageSize} />
+                                                </SelectTrigger>
+                                                <SelectContent side="top">
+                                                    {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                        <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                            {pageSize}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                            Page {table.getState().pagination.pageIndex + 1} of{" "}
+                                            {table.getPageCount()}
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="hidden size-8 lg:flex"
+                                                onClick={() => table.setPageIndex(0)}
+                                                disabled={!table.getCanPreviousPage()}
+                                            >
+                                                <span className="sr-only">Go to first page</span>
+                                                <ChevronsLeft className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="size-8"
+                                                onClick={() => table.previousPage()}
+                                                disabled={!table.getCanPreviousPage()}
+                                            >
+                                                <span className="sr-only">Go to previous page</span>
+                                                <ChevronLeft className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="size-8"
+                                                onClick={() => table.nextPage()}
+                                                disabled={!table.getCanNextPage()}
+                                            >
+                                                <span className="sr-only">Go to next page</span>
+                                                <ChevronRight className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="hidden size-8 lg:flex"
+                                                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                                                disabled={!table.getCanNextPage()}
+                                            >
+                                                <span className="sr-only">Go to last page</span>
+                                                <ChevronsRight className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>

@@ -183,19 +183,9 @@ const getPermissionBasedNavigation = (permissions: any, userRole: string) => {
           show: getSubItemAccess('inventory', 'Overview'),
         },
         {
-          title: "Create Product",
-          url: "/admin/inventory/create",
-          show: getSubItemAccess('inventory', 'Create Product'),
-        },
-        {
-          title: "Doctor & Nurse Supplies",
-          url: "/admin/inventory/doctor-nurse",
-          show: getSubItemAccess('inventory', 'Doctor & Nurse Supplies'),
-        },
-        {
-          title: "Med Tech Supplies",
-          url: "/admin/inventory/medtech",
-          show: getSubItemAccess('inventory', 'Med Tech Supplies'),
+          title: "Supply Items",
+          url: "/admin/inventory/supply-items",
+          show: getSubItemAccess('inventory', 'Supply Items'),
         },
       ],
     },

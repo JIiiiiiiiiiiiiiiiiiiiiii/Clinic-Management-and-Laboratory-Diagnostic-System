@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\InventoryItem;
 use App\Models\InventoryMovement;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -38,16 +39,51 @@ class InventoryController extends Controller
             'lowStockItems_count' => $lowStockItems->count(),
         ]);
 
-        return Inertia::render('admin/inventory/enhanced/index', [
+        // Get Doctor & Nurse Items
+        $doctorNurseItems = InventoryItem::byAssignedTo('Doctor & Nurse')->get();
+        $transformedDoctorNurseItems = $doctorNurseItems->map(function($item) {
+            return [
+                'id' => $item->id,
+                'item_name' => $item->item_name,
+                'item_code' => $item->item_code,
+                'category' => $item->category,
+                'stock' => $item->stock,
+                'low_stock_alert' => $item->low_stock_alert,
+                'unit_price' => $item->unit_cost ?? 0,
+                'total_value' => $item->stock * ($item->unit_cost ?? 0),
+                'location' => $item->location ?? 'Main Storage',
+                'assigned_to' => $item->assigned_to,
+                'status' => strtolower(str_replace(' ', '_', $item->status)),
+                'last_updated' => $item->updated_at->toISOString(),
+            ];
+        });
+
+        // Get Med Tech Items
+        $medTechItems = InventoryItem::byAssignedTo('Med Tech')->get();
+        $transformedMedTechItems = $medTechItems->map(function($item) {
+            return [
+                'id' => $item->id,
+                'item_name' => $item->item_name,
+                'item_code' => $item->item_code,
+                'category' => $item->category,
+                'stock' => $item->stock,
+                'low_stock_alert' => $item->low_stock_alert,
+                'unit_price' => $item->unit_cost ?? 0,
+                'total_value' => $item->stock * ($item->unit_cost ?? 0),
+                'location' => $item->location ?? 'Main Storage',
+                'assigned_to' => $item->assigned_to,
+                'status' => strtolower(str_replace(' ', '_', $item->status)),
+                'last_updated' => $item->updated_at->toISOString(),
+            ];
+        });
+
+        return Inertia::render('admin/inventory/index', [
             'stats' => $stats,
             'recentMovements' => $recentMovements,
             'lowStockItems' => $lowStockItems,
+            'doctorNurseItems' => $transformedDoctorNurseItems,
+            'medTechItems' => $transformedMedTechItems,
         ]);
-    }
-
-    public function create()
-    {
-        return Inertia::render('Inventory/Create');
     }
 
     public function store(Request $request)
@@ -139,82 +175,66 @@ class InventoryController extends Controller
         return redirect()->route('admin.inventory.supply-items')->with('success', 'Product deleted successfully!');
     }
 
-    public function doctorNurse()
-    {
-        $items = InventoryItem::byAssignedTo('Doctor & Nurse')->get();
-        
-        // Calculate stats from fresh database queries to ensure latest values
-        $consumedTotal = InventoryItem::byAssignedTo('Doctor & Nurse')->sum('consumed');
-        $rejectedTotal = InventoryItem::byAssignedTo('Doctor & Nurse')->sum('rejected');
-        $lowStockCount = InventoryItem::byAssignedTo('Doctor & Nurse')->where('status', 'Low Stock')->count();
-        
-        $stats = [
-            'totalItems' => $items->count(),
-            'lowStock' => $lowStockCount,
-            'consumedItems' => $consumedTotal,
-            'rejectedItems' => $rejectedTotal,
-        ];
-
-        // Debug logging
-        \Log::info('DoctorNurse Stats:', [
-            'totalItems' => $stats['totalItems'],
-            'consumedItems' => $stats['consumedItems'],
-            'rejectedItems' => $stats['rejectedItems'],
-            'items_data' => $items->map(function($item) {
-                return [
-                    'name' => $item->item_name,
-                    'consumed' => $item->consumed,
-                    'rejected' => $item->rejected
-                ];
-            })
-        ]);
-
-        return Inertia::render('Inventory/DoctorNurse', [
-            'items' => $items,
-            'stats' => $stats,
-        ]);
-    }
-
-    public function medTech()
-    {
-        $items = InventoryItem::byAssignedTo('Med Tech')->get();
-        
-        // Calculate stats from fresh database queries to ensure latest values
-        $consumedTotal = InventoryItem::byAssignedTo('Med Tech')->sum('consumed');
-        $rejectedTotal = InventoryItem::byAssignedTo('Med Tech')->sum('rejected');
-        $lowStockCount = InventoryItem::byAssignedTo('Med Tech')->where('status', 'Low Stock')->count();
-        
-        $stats = [
-            'totalItems' => $items->count(),
-            'lowStock' => $lowStockCount,
-            'consumedItems' => $consumedTotal,
-            'rejectedItems' => $rejectedTotal,
-        ];
-
-        // Debug logging
-        \Log::info('MedTech Stats:', [
-            'totalItems' => $stats['totalItems'],
-            'consumedItems' => $stats['consumedItems'],
-            'rejectedItems' => $stats['rejectedItems'],
-            'items_data' => $items->map(function($item) {
-                return [
-                    'name' => $item->item_name,
-                    'consumed' => $item->consumed,
-                    'rejected' => $item->rejected
-                ];
-            })
-        ]);
-
-        return Inertia::render('Inventory/MedTech', [
-            'items' => $items,
-            'stats' => $stats,
-        ]);
-    }
-
     public function supplyItems()
     {
-        $doctorNurseItems = InventoryItem::byAssignedTo('Doctor & Nurse')->get();
-        $medTechItems = InventoryItem::byAssignedTo('Med Tech')->get();
+        // Get Doctor & Nurse Items with proper data transformation
+        $doctorNurseItems = InventoryItem::byAssignedTo('Doctor & Nurse')->get()->map(function($item) {
+            return [
+                'id' => $item->id,
+                'item_name' => $item->item_name,
+                'item_code' => $item->item_code,
+                'category' => $item->category,
+                'unit' => $item->unit ?? 'pieces',
+                'assigned_to' => $item->assigned_to,
+                'stock' => $item->stock,
+                'consumed' => $item->consumed ?? 0,
+                'rejected' => $item->rejected ?? 0,
+                'status' => $item->status,
+                'low_stock_alert' => $item->low_stock_alert,
+                'unit_price' => $item->unit_cost ?? 0,
+                'total_value' => $item->stock * ($item->unit_cost ?? 0),
+                'location' => $item->location ?? 'Main Storage',
+                'last_updated' => $item->updated_at->toISOString(),
+            ];
+        });
+
+        // Get Med Tech Items with proper data transformation
+        $medTechItems = InventoryItem::byAssignedTo('Med Tech')->get()->map(function($item) {
+            return [
+                'id' => $item->id,
+                'item_name' => $item->item_name,
+                'item_code' => $item->item_code,
+                'category' => $item->category,
+                'unit' => $item->unit ?? 'pieces',
+                'assigned_to' => $item->assigned_to,
+                'stock' => $item->stock,
+                'consumed' => $item->consumed ?? 0,
+                'rejected' => $item->rejected ?? 0,
+                'status' => $item->status,
+                'low_stock_alert' => $item->low_stock_alert,
+                'unit_price' => $item->unit_cost ?? 0,
+                'total_value' => $item->stock * ($item->unit_cost ?? 0),
+                'location' => $item->location ?? 'Main Storage',
+                'last_updated' => $item->updated_at->toISOString(),
+            ];
+        });
+
+        // Get Consumed/Rejected Items (items that have been consumed or rejected)
+        $consumedRejectedItems = InventoryItem::where(function($query) {
+            $query->where('consumed', '>', 0)
+                  ->orWhere('rejected', '>', 0);
+        })->get()->map(function($item) {
+            return [
+                'id' => $item->id,
+                'item_name' => $item->item_name,
+                'item_code' => $item->item_code,
+                'category' => $item->category,
+                'consumed' => $item->consumed ?? 0,
+                'rejected' => $item->rejected ?? 0,
+                'total_used' => ($item->consumed ?? 0) + ($item->rejected ?? 0),
+                'last_updated' => $item->updated_at->toISOString(),
+            ];
+        });
         
         // Calculate combined stats
         $totalItems = InventoryItem::count();
@@ -231,10 +251,19 @@ class InventoryController extends Controller
             'rejectedItems' => $totalRejected,
         ];
 
+        // Get active staff members for dropdown
+        $staffMembers = User::where('is_active', true)
+            ->whereIn('role', ['doctor', 'nurse', 'medtech', 'admin', 'hospital_staff', 'hospital_admin'])
+            ->select('id', 'name', 'role', 'employee_id')
+            ->orderBy('name')
+            ->get();
+
         return Inertia::render('Inventory/SupplyItems', [
             'doctorNurseItems' => $doctorNurseItems,
             'medTechItems' => $medTechItems,
+            'consumedRejectedItems' => $consumedRejectedItems,
             'stats' => $stats,
+            'staffMembers' => $staffMembers,
         ]);
     }
 
@@ -286,6 +315,66 @@ class InventoryController extends Controller
         $item->updateStatus();
 
         return redirect()->route('admin.inventory.supply-items')->with('success', 'Movement recorded successfully!');
+    }
+
+    public function consumeItem(Request $request, $id)
+    {
+        $request->validate([
+            'quantity' => 'required|integer|min:1',
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        $item = InventoryItem::findOrFail($id);
+
+        if ($item->stock < $request->quantity) {
+            return back()->withErrors(['quantity' => 'Insufficient stock available.']);
+        }
+
+        // Update stock and consumed count
+        $item->decrement('stock', $request->quantity);
+        $item->increment('consumed', $request->quantity);
+        $item->updateStatus();
+
+        // Create movement record
+        InventoryMovement::create([
+            'inventory_id' => $item->id,
+            'movement_type' => 'OUT',
+            'quantity' => $request->quantity,
+            'remarks' => 'Consumed: ' . ($request->reason ?? 'No reason provided'),
+            'created_by' => auth()->user()->name ?? 'System',
+        ]);
+
+        return redirect()->route('admin.inventory.supply-items')->with('success', 'Item consumed successfully!');
+    }
+
+    public function rejectItem(Request $request, $id)
+    {
+        $request->validate([
+            'quantity' => 'required|integer|min:1',
+            'reason' => 'required|string|max:500',
+        ]);
+
+        $item = InventoryItem::findOrFail($id);
+
+        if ($item->stock < $request->quantity) {
+            return back()->withErrors(['quantity' => 'Insufficient stock available.']);
+        }
+
+        // Update stock and rejected count
+        $item->decrement('stock', $request->quantity);
+        $item->increment('rejected', $request->quantity);
+        $item->updateStatus();
+
+        // Create movement record
+        InventoryMovement::create([
+            'inventory_id' => $item->id,
+            'movement_type' => 'OUT',
+            'quantity' => $request->quantity,
+            'remarks' => 'Rejected: ' . $request->reason,
+            'created_by' => auth()->user()->name ?? 'System',
+        ]);
+
+        return redirect()->route('admin.inventory.supply-items')->with('success', 'Item rejected successfully!');
     }
 
     public function reports(Request $request)

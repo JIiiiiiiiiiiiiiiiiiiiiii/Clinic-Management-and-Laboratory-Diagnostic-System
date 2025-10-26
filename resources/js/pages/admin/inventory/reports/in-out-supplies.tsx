@@ -1,17 +1,47 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CustomDatePicker } from '@/components/ui/date-picker';
 import AppLayout from '@/layouts/app-layout';
 import Heading from '@/components/heading';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { ArrowDown, ArrowLeft, ArrowUp, BarChart3, Calendar, Download } from 'lucide-react';
+import { 
+    ArrowDown, 
+    ArrowLeft, 
+    ArrowUp, 
+    BarChart3, 
+    Calendar, 
+    Download, 
+    ArrowUpDown, 
+    ChevronDown, 
+    ChevronLeft, 
+    ChevronRight, 
+    ChevronsLeft, 
+    ChevronsRight,
+    Search,
+    FileText,
+    MoreHorizontal
+} from 'lucide-react';
 import { useState } from 'react';
+import {
+    ColumnDef,
+    ColumnFiltersState,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+    VisibilityState,
+} from '@tanstack/react-table';
+import * as React from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -62,6 +92,158 @@ interface InOutSuppliesReportProps {
     };
 }
 
+// Column definitions for the supply transactions table
+const createColumns = (): ColumnDef<SupplyTransaction>[] => [
+    {
+        accessorKey: "transaction_date",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Date
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const date = new Date(row.getValue("transaction_date"));
+            return (
+                <div className="text-sm">
+                    {date.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    })}
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "type",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Type
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const type = row.getValue("type") as string;
+            return (
+                <Badge variant={type === 'in' ? 'default' : 'secondary'}>
+                    {type === 'in' ? 'Incoming' : 'Outgoing'}
+                </Badge>
+            );
+        },
+    },
+    {
+        accessorKey: "product.name",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Product
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const transaction = row.original;
+            return (
+                <div>
+                    <div className="font-medium">{transaction.product?.name || 'Unknown'}</div>
+                    <div className="text-sm text-gray-500">{transaction.product?.code || '—'}</div>
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "quantity",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Quantity
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const transaction = row.original;
+            return (
+                <div>
+                    <div className="font-medium">{Math.abs(transaction.quantity || 0)}</div>
+                    <div className="text-sm text-gray-500">{transaction.product?.unit_of_measure || 'units'}</div>
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "unit_cost",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Unit Cost
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">₱{Number(row.getValue("unit_cost") || 0).toFixed(2)}</div>
+        ),
+    },
+    {
+        accessorKey: "total_cost",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Total Cost
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">₱{Number(row.getValue("total_cost") || 0).toFixed(2)}</div>
+        ),
+    },
+    {
+        accessorKey: "user.name",
+        header: "User",
+        cell: ({ row }) => (
+            <div className="text-sm">{row.original.user?.name || 'N/A'}</div>
+        ),
+    },
+    {
+        accessorKey: "approved_by.name",
+        header: "Approved By",
+        cell: ({ row }) => (
+            <div className="text-sm">{row.original.approved_by?.name || 'N/A'}</div>
+        ),
+    },
+];
+
 export default function InOutSuppliesReport({
     incomingSupplies,
     outgoingSupplies,
@@ -73,6 +255,52 @@ export default function InOutSuppliesReport({
 }: InOutSuppliesReportProps) {
     const [startDate, setStartDate] = useState(filters?.start_date || '');
     const [endDate, setEndDate] = useState(filters?.end_date || '');
+
+    // TanStack Table state
+    const [sorting, setSorting] = React.useState<SortingState>([]);
+    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+    const [rowSelection, setRowSelection] = React.useState({});
+    const [globalFilter, setGlobalFilter] = React.useState('');
+
+    // Combine all transactions for the table
+    const allTransactions = [...(incomingSupplies || []), ...(outgoingSupplies || [])]
+        .sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime());
+
+    // Initialize table
+    const columns = createColumns();
+    const table = useReactTable({
+        data: allTransactions || [],
+        columns,
+        onSortingChange: setSorting,
+        onColumnFiltersChange: setColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onColumnVisibilityChange: setColumnVisibility,
+        onRowSelectionChange: setRowSelection,
+        onGlobalFilterChange: setGlobalFilter,
+        globalFilterFn: (row, columnId, value) => {
+            const search = value.toLowerCase();
+            const transaction = row.original;
+            return Boolean(
+                transaction.product?.name?.toLowerCase().includes(search) ||
+                transaction.product?.code?.toLowerCase().includes(search) ||
+                transaction.type?.toLowerCase().includes(search) ||
+                transaction.subtype?.toLowerCase().includes(search) ||
+                transaction.user?.name?.toLowerCase().includes(search) ||
+                transaction.approved_by?.name?.toLowerCase().includes(search)
+            );
+        },
+        state: {
+            sorting,
+            columnFilters,
+            columnVisibility,
+            rowSelection,
+            globalFilter,
+        },
+    });
 
     const handleFilter = () => {
         router.get('/admin/inventory/reports/in-out-supplies', {
@@ -92,282 +320,257 @@ export default function InOutSuppliesReport({
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="In/Out Supplies Report" />
-            <div className="min-h-screen bg-white p-6">
-                {/* Header Section */}
-                <div className="mb-8">
-                    <div className="flex items-center justify-between">
-                        <Heading title="In/Out Supplies Report" description="Track incoming and outgoing supply transactions with detailed summaries" icon={BarChart3} />
-                        <div className="flex items-center gap-4">
-                            <Button variant="secondary" onClick={() => router.visit('/admin/inventory/reports')} className="bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-700 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
-                                <ArrowLeft className="mr-2 h-4 w-4" />
-                                Back to Reports
-                            </Button>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button className="bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-base font-semibold rounded-xl">
-                                        <Download className="mr-2 h-4 w-4" />
-                                        Export
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handleExport('excel')}>Excel</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleExport('pdf')}>PDF</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleExport('word')}>Word</DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
+            <div className="min-h-screen bg-gray-50">
+                <div className="p-6">
+                    {/* Statistics Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Incoming</p>
+                                        <p className="text-3xl font-bold text-gray-900">{(incomingSupplies || []).length}</p>
+                                        <p className="text-sm text-gray-500">Incoming transactions</p>
+                                    </div>
+                                    <div className="p-3 bg-green-100 rounded-full">
+                                        <ArrowUp className="h-6 w-6 text-green-600" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Outgoing</p>
+                                        <p className="text-3xl font-bold text-gray-900">{(outgoingSupplies || []).length}</p>
+                                        <p className="text-sm text-gray-500">Outgoing transactions</p>
+                                    </div>
+                                    <div className="p-3 bg-red-100 rounded-full">
+                                        <ArrowDown className="h-6 w-6 text-red-600" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Net Change</p>
+                                        <p className="text-3xl font-bold text-gray-900">{netChange || 0}</p>
+                                        <p className="text-sm text-gray-500">Net quantity change</p>
+                                    </div>
+                                    <div className="p-3 bg-blue-100 rounded-full">
+                                        <BarChart3 className="h-6 w-6 text-blue-600" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Total Value</p>
+                                        <p className="text-3xl font-bold text-gray-900">₱{Number(totalValue || 0).toFixed(2)}</p>
+                                        <p className="text-sm text-gray-500">Total transaction value</p>
+                                    </div>
+                                    <div className="p-3 bg-purple-100 rounded-full">
+                                        <Calendar className="h-6 w-6 text-purple-600" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </div>
-                </div>
 
-                {/* Combined Report Card */}
-                <div className="holographic-card shadow-lg border-0 mb-8 overflow-hidden rounded-xl bg-white">
-                    <div className="bg-white border-b border-gray-200 text-black">
-                        <div className="flex items-center gap-3 p-6">
-                            <div className="p-2 bg-gray-100 rounded-lg">
-                                <BarChart3 className="h-6 w-6 text-black" />
+                    {/* Data Table */}
+                    <Card className="bg-white border border-gray-200">
+                        <CardContent className="p-6">
+                            {/* Table Controls */}
+                            <div className="flex items-center py-4">
+                                <Input
+                                    placeholder="Search transactions..."
+                                    value={globalFilter ?? ""}
+                                    onChange={(event) => setGlobalFilter(event.target.value)}
+                                    className="max-w-sm"
+                                />
+                                <Button
+                                    onClick={() => handleExport('excel')}
+                                    className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                                >
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Export Excel
+                                </Button>
+                                <Button
+                                    onClick={() => handleExport('pdf')}
+                                    variant="outline"
+                                    className="ml-2"
+                                >
+                                    <FileText className="h-4 w-4 mr-2" />
+                                    Export PDF
+                                </Button>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" className="ml-auto">
+                                            Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                                        {table
+                                            .getAllColumns()
+                                            .filter((column) => column.getCanHide())
+                                            .map((column) => {
+                                                return (
+                                                    <DropdownMenuCheckboxItem
+                                                        key={column.id}
+                                                        className="capitalize"
+                                                        checked={column.getIsVisible()}
+                                                        onCheckedChange={(value) => {
+                                                            column.toggleVisibility(!!value);
+                                                        }}
+                                                        onSelect={(e) => {
+                                                            e.preventDefault();
+                                                        }}
+                                                    >
+                                                        {column.id}
+                                                    </DropdownMenuCheckboxItem>
+                                                )
+                                            })}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </div>
-                            <div>
-                                <h3 className="text-2xl font-bold text-black">In/Out Supplies Report</h3>
-                                <p className="text-gray-600 mt-1">Complete report with filters, summary, and transaction details</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="px-6 py-6 bg-white">
-                        {/* Date Range Filter */}
-                        <div className="mb-8">
-                            <h4 className="text-lg font-semibold text-black mb-4">Date Range Filter</h4>
-                            <div className="flex flex-wrap gap-2 items-end">
-                                <div className="flex-1 min-w-[200px]">
-                                    <Label htmlFor="start_date" className="text-base font-semibold text-gray-700 mb-1 block">Start Date</Label>
-                                    <CustomDatePicker
-                                        value={startDate}
-                                        onChange={(date) => setStartDate(date ? date.toISOString().split('T')[0] : '')}
-                                        placeholder="Select start date"
-                                        variant="responsive"
-                                        className="w-full"
-                                    />
-                                </div>
-                                <div className="flex-1 min-w-[200px]">
-                                    <Label htmlFor="end_date" className="text-base font-semibold text-gray-700 mb-1 block">End Date</Label>
-                                    <CustomDatePicker
-                                        value={endDate}
-                                        onChange={(date) => setEndDate(date ? date.toISOString().split('T')[0] : '')}
-                                        placeholder="Select end date"
-                                        variant="responsive"
-                                        className="w-full"
-                                    />
-                                </div>
-                                <div className="flex-none">
-                                    <Button onClick={handleFilter} className="h-12 bg-white border border-gray-300 hover:bg-gray-50 text-black shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl px-6">
-                                        Apply Filter
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Summary Cards */}
-                        <div className="grid gap-6 md:grid-cols-4 mb-8">
-                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-gray-100 rounded-lg">
-                                            <ArrowUp className="h-6 w-6 text-black" />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-lg font-bold text-black">Incoming</h4>
-                                            <p className="text-gray-600 text-sm">Incoming transactions</p>
-                                        </div>
-                                    </div>
-                                    <div className="text-3xl font-bold text-black">{(incomingSupplies || []).length}</div>
-                                </div>
-                            </div>
-
-                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-gray-100 rounded-lg">
-                                            <ArrowDown className="h-6 w-6 text-black" />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-lg font-bold text-black">Outgoing</h4>
-                                            <p className="text-gray-600 text-sm">Outgoing transactions</p>
-                                        </div>
-                                    </div>
-                                    <div className="text-3xl font-bold text-black">{(outgoingSupplies || []).length}</div>
-                                </div>
-                            </div>
-
-                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-gray-100 rounded-lg">
-                                            <BarChart3 className="h-6 w-6 text-black" />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-lg font-bold text-black">Net Change</h4>
-                                            <p className="text-gray-600 text-sm">Net quantity change</p>
-                                        </div>
-                                    </div>
-                                    <div className="text-3xl font-bold text-black">{netChange || 0}</div>
-                                </div>
-                            </div>
-
-                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-gray-100 rounded-lg">
-                                            <BarChart3 className="h-6 w-6 text-black" />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-lg font-bold text-black">Total Value</h4>
-                                            <p className="text-gray-600 text-sm">Total transaction value</p>
-                                        </div>
-                                    </div>
-                                    <div className="text-3xl font-bold text-black">₱{Number(totalValue || 0).toFixed(2)}</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Incoming Summary */}
-                        <div className="mb-8">
-                            <h4 className="text-lg font-semibold text-black mb-4">Incoming Summary</h4>
-                            {Object.keys(incomingSummary || {}).length > 0 ? (
-                                <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                    <Table>
-                                        <TableHeader className="bg-gray-50">
-                                            <TableRow className="hover:bg-gray-50">
-                                                <TableHead className="font-semibold text-gray-700">Product</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Total Quantity</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Total Cost</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {Object.entries(incomingSummary || {}).map(([product, data]) => (
-                                                <TableRow key={product} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100">
-                                                    <TableCell className="font-medium text-gray-900">{product}</TableCell>
-                                                    <TableCell className="font-medium text-gray-900">{data.total_quantity}</TableCell>
-                                                    <TableCell className="font-medium text-gray-900">₱{Number(data.total_cost || 0).toFixed(2)}</TableCell>
+                                    
+                            {/* Table */}
+                            <div className="rounded-md border">
+                                        <Table>
+                                    <TableHeader>
+                                        {table.getHeaderGroups().map((headerGroup) => (
+                                            <TableRow key={headerGroup.id}>
+                                                {headerGroup.headers.map((header) => {
+                                                    return (
+                                                        <TableHead key={header.id}>
+                                                            {header.isPlaceholder
+                                                                ? null
+                                                                : flexRender(
+                                                                    header.column.columnDef.header,
+                                                                    header.getContext()
+                                                        )}
+                                                    </TableHead>
+                                                    )
+                                                })}
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            ) : (
-                                <div className="py-12 text-center">
-                                    <div className="p-6 bg-gray-50 rounded-2xl">
-                                        <ArrowUp className="mx-auto mb-4 h-16 w-16 text-gray-400" />
-                                        <h3 className="mb-2 text-2xl font-bold text-gray-900">No Incoming Supplies Found</h3>
-                                        <p className="mb-6 text-gray-600">No incoming supplies in the selected date range.</p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Outgoing Summary */}
-                        <div className="mb-8">
-                            <h4 className="text-lg font-semibold text-black mb-4">Outgoing Summary</h4>
-                            {Object.keys(outgoingSummary || {}).length > 0 ? (
-                                <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                    <Table>
-                                        <TableHeader className="bg-gray-50">
-                                            <TableRow className="hover:bg-gray-50">
-                                                <TableHead className="font-semibold text-gray-700">Product</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Total Quantity</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Total Cost</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {Object.entries(outgoingSummary || {}).map(([product, data]) => (
-                                                <TableRow key={product} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100">
-                                                    <TableCell className="font-medium text-gray-900">{product}</TableCell>
-                                                    <TableCell className="font-medium text-gray-900">{data.total_quantity}</TableCell>
-                                                    <TableCell className="font-medium text-gray-900">₱{Number(data.total_cost || 0).toFixed(2)}</TableCell>
+                                        ))}
+                                            </TableHeader>
+                                            <TableBody>
+                                        {table.getRowModel().rows?.length ? (
+                                            table.getRowModel().rows.map((row) => (
+                                                <TableRow
+                                                    key={row.id}
+                                                    data-state={row.getIsSelected() && "selected"}
+                                                >
+                                                    {row.getVisibleCells().map((cell) => (
+                                                        <TableCell key={cell.id}>
+                                                            {flexRender(
+                                                                cell.column.columnDef.cell,
+                                                                cell.getContext()
+                                                            )}
+                                                        </TableCell>
+                                                    ))}
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            ) : (
-                                <div className="py-12 text-center">
-                                    <div className="p-6 bg-gray-50 rounded-2xl">
-                                        <ArrowDown className="mx-auto mb-4 h-16 w-16 text-gray-400" />
-                                        <h3 className="mb-2 text-2xl font-bold text-gray-900">No Outgoing Supplies Found</h3>
-                                        <p className="mb-6 text-gray-600">No outgoing supplies in the selected date range.</p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* All Transactions */}
-                        <div>
-                            <h4 className="text-lg font-semibold text-black mb-4">All Transactions</h4>
-                            {(incomingSupplies || []).length > 0 || (outgoingSupplies || []).length > 0 ? (
-                                <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                    <Table>
-                                        <TableHeader className="bg-gray-50">
-                                            <TableRow className="hover:bg-gray-50">
-                                                <TableHead className="font-semibold text-gray-700">Date</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Type</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Product</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Quantity</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Unit Cost</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Total Cost</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">User</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Approved By</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {[...(incomingSupplies || []), ...(outgoingSupplies || [])]
-                                                .sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
-                                                .map((transaction) => (
-                                                    <TableRow key={transaction.id} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100">
-                                                        <TableCell>
-                                                            <div className="font-medium text-gray-900">{new Date(transaction.transaction_date).toLocaleDateString()}</div>
-                                                            <div className="text-sm text-gray-600">{transaction.subtype}</div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge variant={transaction.type === 'in' ? 'default' : 'secondary'} className="px-3 py-1">
-                                                                {transaction.type === 'in' ? 'Incoming' : 'Outgoing'}
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div>
-                                                                <div className="font-medium text-gray-900">{transaction.product?.name || 'Unknown'}</div>
-                                                                <div className="text-sm text-gray-600">{transaction.product?.code || '—'}</div>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="font-medium text-gray-900">{Math.abs(transaction.quantity || 0)}</div>
-                                                            <div className="text-sm text-gray-600">{transaction.product?.unit_of_measure || 'units'}</div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="font-medium text-gray-900">₱{Number(transaction.unit_cost || 0).toFixed(2)}</div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="font-medium text-gray-900">₱{Number(transaction.total_cost || 0).toFixed(2)}</div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="text-sm text-gray-700">{transaction.user?.name || 'N/A'}</div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="text-sm text-gray-700">{transaction.approved_by?.name || 'N/A'}</div>
-                                                        </TableCell>
+                                            ))
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell
+                                                    colSpan={columns.length}
+                                                    className="h-24 text-center"
+                                                >
+                                                    No results.
+                                                                </TableCell>
                                                     </TableRow>
-                                                ))}
-                                        </TableBody>
-                                    </Table>
+                                        )}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                            
+                            {/* Pagination */}
+                            <div className="flex items-center justify-between px-2 py-4">
+                                <div className="text-muted-foreground flex-1 text-sm">
+                                    {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                                    {table.getFilteredRowModel().rows.length} row(s) selected.
                                 </div>
-                            ) : (
-                                <div className="py-12 text-center">
-                                    <div className="p-6 bg-gray-50 rounded-2xl">
-                                        <BarChart3 className="mx-auto mb-4 h-16 w-16 text-gray-400" />
-                                        <h3 className="mb-2 text-2xl font-bold text-gray-900">No Transactions Found</h3>
-                                        <p className="mb-6 text-gray-600">No supply transactions in the selected date range.</p>
+                                <div className="flex items-center space-x-6 lg:space-x-8">
+                                    <div className="flex items-center space-x-2">
+                                        <p className="text-sm font-medium">Rows per page</p>
+                                        <Select
+                                            value={`${table.getState().pagination.pageSize}`}
+                                            onValueChange={(value) => {
+                                                table.setPageSize(Number(value))
+                                            }}
+                                        >
+                                            <SelectTrigger className="h-8 w-[70px]">
+                                                <SelectValue placeholder={table.getState().pagination.pageSize} />
+                                            </SelectTrigger>
+                                            <SelectContent side="top">
+                                                {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                        {pageSize}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                        Page {table.getState().pagination.pageIndex + 1} of{" "}
+                                        {table.getPageCount()}
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="hidden size-8 lg:flex"
+                                            onClick={() => table.setPageIndex(0)}
+                                            disabled={!table.getCanPreviousPage()}
+                                        >
+                                            <span className="sr-only">Go to first page</span>
+                                            <ChevronsLeft className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="size-8"
+                                            onClick={() => table.previousPage()}
+                                            disabled={!table.getCanPreviousPage()}
+                                        >
+                                            <span className="sr-only">Go to previous page</span>
+                                            <ChevronLeft className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="size-8"
+                                            onClick={() => table.nextPage()}
+                                            disabled={!table.getCanNextPage()}
+                                        >
+                                            <span className="sr-only">Go to next page</span>
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="hidden size-8 lg:flex"
+                                            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                                            disabled={!table.getCanNextPage()}
+                                        >
+                                            <span className="sr-only">Go to last page</span>
+                                            <ChevronsRight className="h-4 w-4" />
+                                        </Button>
                                     </div>
                                 </div>
-                            )}
-                        </div>
-                    </div>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </AppLayout>

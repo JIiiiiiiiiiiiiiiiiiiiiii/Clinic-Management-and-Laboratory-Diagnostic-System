@@ -5,6 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
@@ -23,9 +25,29 @@ import {
     CreditCard,
     UserCheck,
     Clock,
-    CheckCircle
+    CheckCircle,
+    ArrowUpDown,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
+    Search
 } from 'lucide-react';
 import { useState } from 'react';
+import {
+    ColumnDef,
+    ColumnFiltersState,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+    VisibilityState,
+} from '@tanstack/react-table';
+import * as React from 'react';
 
 type Summary = {
     total_payments: number;
@@ -55,6 +77,154 @@ type Doctor = {
     specialization: string;
 };
 
+// Column definitions for the doctor payment reports table
+const createDoctorPaymentReportColumns = (reportType: string): ColumnDef<ReportData>[] => [
+    {
+        accessorKey: reportType === 'daily' ? 'date' : reportType === 'monthly' ? 'month_name' : 'year',
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    {reportType === 'daily' ? 'Date' : reportType === 'monthly' ? 'Month' : 'Year'}
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const item = row.original;
+            return (
+                <div className="font-medium">
+                    {reportType === 'daily' ? formatDate(item.date!) :
+                     reportType === 'monthly' ? item.month_name :
+                     item.year}
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "doctor_name",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Doctor
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">{row.getValue("doctor_name")}</div>
+        ),
+    },
+    {
+        accessorKey: "doctor_specialization",
+        header: "Specialization",
+        cell: ({ row }) => (
+            <div className="text-gray-600">{row.getValue("doctor_specialization")}</div>
+        ),
+    },
+    {
+        accessorKey: "payment_count",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Payments
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="text-right font-semibold">{row.getValue("payment_count")}</div>
+        ),
+    },
+    {
+        accessorKey: "total_incentives",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Incentives
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="text-right text-green-600 font-semibold">
+                {formatCurrency(row.getValue("total_incentives"))}
+            </div>
+        ),
+    },
+    {
+        accessorKey: "total_net_payment",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Net Payment
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="text-right font-bold text-blue-600">
+                {formatCurrency(row.getValue("total_net_payment"))}
+            </div>
+        ),
+    },
+    {
+        accessorKey: "average_payment",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Average
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="text-right">{formatCurrency(row.getValue("average_payment"))}</div>
+        ),
+    },
+    {
+        id: "actions",
+        enableHiding: false,
+        cell: ({ row }) => {
+            const item = row.original;
+            return (
+                <div className="text-center">
+                    <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleDoctorDetails(item.doctor_id)}
+                    >
+                        View Details
+                    </Button>
+                </div>
+            );
+        },
+    },
+];
+
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Billing', href: '/admin/billing' },
     { title: 'Doctor Payment Reports', href: '/admin/billing/doctor-payment-reports' },
@@ -76,6 +246,47 @@ export default function DoctorPaymentReports({
     const [reportType, setReportType] = useState(filters.report_type || 'daily');
     const [doctorId, setDoctorId] = useState(filters.doctor_id || 'all');
     const [status, setStatus] = useState(filters.status || 'all');
+
+    // TanStack Table state
+    const [sorting, setSorting] = React.useState<SortingState>([]);
+    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+    const [rowSelection, setRowSelection] = React.useState({});
+    const [globalFilter, setGlobalFilter] = React.useState('');
+
+    // Initialize table
+    const columns = createDoctorPaymentReportColumns(reportType);
+    const table = useReactTable({
+        data: reportData || [],
+        columns,
+        onSortingChange: setSorting,
+        onColumnFiltersChange: setColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onColumnVisibilityChange: setColumnVisibility,
+        onRowSelectionChange: setRowSelection,
+        onGlobalFilterChange: setGlobalFilter,
+        globalFilterFn: (row, columnId, value) => {
+            const search = value.toLowerCase();
+            const item = row.original;
+            return (
+                item.doctor_name?.toLowerCase().includes(search) ||
+                item.doctor_specialization?.toLowerCase().includes(search) ||
+                (reportType === 'daily' && item.date?.toLowerCase().includes(search)) ||
+                (reportType === 'monthly' && item.month_name?.toLowerCase().includes(search)) ||
+                (reportType === 'yearly' && item.year?.toString().includes(search))
+            );
+        },
+        state: {
+            sorting,
+            columnFilters,
+            columnVisibility,
+            rowSelection,
+            globalFilter,
+        },
+    });
 
     const handleFilter = () => {
         router.get('/admin/billing/doctor-payment-reports', {
@@ -314,59 +525,176 @@ export default function DoctorPaymentReports({
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6">
-                        {reportData.length > 0 ? (
-                            <div className="overflow-x-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="font-semibold">
-                                                {reportType === 'daily' ? 'Date' : 
-                                                 reportType === 'monthly' ? 'Month' : 'Year'}
-                                            </TableHead>
-                                            <TableHead className="font-semibold">Doctor</TableHead>
-                                            <TableHead className="font-semibold">Specialization</TableHead>
-                                            <TableHead className="font-semibold text-right">Payments</TableHead>
-                                            <TableHead className="font-semibold text-right">Incentives</TableHead>
-                                            <TableHead className="font-semibold text-right">Net Payment</TableHead>
-                                            <TableHead className="font-semibold text-right">Average</TableHead>
-                                            <TableHead className="font-semibold text-center">Actions</TableHead>
+                        {/* Table Controls */}
+                        <div className="flex items-center py-4">
+                            <Input
+                                placeholder="Search reports..."
+                                value={globalFilter ?? ""}
+                                onChange={(event) => setGlobalFilter(event.target.value)}
+                                className="max-w-sm"
+                            />
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" className="ml-auto">
+                                        Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                                    {table
+                                        .getAllColumns()
+                                        .filter((column) => column.getCanHide())
+                                        .map((column) => {
+                                            return (
+                                                <DropdownMenuCheckboxItem
+                                                    key={column.id}
+                                                    className="capitalize"
+                                                    checked={column.getIsVisible()}
+                                                    onCheckedChange={(value) => {
+                                                        column.toggleVisibility(!!value);
+                                                    }}
+                                                    onSelect={(e) => {
+                                                        e.preventDefault();
+                                                    }}
+                                                >
+                                                    {column.id}
+                                                </DropdownMenuCheckboxItem>
+                                            )
+                                        })}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+
+                        {/* Report Data Table */}
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    {table.getHeaderGroups().map((headerGroup) => (
+                                        <TableRow key={headerGroup.id}>
+                                            {headerGroup.headers.map((header) => {
+                                                return (
+                                                    <TableHead key={header.id}>
+                                                        {header.isPlaceholder
+                                                            ? null
+                                                            : flexRender(
+                                                                header.column.columnDef.header,
+                                                                header.getContext()
+                                                        )}
+                                                    </TableHead>
+                                                )
+                                            })}
                                         </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {reportData.map((item, index) => (
-                                            <TableRow key={index} className="hover:bg-gray-50">
-                                                <TableCell className="font-medium">
-                                                    {reportType === 'daily' ? formatDate(item.date!) :
-                                                     reportType === 'monthly' ? item.month_name :
-                                                     item.year}
-                                                </TableCell>
-                                                <TableCell className="font-medium">{item.doctor_name}</TableCell>
-                                                <TableCell className="text-gray-600">{item.doctor_specialization}</TableCell>
-                                                <TableCell className="text-right font-semibold">{item.payment_count}</TableCell>
-                                                <TableCell className="text-right text-green-600">{formatCurrency(item.total_incentives)}</TableCell>
-                                                <TableCell className="text-right font-bold text-blue-600">{formatCurrency(item.total_net_payment)}</TableCell>
-                                                <TableCell className="text-right">{formatCurrency(item.average_payment)}</TableCell>
-                                                <TableCell className="text-center">
-                                                    <Button 
-                                                        variant="outline" 
-                                                        size="sm"
-                                                        onClick={() => handleDoctorDetails(item.doctor_id)}
-                                                    >
-                                                        View Details
-                                                    </Button>
-                                                </TableCell>
+                                    ))}
+                                </TableHeader>
+                                <TableBody>
+                                    {table.getRowModel().rows?.length ? (
+                                        table.getRowModel().rows.map((row) => (
+                                            <TableRow
+                                                key={row.id}
+                                                data-state={row.getIsSelected() && "selected"}
+                                            >
+                                                {row.getVisibleCells().map((cell) => (
+                                                    <TableCell key={cell.id}>
+                                                        {flexRender(
+                                                            cell.column.columnDef.cell,
+                                                            cell.getContext()
+                                                        )}
+                                                    </TableCell>
+                                                ))}
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={columns.length}
+                                                className="h-24 text-center"
+                                            >
+                                                <div className="flex flex-col items-center">
+                                                    <UserCheck className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                                    <h3 className="mb-2 text-lg font-semibold text-gray-600">No Data Found</h3>
+                                                    <p className="text-gray-500">No doctor payment data found for the selected filters.</p>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                        
+                        {/* Pagination */}
+                        <div className="flex items-center justify-between px-2 py-4">
+                            <div className="text-muted-foreground flex-1 text-sm">
+                                {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                                {table.getFilteredRowModel().rows.length} row(s) selected.
                             </div>
-                        ) : (
-                            <div className="text-center py-12">
-                                <UserCheck className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                                <h3 className="mb-2 text-lg font-semibold text-gray-600">No Data Found</h3>
-                                <p className="text-gray-500">No doctor payment data found for the selected filters.</p>
+                            <div className="flex items-center space-x-6 lg:space-x-8">
+                                <div className="flex items-center space-x-2">
+                                    <p className="text-sm font-medium">Rows per page</p>
+                                    <Select
+                                        value={`${table.getState().pagination.pageSize}`}
+                                        onValueChange={(value) => {
+                                            table.setPageSize(Number(value))
+                                        }}
+                                    >
+                                        <SelectTrigger className="h-8 w-[70px]">
+                                            <SelectValue placeholder={table.getState().pagination.pageSize} />
+                                        </SelectTrigger>
+                                        <SelectContent side="top">
+                                            {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                    {pageSize}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                    Page {table.getState().pagination.pageIndex + 1} of{" "}
+                                    {table.getPageCount()}
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="hidden size-8 lg:flex"
+                                        onClick={() => table.setPageIndex(0)}
+                                        disabled={!table.getCanPreviousPage()}
+                                    >
+                                        <span className="sr-only">Go to first page</span>
+                                        <ChevronsLeft className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="size-8"
+                                        onClick={() => table.previousPage()}
+                                        disabled={!table.getCanPreviousPage()}
+                                    >
+                                        <span className="sr-only">Go to previous page</span>
+                                        <ChevronLeft className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="size-8"
+                                        onClick={() => table.nextPage()}
+                                        disabled={!table.getCanNextPage()}
+                                    >
+                                        <span className="sr-only">Go to next page</span>
+                                        <ChevronRight className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="hidden size-8 lg:flex"
+                                        onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                                        disabled={!table.getCanNextPage()}
+                                    >
+                                        <span className="sr-only">Go to last page</span>
+                                        <ChevronsRight className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </div>
-                        )}
+                        </div>
                     </CardContent>
                 </Card>
 

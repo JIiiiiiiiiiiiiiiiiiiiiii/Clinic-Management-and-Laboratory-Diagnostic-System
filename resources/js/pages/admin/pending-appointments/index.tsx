@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/admin/dashboard' },
+    { title: 'Appointments', href: '/admin/appointments' },
     { title: 'Pending Appointments', href: '/admin/pending-appointments' },
 ];
 

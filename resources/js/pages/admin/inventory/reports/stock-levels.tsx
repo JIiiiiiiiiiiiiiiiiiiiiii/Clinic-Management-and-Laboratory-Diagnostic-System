@@ -117,7 +117,7 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                     </div>
                     <div className="px-6 py-6 bg-white">
                         {/* Summary Cards */}
-                        <div className="grid gap-6 md:grid-cols-4 mb-8">
+                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5 mb-8">
                             <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
@@ -175,6 +175,23 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                                         </div>
                                     </div>
                                     <div className="text-3xl font-bold text-black">{expiredStock.length}</div>
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gray-100 rounded-lg">
+                                            <Package className="h-6 w-6 text-black" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-lg font-bold text-black">Total Value</h4>
+                                            <p className="text-gray-600 text-sm">Inventory value</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-3xl font-bold text-black">
+                                        ₱{products.reduce((sum, product) => sum + ((product.current_stock || 0) * (product.unit_cost || 0)), 0).toFixed(0)}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -240,67 +257,71 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                         <div>
                             <h4 className="text-lg font-semibold text-black mb-4">All Supplies Stock Levels</h4>
                         {products.length > 0 ? (
-                            <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                <Table>
-                                    <TableHeader className="bg-gray-50">
-                                        <TableRow className="hover:bg-gray-50">
-                                            <TableHead className="font-semibold text-gray-700">Supply</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Category</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Current Stock</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Available Stock</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Min/Max Levels</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Total Value</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {products.map((product) => {
-                                            const stockStatus = getStockStatus(product);
-                                            return (
-                                                <TableRow key={product.id} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100">
-                                                    <TableCell>
-                                                        <div>
-                                                            <div className="font-medium text-gray-900">{product.name}</div>
-                                                            <div className="text-sm text-gray-600">{product.code}</div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-gray-700">{product.category || 'N/A'}</TableCell>
-                                                    <TableCell>
-                                                        <div className="font-medium text-gray-900">{product.current_stock}</div>
-                                                        <div className="text-sm text-gray-600">{product.unit_of_measure || 'units'}</div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="font-medium text-gray-900">{Number(product.available_stock ?? 0)}</div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="text-sm text-gray-700">
-                                                            <div>Min: {product.minimum_stock_level}</div>
-                                                            <div>Max: {product.maximum_stock_level}</div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge 
-                                                            variant={stockStatus.color as any} 
-                                                            className={`px-3 py-1 ${
-                                                                stockStatus.status === 'out' ? 'bg-red-100 text-red-800 border-red-200' :
-                                                                stockStatus.status === 'low' ? 'bg-orange-100 text-orange-800 border-orange-200' :
-                                                                ''
-                                                            }`}
-                                                        >
-                                                            {stockStatus.text}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="font-medium text-gray-900">
-                                                            ₱{Number((product.current_stock || 0) * Number(product.unit_cost || 0)).toFixed(2)}
-                                                        </div>
-                                                    </TableCell>
+                            <Card className="bg-white border border-gray-200">
+                                <CardContent className="p-6">
+                                    <div className="overflow-x-auto rounded-md border">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Supply</TableHead>
+                                                    <TableHead>Category</TableHead>
+                                                    <TableHead>Current Stock</TableHead>
+                                                    <TableHead>Available Stock</TableHead>
+                                                    <TableHead>Min/Max Levels</TableHead>
+                                                    <TableHead>Status</TableHead>
+                                                    <TableHead>Total Value</TableHead>
                                                 </TableRow>
-                                            );
-                                        })}
-                                    </TableBody>
-                                </Table>
-                            </div>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {products.map((product) => {
+                                                    const stockStatus = getStockStatus(product);
+                                                    return (
+                                                        <TableRow key={product.id}>
+                                                            <TableCell>
+                                                                <div>
+                                                                    <div className="font-medium">{product.name}</div>
+                                                                    <div className="text-sm text-gray-500">{product.code}</div>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell>{product.category || 'N/A'}</TableCell>
+                                                            <TableCell>
+                                                                <div className="font-medium">{product.current_stock}</div>
+                                                                <div className="text-sm text-gray-500">{product.unit_of_measure || 'units'}</div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className="font-medium">{Number(product.available_stock ?? 0)}</div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className="text-sm">
+                                                                    <div>Min: {product.minimum_stock_level}</div>
+                                                                    <div>Max: {product.maximum_stock_level}</div>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Badge 
+                                                                    variant={stockStatus.color as any} 
+                                                                    className={`px-3 py-1 ${
+                                                                        stockStatus.status === 'out' ? 'bg-red-100 text-red-800 border-red-200' :
+                                                                        stockStatus.status === 'low' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                                                                        ''
+                                                                    }`}
+                                                                >
+                                                                    {stockStatus.text}
+                                                                </Badge>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className="font-medium">
+                                                                    ₱{Number((product.current_stock || 0) * Number(product.unit_cost || 0)).toFixed(2)}
+                                                                </div>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         ) : (
                             <div className="py-12 text-center">
                                 <div className="p-6 bg-gray-50 rounded-2xl">

@@ -5,6 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
@@ -25,9 +27,28 @@ import {
     CalendarDays,
     CalendarRange,
     Clock,
-    ChevronDown
+    ChevronDown,
+    ArrowUpDown,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
+    Search
 } from 'lucide-react';
 import { useState } from 'react';
+import {
+    ColumnDef,
+    ColumnFiltersState,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+    VisibilityState,
+} from '@tanstack/react-table';
+import * as React from 'react';
 
 type Summary = {
     total_hmo_revenue: number;
@@ -66,6 +87,219 @@ type RecentReport = {
         name: string;
     };
 };
+
+// Column definitions for HMO Providers table
+const createHmoProviderColumns = (): ColumnDef<HmoProvider>[] => [
+    {
+        accessorKey: "name",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Provider
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="flex items-center gap-2">
+                <div className="p-1 bg-gray-100 rounded-full">
+                    <CreditCard className="h-4 w-4 text-black" />
+                </div>
+                <div className="font-medium">{row.getValue("name")}</div>
+            </div>
+        ),
+    },
+    {
+        accessorKey: "code",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Code
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="text-center font-semibold">{row.getValue("code")}</div>
+        ),
+    },
+    {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => {
+            const provider = row.original;
+            const isActive = provider.status === 'active' || provider.is_active === true;
+            return (
+                <Badge variant={isActive ? "success" : "destructive"}>
+                    {provider.status || (provider.is_active ? 'active' : 'inactive')}
+                </Badge>
+            );
+        },
+    },
+    {
+        id: "actions",
+        enableHiding: false,
+        cell: ({ row }) => {
+            const provider = row.original;
+            return (
+                <div className="flex gap-2">
+                    <Button variant="outline" size="sm">
+                        <Eye className="mr-2 h-4 w-4" />
+                        View Details
+                    </Button>
+                </div>
+            );
+        },
+    },
+];
+
+// Column definitions for HMO Transactions table
+const createHmoTransactionColumns = (): ColumnDef<HmoTransaction>[] => [
+    {
+        accessorKey: "transaction_id",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Transaction ID
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">{row.getValue("transaction_id")}</div>
+        ),
+    },
+    {
+        accessorKey: "patient_name",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Patient
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">{row.getValue("patient_name")}</div>
+        ),
+    },
+    {
+        accessorKey: "doctor_name",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Doctor
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="text-gray-600">{row.getValue("doctor_name")}</div>
+        ),
+    },
+    {
+        accessorKey: "hmo_provider",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    HMO Provider
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="flex items-center gap-2">
+                <div className="p-1 bg-blue-100 rounded-full">
+                    <CreditCard className="h-4 w-4 text-blue-600" />
+                </div>
+                <div className="font-medium">{row.getValue("hmo_provider")}</div>
+            </div>
+        ),
+    },
+    {
+        accessorKey: "total_amount",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Amount
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-semibold text-green-600">
+                ₱{row.getValue("total_amount")?.toLocaleString()}
+            </div>
+        ),
+    },
+    {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => {
+            const status = row.getValue("status") as string;
+            const variantMap = {
+                completed: 'success',
+                pending: 'warning',
+                failed: 'destructive',
+                cancelled: 'destructive'
+            };
+            
+            return (
+                <Badge variant={variantMap[status as keyof typeof variantMap] as any}>
+                    {status}
+                </Badge>
+            );
+        },
+    },
+    {
+        accessorKey: "transaction_date",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Date
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="text-sm text-gray-600">
+                {new Date(row.getValue("transaction_date")).toLocaleDateString()}
+            </div>
+        ),
+    },
+];
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Billing', href: '/admin/billing' },
@@ -123,6 +357,20 @@ export default function EnhancedHmoReport({
     const [isLoading, setIsLoading] = useState(false);
     const [activeViewTab, setActiveViewTab] = useState('reports');
 
+    // TanStack Table state for HMO Providers
+    const [providerSorting, setProviderSorting] = React.useState<SortingState>([]);
+    const [providerColumnFilters, setProviderColumnFilters] = React.useState<ColumnFiltersState>([]);
+    const [providerColumnVisibility, setProviderColumnVisibility] = React.useState<VisibilityState>({});
+    const [providerRowSelection, setProviderRowSelection] = React.useState({});
+    const [providerGlobalFilter, setProviderGlobalFilter] = React.useState('');
+
+    // TanStack Table state for HMO Transactions
+    const [transactionSorting, setTransactionSorting] = React.useState<SortingState>([]);
+    const [transactionColumnFilters, setTransactionColumnFilters] = React.useState<ColumnFiltersState>([]);
+    const [transactionColumnVisibility, setTransactionColumnVisibility] = React.useState<VisibilityState>({});
+    const [transactionRowSelection, setTransactionRowSelection] = React.useState({});
+    const [transactionGlobalFilter, setTransactionGlobalFilter] = React.useState('');
+
     // Provide default values for summary
     const defaultSummary: Summary = {
         total_hmo_revenue: 0,
@@ -139,8 +387,72 @@ export default function EnhancedHmoReport({
         pending_claims_count: 0,
         paid_claims_count: 0,
     };
-
+    
     const safeSummary = summary || defaultSummary;
+
+    // Initialize HMO Providers table
+    const providerColumns = createHmoProviderColumns();
+    const providerTable = useReactTable({
+        data: hmoProviders || [],
+        columns: providerColumns,
+        onSortingChange: setProviderSorting,
+        onColumnFiltersChange: setProviderColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onColumnVisibilityChange: setProviderColumnVisibility,
+        onRowSelectionChange: setProviderRowSelection,
+        onGlobalFilterChange: setProviderGlobalFilter,
+        globalFilterFn: (row, columnId, value) => {
+            const search = value.toLowerCase();
+            const provider = row.original;
+            return (
+                provider.name?.toLowerCase().includes(search) ||
+                provider.code?.toLowerCase().includes(search)
+            );
+        },
+        state: {
+            sorting: providerSorting,
+            columnFilters: providerColumnFilters,
+            columnVisibility: providerColumnVisibility,
+            rowSelection: providerRowSelection,
+            globalFilter: providerGlobalFilter,
+        },
+    });
+
+    // Initialize HMO Transactions table
+    const transactionColumns = createHmoTransactionColumns();
+    const transactionTable = useReactTable({
+        data: hmoTransactions || [],
+        columns: transactionColumns,
+        onSortingChange: setTransactionSorting,
+        onColumnFiltersChange: setTransactionColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onColumnVisibilityChange: setTransactionColumnVisibility,
+        onRowSelectionChange: setTransactionRowSelection,
+        onGlobalFilterChange: setTransactionGlobalFilter,
+        globalFilterFn: (row, columnId, value) => {
+            const search = value.toLowerCase();
+            const transaction = row.original;
+            return (
+                transaction.transaction_id?.toLowerCase().includes(search) ||
+                transaction.patient_name?.toLowerCase().includes(search) ||
+                transaction.doctor_name?.toLowerCase().includes(search) ||
+                transaction.hmo_provider?.toLowerCase().includes(search)
+            );
+        },
+        state: {
+            sorting: transactionSorting,
+            columnFilters: transactionColumnFilters,
+            columnVisibility: transactionColumnVisibility,
+            rowSelection: transactionRowSelection,
+            globalFilter: transactionGlobalFilter,
+        },
+    });
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-PH', {
@@ -499,20 +811,89 @@ export default function EnhancedHmoReport({
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-6">
-                                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                {/* Table Controls */}
+                                <div className="flex items-center py-4">
+                                    <Input
+                                        placeholder="Search HMO providers..."
+                                        value={providerGlobalFilter ?? ""}
+                                        onChange={(event) => setProviderGlobalFilter(event.target.value)}
+                                        className="max-w-sm"
+                                    />
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="outline" className="ml-auto">
+                                                Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                                            {providerTable
+                                                .getAllColumns()
+                                                .filter((column) => column.getCanHide())
+                                                .map((column) => {
+                                                    return (
+                                                        <DropdownMenuCheckboxItem
+                                                            key={column.id}
+                                                            className="capitalize"
+                                                            checked={column.getIsVisible()}
+                                                            onCheckedChange={(value) => {
+                                                                column.toggleVisibility(!!value);
+                                                            }}
+                                                            onSelect={(e) => {
+                                                                e.preventDefault();
+                                                            }}
+                                                        >
+                                                            {column.id}
+                                                        </DropdownMenuCheckboxItem>
+                                                    )
+                                                })}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+
+                                {/* HMO Providers Table */}
+                                <div className="rounded-md border">
                                     <Table>
-                                        <TableHeader className="bg-gray-50">
-                                            <TableRow className="hover:bg-gray-50">
-                                                <TableHead className="font-semibold text-gray-700">Provider</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Code</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Actions</TableHead>
-                                            </TableRow>
+                                        <TableHeader>
+                                            {providerTable.getHeaderGroups().map((headerGroup) => (
+                                                <TableRow key={headerGroup.id}>
+                                                    {headerGroup.headers.map((header) => {
+                                                        return (
+                                                            <TableHead key={header.id}>
+                                                                {header.isPlaceholder
+                                                                    ? null
+                                                                    : flexRender(
+                                                                        header.column.columnDef.header,
+                                                                        header.getContext()
+                                                                )}
+                                                            </TableHead>
+                                                        )
+                                                    })}
+                                                </TableRow>
+                                            ))}
                                         </TableHeader>
                                         <TableBody>
-                                            {!hmoProviders || hmoProviders.length === 0 ? (
+                                            {providerTable.getRowModel().rows?.length ? (
+                                                providerTable.getRowModel().rows.map((row) => (
+                                                    <TableRow
+                                                        key={row.id}
+                                                        data-state={row.getIsSelected() && "selected"}
+                                                    >
+                                                        {row.getVisibleCells().map((cell) => (
+                                                            <TableCell key={cell.id}>
+                                                                {flexRender(
+                                                                    cell.column.columnDef.cell,
+                                                                    cell.getContext()
+                                                                )}
+                                                            </TableCell>
+                                                        ))}
+                                                    </TableRow>
+                                                ))
+                                            ) : (
                                                 <TableRow>
-                                                    <TableCell colSpan={4} className="text-center py-8">
+                                                    <TableCell
+                                                        colSpan={providerColumns.length}
+                                                        className="h-24 text-center"
+                                                    >
                                                         <div className="flex flex-col items-center">
                                                             <CreditCard className="mx-auto mb-4 h-12 w-12 text-gray-400" />
                                                             <h3 className="mb-2 text-lg font-semibold text-gray-600">No HMO providers found</h3>
@@ -520,40 +901,85 @@ export default function EnhancedHmoReport({
                                                         </div>
                                                     </TableCell>
                                                 </TableRow>
-                                            ) : (
-                                                hmoProviders && hmoProviders.length > 0 ? hmoProviders.map((provider) => (
-                                                    <TableRow key={provider.id} className="hover:bg-gray-50">
-                                                        <TableCell className="font-medium">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="p-1 bg-gray-100 rounded-full">
-                                                                    <CreditCard className="h-4 w-4 text-black" />
-                                                                </div>
-                                                                {provider.name}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            {provider.code}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                                (provider.status === 'active' || provider.is_active === true) 
-                                                                    ? 'bg-green-100 text-green-800' 
-                                                                    : 'bg-red-100 text-red-800'
-                                                            }`}>
-                                                                {provider.status || (provider.is_active ? 'active' : 'inactive')}
-                                                            </span>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Button variant="outline" size="sm">
-                                                                <Eye className="mr-2 h-4 w-4" />
-                                                                View Details
-                                                            </Button>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )) : null
                                             )}
                                         </TableBody>
                                     </Table>
+                                </div>
+                                
+                                {/* Pagination */}
+                                <div className="flex items-center justify-between px-2 py-4">
+                                    <div className="text-muted-foreground flex-1 text-sm">
+                                        {providerTable.getFilteredSelectedRowModel().rows.length} of{" "}
+                                        {providerTable.getFilteredRowModel().rows.length} row(s) selected.
+                                    </div>
+                                    <div className="flex items-center space-x-6 lg:space-x-8">
+                                        <div className="flex items-center space-x-2">
+                                            <p className="text-sm font-medium">Rows per page</p>
+                                            <Select
+                                                value={`${providerTable.getState().pagination.pageSize}`}
+                                                onValueChange={(value) => {
+                                                    providerTable.setPageSize(Number(value))
+                                                }}
+                                            >
+                                                <SelectTrigger className="h-8 w-[70px]">
+                                                    <SelectValue placeholder={providerTable.getState().pagination.pageSize} />
+                                                </SelectTrigger>
+                                                <SelectContent side="top">
+                                                    {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                        <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                            {pageSize}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                            Page {providerTable.getState().pagination.pageIndex + 1} of{" "}
+                                            {providerTable.getPageCount()}
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="hidden size-8 lg:flex"
+                                                onClick={() => providerTable.setPageIndex(0)}
+                                                disabled={!providerTable.getCanPreviousPage()}
+                                            >
+                                                <span className="sr-only">Go to first page</span>
+                                                <ChevronsLeft className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="size-8"
+                                                onClick={() => providerTable.previousPage()}
+                                                disabled={!providerTable.getCanPreviousPage()}
+                                            >
+                                                <span className="sr-only">Go to previous page</span>
+                                                <ChevronLeft className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="size-8"
+                                                onClick={() => providerTable.nextPage()}
+                                                disabled={!providerTable.getCanNextPage()}
+                                            >
+                                                <span className="sr-only">Go to next page</span>
+                                                <ChevronRight className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="hidden size-8 lg:flex"
+                                                onClick={() => providerTable.setPageIndex(providerTable.getPageCount() - 1)}
+                                                disabled={!providerTable.getCanNextPage()}
+                                            >
+                                                <span className="sr-only">Go to last page</span>
+                                                <ChevronsRight className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -569,23 +995,89 @@ export default function EnhancedHmoReport({
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-6">
-                                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                {/* Table Controls */}
+                                <div className="flex items-center py-4">
+                                    <Input
+                                        placeholder="Search HMO transactions..."
+                                        value={transactionGlobalFilter ?? ""}
+                                        onChange={(event) => setTransactionGlobalFilter(event.target.value)}
+                                        className="max-w-sm"
+                                    />
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="outline" className="ml-auto">
+                                                Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                                            {transactionTable
+                                                .getAllColumns()
+                                                .filter((column) => column.getCanHide())
+                                                .map((column) => {
+                                                    return (
+                                                        <DropdownMenuCheckboxItem
+                                                            key={column.id}
+                                                            className="capitalize"
+                                                            checked={column.getIsVisible()}
+                                                            onCheckedChange={(value) => {
+                                                                column.toggleVisibility(!!value);
+                                                            }}
+                                                            onSelect={(e) => {
+                                                                e.preventDefault();
+                                                            }}
+                                                        >
+                                                            {column.id}
+                                                        </DropdownMenuCheckboxItem>
+                                                    )
+                                                })}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+
+                                {/* HMO Transactions Table */}
+                                <div className="rounded-md border">
                                     <Table>
-                                        <TableHeader className="bg-gray-50">
-                                            <TableRow className="hover:bg-gray-50">
-                                                <TableHead className="font-semibold text-gray-700">Transaction ID</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Patient</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Doctor</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">HMO Provider</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Amount</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Date</TableHead>
-                                            </TableRow>
+                                        <TableHeader>
+                                            {transactionTable.getHeaderGroups().map((headerGroup) => (
+                                                <TableRow key={headerGroup.id}>
+                                                    {headerGroup.headers.map((header) => {
+                                                        return (
+                                                            <TableHead key={header.id}>
+                                                                {header.isPlaceholder
+                                                                    ? null
+                                                                    : flexRender(
+                                                                        header.column.columnDef.header,
+                                                                        header.getContext()
+                                                                )}
+                                                            </TableHead>
+                                                        )
+                                                    })}
+                                                </TableRow>
+                                            ))}
                                         </TableHeader>
                                         <TableBody>
-                                            {!hmoTransactions || hmoTransactions.length === 0 ? (
+                                            {transactionTable.getRowModel().rows?.length ? (
+                                                transactionTable.getRowModel().rows.map((row) => (
+                                                    <TableRow
+                                                        key={row.id}
+                                                        data-state={row.getIsSelected() && "selected"}
+                                                    >
+                                                        {row.getVisibleCells().map((cell) => (
+                                                            <TableCell key={cell.id}>
+                                                                {flexRender(
+                                                                    cell.column.columnDef.cell,
+                                                                    cell.getContext()
+                                                                )}
+                                                            </TableCell>
+                                                        ))}
+                                                    </TableRow>
+                                                ))
+                                            ) : (
                                                 <TableRow>
-                                                    <TableCell colSpan={7} className="text-center py-8">
+                                                    <TableCell
+                                                        colSpan={transactionColumns.length}
+                                                        className="h-24 text-center"
+                                                    >
                                                         <div className="flex flex-col items-center">
                                                             <CreditCard className="mx-auto mb-4 h-12 w-12 text-gray-400" />
                                                             <h3 className="mb-2 text-lg font-semibold text-gray-600">No HMO transactions found</h3>
@@ -593,50 +1085,85 @@ export default function EnhancedHmoReport({
                                                         </div>
                                                     </TableCell>
                                                 </TableRow>
-                                            ) : (
-                                                hmoTransactions && hmoTransactions.length > 0 ? hmoTransactions.map((transaction) => (
-                                                    <TableRow key={transaction.id} className="hover:bg-gray-50">
-                                                        <TableCell className="font-medium">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="p-1 bg-gray-100 rounded-full">
-                                                                    <CreditCard className="h-4 w-4 text-black" />
-                                                                </div>
-                                                                {transaction.transaction_id}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="font-medium">
-                                                            {transaction.patient_name}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {transaction.doctor_name}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                                                                {transaction.hmo_provider}
-                                                            </span>
-                                                        </TableCell>
-                                                        <TableCell className="font-semibold text-green-600">
-                                                            {formatCurrency(transaction.total_amount)}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                                transaction.status === 'paid' 
-                                                                    ? 'bg-green-100 text-green-800' 
-                                                                    : transaction.status === 'pending'
-                                                                    ? 'bg-yellow-100 text-yellow-800'
-                                                                    : 'bg-red-100 text-red-800'
-                                                            }`}>
-                                                                {transaction.status}
-                                                            </span>
-                                                        </TableCell>
-                                                        <TableCell className="text-gray-600">
-                                                            {new Date(transaction.transaction_date).toLocaleDateString()}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )) : null
                                             )}
                                         </TableBody>
                                     </Table>
+                                </div>
+                                
+                                {/* Pagination */}
+                                <div className="flex items-center justify-between px-2 py-4">
+                                    <div className="text-muted-foreground flex-1 text-sm">
+                                        {transactionTable.getFilteredSelectedRowModel().rows.length} of{" "}
+                                        {transactionTable.getFilteredRowModel().rows.length} row(s) selected.
+                                    </div>
+                                    <div className="flex items-center space-x-6 lg:space-x-8">
+                                        <div className="flex items-center space-x-2">
+                                            <p className="text-sm font-medium">Rows per page</p>
+                                            <Select
+                                                value={`${transactionTable.getState().pagination.pageSize}`}
+                                                onValueChange={(value) => {
+                                                    transactionTable.setPageSize(Number(value))
+                                                }}
+                                            >
+                                                <SelectTrigger className="h-8 w-[70px]">
+                                                    <SelectValue placeholder={transactionTable.getState().pagination.pageSize} />
+                                                </SelectTrigger>
+                                                <SelectContent side="top">
+                                                    {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                        <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                            {pageSize}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                            Page {transactionTable.getState().pagination.pageIndex + 1} of{" "}
+                                            {transactionTable.getPageCount()}
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="hidden size-8 lg:flex"
+                                                onClick={() => transactionTable.setPageIndex(0)}
+                                                disabled={!transactionTable.getCanPreviousPage()}
+                                            >
+                                                <span className="sr-only">Go to first page</span>
+                                                <ChevronsLeft className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="size-8"
+                                                onClick={() => transactionTable.previousPage()}
+                                                disabled={!transactionTable.getCanPreviousPage()}
+                                            >
+                                                <span className="sr-only">Go to previous page</span>
+                                                <ChevronLeft className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="size-8"
+                                                onClick={() => transactionTable.nextPage()}
+                                                disabled={!transactionTable.getCanNextPage()}
+                                            >
+                                                <span className="sr-only">Go to next page</span>
+                                                <ChevronRight className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="hidden size-8 lg:flex"
+                                                onClick={() => transactionTable.setPageIndex(transactionTable.getPageCount() - 1)}
+                                                disabled={!transactionTable.getCanNextPage()}
+                                            >
+                                                <span className="sr-only">Go to last page</span>
+                                                <ChevronsRight className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
