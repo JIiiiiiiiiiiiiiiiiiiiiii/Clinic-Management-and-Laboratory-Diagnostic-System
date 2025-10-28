@@ -380,26 +380,6 @@ export default function SpecialistIndex({ doctors, nurses, medtechs }: {
                                     onChange={(event) => setGlobalFilter(event.target.value)}
                                     className="max-w-sm"
                                 />
-                                <div className="flex items-center gap-3 ml-4">
-                                    <Link href="/admin/specialists/doctors/create">
-                                        <Button className="bg-green-600 hover:bg-green-700 text-white">
-                                            <Plus className="h-4 w-4 mr-2" />
-                                            Add Doctor
-                                        </Button>
-                                    </Link>
-                                    <Link href="/admin/specialists/nurses/create">
-                                        <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                                            <Plus className="h-4 w-4 mr-2" />
-                                            Add Nurse
-                                        </Button>
-                                    </Link>
-                                    <Link href="/admin/specialists/medtechs/create">
-                                        <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-                                            <Plus className="h-4 w-4 mr-2" />
-                                            Add Med Tech
-                                        </Button>
-                                    </Link>
-                                </div>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <Button variant="outline" className="ml-auto">

@@ -35,7 +35,7 @@ class ReportsController extends Controller
                 'total_patients' => Patient::count(),
                 'total_appointments' => Appointment::count(),
                 'total_transactions' => BillingTransaction::count(),
-                'total_revenue' => BillingTransaction::sum('total_amount') ?? 0,
+                'total_revenue' => BillingTransaction::sum('amount') ?? 0,
                 'total_lab_orders' => LabOrder::count(),
                 'total_products' => Supply::count(),
             ];
@@ -92,12 +92,21 @@ class ReportsController extends Controller
         try {
             $filter = $request->get('filter', 'daily');
             $date = $request->get('date', now()->format('Y-m-d'));
+            $reportType = $request->get('report_type', 'all');
             
-            $data = $this->getFinancialReportData($filter, $date);
+            $data = $this->getFinancialReportData($filter, $date, $reportType);
             
             // Get paginated transactions for the table
             $query = BillingTransaction::query();
             $this->applyDateRangeFilter($query, $filter, $date, 'transaction_date');
+            
+            // Apply report type filtering
+            if ($reportType === 'cash') {
+                $query->where('payment_method', 'Cash');
+            } elseif ($reportType === 'hmo') {
+                $query->where('payment_method', 'HMO');
+            }
+            // 'all' shows all payment methods
             
             if ($request->filled('doctor_id')) {
                 $query->where('doctor_id', $request->doctor_id);
@@ -140,7 +149,10 @@ class ReportsController extends Controller
                     'doctor_name' => $transaction->doctor ? 
                         $transaction->doctor->name : 
                         'Unknown Doctor',
-                    'total_amount' => $transaction->total_amount,
+                    'total_amount' => $transaction->amount, // Use final amount after discounts
+                    'original_amount' => $transaction->total_amount, // Original amount before discounts
+                    'discount_amount' => $transaction->discount_amount ?? 0,
+                    'senior_discount_amount' => $transaction->senior_discount_amount ?? 0,
                     'payment_method' => $transaction->payment_method,
                     'transaction_date' => $transaction->transaction_date,
                     'status' => $transaction->status,
@@ -165,13 +177,13 @@ class ReportsController extends Controller
                 \Log::info('First transformed transaction: ' . json_encode($transformedData->first()));
             }
 
-            // Calculate summary with null checks
+            // Calculate summary with null checks - use final amounts after discounts
             $summary = [
-                'total_revenue' => $transactions->sum('total_amount') ?? 0,
+                'total_revenue' => $transactions->sum('amount') ?? 0, // Use final amount after discounts
                 'total_transactions' => $transactions->count(),
-                'average_transaction' => $transactions->avg('total_amount') ?? 0,
-                'cash_payments' => $transactions->where('payment_method', 'Cash')->sum('total_amount') ?? 0,
-                'hmo_payments' => $transactions->where('payment_method', 'HMO')->sum('total_amount') ?? 0,
+                'average_transaction' => $transactions->avg('amount') ?? 0, // Use final amount after discounts
+                'cash_payments' => $transactions->where('payment_method', 'Cash')->sum('amount') ?? 0,
+                'hmo_payments' => $transactions->where('payment_method', 'HMO')->sum('amount') ?? 0,
                 'date_from' => $request->get('date_from'),
                 'date_to' => $request->get('date_to'),
             ];
@@ -182,6 +194,7 @@ class ReportsController extends Controller
             return Inertia::render('admin/reports/financial', [
                 'filter' => $filter,
                 'date' => $date,
+                'reportType' => $reportType,
                 'data' => $data,
                 'transactions' => $transactions,
                 'summary' => $summary,
@@ -489,9 +502,9 @@ class ReportsController extends Controller
             $totalItems = \App\Models\InventoryItem::count();
             \Log::info('Database Debug', [
                 'total_items_in_db' => $totalItems,
-                'items_created_today' => \App\Models\InventoryItem::whereDate('created_at', today())->count(),
-                'items_created_this_month' => \App\Models\InventoryItem::whereMonth('created_at', now()->month)->count(),
-                'items_created_this_year' => \App\Models\InventoryItem::whereYear('created_at', now()->year)->count(),
+                'items_updated_today' => \App\Models\InventoryItem::whereDate('updated_at', today())->count(),
+                'items_updated_this_month' => \App\Models\InventoryItem::whereMonth('updated_at', now()->month)->count(),
+                'items_updated_this_year' => \App\Models\InventoryItem::whereYear('updated_at', now()->year)->count(),
             ]);
             
             $query = \App\Models\InventoryItem::query();
@@ -503,8 +516,15 @@ class ReportsController extends Controller
                     $q->whereBetween('created_at', [$startDate, $endDate]);
                 });
             } else {
-                // For all items report, filter by created_at
-                $query->whereBetween('created_at', [$startDate, $endDate]);
+                // For "all" report type, show all items regardless of date
+                // This ensures users always see data when they select "All Supplies"
+                if ($reportType === 'all') {
+                    // Don't apply date filter for "all" - show all items
+                    \Log::info('All report type selected - showing all items without date filter');
+                } else {
+                    // For other report types, filter by updated_at
+                    $query->whereBetween('updated_at', [$startDate, $endDate]);
+                }
             }
             
             if ($request->filled('category')) {
@@ -625,9 +645,9 @@ class ReportsController extends Controller
             $totalItems = \App\Models\InventoryItem::count();
             \Log::info('Database Debug', [
                 'total_items_in_db' => $totalItems,
-                'items_created_today' => \App\Models\InventoryItem::whereDate('created_at', today())->count(),
-                'items_created_this_month' => \App\Models\InventoryItem::whereMonth('created_at', now()->month)->count(),
-                'items_created_this_year' => \App\Models\InventoryItem::whereYear('created_at', now()->year)->count(),
+                'items_updated_today' => \App\Models\InventoryItem::whereDate('updated_at', today())->count(),
+                'items_updated_this_month' => \App\Models\InventoryItem::whereMonth('updated_at', now()->month)->count(),
+                'items_updated_this_year' => \App\Models\InventoryItem::whereYear('updated_at', now()->year)->count(),
             ]);
             
             $query = \App\Models\InventoryItem::query();
@@ -639,8 +659,15 @@ class ReportsController extends Controller
                     $q->whereBetween('created_at', [$startDate, $endDate]);
                 });
             } else {
-                // For all items report, filter by created_at
-                $query->whereBetween('created_at', [$startDate, $endDate]);
+                // For "all" report type, show all items regardless of date
+                // This ensures users always see data when they select "All Supplies"
+                if ($reportType === 'all') {
+                    // Don't apply date filter for "all" - show all items
+                    \Log::info('All report type selected - showing all items without date filter');
+                } else {
+                    // For other report types, filter by updated_at
+                    $query->whereBetween('updated_at', [$startDate, $endDate]);
+                }
             }
             
             if ($request->filled('category')) {
@@ -738,45 +765,6 @@ class ReportsController extends Controller
         }
     }
 
-    /**
-     * Analytics Dashboard
-     */
-    public function analytics(Request $request): Response
-    {
-        if (!$this->checkReportAccess('analytics')) {
-            abort(403, 'You do not have permission to access analytics reports.');
-        }
-
-        try {
-            // Get comprehensive analytics data
-            $analytics = [
-                'revenue_analytics' => $this->getRevenueAnalytics($request),
-                'patient_analytics' => $this->getPatientAnalytics($request),
-                'appointment_analytics' => $this->getAppointmentAnalytics($request),
-                'lab_analytics' => $this->getLabAnalytics($request),
-                'inventory_analytics' => $this->getInventoryAnalytics($request),
-            ];
-
-            // Get chart data
-            $chartData = $this->getChartData();
-
-            return Inertia::render('admin/reports/analytics', [
-                'analytics' => $analytics,
-                'chartData' => $chartData,
-                'filterOptions' => $this->getFilterOptions(),
-                'metadata' => $this->getReportMetadata(),
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Analytics reports error: ' . $e->getMessage());
-            return Inertia::render('admin/reports/analytics', [
-                'analytics' => [],
-                'chartData' => [],
-                'filterOptions' => $this->getFilterOptions(),
-                'metadata' => $this->getReportMetadata(),
-                'error' => 'Unable to load analytics data.'
-            ]);
-        }
-    }
 
     /**
      * Export reports in various formats
@@ -844,11 +832,11 @@ class ReportsController extends Controller
     private function calculateRevenueGrowthRate()
     {
         try {
-            $currentMonth = BillingTransaction::where('transaction_date', '>=', now()->startOfMonth())->sum('total_amount') ?? 0;
+            $currentMonth = BillingTransaction::where('transaction_date', '>=', now()->startOfMonth())->sum('amount') ?? 0;
             $lastMonth = BillingTransaction::whereBetween('transaction_date', [
                 now()->subMonth()->startOfMonth(),
                 now()->subMonth()->endOfMonth()
-            ])->sum('total_amount') ?? 0;
+            ])->sum('amount') ?? 0;
 
             if ($lastMonth == 0) {
                 return $currentMonth > 0 ? 100 : 0;
@@ -1053,7 +1041,7 @@ class ReportsController extends Controller
                 return true; // Full access
             case 'hospital_admin':
             case 'hospital_staff':
-                return in_array($reportType, ['patients', 'financial', 'analytics']); // Hospital roles have access to patients, financial, and analytics reports
+                return in_array($reportType, ['patients', 'financial']); // Hospital roles have access to patients and financial reports
             case 'doctor':
                 return in_array($reportType, ['patients', 'laboratory', 'appointments']);
             case 'cashier':
@@ -1077,14 +1065,14 @@ class ReportsController extends Controller
 
             // Monthly revenue trend
             $monthlyData = BillingTransaction::whereBetween('transaction_date', [$dateFrom, $dateTo])
-                ->selectRaw('DATE_FORMAT(transaction_date, "%Y-%m") as month, SUM(total_amount) as revenue')
+                ->selectRaw('DATE_FORMAT(transaction_date, "%Y-%m") as month, SUM(amount) as revenue')
                 ->groupBy('month')
                 ->orderBy('month')
                 ->get();
 
             // Payment method distribution
             $paymentMethods = BillingTransaction::whereBetween('transaction_date', [$dateFrom, $dateTo])
-                ->selectRaw('payment_method, COUNT(*) as count, SUM(total_amount) as amount')
+                ->selectRaw('payment_method, COUNT(*) as count, SUM(amount) as amount')
                 ->groupBy('payment_method')
                 ->get();
 
@@ -1296,18 +1284,27 @@ class ReportsController extends Controller
     }
 
     /**
-     * Get financial report data based on filter and date
+     * Get financial report data based on filter, date, and report type
      */
-    private function getFinancialReportData($filter, $date)
+    private function getFinancialReportData($filter, $date, $reportType = 'all')
     {
         try {
             $startDate = $this->getStartDate($filter, $date);
             $endDate = $this->getEndDate($filter, $date);
             
             // Get transactions for the period
-            $transactions = BillingTransaction::with(['patient', 'doctor'])
-                ->whereBetween('transaction_date', [$startDate, $endDate])
-                ->get();
+            $query = BillingTransaction::with(['patient', 'doctor'])
+                ->whereBetween('transaction_date', [$startDate, $endDate]);
+            
+            // Apply report type filtering
+            if ($reportType === 'cash') {
+                $query->where('payment_method', 'Cash');
+            } elseif ($reportType === 'hmo') {
+                $query->where('payment_method', 'HMO');
+            }
+            // 'all' shows all payment methods
+            
+            $transactions = $query->get();
 
             // Calculate statistics
             $totalTransactions = $transactions->count();
@@ -1330,7 +1327,10 @@ class ReportsController extends Controller
                     'doctor_name' => $transaction->doctor ? 
                         $transaction->doctor->name : 
                         'Unknown Doctor',
-                    'total_amount' => $transaction->total_amount,
+                    'total_amount' => $transaction->amount, // Use final amount after discounts
+                    'original_amount' => $transaction->total_amount, // Original amount before discounts
+                    'discount_amount' => $transaction->discount_amount ?? 0,
+                    'senior_discount_amount' => $transaction->senior_discount_amount ?? 0,
                     'payment_method' => $transaction->payment_method,
                     'transaction_date' => $transaction->transaction_date,
                     'status' => $transaction->status,
@@ -1399,7 +1399,10 @@ class ReportsController extends Controller
                     'doctor_name' => $transaction->doctor ? 
                         $transaction->doctor->name : 
                         'Unknown Doctor',
-                    'total_amount' => $transaction->total_amount,
+                    'total_amount' => $transaction->amount, // Use final amount after discounts
+                    'original_amount' => $transaction->total_amount, // Original amount before discounts
+                    'discount_amount' => $transaction->discount_amount ?? 0,
+                    'senior_discount_amount' => $transaction->senior_discount_amount ?? 0,
                     'payment_method' => $transaction->payment_method,
                     'transaction_date' => $transaction->transaction_date,
                     'status' => $transaction->status,
@@ -1409,11 +1412,11 @@ class ReportsController extends Controller
             return [
                 'transactions' => $transformedTransactions,
                 'summary' => [
-                    'total_revenue' => $transactions->sum('total_amount') ?? 0,
+                    'total_revenue' => $transactions->sum('amount') ?? 0, // Use final amount after discounts
                     'total_transactions' => $transactions->count(),
-                    'average_transaction' => $transactions->avg('total_amount') ?? 0,
-                    'cash_payments' => $transactions->where('payment_method', 'Cash')->sum('total_amount') ?? 0,
-                    'hmo_payments' => $transactions->where('payment_method', 'HMO')->sum('total_amount') ?? 0,
+                    'average_transaction' => $transactions->avg('amount') ?? 0, // Use final amount after discounts
+                    'cash_payments' => $transactions->where('payment_method', 'Cash')->sum('amount') ?? 0,
+                    'hmo_payments' => $transactions->where('payment_method', 'HMO')->sum('amount') ?? 0,
                     'date_from' => $request->get('date_from'),
                     'date_to' => $request->get('date_to'),
                 ]
@@ -1576,8 +1579,411 @@ class ReportsController extends Controller
     }
 
     /**
-     * Get all inventory items report data
+     * Appointment Reports
      */
+    public function appointments(Request $request): Response
+    {
+        try {
+            $filter = $request->get('filter', 'daily');
+            $date = $request->get('date', now()->format('Y-m-d'));
+            $reportType = $request->get('report_type', 'all');
+            
+            \Log::info('Appointment Report Request', [
+                'filter' => $filter,
+                'date' => $date,
+                'report_type' => $reportType
+            ]);
+            
+            // Get date range based on filter
+            $startDate = $this->getStartDate($filter, $date);
+            $endDate = $this->getEndDate($filter, $date);
+            
+            $data = $this->getAppointmentReportData($filter, $date, $reportType);
+            
+            \Log::info('Appointment Report Data Structure', [
+                'data_type' => gettype($data),
+                'appointment_details_type' => gettype($data['appointment_details'] ?? null),
+                'appointment_details_count' => is_array($data['appointment_details'] ?? null) ? count($data['appointment_details']) : 'not_array',
+                'appointment_details_sample' => is_array($data['appointment_details'] ?? null) && count($data['appointment_details']) > 0 ? array_slice($data['appointment_details'], 0, 2) : 'no_data',
+                'appointment_codes_sample' => is_array($data['appointment_details'] ?? null) && count($data['appointment_details']) > 0 ? 
+                    array_map(function($apt) { return ['id' => $apt['id'], 'appointment_code' => $apt['appointment_code']]; }, array_slice($data['appointment_details'], 0, 3)) : 'no_data'
+            ]);
+            
+            // Get paginated appointments for the table
+            $query = \App\Models\Appointment::with(['patient', 'specialist']);
+            
+            // Apply date range filter based on report type
+            if ($reportType === 'all') {
+                // For "all" report type, show all appointments regardless of date
+                \Log::info('All appointment report type selected - showing all appointments without date filter');
+            } else {
+                // For other report types, filter by appointment_date
+                // Check if appointments have appointment_date field populated
+                $appointmentsWithDates = \App\Models\Appointment::whereNotNull('appointment_date')->count();
+                if ($appointmentsWithDates === 0) {
+                    \Log::info('No appointments with appointment_date found, using created_at for table filtering');
+                    $query->whereBetween('created_at', [$startDate, $endDate]);
+                } else {
+                    $query->whereBetween('appointment_date', [$startDate, $endDate]);
+                }
+            }
+            
+            // Apply specific filters based on report type
+            if ($reportType === 'doctor_only') {
+                $query->where('specialist_type', 'Doctor');
+                \Log::info('Applied doctor_only filter');
+            } elseif ($reportType === 'medtech_only') {
+                $query->where('specialist_type', 'MedTech');
+                \Log::info('Applied medtech_only filter');
+            } elseif ($reportType === 'nurse_only') {
+                $query->where('specialist_type', 'Nurse');
+                \Log::info('Applied nurse_only filter');
+            } elseif ($reportType === 'online_only') {
+                $query->where('source', 'Online');
+                \Log::info('Applied online_only filter');
+            } elseif ($reportType === 'walkin_only') {
+                $query->where('source', 'Walk-in');
+                \Log::info('Applied walkin_only filter');
+            } elseif ($reportType === 'consultation') {
+                $query->where(function($q) {
+                    $q->whereRaw('LOWER(appointment_type) LIKE ?', ['%consultation%'])
+                      ->orWhereRaw('LOWER(appointment_type) LIKE ?', ['%consult%'])
+                      ->orWhereRaw('LOWER(appointment_type) LIKE ?', ['%checkup%'])
+                      ->orWhereRaw('LOWER(appointment_type) LIKE ?', ['%examination%']);
+                });
+                \Log::info('Applied consultation filter');
+            } elseif ($reportType === 'follow_up') {
+                $query->where(function($q) {
+                    $q->whereRaw('LOWER(appointment_type) LIKE ?', ['%follow%'])
+                      ->orWhereRaw('LOWER(appointment_type) LIKE ?', ['%followup%'])
+                      ->orWhereRaw('LOWER(appointment_type) LIKE ?', ['%follow-up%'])
+                      ->orWhereRaw('LOWER(appointment_type) LIKE ?', ['%return%']);
+                });
+                \Log::info('Applied follow_up filter');
+            } elseif ($reportType === 'emergency') {
+                $query->where(function($q) {
+                    $q->whereRaw('LOWER(appointment_type) LIKE ?', ['%emergency%'])
+                      ->orWhereRaw('LOWER(appointment_type) LIKE ?', ['%urgent%'])
+                      ->orWhereRaw('LOWER(appointment_type) LIKE ?', ['%acute%']);
+                });
+                \Log::info('Applied emergency filter');
+            } elseif ($reportType === 'routine_checkup') {
+                $query->where(function($q) {
+                    $q->whereRaw('LOWER(appointment_type) LIKE ?', ['%routine%'])
+                      ->orWhereRaw('LOWER(appointment_type) LIKE ?', ['%checkup%'])
+                      ->orWhereRaw('LOWER(appointment_type) LIKE ?', ['%preventive%'])
+                      ->orWhereRaw('LOWER(appointment_type) LIKE ?', ['%annual%']);
+                });
+                \Log::info('Applied routine_checkup filter');
+            }
+            
+            if ($request->filled('status')) {
+                $query->where('status', $request->status);
+            }
+            
+            if ($request->filled('specialist_type')) {
+                $query->where('specialist_type', $request->specialist_type);
+            }
+            
+            if ($request->filled('appointment_type')) {
+                $query->where('appointment_type', $request->appointment_type);
+            }
+            
+            $appointments = $query->orderBy('appointment_date', 'desc')
+                ->orderBy('appointment_time', 'desc')
+                ->paginate(20);
+            
+            \Log::info('Appointment Query Results', [
+                'report_type' => $reportType,
+                'total_appointments' => $appointments->total(),
+                'current_page_appointments' => $appointments->count(),
+                'sample_appointments' => $appointments->items() ? array_map(function($apt) {
+                    return [
+                        'id' => $apt->id,
+                        'specialist_type' => $apt->specialist_type,
+                        'source' => $apt->source,
+                        'appointment_type' => $apt->appointment_type,
+                        'status' => $apt->status
+                    ];
+                }, array_slice($appointments->items(), 0, 3)) : []
+            ]);
+            
+            return Inertia::render('admin/reports/appointments', [
+                'filter' => $filter,
+                'date' => $date,
+                'reportType' => $reportType,
+                'data' => $data,
+                'appointments' => $appointments,
+                'summary' => $data,
+                'filterOptions' => $this->getAppointmentFilterOptions(),
+                'metadata' => $this->getReportMetadata()
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Appointment Report Error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return Inertia::render('admin/reports/appointments', [
+                'filter' => $request->get('filter', 'daily'),
+                'date' => $request->get('date', now()->format('Y-m-d')),
+                'reportType' => $request->get('report_type', 'all'),
+                'data' => [
+                    'total_appointments' => 0,
+                    'pending_appointments' => 0,
+                    'confirmed_appointments' => 0,
+                    'completed_appointments' => 0,
+                    'cancelled_appointments' => 0,
+                    'total_revenue' => 0,
+                    'online_appointments' => 0,
+                    'walk_in_appointments' => 0,
+                    'doctor_appointments' => 0,
+                    'medtech_appointments' => 0,
+                    'nurse_appointments' => 0,
+                    'appointment_details' => [],
+                    'period' => 'No data available',
+                    'start_date' => $request->get('date', now()->format('Y-m-d')),
+                    'end_date' => $request->get('date', now()->format('Y-m-d'))
+                ],
+                'appointments' => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20),
+                'summary' => [],
+                'filterOptions' => $this->getAppointmentFilterOptions(),
+                'metadata' => $this->getReportMetadata()
+            ]);
+        }
+    }
+
+    /**
+     * Get appointment report data
+     */
+    private function getAppointmentReportData($filter, $date, $reportType = 'all')
+    {
+        try {
+            $startDate = $this->getStartDate($filter, $date);
+            $endDate = $this->getEndDate($filter, $date);
+            
+            \Log::info('getAppointmentReportData Debug', [
+                'start_date' => $startDate->format('Y-m-d H:i:s'),
+                'end_date' => $endDate->format('Y-m-d H:i:s'),
+                'filter' => $filter,
+                'date' => $date,
+                'report_type' => $reportType
+            ]);
+            
+            // Debug: Check what appointments exist in the database
+            $totalAppointments = \App\Models\Appointment::count();
+            $appointmentsWithDates = \App\Models\Appointment::whereNotNull('appointment_date')->count();
+            $doctorAppointments = \App\Models\Appointment::where('specialist_type', 'Doctor')->count();
+            $yearlyAppointments = \App\Models\Appointment::whereBetween('appointment_date', [$startDate, $endDate])->count();
+            $yearlyDoctorAppointments = \App\Models\Appointment::whereBetween('appointment_date', [$startDate, $endDate])
+                ->where('specialist_type', 'Doctor')->count();
+            
+            \Log::info('Database Appointment Debug', [
+                'total_appointments' => $totalAppointments,
+                'appointments_with_dates' => $appointmentsWithDates,
+                'doctor_appointments_total' => $doctorAppointments,
+                'yearly_appointments' => $yearlyAppointments,
+                'yearly_doctor_appointments' => $yearlyDoctorAppointments,
+                'date_range' => $startDate->format('Y-m-d') . ' to ' . $endDate->format('Y-m-d')
+            ]);
+            
+            // Get appointments based on report type
+            if ($reportType === 'all') {
+                // For "all" report type, get all appointments regardless of date
+                $appointments = \App\Models\Appointment::with(['patient', 'specialist'])->get();
+                \Log::info('All appointment report type - getting all appointments without date filter');
+            } else {
+                // For other report types, filter by appointment_date
+                // If no appointments have appointment_date, fall back to created_at
+                if ($appointmentsWithDates === 0) {
+                    \Log::info('No appointments with appointment_date found, using created_at for filtering');
+                    $appointments = \App\Models\Appointment::with(['patient', 'specialist'])
+                        ->whereBetween('created_at', [$startDate, $endDate])
+                        ->get();
+                } else {
+                    $appointments = \App\Models\Appointment::with(['patient', 'specialist'])
+                        ->whereBetween('appointment_date', [$startDate, $endDate])
+                        ->get();
+                }
+            }
+            
+            // Apply specific filters based on report type
+            if ($reportType === 'doctor_only') {
+                $appointments = $appointments->where('specialist_type', 'Doctor');
+                \Log::info('Applied doctor_only filter to summary data');
+            } elseif ($reportType === 'medtech_only') {
+                $appointments = $appointments->where('specialist_type', 'MedTech');
+                \Log::info('Applied medtech_only filter to summary data');
+            } elseif ($reportType === 'nurse_only') {
+                $appointments = $appointments->where('specialist_type', 'Nurse');
+                \Log::info('Applied nurse_only filter to summary data');
+            } elseif ($reportType === 'online_only') {
+                $appointments = $appointments->where('source', 'Online');
+                \Log::info('Applied online_only filter to summary data');
+            } elseif ($reportType === 'walkin_only') {
+                $appointments = $appointments->where('source', 'Walk-in');
+                \Log::info('Applied walkin_only filter to summary data');
+            } elseif ($reportType === 'consultation') {
+                $appointments = $appointments->filter(function($appointment) {
+                    $type = strtolower($appointment->appointment_type);
+                    return strpos($type, 'consultation') !== false ||
+                           strpos($type, 'consult') !== false ||
+                           strpos($type, 'checkup') !== false ||
+                           strpos($type, 'examination') !== false;
+                });
+                \Log::info('Applied consultation filter to summary data');
+            } elseif ($reportType === 'follow_up') {
+                $appointments = $appointments->filter(function($appointment) {
+                    $type = strtolower($appointment->appointment_type);
+                    return strpos($type, 'follow') !== false ||
+                           strpos($type, 'followup') !== false ||
+                           strpos($type, 'follow-up') !== false ||
+                           strpos($type, 'return') !== false;
+                });
+                \Log::info('Applied follow_up filter to summary data');
+            } elseif ($reportType === 'emergency') {
+                $appointments = $appointments->filter(function($appointment) {
+                    $type = strtolower($appointment->appointment_type);
+                    return strpos($type, 'emergency') !== false ||
+                           strpos($type, 'urgent') !== false ||
+                           strpos($type, 'acute') !== false;
+                });
+                \Log::info('Applied emergency filter to summary data');
+            } elseif ($reportType === 'routine_checkup') {
+                $appointments = $appointments->filter(function($appointment) {
+                    $type = strtolower($appointment->appointment_type);
+                    return strpos($type, 'routine') !== false ||
+                           strpos($type, 'checkup') !== false ||
+                           strpos($type, 'preventive') !== false ||
+                           strpos($type, 'annual') !== false;
+                });
+                \Log::info('Applied routine_checkup filter to summary data');
+            }
+                
+            \Log::info('Appointments Query Result', [
+                'appointments_count' => $appointments->count(),
+                'date_range' => $startDate->format('Y-m-d') . ' to ' . $endDate->format('Y-m-d'),
+                'first_appointment' => $appointments->first() ? [
+                    'id' => $appointments->first()->id,
+                    'patient_name' => $appointments->first()->patient_name ?? 'Unknown',
+                    'appointment_date' => $appointments->first()->appointment_date
+                ] : null
+            ]);
+
+            // Calculate statistics
+            $totalAppointments = $appointments->count();
+            $pendingAppointments = $appointments->where('status', 'Pending')->count();
+            $confirmedAppointments = $appointments->where('status', 'Confirmed')->count();
+            $completedAppointments = $appointments->where('status', 'Completed')->count();
+            $cancelledAppointments = $appointments->where('status', 'Cancelled')->count();
+            $totalRevenue = $appointments->sum('price');
+            $onlineAppointments = $appointments->where('source', 'Online')->count();
+            $walkInAppointments = $appointments->where('source', 'Walk-in')->count();
+            $doctorAppointments = $appointments->where('specialist_type', 'Doctor')->count();
+            $medtechAppointments = $appointments->where('specialist_type', 'MedTech')->count();
+            $nurseAppointments = $appointments->where('specialist_type', 'Nurse')->count();
+            
+            // Get appointment details - transform to match frontend expectations
+            $appointmentDetails = $appointments->map(function ($appointment) {
+                return [
+                    'id' => $appointment->id,
+                    'appointment_code' => $appointment->appointment_code ?: 'A' . str_pad($appointment->id, 4, '0', STR_PAD_LEFT),
+                    'patient_name' => $appointment->patient ? trim($appointment->patient->first_name . ' ' . $appointment->patient->last_name) : 'Unknown Patient',
+                    'patient_id' => $appointment->patient_id,
+                    'contact_number' => $appointment->patient ? $appointment->patient->mobile_no : 'N/A',
+                    'appointment_type' => $appointment->appointment_type,
+                    'specialist_type' => $appointment->specialist_type,
+                    'specialist_name' => $appointment->specialist ? $appointment->specialist->name : 'Unknown Specialist',
+                    'specialist_id' => $appointment->specialist_id,
+                    'appointment_date' => $appointment->appointment_date,
+                    'appointment_time' => $appointment->appointment_time,
+                    'duration' => $appointment->duration,
+                    'price' => $appointment->price,
+                    'status' => $appointment->status,
+                    'source' => $appointment->source,
+                    'created_at' => $appointment->created_at,
+                    'notes' => $appointment->notes,
+                    'special_requirements' => $appointment->special_requirements,
+                ];
+            });
+            
+            return [
+                'total_appointments' => $totalAppointments,
+                'pending_appointments' => $pendingAppointments,
+                'confirmed_appointments' => $confirmedAppointments,
+                'completed_appointments' => $completedAppointments,
+                'cancelled_appointments' => $cancelledAppointments,
+                'total_revenue' => $totalRevenue,
+                'online_appointments' => $onlineAppointments,
+                'walk_in_appointments' => $walkInAppointments,
+                'doctor_appointments' => $doctorAppointments,
+                'medtech_appointments' => $medtechAppointments,
+                'nurse_appointments' => $nurseAppointments,
+                'appointment_details' => $appointmentDetails->toArray(),
+                'period' => $this->getPeriodDescription($filter, $date),
+                'start_date' => $startDate->format('Y-m-d'),
+                'end_date' => $endDate->format('Y-m-d')
+            ];
+            
+        } catch (\Exception $e) {
+            \Log::error('getAppointmentReportData Error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return [
+                'total_appointments' => 0,
+                'pending_appointments' => 0,
+                'confirmed_appointments' => 0,
+                'completed_appointments' => 0,
+                'cancelled_appointments' => 0,
+                'total_revenue' => 0,
+                'online_appointments' => 0,
+                'walk_in_appointments' => 0,
+                'doctor_appointments' => 0,
+                'medtech_appointments' => 0,
+                'nurse_appointments' => 0,
+                'appointment_details' => [],
+                'period' => 'No data available',
+                'start_date' => $date,
+                'end_date' => $date
+            ];
+        }
+    }
+
+    /**
+     * Get appointment filter options
+     */
+    private function getAppointmentFilterOptions()
+    {
+        $appointmentTypes = \App\Models\Appointment::distinct()->pluck('appointment_type')->filter()->values()->toArray();
+        
+        \Log::info('Available appointment types in database:', $appointmentTypes);
+        
+        return [
+            'statuses' => ['Pending', 'Confirmed', 'Completed', 'Cancelled', 'No Show'],
+            'specialist_types' => ['Doctor', 'MedTech', 'Nurse'],
+            'sources' => ['Online', 'Walk-in'],
+            'appointment_types' => $appointmentTypes
+        ];
+    }
+
+    /**
+     * Get period description based on filter and date
+     */
+    private function getPeriodDescription($filter, $date)
+    {
+        switch ($filter) {
+            case 'daily':
+                return 'Daily Report - ' . \Carbon\Carbon::parse($date)->format('F j, Y');
+            case 'monthly':
+                return 'Monthly Report - ' . \Carbon\Carbon::parse($date)->format('F Y');
+            case 'yearly':
+                return 'Yearly Report - ' . \Carbon\Carbon::parse($date)->format('Y');
+            default:
+                return 'All Time';
+        }
+    }
+
     private function getAllInventoryItemsReportData($startDate, $endDate, $filter, $date)
     {
         try {
@@ -1588,23 +1994,24 @@ class ReportsController extends Controller
                 'date' => $date
             ]);
             
-            // Get inventory items for the period (based on created_at)
-            // If no items found in date range, get all items for the report
-            $items = \App\Models\InventoryItem::whereBetween('created_at', [$startDate, $endDate])
-                ->get();
-                
-            // If no items found in the date range, get all items
-            if ($items->isEmpty()) {
-                \Log::info('No inventory items found in date range, getting all items');
+            // Get inventory items based on report type
+            if ($reportType === 'all') {
+                // For "all" report type, get all items regardless of date
                 $items = \App\Models\InventoryItem::all();
+                \Log::info('All report type - getting all items without date filter');
+            } else {
+                // For other report types, filter by updated_at
+                $items = \App\Models\InventoryItem::whereBetween('updated_at', [$startDate, $endDate])
+                    ->get();
             }
                 
             \Log::info('Inventory Items Query Result', [
                 'items_count' => $items->count(),
+                'date_range' => $startDate->format('Y-m-d') . ' to ' . $endDate->format('Y-m-d'),
                 'first_item' => $items->first() ? [
                     'id' => $items->first()->id,
                     'item_name' => $items->first()->item_name,
-                    'created_at' => $items->first()->created_at
+                    'updated_at' => $items->first()->updated_at
                 ] : null
             ]);
 
@@ -1698,16 +2105,9 @@ class ReportsController extends Controller
             ]);
             
             // Get supplies for the period (based on created_at)
-            // If no supplies found in date range, get all supplies for the report
             $supplies = Supply::whereBetween('created_at', [$startDate, $endDate])
                 ->with('stockLevels')
                 ->get();
-                
-            // If no supplies found in the date range, get all supplies
-            if ($supplies->isEmpty()) {
-                \Log::info('No supplies found in date range, getting all supplies');
-                $supplies = Supply::with('stockLevels')->get();
-            }
                 
             \Log::info('Supplies Query Result', [
                 'supplies_count' => $supplies->count(),
@@ -2005,7 +2405,7 @@ class ReportsController extends Controller
                 $date = now()->subMonths($i);
                 $revenue = BillingTransaction::whereYear('transaction_date', $date->year)
                     ->whereMonth('transaction_date', $date->month)
-                    ->sum('total_amount') ?? 0;
+                    ->sum('amount') ?? 0;
 
                 $appointments = Appointment::whereYear('appointment_date', $date->year)
                     ->whereMonth('appointment_date', $date->month)
@@ -2245,162 +2645,6 @@ class ReportsController extends Controller
         }
     }
 
-    /**
-     * Get revenue analytics data
-     */
-    private function getRevenueAnalytics(Request $request)
-    {
-        try {
-            $dateFrom = $request->get('date_from', now()->startOfMonth());
-            $dateTo = $request->get('date_to', now()->endOfMonth());
-
-            $transactions = BillingTransaction::whereBetween('transaction_date', [$dateFrom, $dateTo]);
-
-            return [
-                'total_revenue' => $transactions->sum('total_amount') ?? 0,
-                'transaction_count' => $transactions->count(),
-                'average_transaction' => $transactions->avg('total_amount') ?? 0,
-                'payment_methods' => $transactions->selectRaw('payment_method, COUNT(*) as count, SUM(total_amount) as amount')
-                    ->groupBy('payment_method')
-                    ->get(),
-            ];
-        } catch (\Exception $e) {
-            Log::error('Revenue analytics error: ' . $e->getMessage());
-            return [
-                'total_revenue' => 0,
-                'transaction_count' => 0,
-                'average_transaction' => 0,
-                'payment_methods' => collect(),
-            ];
-        }
-    }
-
-    /**
-     * Get patient analytics data
-     */
-    private function getPatientAnalytics(Request $request)
-    {
-        try {
-            $dateFrom = $request->get('date_from', now()->startOfMonth());
-            $dateTo = $request->get('date_to', now()->endOfMonth());
-
-            $patients = Patient::whereBetween('created_at', [$dateFrom, $dateTo]);
-
-            return [
-                'total_patients' => $patients->count(),
-                'new_patients' => $patients->where('created_at', '>=', now()->startOfMonth())->count(),
-                'gender_distribution' => $patients->selectRaw('sex, COUNT(*) as count')->groupBy('sex')->get(),
-                'age_groups' => $patients->selectRaw('
-                    CASE
-                        WHEN age < 18 THEN "0-17"
-                        WHEN age BETWEEN 18 AND 30 THEN "18-30"
-                        WHEN age BETWEEN 31 AND 50 THEN "31-50"
-                        WHEN age BETWEEN 51 AND 70 THEN "51-70"
-                        ELSE "70+"
-                    END as age_group,
-                    COUNT(*) as count
-                ')->groupBy('age_group')->get(),
-            ];
-        } catch (\Exception $e) {
-            Log::error('Patient analytics error: ' . $e->getMessage());
-            return [
-                'total_patients' => 0,
-                'new_patients' => 0,
-                'gender_distribution' => collect(),
-                'age_groups' => collect(),
-            ];
-        }
-    }
-
-    /**
-     * Get appointment analytics data
-     */
-    private function getAppointmentAnalytics(Request $request)
-    {
-        try {
-            $dateFrom = $request->get('date_from', now()->startOfMonth());
-            $dateTo = $request->get('date_to', now()->endOfMonth());
-
-            $appointments = Appointment::whereBetween('appointment_date', [$dateFrom, $dateTo]);
-
-            return [
-                'total_appointments' => $appointments->count(),
-                'status_distribution' => $appointments->selectRaw('status, COUNT(*) as count')->groupBy('status')->get(),
-                'daily_appointments' => $appointments->selectRaw('DATE(appointment_date) as date, COUNT(*) as count')
-                    ->groupBy('date')
-                    ->orderBy('date')
-                    ->get(),
-            ];
-        } catch (\Exception $e) {
-            Log::error('Appointment analytics error: ' . $e->getMessage());
-            return [
-                'total_appointments' => 0,
-                'status_distribution' => collect(),
-                'daily_appointments' => collect(),
-            ];
-        }
-    }
-
-    /**
-     * Get lab analytics data
-     */
-    private function getLabAnalytics(Request $request)
-    {
-        try {
-            $dateFrom = $request->get('date_from', now()->startOfMonth());
-            $dateTo = $request->get('date_to', now()->endOfMonth());
-
-            $labOrders = LabOrder::whereBetween('created_at', [$dateFrom, $dateTo]);
-
-            return [
-                'total_orders' => $labOrders->count(),
-                'status_distribution' => $labOrders->selectRaw('status, COUNT(*) as count')->groupBy('status')->get(),
-                'test_types' => $labOrders->join('lab_results', 'lab_orders.id', '=', 'lab_results.lab_order_id')
-                    ->join('lab_tests', 'lab_results.lab_test_id', '=', 'lab_tests.id')
-                    ->selectRaw('lab_tests.name as test_name, COUNT(*) as count')
-                    ->groupBy('lab_tests.name')
-                    ->orderBy('count', 'desc')
-                    ->limit(10)
-                    ->get(),
-            ];
-        } catch (\Exception $e) {
-            Log::error('Lab analytics error: ' . $e->getMessage());
-            return [
-                'total_orders' => 0,
-                'status_distribution' => collect(),
-                'test_types' => collect(),
-            ];
-        }
-    }
-
-    /**
-     * Get inventory analytics data
-     */
-    private function getInventoryAnalytics(Request $request)
-    {
-        try {
-            $supplies = Supply::all();
-
-            return [
-                'total_products' => $supplies->count(),
-                'low_stock_items' => $supplies->filter(function($supply) {
-                    return $supply->current_stock <= $supply->minimum_stock_level;
-                })->count(),
-                'out_of_stock' => $supplies->filter(function($supply) {
-                    return $supply->current_stock <= 0;
-                })->count(),
-                'category_distribution' => $supplies->groupBy('category')->map->count(),
-            ];
-        } catch (\Exception $e) {
-            Log::error('Inventory analytics error: ' . $e->getMessage());
-            return [
-                'total_products' => 0,
-                'low_stock_items' => 0,
-                'out_of_stock' => 0,
-                'category_distribution' => collect(),
-            ];
-        }
-    }
 
     /**
      * Get all report data for comprehensive export

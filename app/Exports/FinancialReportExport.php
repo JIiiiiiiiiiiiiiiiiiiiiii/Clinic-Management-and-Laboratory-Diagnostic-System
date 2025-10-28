@@ -44,14 +44,17 @@ class FinancialReportExport implements WithMultipleSheets
 
         // Financial Transactions Sheet
         $transactionRows = [
-            ['Transaction ID', 'Patient Name', 'Doctor Name', 'Amount', 'Payment Method', 'Status', 'Date']
+            ['Transaction ID', 'Patient Name', 'Doctor Name', 'Final Amount', 'Original Amount', 'Discount Amount', 'Senior Discount', 'Payment Method', 'Status', 'Date']
         ];
         foreach ($this->transactionsData as $transaction) {
             $transactionRows[] = [
                 $transaction->transaction_id,
                 $transaction->patient_name,
                 $transaction->doctor_name,
-                '₱' . number_format($transaction->total_amount, 2),
+                '₱' . number_format($transaction->total_amount, 2), // Final amount after discounts
+                '₱' . number_format($transaction->original_amount ?? $transaction->total_amount, 2), // Original amount
+                '₱' . number_format($transaction->discount_amount ?? 0, 2), // Regular discount
+                '₱' . number_format($transaction->senior_discount_amount ?? 0, 2), // Senior discount
                 ucfirst($transaction->payment_method),
                 ucfirst($transaction->status),
                 \Carbon\Carbon::parse($transaction->transaction_date)->format('M d, Y'),

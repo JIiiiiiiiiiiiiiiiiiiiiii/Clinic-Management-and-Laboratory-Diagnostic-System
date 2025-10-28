@@ -352,7 +352,7 @@ const createPendingAppointmentsColumns = (): ColumnDef<PendingAppointment>[] => 
         },
         cell: ({ row }) => (
             <div className="font-semibold text-green-600">
-                ₱{(row.getValue("price") || row.original.final_total_amount || 0).toLocaleString()}
+                ₱{(row.original.final_total_amount || row.getValue("price") || 0).toLocaleString()}
             </div>
         ),
     },
@@ -559,10 +559,14 @@ type PendingAppointment = {
     patient_id: string;
     appointment_type: string;
     price: number;
+    total_lab_amount: number;
+    final_total_amount: number;
     appointment_date: string;
     appointment_time: string;
     specialist_name: string;
     billing_status: string;
+    source: string;
+    lab_tests_count: number;
 };
 
 export default function BillingIndex({ 

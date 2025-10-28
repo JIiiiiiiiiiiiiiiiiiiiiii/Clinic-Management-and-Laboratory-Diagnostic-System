@@ -25,36 +25,6 @@ class SpecialistScheduleController extends Controller
     }
 
     /**
-     * Show the schedule management page for a nurse
-     */
-    public function showNurse(Specialist $nurse)
-    {
-        if ($nurse->role !== 'Nurse') {
-            abort(404, 'Specialist is not a nurse.');
-        }
-        
-        return Inertia::render('admin/specialists/schedule', [
-            'specialist' => $nurse,
-            'scheduleData' => $nurse->schedule_data ?? $this->getDefaultSchedule(),
-        ]);
-    }
-
-    /**
-     * Show the schedule management page for a medtech
-     */
-    public function showMedtech(Specialist $medtech)
-    {
-        if ($medtech->role !== 'MedTech') {
-            abort(404, 'Specialist is not a medtech.');
-        }
-        
-        return Inertia::render('admin/specialists/schedule', [
-            'specialist' => $medtech,
-            'scheduleData' => $medtech->schedule_data ?? $this->getDefaultSchedule(),
-        ]);
-    }
-
-    /**
      * Update the doctor's schedule
      */
     public function updateDoctor(Request $request, Specialist $doctor)
@@ -75,60 +45,6 @@ class SpecialistScheduleController extends Controller
         ]);
 
         $doctor->update([
-            'schedule_data' => $request->schedule_data,
-        ]);
-
-        return redirect()->back()->with('success', 'Schedule updated successfully!');
-    }
-
-    /**
-     * Update the nurse's schedule
-     */
-    public function updateNurse(Request $request, Specialist $nurse)
-    {
-        if ($nurse->role !== 'Nurse') {
-            abort(404, 'Specialist is not a nurse.');
-        }
-        
-        $request->validate([
-            'schedule_data' => 'required|array',
-            'schedule_data.monday' => 'nullable|array',
-            'schedule_data.tuesday' => 'nullable|array',
-            'schedule_data.wednesday' => 'nullable|array',
-            'schedule_data.thursday' => 'nullable|array',
-            'schedule_data.friday' => 'nullable|array',
-            'schedule_data.saturday' => 'nullable|array',
-            'schedule_data.sunday' => 'nullable|array',
-        ]);
-
-        $nurse->update([
-            'schedule_data' => $request->schedule_data,
-        ]);
-
-        return redirect()->back()->with('success', 'Schedule updated successfully!');
-    }
-
-    /**
-     * Update the medtech's schedule
-     */
-    public function updateMedtech(Request $request, Specialist $medtech)
-    {
-        if ($medtech->role !== 'MedTech') {
-            abort(404, 'Specialist is not a medtech.');
-        }
-        
-        $request->validate([
-            'schedule_data' => 'required|array',
-            'schedule_data.monday' => 'nullable|array',
-            'schedule_data.tuesday' => 'nullable|array',
-            'schedule_data.wednesday' => 'nullable|array',
-            'schedule_data.thursday' => 'nullable|array',
-            'schedule_data.friday' => 'nullable|array',
-            'schedule_data.saturday' => 'nullable|array',
-            'schedule_data.sunday' => 'nullable|array',
-        ]);
-
-        $medtech->update([
             'schedule_data' => $request->schedule_data,
         ]);
 

@@ -117,7 +117,6 @@ export default function Dashboard() {
                     { title: 'Settings', href: '/admin/settings', icon: Settings, color: 'bg-slate-500' },
                     { title: 'User Management', href: '/admin/users', icon: UserCheck, color: 'bg-violet-500' },
                     { title: 'Building Management', href: '/admin/building', icon: Building2, color: 'bg-teal-500' },
-                    { title: 'Analytics', href: '/admin/analytics', icon: Activity, color: 'bg-pink-500' },
                 ];
             case 'doctor':
                 return [

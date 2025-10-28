@@ -12,7 +12,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { CustomDatePicker } from '@/components/ui/date-picker';
+import { ReportDatePicker } from '@/components/ui/report-date-picker';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
@@ -310,6 +310,17 @@ export default function InventoryReports({
         supplies,
         summary
     });
+    
+    // Log when component mounts or props change
+    useEffect(() => {
+        console.log('InventoryReports component updated with new props:', {
+            filter,
+            date,
+            reportType,
+            dataCount: data?.supply_details?.length || 0,
+            suppliesCount: supplies?.data?.length || 0
+        });
+    }, [filter, date, reportType, data, supplies]);
 
     const [currentFilter, setCurrentFilter] = useState(filter || 'daily');
     const [currentDate, setCurrentDate] = useState(date || new Date().toISOString().split('T')[0]);
@@ -337,6 +348,22 @@ export default function InventoryReports({
         console.log('getFilteredData - supplies prop:', supplies);
         console.log('getFilteredData - currentSupplies length:', currentSupplies.length);
         console.log('getFilteredData - currentSupplies sample:', currentSupplies.slice(0, 2));
+        
+        // If no data from backend, return empty state
+        if (!data) {
+            console.log('No data from backend, returning empty state');
+            return {
+                total_products: 0,
+                low_stock_items: 0,
+                out_of_stock: 0,
+                total_value: 0,
+                category_summary: {},
+                supply_details: [],
+                period: 'No data available',
+                start_date: currentDate,
+                end_date: currentDate
+            };
+        }
         
         const total = currentSupplies.length;
         const lowStock = currentSupplies.filter(s => s.current_stock <= s.minimum_stock_level).length;
@@ -371,7 +398,9 @@ export default function InventoryReports({
             total_value: totalValue,
             category_summary: categorySummary,
             supply_details: currentSupplies,
-            period: data?.period || (currentFilter === 'daily' 
+            period: data?.period || (currentReportType === 'all' 
+                ? 'All Inventory Items'
+                : currentFilter === 'daily' 
                 ? `Daily Report - ${new Date(currentDate).toLocaleDateString()}`
                 : currentFilter === 'monthly' 
                 ? `Monthly Report - ${new Date(currentDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}`
@@ -401,8 +430,9 @@ export default function InventoryReports({
     });
 
     useEffect(() => {
+        console.log('Data prop changed, updating filtered data');
         setFilteredData(getFilteredData());
-    }, [getFilteredData]);
+    }, [data, supplies, currentFilter, currentDate, currentReportType]);
 
     const handleFilterChange = (newFilter: string) => {
         setCurrentFilter(newFilter);
@@ -516,11 +546,15 @@ export default function InventoryReports({
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <p className="text-blue-100 text-sm font-medium">Total Products</p>
+                                                <p className="text-blue-100 text-sm font-medium">
+                                                    Total Products {isLoading && <span className="animate-pulse">⏳</span>}
+                                                </p>
                                                 <p className="text-3xl font-bold">{(filteredData.total_products || 0).toLocaleString()}</p>
                                                 <p className="text-blue-100 text-xs mt-1">
-                                                    {currentFilter === 'daily' ? 'Today\'s Count' : 
+                                                    {currentReportType === 'all' ? 'All Items' : 
+                                                     currentFilter === 'daily' ? 'Today\'s Count' : 
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
+                                                    {currentReportType !== 'all' && ` (${currentReportType.replace('_', ' ')})`}
                                                 </p>
                                             </div>
                                             <Package className="h-8 w-8 text-blue-200" />
@@ -717,38 +751,65 @@ export default function InventoryReports({
                     <div className="mb-8">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                             <div className="space-y-2 w-full">
-                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">Report Type</Label>
+                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">
+                                    Report Type {isLoading && <span className="text-blue-500">(Loading...)</span>}
+                                </Label>
                                 <select
                                     className="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-500 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                     value={currentReportType}
                                     onChange={(e) => handleReportTypeChange(e.target.value)}
                                     disabled={isLoading}
                                 >
-                                    <option value="all">All Supplies</option>
-                                    <option value="used_rejected">Used/Rejected</option>
-                                    <option value="in_out">In/Out Supplies</option>
+                                    <option value="all">All Inventory Items</option>
+                                    <option value="used_rejected">Used/Rejected Items</option>
+                                    <option value="in_out">Stock Movements</option>
                                 </select>
                             </div>
 
                             <div className="space-y-2 w-full">
-                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">Time Period</Label>
+                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">
+                                    Time Period {isLoading && <span className="text-blue-500">(Loading...)</span>}
+                                </Label>
                                 <select
                                     className="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-500 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                     value={currentFilter}
                                     onChange={(e) => handleFilterChange(e.target.value)}
                                     disabled={isLoading}
                                 >
-                                    <option value="daily">Daily Report</option>
-                                    <option value="monthly">Monthly Report</option>
-                                    <option value="yearly">Yearly Report</option>
+                                    <option value="daily">Daily</option>
+                                    <option value="monthly">Monthly</option>
+                                    <option value="yearly">Yearly</option>
                                 </select>
                             </div>
                             
-                            <div className="w-full">
-                                <CustomDatePicker
-                                    label={currentFilter === 'daily' ? 'Select Date' : currentFilter === 'monthly' ? 'Select Month' : 'Select Year'}
+                            <div className="space-y-2 w-full">
+                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">
+                                    Select Date {isLoading && <span className="text-blue-500">(Loading...)</span>}
+                                </Label>
+                                <ReportDatePicker
                                     date={currentDate ? new Date(currentDate) : undefined}
-                                    setDate={(date: Date | undefined) => handleDateChange(date ? date.toISOString().split('T')[0] : '')}
+                                    onDateChange={(date: Date | undefined) => {
+                                        if (date) {
+                                            // Use local date formatting to avoid timezone issues
+                                            const year = date.getFullYear();
+                                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                                            const day = String(date.getDate()).padStart(2, '0');
+                                            
+                                            let formattedDate: string;
+                                            if (currentFilter === 'monthly') {
+                                                formattedDate = `${year}-${month}`;
+                                            } else if (currentFilter === 'yearly') {
+                                                formattedDate = year.toString();
+                                            } else {
+                                                formattedDate = `${year}-${month}-${day}`;
+                                            }
+                                            
+                                            handleDateChange(formattedDate);
+                                        } else {
+                                            handleDateChange('');
+                                        }
+                                    }}
+                                    filter={currentFilter as 'daily' | 'monthly' | 'yearly'}
                                     placeholder={`Select ${currentFilter} date`}
                                 />
                             </div>
@@ -967,13 +1028,21 @@ export default function InventoryReports({
                             </div>
                         </div>
 
-                        {(filteredData.supply_details || []).length === 0 ? (
+                        {isLoading ? (
+                            <div className="py-16 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                                <div className="text-gray-400 mb-4">
+                                    <Package className="h-12 w-12 mx-auto animate-pulse" />
+                                </div>
+                                <p className="text-lg font-semibold text-gray-700 mb-2">Loading inventory data...</p>
+                                <p className="text-gray-500">Please wait while we fetch the data</p>
+                            </div>
+                        ) : (filteredData.supply_details || []).length === 0 ? (
                             <div className="py-16 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
                                 <div className="text-gray-400 mb-4">
                                     <Package className="h-12 w-12 mx-auto" />
                                 </div>
                                 <p className="text-lg font-semibold text-gray-700 mb-2">No supplies found</p>
-                                <p className="text-gray-500">No supplies found for the selected period</p>
+                                <p className="text-gray-500">No supplies found for the selected period and filters</p>
                             </div>
                         ) : (
                             <Card className="bg-white border border-gray-200">

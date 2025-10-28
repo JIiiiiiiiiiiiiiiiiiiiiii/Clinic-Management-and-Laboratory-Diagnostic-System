@@ -68,6 +68,7 @@ type BillingTransaction = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Billing', href: '/admin/billing' },
+    { title: 'Transaction', href: '/admin/billing/transactions' },
     { title: 'Receipt', href: '/admin/billing/receipt' },
 ];
 

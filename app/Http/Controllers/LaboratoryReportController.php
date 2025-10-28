@@ -34,10 +34,32 @@ class LaboratoryReportController extends Controller
         $startDate = $this->getStartDate($filter, $date);
         $endDate = $this->getEndDate($filter, $date);
         
+        // Debug logging
+        \Log::info('Laboratory Report Debug:', [
+            'filter' => $filter,
+            'date' => $date,
+            'startDate' => $startDate->format('Y-m-d H:i:s'),
+            'endDate' => $endDate->format('Y-m-d H:i:s'),
+            'startDate_timestamp' => $startDate->timestamp,
+            'endDate_timestamp' => $endDate->timestamp,
+        ]);
+        
         // Get lab orders for the period
         $labOrders = LabOrder::with(['patient', 'results.test', 'results'])
             ->whereBetween('created_at', [$startDate, $endDate])
             ->get();
+            
+        // Debug the actual orders found
+        \Log::info('Lab Orders Found:', [
+            'count' => $labOrders->count(),
+            'orders' => $labOrders->map(function($order) {
+                return [
+                    'id' => $order->id,
+                    'created_at' => $order->created_at->format('Y-m-d H:i:s'),
+                    'created_at_timestamp' => $order->created_at->timestamp,
+                ];
+            })->toArray()
+        ]);
 
         // Calculate statistics
         $totalOrders = $labOrders->count();
@@ -62,7 +84,7 @@ class LaboratoryReportController extends Controller
             ];
         });
 
-        return [
+        $result = [
             'total_orders' => $totalOrders,
             'pending_orders' => $pendingOrders,
             'completed_orders' => $completedOrders,
@@ -73,6 +95,15 @@ class LaboratoryReportController extends Controller
             'start_date' => $startDate->format('Y-m-d'),
             'end_date' => $endDate->format('Y-m-d')
         ];
+        
+        // Debug the result
+        \Log::info('Laboratory Report Result:', [
+            'total_orders' => $totalOrders,
+            'order_details_count' => $orderDetails->count(),
+            'order_details_sample' => $orderDetails->take(3)->toArray()
+        ]);
+        
+        return $result;
     }
 
     private function getStartDate($filter, $date)

@@ -4,7 +4,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CustomDatePicker } from '@/components/ui/date-picker';
+import { ReportDatePicker } from '@/components/ui/report-date-picker';
 import AppLayout from '@/layouts/app-layout';
 import Heading from '@/components/heading';
 import { type BreadcrumbItem } from '@/types';
@@ -138,22 +138,22 @@ export default function DailyConsumptionReport({ dailyData, productSummary, filt
                             <div className="flex flex-wrap gap-2 items-end">
                                 <div className="flex-1 min-w-[200px]">
                                     <Label htmlFor="start_date" className="text-base font-semibold text-gray-700 mb-1 block">Start Date</Label>
-                                    <CustomDatePicker
-                                        value={startDate}
-                                        onChange={(date) => setStartDate(date ? date.toISOString().split('T')[0] : '')}
+                                    <ReportDatePicker
+                                        date={startDate ? new Date(startDate) : undefined}
+                                        onDateChange={(date) => setStartDate(date ? date.toISOString().split('T')[0] : '')}
+                                        filter="daily"
                                         placeholder="Select start date"
-                                        variant="responsive"
-                                        className="w-full"
+                                        disabled={false}
                                     />
                                 </div>
                                 <div className="flex-1 min-w-[200px]">
                                     <Label htmlFor="end_date" className="text-base font-semibold text-gray-700 mb-1 block">End Date</Label>
-                                    <CustomDatePicker
-                                        value={endDate}
-                                        onChange={(date) => setEndDate(date ? date.toISOString().split('T')[0] : '')}
+                                    <ReportDatePicker
+                                        date={endDate ? new Date(endDate) : undefined}
+                                        onDateChange={(date) => setEndDate(date ? date.toISOString().split('T')[0] : '')}
+                                        filter="daily"
                                         placeholder="Select end date"
-                                        variant="responsive"
-                                        className="w-full"
+                                        disabled={false}
                                     />
                                 </div>
                                 <div className="flex-none">

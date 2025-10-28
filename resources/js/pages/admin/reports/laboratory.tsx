@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { CustomDatePicker } from '@/components/ui/date-picker';
+import { ReportDatePicker } from '@/components/ui/report-date-picker';
 import { PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -224,6 +224,16 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
     const [isLoading, setIsLoading] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
 
+    // Handle data updates when props change
+    useEffect(() => {
+        console.log('Laboratory data updated:', {
+            filter,
+            date,
+            data,
+            orderDetailsCount: data?.order_details?.length || 0
+        });
+    }, [filter, date, data]);
+
     // TanStack Table state
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -238,7 +248,7 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
             filter: newFilter,
             date: currentDate
         }, {
-            preserveState: true,
+            preserveState: false,
             onFinish: () => setIsLoading(false)
         });
     };
@@ -250,7 +260,7 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
             filter: currentFilter,
             date: newDate
         }, {
-            preserveState: true,
+            preserveState: false,
             onFinish: () => setIsLoading(false)
         });
     };
@@ -421,24 +431,49 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
                     <div className="mb-8">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                             <div className="space-y-2 w-full">
-                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">Report Type</Label>
+                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">
+                                    Time Period {isLoading && <span className="text-blue-500">(Loading...)</span>}
+                                </Label>
                                 <select
-                                    className="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-500 focus:ring-gray-500"
+                                    className="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-500 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                     value={currentFilter}
                                     onChange={(e) => handleFilterChange(e.target.value)}
                                     disabled={isLoading}
                                 >
-                                    <option value="daily">Daily Report</option>
-                                    <option value="monthly">Monthly Report</option>
-                                    <option value="yearly">Yearly Report</option>
+                                    <option value="daily">Daily</option>
+                                    <option value="monthly">Monthly</option>
+                                    <option value="yearly">Yearly</option>
                                 </select>
                             </div>
                             
-                            <div className="w-full">
-                                <CustomDatePicker
-                                    label={currentFilter === 'daily' ? 'Select Date' : currentFilter === 'monthly' ? 'Select Month' : 'Select Year'}
+                            <div className="space-y-2 w-full">
+                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">
+                                    Select Date {isLoading && <span className="text-blue-500">(Loading...)</span>}
+                                </Label>
+                                <ReportDatePicker
                                     date={currentDate ? new Date(currentDate) : undefined}
-                                    setDate={(date: Date | undefined) => handleDateChange(date ? date.toISOString().split('T')[0] : '')}
+                                    onDateChange={(date: Date | undefined) => {
+                                        if (date) {
+                                            // Use local date formatting to avoid timezone issues
+                                            const year = date.getFullYear();
+                                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                                            const day = String(date.getDate()).padStart(2, '0');
+                                            
+                                            let formattedDate: string;
+                                            if (currentFilter === 'monthly') {
+                                                formattedDate = `${year}-${month}`;
+                                            } else if (currentFilter === 'yearly') {
+                                                formattedDate = year.toString();
+                                            } else {
+                                                formattedDate = `${year}-${month}-${day}`;
+                                            }
+                                            
+                                            handleDateChange(formattedDate);
+                                        } else {
+                                            handleDateChange('');
+                                        }
+                                    }}
+                                    filter={currentFilter as 'daily' | 'monthly' | 'yearly'}
                                     placeholder={`Select ${currentFilter} date`}
                                 />
                             </div>

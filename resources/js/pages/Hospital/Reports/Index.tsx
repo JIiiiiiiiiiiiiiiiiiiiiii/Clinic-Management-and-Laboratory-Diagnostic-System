@@ -87,7 +87,7 @@ const breadcrumbs = [
     { label: 'Reports', href: '/hospital/reports' },
 ];
 
-export default function HospitalReportsAndAnalytics({ summary, recentReports, filterOptions, user, metadata, chartData }: Props) {
+export default function HospitalReportsDashboard({ summary, recentReports, filterOptions, user, metadata, chartData }: Props) {
     const [activeTab, setActiveTab] = useState('overview');
 
     const handleExport = (format: string, reportType: string) => {
@@ -102,7 +102,7 @@ export default function HospitalReportsAndAnalytics({ summary, recentReports, fi
         {
             id: 'patients',
             title: 'Patient Reports',
-            description: 'Patient demographics, registration trends, and visit analytics',
+            description: 'Patient demographics, registration trends, and visit reports',
             icon: Users,
             color: 'bg-gradient-to-r from-blue-500 to-cyan-500',
             href: '/hospital/reports/patients',
@@ -115,7 +115,7 @@ export default function HospitalReportsAndAnalytics({ summary, recentReports, fi
         {
             id: 'laboratory',
             title: 'Laboratory Reports',
-            description: 'Lab orders, test results, and diagnostic analytics',
+            description: 'Lab orders, test results, and diagnostic reports',
             icon: FlaskConical,
             color: 'bg-gradient-to-r from-purple-500 to-pink-500',
             href: '/hospital/reports/laboratory',
@@ -128,7 +128,7 @@ export default function HospitalReportsAndAnalytics({ summary, recentReports, fi
         {
             id: 'appointments',
             title: 'Consultation/Appointment Reports',
-            description: 'Appointment scheduling, doctor availability, and consultation analytics',
+            description: 'Appointment scheduling, doctor availability, and consultation reports',
             icon: Calendar,
             color: 'bg-gradient-to-r from-green-500 to-emerald-500',
             href: '/hospital/reports/appointments',
@@ -154,7 +154,7 @@ export default function HospitalReportsAndAnalytics({ summary, recentReports, fi
         {
             id: 'financial',
             title: 'Financial Reports',
-            description: 'Revenue, expenses, billing, and financial analytics',
+            description: 'Revenue, expenses, billing, and financial reports',
             icon: DollarSign,
             color: 'bg-gradient-to-r from-green-600 to-teal-600',
             href: '/hospital/reports/billing',

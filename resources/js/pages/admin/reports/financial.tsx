@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CustomDatePicker } from '@/components/ui/date-picker';
+import { ReportDatePicker } from '@/components/ui/report-date-picker';
 import { Separator } from '@/components/ui/separator';
 import {
     DropdownMenu,
@@ -43,7 +43,10 @@ interface Transaction {
     id: number;
     patient_name: string;
     doctor_name: string;
-    total_amount: number;
+    total_amount: number; // Final amount after discounts
+    original_amount?: number; // Original amount before discounts
+    discount_amount?: number; // Regular discount amount
+    senior_discount_amount?: number; // Senior citizen discount amount
     payment_method: string;
     transaction_date: string;
     status: string;
@@ -60,6 +63,7 @@ interface Summary {
 interface FinancialReportsProps {
     filter: string;
     date: string;
+    reportType: string;
     data: {
         total_transactions: number;
         pending_transactions: number;
@@ -112,7 +116,7 @@ const createColumns = (): ColumnDef<Transaction>[] => [
                 <Button
                     variant="ghost"
                     onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
+                    className="h-8 px-2 lg:px-3 text-left justify-start w-full"
                 >
                     Transaction ID
                     <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -120,7 +124,7 @@ const createColumns = (): ColumnDef<Transaction>[] => [
             )
         },
         cell: ({ row }) => (
-            <div className="font-medium">#{row.getValue("id")}</div>
+            <div className="font-medium text-left">#{row.getValue("id")}</div>
         ),
     },
     {
@@ -130,7 +134,7 @@ const createColumns = (): ColumnDef<Transaction>[] => [
                 <Button
                     variant="ghost"
                     onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
+                    className="h-8 px-2 lg:px-3 text-left justify-start w-full"
                 >
                     Patient Name
                     <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -138,7 +142,7 @@ const createColumns = (): ColumnDef<Transaction>[] => [
             )
         },
         cell: ({ row }) => (
-            <div className="font-medium">{row.getValue("patient_name")}</div>
+            <div className="font-medium text-left">{row.getValue("patient_name")}</div>
         ),
     },
     {
@@ -148,7 +152,7 @@ const createColumns = (): ColumnDef<Transaction>[] => [
                 <Button
                     variant="ghost"
                     onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
+                    className="h-8 px-2 lg:px-3 text-left justify-start w-full"
                 >
                     Doctor
                     <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -156,7 +160,7 @@ const createColumns = (): ColumnDef<Transaction>[] => [
             )
         },
         cell: ({ row }) => (
-            <div>{row.getValue("doctor_name")}</div>
+            <div className="text-left">{row.getValue("doctor_name")}</div>
         ),
     },
     {
@@ -166,7 +170,7 @@ const createColumns = (): ColumnDef<Transaction>[] => [
                 <Button
                     variant="ghost"
                     onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
+                    className="h-8 px-2 lg:px-3 text-right justify-end w-full"
                 >
                     Amount
                     <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -174,19 +178,57 @@ const createColumns = (): ColumnDef<Transaction>[] => [
             )
         },
         cell: ({ row }) => {
-            const amount = parseFloat(row.getValue('total_amount') || '0');
+            const transaction = row.original;
+            const amount = parseFloat(String(transaction.total_amount || '0'));
+            const originalAmount = parseFloat(String(transaction.original_amount || '0'));
+            const discountAmount = parseFloat(String(transaction.discount_amount || '0'));
+            const seniorDiscountAmount = parseFloat(String(transaction.senior_discount_amount || '0'));
+            
             const formatted = new Intl.NumberFormat('en-PH', {
                 style: 'currency',
                 currency: 'PHP',
             }).format(amount);
-            return <div className="text-right font-medium">{formatted}</div>;
+            
+            return (
+                <div className="text-right font-medium">
+                    <div className="text-green-600">{formatted}</div>
+                    {originalAmount > amount && (
+                        <div className="text-xs text-gray-500">
+                            Original: {new Intl.NumberFormat('en-PH', {
+                                style: 'currency',
+                                currency: 'PHP',
+                            }).format(originalAmount)}
+                            {discountAmount > 0 && (
+                                <span className="ml-2 text-blue-600">
+                                    (-{new Intl.NumberFormat('en-PH', {
+                                        style: 'currency',
+                                        currency: 'PHP',
+                                    }).format(discountAmount)} discount)
+                                </span>
+                            )}
+                            {seniorDiscountAmount > 0 && (
+                                <span className="ml-2 text-green-600">
+                                    (-{new Intl.NumberFormat('en-PH', {
+                                        style: 'currency',
+                                        currency: 'PHP',
+                                    }).format(seniorDiscountAmount)} senior)
+                                </span>
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
         },
     },
     {
         accessorKey: 'payment_method',
-        header: "Payment Method",
+        header: ({ column }) => {
+            return (
+                <div className="text-left font-medium w-full">Payment Method</div>
+            )
+        },
         cell: ({ row }) => (
-            <div>{row.getValue("payment_method")}</div>
+            <div className="text-left">{row.getValue("payment_method")}</div>
         ),
     },
     {
@@ -196,7 +238,7 @@ const createColumns = (): ColumnDef<Transaction>[] => [
                 <Button
                     variant="ghost"
                     onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
+                    className="h-8 px-2 lg:px-3 text-center justify-center w-full"
                 >
                     Date
                     <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -206,7 +248,7 @@ const createColumns = (): ColumnDef<Transaction>[] => [
         cell: ({ row }) => {
             const date = new Date(row.getValue("transaction_date"));
             return (
-                <div className="text-sm">
+                <div className="text-sm text-center">
                     {date.toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: '2-digit',
@@ -218,56 +260,70 @@ const createColumns = (): ColumnDef<Transaction>[] => [
     },
     {
         accessorKey: 'status',
-        header: "Status",
+        header: ({ column }) => {
+            return (
+                <div className="text-left font-medium w-full">Status</div>
+            )
+        },
         cell: ({ row }) => {
             const status = row.getValue("status") as string;
             return (
-                <Badge variant={status === 'completed' ? 'default' : 'secondary'}>
-                    {status}
-                </Badge>
+                <div className="text-left">
+                    <Badge variant={status === 'completed' ? 'default' : 'secondary'}>
+                        {status}
+                    </Badge>
+                </div>
             );
         },
     },
     {
         id: "actions",
         enableHiding: false,
+        header: ({ column }) => {
+            return (
+                <div className="text-left font-medium w-full">Actions</div>
+            )
+        },
         cell: ({ row }) => {
             const transaction = row.original;
 
             return (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem
-                            onClick={() => navigator.clipboard.writeText(transaction.id.toString())}
-                        >
-                            Copy transaction ID
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem>
-                            View details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                            Edit transaction
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="text-left">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem
+                                onClick={() => navigator.clipboard.writeText(transaction.id.toString())}
+                            >
+                                Copy transaction ID
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem>
+                                View details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                                Edit transaction
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
             )
         },
     },
 ];
 
-export default function FinancialReports({ filter, date, data, transactions, summary, chartData, filterOptions, metadata }: FinancialReportsProps) {
+export default function FinancialReports({ filter, date, reportType, data, transactions, summary, chartData, filterOptions, metadata }: FinancialReportsProps) {
     // Debug logging for props
     console.log('FinancialReports props:', {
         filter,
         date,
+        reportType,
         data,
         transactions,
         summary
@@ -347,6 +403,7 @@ export default function FinancialReports({ filter, date, data, transactions, sum
 
     const [currentFilter, setCurrentFilter] = useState(filter);
     const [currentDate, setCurrentDate] = useState(date);
+    const [currentReportType, setCurrentReportType] = useState(reportType);
     const [isLoading, setIsLoading] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [search, setSearch] = useState('');
@@ -370,7 +427,8 @@ export default function FinancialReports({ filter, date, data, transactions, sum
         setIsLoading(true);
         router.get('/admin/reports/financial', {
             filter: newFilter,
-            date: currentDate
+            date: currentDate,
+            report_type: currentReportType
         }, {
             preserveState: true,
             onFinish: () => setIsLoading(false)
@@ -382,7 +440,21 @@ export default function FinancialReports({ filter, date, data, transactions, sum
         setIsLoading(true);
         router.get('/admin/reports/financial', {
             filter: currentFilter,
-            date: newDate
+            date: newDate,
+            report_type: currentReportType
+        }, {
+            preserveState: true,
+            onFinish: () => setIsLoading(false)
+        });
+    };
+
+    const handleReportTypeChange = (newReportType: string) => {
+        setCurrentReportType(newReportType);
+        setIsLoading(true);
+        router.get('/admin/reports/financial', {
+            filter: currentFilter,
+            date: currentDate,
+            report_type: newReportType
         }, {
             preserveState: true,
             onFinish: () => setIsLoading(false)
@@ -436,9 +508,9 @@ export default function FinancialReports({ filter, date, data, transactions, sum
             const params = new URLSearchParams({
                 filter: currentFilter,
                 date: currentDate,
+                report_type: currentReportType,
                 format,
                 // Include additional context for the export
-                report_type: 'financial',
                 total_transactions: (transactions?.data?.length || 0).toString(),
                 total_revenue: summary.total_revenue.toString()
             });
@@ -472,93 +544,270 @@ export default function FinancialReports({ filter, date, data, transactions, sum
                 <div className="p-6">
                     {/* Dynamic Filter Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white border-0 shadow-lg">
-                            <CardContent className="p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-green-100 text-sm font-medium">Filtered Revenue</p>
-                                        <p className="text-3xl font-bold">{formatCurrency(filteredData.total_revenue || 0)}</p>
-                                        <p className="text-green-100 text-xs mt-1">
-                                            {currentFilter === 'daily' ? 'Today\'s Revenue' : 
-                                             currentFilter === 'monthly' ? 'This Month' : 'This Year'}
-                                        </p>
-                                    </div>
-                                    <DollarSign className="h-8 w-8 text-green-200" />
-                                </div>
-                            </CardContent>
-                        </Card>
+                        {currentReportType === 'all' ? (
+                            <>
+                                <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white border-0 shadow-lg">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-green-100 text-sm font-medium">Total Revenue</p>
+                                                <p className="text-3xl font-bold">{formatCurrency(filteredData.total_revenue || 0)}</p>
+                                                <p className="text-green-100 text-xs mt-1">
+                                                    {currentFilter === 'daily' ? 'Today\'s Revenue' : 
+                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
+                                                </p>
+                                            </div>
+                                            <DollarSign className="h-8 w-8 text-green-200" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
 
-                        <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-lg">
-                            <CardContent className="p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-blue-100 text-sm font-medium">Filtered Transactions</p>
-                                        <p className="text-3xl font-bold">{(filteredData.total_transactions || 0).toLocaleString()}</p>
-                                        <p className="text-blue-100 text-xs mt-1">
-                                            {currentFilter === 'daily' ? 'Today\'s Count' : 
-                                             currentFilter === 'monthly' ? 'This Month' : 'This Year'}
-                                        </p>
-                                    </div>
-                                    <FileText className="h-8 w-8 text-blue-200" />
-                                </div>
-                            </CardContent>
-                        </Card>
+                                <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-lg">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-blue-100 text-sm font-medium">Total Transactions</p>
+                                                <p className="text-3xl font-bold">{(filteredData.total_transactions || 0).toLocaleString()}</p>
+                                                <p className="text-blue-100 text-xs mt-1">
+                                                    {currentFilter === 'daily' ? 'Today\'s Count' : 
+                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
+                                                </p>
+                                            </div>
+                                            <FileText className="h-8 w-8 text-blue-200" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
 
-                        <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0 shadow-lg">
-                            <CardContent className="p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-purple-100 text-sm font-medium">Completion Rate</p>
-                                        <p className="text-3xl font-bold">{(filteredData.completion_rate || 0).toFixed(1)}%</p>
-                                        <p className="text-purple-100 text-xs mt-1">
-                                            {filteredData.completed_transactions || 0} of {filteredData.total_transactions || 0} completed
-                                        </p>
-                                    </div>
-                                    <TrendingUp className="h-8 w-8 text-purple-200" />
-                                </div>
-                            </CardContent>
-                        </Card>
+                                <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0 shadow-lg">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-purple-100 text-sm font-medium">Completion Rate</p>
+                                                <p className="text-3xl font-bold">{(filteredData.completion_rate || 0).toFixed(1)}%</p>
+                                                <p className="text-purple-100 text-xs mt-1">
+                                                    {filteredData.completed_transactions || 0} of {filteredData.total_transactions || 0} completed
+                                                </p>
+                                            </div>
+                                            <TrendingUp className="h-8 w-8 text-purple-200" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
 
-                        <Card className="bg-gradient-to-r from-orange-500 to-orange-600 text-white border-0 shadow-lg">
-                            <CardContent className="p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-orange-100 text-sm font-medium">Pending Transactions</p>
-                                        <p className="text-3xl font-bold">{(filteredData.pending_transactions || 0).toLocaleString()}</p>
-                                        <p className="text-orange-100 text-xs mt-1">
-                                            {(filteredData.total_transactions || 0) > 0 ? 
-                                                (((filteredData.pending_transactions || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0
-                                            }% of total
-                                        </p>
-                                    </div>
-                                    <CalendarIcon className="h-8 w-8 text-orange-200" />
-                                </div>
-                            </CardContent>
-                        </Card>
+                                <Card className="bg-gradient-to-r from-orange-500 to-orange-600 text-white border-0 shadow-lg">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-orange-100 text-sm font-medium">Pending Transactions</p>
+                                                <p className="text-3xl font-bold">{(filteredData.pending_transactions || 0).toLocaleString()}</p>
+                                                <p className="text-orange-100 text-xs mt-1">
+                                                    {(filteredData.total_transactions || 0) > 0 ? 
+                                                        (((filteredData.pending_transactions || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0
+                                                    }% of total
+                                                </p>
+                                            </div>
+                                            <CalendarIcon className="h-8 w-8 text-orange-200" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </>
+                        ) : currentReportType === 'cash' ? (
+                            <>
+                                <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white border-0 shadow-lg">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-green-100 text-sm font-medium">Cash Revenue</p>
+                                                <p className="text-3xl font-bold">{formatCurrency(filteredData.total_revenue || 0)}</p>
+                                                <p className="text-green-100 text-xs mt-1">
+                                                    {currentFilter === 'daily' ? 'Today\'s Cash' : 
+                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
+                                                </p>
+                                            </div>
+                                            <DollarSign className="h-8 w-8 text-green-200" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-lg">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-blue-100 text-sm font-medium">Cash Transactions</p>
+                                                <p className="text-3xl font-bold">{(filteredData.total_transactions || 0).toLocaleString()}</p>
+                                                <p className="text-blue-100 text-xs mt-1">
+                                                    {currentFilter === 'daily' ? 'Today\'s Count' : 
+                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
+                                                </p>
+                                            </div>
+                                            <FileText className="h-8 w-8 text-blue-200" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0 shadow-lg">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-purple-100 text-sm font-medium">Completion Rate</p>
+                                                <p className="text-3xl font-bold">{(filteredData.completion_rate || 0).toFixed(1)}%</p>
+                                                <p className="text-purple-100 text-xs mt-1">
+                                                    {filteredData.completed_transactions || 0} of {filteredData.total_transactions || 0} completed
+                                                </p>
+                                            </div>
+                                            <TrendingUp className="h-8 w-8 text-purple-200" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="bg-gradient-to-r from-orange-500 to-orange-600 text-white border-0 shadow-lg">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-orange-100 text-sm font-medium">Pending Cash</p>
+                                                <p className="text-3xl font-bold">{(filteredData.pending_transactions || 0).toLocaleString()}</p>
+                                                <p className="text-orange-100 text-xs mt-1">
+                                                    {(filteredData.total_transactions || 0) > 0 ? 
+                                                        (((filteredData.pending_transactions || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0
+                                                    }% of total
+                                                </p>
+                                            </div>
+                                            <CalendarIcon className="h-8 w-8 text-orange-200" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </>
+                        ) : currentReportType === 'hmo' ? (
+                            <>
+                                <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white border-0 shadow-lg">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-green-100 text-sm font-medium">HMO Revenue</p>
+                                                <p className="text-3xl font-bold">{formatCurrency(filteredData.total_revenue || 0)}</p>
+                                                <p className="text-green-100 text-xs mt-1">
+                                                    {currentFilter === 'daily' ? 'Today\'s HMO' : 
+                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
+                                                </p>
+                                            </div>
+                                            <DollarSign className="h-8 w-8 text-green-200" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-lg">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-blue-100 text-sm font-medium">HMO Transactions</p>
+                                                <p className="text-3xl font-bold">{(filteredData.total_transactions || 0).toLocaleString()}</p>
+                                                <p className="text-blue-100 text-xs mt-1">
+                                                    {currentFilter === 'daily' ? 'Today\'s Count' : 
+                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
+                                                </p>
+                                            </div>
+                                            <FileText className="h-8 w-8 text-blue-200" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0 shadow-lg">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-purple-100 text-sm font-medium">Completion Rate</p>
+                                                <p className="text-3xl font-bold">{(filteredData.completion_rate || 0).toFixed(1)}%</p>
+                                                <p className="text-purple-100 text-xs mt-1">
+                                                    {filteredData.completed_transactions || 0} of {filteredData.total_transactions || 0} completed
+                                                </p>
+                                            </div>
+                                            <TrendingUp className="h-8 w-8 text-purple-200" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="bg-gradient-to-r from-orange-500 to-orange-600 text-white border-0 shadow-lg">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-orange-100 text-sm font-medium">Pending HMO</p>
+                                                <p className="text-3xl font-bold">{(filteredData.pending_transactions || 0).toLocaleString()}</p>
+                                                <p className="text-orange-100 text-xs mt-1">
+                                                    {(filteredData.total_transactions || 0) > 0 ? 
+                                                        (((filteredData.pending_transactions || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0
+                                                    }% of total
+                                                </p>
+                                            </div>
+                                            <CalendarIcon className="h-8 w-8 text-orange-200" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </>
+                        ) : null}
                     </div>
 
                     {/* Filter Controls */}
                     <div className="mb-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                             <div className="space-y-2 w-full">
-                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">Report Type</Label>
+                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">
+                                    Report Type {isLoading && <span className="text-blue-500">(Loading...)</span>}
+                                </Label>
+                                <select
+                                    className="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-500 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    value={currentReportType}
+                                    onChange={(e) => handleReportTypeChange(e.target.value)}
+                                    disabled={isLoading}
+                                >
+                                    <option value="all">All Payment Methods</option>
+                                    <option value="cash">Cash Payments Only</option>
+                                    <option value="hmo">HMO Payments Only</option>
+                                </select>
+                            </div>
+
+                            <div className="space-y-2 w-full">
+                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">
+                                    Time Period {isLoading && <span className="text-blue-500">(Loading...)</span>}
+                                </Label>
                                 <select
                                     className="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-500 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                     value={currentFilter}
                                     onChange={(e) => handleFilterChange(e.target.value)}
                                     disabled={isLoading}
                                 >
-                                    <option value="daily">Daily Report</option>
-                                    <option value="monthly">Monthly Report</option>
-                                    <option value="yearly">Yearly Report</option>
+                                    <option value="daily">Daily</option>
+                                    <option value="monthly">Monthly</option>
+                                    <option value="yearly">Yearly</option>
                                 </select>
                             </div>
                             
-                            <div className="w-full">
-                                <CustomDatePicker
-                                    label={currentFilter === 'daily' ? 'Select Date' : currentFilter === 'monthly' ? 'Select Month' : 'Select Year'}
+                            <div className="space-y-2 w-full">
+                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">
+                                    Select Date {isLoading && <span className="text-blue-500">(Loading...)</span>}
+                                </Label>
+                                <ReportDatePicker
                                     date={currentDate ? new Date(currentDate) : undefined}
-                                    setDate={(date: Date | undefined) => handleDateChange(date ? date.toISOString().split('T')[0] : '')}
+                                    onDateChange={(date: Date | undefined) => {
+                                        if (date) {
+                                            // Use local date formatting to avoid timezone issues
+                                            const year = date.getFullYear();
+                                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                                            const day = String(date.getDate()).padStart(2, '0');
+                                            
+                                            let formattedDate: string;
+                                            if (currentFilter === 'monthly') {
+                                                formattedDate = `${year}-${month}`;
+                                            } else if (currentFilter === 'yearly') {
+                                                formattedDate = year.toString();
+                                            } else {
+                                                formattedDate = `${year}-${month}-${day}`;
+                                            }
+                                            
+                                            handleDateChange(formattedDate);
+                                        } else {
+                                            handleDateChange('');
+                                        }
+                                    }}
+                                    filter={currentFilter as 'daily' | 'monthly' | 'yearly'}
                                     placeholder={`Select ${currentFilter} date`}
                                 />
                             </div>
@@ -611,30 +860,88 @@ export default function FinancialReports({ filter, date, data, transactions, sum
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    <tr>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Transactions</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_transactions || 0}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Pending Transactions</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.pending_transactions || 0}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {(filteredData.total_transactions || 0) > 0 ? (((filteredData.pending_transactions || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0}%
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Completed Transactions</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.completed_transactions || 0}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {(filteredData.total_transactions || 0) > 0 ? (((filteredData.completed_transactions || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0}%
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Completion Rate</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{(filteredData.completion_rate || 0).toFixed(1)}%</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
-                                    </tr>
+                                    {currentReportType === 'all' ? (
+                                        <>
+                                            <tr>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Transactions</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_transactions || 0}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Pending Transactions</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.pending_transactions || 0}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {(filteredData.total_transactions || 0) > 0 ? (((filteredData.pending_transactions || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0}%
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Completed Transactions</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.completed_transactions || 0}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {(filteredData.total_transactions || 0) > 0 ? (((filteredData.completed_transactions || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0}%
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Revenue</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(filteredData.total_revenue || 0)}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
+                                            </tr>
+                                        </>
+                                    ) : currentReportType === 'cash' ? (
+                                        <>
+                                            <tr>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Cash Transactions</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_transactions || 0}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Pending Cash</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.pending_transactions || 0}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {(filteredData.total_transactions || 0) > 0 ? (((filteredData.pending_transactions || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0}%
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Completed Cash</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.completed_transactions || 0}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {(filteredData.total_transactions || 0) > 0 ? (((filteredData.completed_transactions || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0}%
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Cash Revenue</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(filteredData.total_revenue || 0)}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
+                                            </tr>
+                                        </>
+                                    ) : currentReportType === 'hmo' ? (
+                                        <>
+                                            <tr>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">HMO Transactions</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_transactions || 0}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Pending HMO</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.pending_transactions || 0}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {(filteredData.total_transactions || 0) > 0 ? (((filteredData.pending_transactions || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0}%
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Completed HMO</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.completed_transactions || 0}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {(filteredData.total_transactions || 0) > 0 ? (((filteredData.completed_transactions || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0}%
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">HMO Revenue</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(filteredData.total_revenue || 0)}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
+                                            </tr>
+                                        </>
+                                    ) : null}
                                 </tbody>
                             </table>
                         </div>

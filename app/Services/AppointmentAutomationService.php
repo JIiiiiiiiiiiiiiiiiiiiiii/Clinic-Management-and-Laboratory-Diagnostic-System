@@ -83,10 +83,10 @@ class AppointmentAutomationService
             'total_lab_amount' => 0 // No lab tests initially
         ]);
 
-        // If walk-in appointment, automatically create visit and billing
+        // If walk-in appointment, only create visit (billing will be created manually)
         if ($source === 'Walk-in') {
             $this->createVisit($appointment);
-            $this->createBillingTransaction($appointment);
+            // Note: Billing transaction will be created manually through "Create Transaction from Appointments" page
         }
 
         return $appointment;
@@ -163,12 +163,19 @@ class AppointmentAutomationService
      */
         public function createBillingTransaction(Appointment $appointment): BillingTransaction
     {
+        // Calculate the correct total amount including lab tests and discounts
+        $totalAmount = $appointment->final_total_amount ?? $appointment->price;
+        
         // SYSTEM-WIDE FIX: Use the comprehensive helper
         return \App\Helpers\SystemWideSpecialistBillingHelper::createBillingTransactionSafely($appointment->id, [
+            "appointment_id" => $appointment->id,
             "patient_id" => $appointment->patient_id,
-            "total_amount" => $appointment->price,
+            "total_amount" => $totalAmount,
+            "amount" => $totalAmount, // Set both total_amount and amount
             "status" => "pending",
             "transaction_date" => now(),
+            "transaction_date_only" => now()->toDateString(),
+            "transaction_time_only" => now()->toTimeString(),
             "created_by" => 1,
         ]);
     }

@@ -13,29 +13,12 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             SpecialistsSeeder::class,
-            // Add other seeders here as needed
+            RoleSeeder::class,
+            PermissionSeeder::class,
+            UserRoleSeeder::class,
+            HospitalUserSeeder::class,
+            LabTestSeeder::class,
+            InventorySeeder::class,
         ]);
-    }
-}
-
-        // Seed RBAC roles
-        $this->call(RoleSeeder::class);
-        // Seed default permissions and role mappings
-        $this->call(PermissionSeeder::class);
-
-        // Seed users with different roles first
-        $this->call(UserRoleSeeder::class);
-        
-        // Seed hospital user
-        $this->call(HospitalUserSeeder::class);
-
-        // Seed laboratory tests
-        $this->call(LabTestSeeder::class);
-
-        // Seed inventory/supplies
-        $this->call(InventorySeeder::class);
-
-        // Seed patients (PatientSeeder not found, skipping)
-
     }
 }

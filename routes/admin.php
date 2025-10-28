@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Schema;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\Admin\PatientTransferController;
 use App\Http\Controllers\Lab\LabTestController;
@@ -13,6 +14,7 @@ use App\Http\Controllers\Admin\DoctorController;
 use App\Http\Controllers\Admin\NurseController;
 use App\Http\Controllers\Admin\MedTechController;
 use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Inventory\ProductController;
 use App\Http\Controllers\Inventory\TransactionController;
 use App\Http\Controllers\Inventory\ReportController;
@@ -95,9 +97,7 @@ Route::prefix('admin')
             // Doctor Management
             Route::prefix('doctors')->name('doctors.')->group(function () {
                 Route::get('/', [DoctorController::class, 'index'])->name('index');
-                Route::get('/create', [DoctorController::class, 'create'])->name('create');
                 Route::post('/', [DoctorController::class, 'store'])->name('store');
-                Route::get('/{doctor}/edit', [DoctorController::class, 'edit'])->name('edit');
                 Route::put('/{doctor}', [DoctorController::class, 'update'])->name('update');
                 Route::delete('/{doctor}', [DoctorController::class, 'destroy'])->name('destroy');
                 // Schedule Management for Doctors
@@ -113,9 +113,6 @@ Route::prefix('admin')
                 Route::get('/{nurse}/edit', [NurseController::class, 'edit'])->name('edit');
                 Route::put('/{nurse}', [NurseController::class, 'update'])->name('update');
                 Route::delete('/{nurse}', [NurseController::class, 'destroy'])->name('destroy');
-                // Schedule Management for Nurses
-                Route::get('/{nurse}/schedule', [SpecialistScheduleController::class, 'showNurse'])->name('schedule.show');
-                Route::put('/{nurse}/schedule', [SpecialistScheduleController::class, 'updateNurse'])->name('schedule.update');
             });
 
             // Med Tech Management
@@ -126,9 +123,6 @@ Route::prefix('admin')
                 Route::get('/{medtech}/edit', [MedTechController::class, 'edit'])->name('edit');
                 Route::put('/{medtech}', [MedTechController::class, 'update'])->name('update');
                 Route::delete('/{medtech}', [MedTechController::class, 'destroy'])->name('destroy');
-                // Schedule Management for Med Techs
-                Route::get('/{medtech}/schedule', [SpecialistScheduleController::class, 'showMedtech'])->name('schedule.show');
-                Route::put('/{medtech}/schedule', [SpecialistScheduleController::class, 'updateMedtech'])->name('schedule.update');
             });
         });
 
@@ -188,8 +182,15 @@ Route::prefix('admin')
         Route::prefix('billing')->name('billing.')->middleware(['module.access:billing'])->group(function () {
             // Main billing routes
             Route::get('/', [App\Http\Controllers\Admin\BillingController::class, 'index'])->name('index');
-            Route::get('/create', [App\Http\Controllers\Admin\ManualTransactionController::class, 'create'])->name('create');
-            Route::post('/', [App\Http\Controllers\Admin\ManualTransactionController::class, 'store'])->name('store');
+            Route::get('/transactions', [App\Http\Controllers\Admin\BillingController::class, 'transactions'])->name('transactions');
+            Route::post('/transactions', [App\Http\Controllers\Admin\BillingController::class, 'storeTransaction'])->name('store-transaction');
+            Route::get('/pending-appointments', [App\Http\Controllers\Admin\BillingController::class, 'pendingAppointments'])->name('pending-appointments');
+            Route::post('/pending-appointments', [App\Http\Controllers\Admin\BillingController::class, 'storePendingAppointment'])->name('store-pending-appointment');
+            Route::put('/pending-appointments/{appointment}', [App\Http\Controllers\Admin\BillingController::class, 'updatePendingAppointment'])->name('update-pending-appointment');
+            Route::delete('/pending-appointments/{appointment}', [App\Http\Controllers\Admin\BillingController::class, 'destroyPendingAppointment'])->name('destroy-pending-appointment');
+            Route::get('/doctor-payments', [App\Http\Controllers\Admin\BillingController::class, 'doctorPayments'])->name('doctor-payments');
+            Route::get('/reports', [App\Http\Controllers\Admin\BillingController::class, 'reports'])->name('reports');
+            Route::post('/', [App\Http\Controllers\Admin\BillingController::class, 'store'])->name('store');
             Route::get('/export', [App\Http\Controllers\Admin\BillingController::class, 'export'])->name('export');
             
             // Appointment-based billing routes (MUST come before parameterized routes)
@@ -234,15 +235,12 @@ Route::prefix('admin')
             Route::get('/enhanced-hmo-report/{report}/export', [EnhancedHmoReportController::class, 'export'])->name('enhanced-hmo-report.export');
             
 
-            // Doctor Payments - Redirect to billing index with doctor payments tab
+            // Doctor Payments
             Route::prefix('doctor-payments')->name('doctor-payments.')->group(function () {
-                Route::get('/', function () {
-                    return redirect()->route('admin.billing.index', ['tab' => 'doctor-payments']);
-                })->name('index');
                 Route::get('/create', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'create'])->name('create');
                 Route::post('/', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'store'])->name('store');
                 Route::post('/simple', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'storeSimple'])->name('store-simple');
-        Route::put('/{id}/mark-paid', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'markPaid'])->name('mark-paid');
+                Route::put('/{id}/mark-paid', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'markPaid'])->name('mark-paid');
                 Route::get('/summary', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'summary'])->name('summary');
                 Route::get('/{doctorPayment}', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'show'])->name('show');
                 Route::get('/{doctorPayment}/edit', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'edit'])->name('edit');
@@ -331,6 +329,10 @@ Route::prefix('admin')
         Route::prefix('appointments')->name('appointments.')->middleware(['role:doctor,nurse,admin'])->group(function () {
             Route::get('/', [AppointmentController::class, 'index'])->name('index');
             Route::get('/create', [AppointmentController::class, 'create'])->name('create');
+            Route::post('/', [AppointmentController::class, 'store'])->name('store');
+            Route::get('/{appointment}', [AppointmentController::class, 'show'])->name('show');
+            Route::put('/{appointment}', [AppointmentController::class, 'update'])->name('update');
+            Route::delete('/{appointment}', [AppointmentController::class, 'destroy'])->name('destroy');
             
             // Lab Test Routes
             Route::get('/{appointment}/add-lab-tests', [\App\Http\Controllers\Admin\AppointmentLabController::class, 'showAddLabTests'])->name('show-add-lab-tests');
@@ -341,38 +343,52 @@ Route::prefix('admin')
             Route::get('/{appointment}/api/lab-tests', [\App\Http\Controllers\Admin\AppointmentLabController::class, 'getAppointmentLabTests'])->name('api.lab-tests');
             Route::post('/api/lab-tests/pricing', [\App\Http\Controllers\Admin\AppointmentLabController::class, 'getLabTestPricing'])->name('api.lab-tests.pricing');
             Route::get('/walk-in', function () {
-                // Get doctors and medtechs for the form
-                $doctors = \App\Models\User::where('role', 'doctor')->get()->map(function($user) {
-                    return [
-                        'id' => $user->id,
-                        'name' => $user->name,
-                        'specialization' => $user->specialization ?? 'General Practice',
-                        'employee_id' => $user->employee_id ?? '',
-                        'availability' => 'Available',
-                        'rating' => 4.5,
-                        'experience' => '5+ years',
-                        'nextAvailable' => 'Today'
-                    ];
-                });
-                
-                $medtechs = \App\Models\User::where('role', 'medtech')->get()->map(function($user) {
-                    return [
-                        'id' => $user->id,
-                        'name' => $user->name,
-                        'specialization' => $user->specialization ?? 'Medical Technology',
-                        'employee_id' => $user->employee_id ?? '',
-                        'availability' => 'Available',
-                        'rating' => 4.5,
-                        'experience' => '3+ years',
-                        'nextAvailable' => 'Today'
-                    ];
-                });
+                // Get available doctors and medtechs with schedule data (matching online appointment)
+                $doctors = \App\Models\Specialist::where('role', 'Doctor')
+                    ->when(\Schema::hasColumn('specialists', 'status'), function($query) {
+                        return $query->where('status', 'Active');
+                    })
+                    ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id', 'schedule_data')
+                    ->get()
+                    ->map(function ($doctor) {
+                        return [
+                            'id' => $doctor->id,
+                            'name' => $doctor->name,
+                            'specialization' => $doctor->specialization ?? 'General Medicine',
+                            'employee_id' => $doctor->employee_id,
+                            'availability' => 'Mon-Fri 9AM-5PM',
+                            'rating' => 4.8,
+                            'experience' => '10+ years',
+                            'nextAvailable' => now()->addDays(1)->format('M d, Y g:i A'),
+                            'schedule_data' => $doctor->schedule_data,
+                        ];
+                    });
+
+                $medtechs = \App\Models\Specialist::where('role', 'MedTech')
+                    ->when(\Schema::hasColumn('specialists', 'status'), function($query) {
+                        return $query->where('status', 'Active');
+                    })
+                    ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id', 'schedule_data')
+                    ->get()
+                    ->map(function ($medtech) {
+                        return [
+                            'id' => $medtech->id,
+                            'name' => $medtech->name,
+                            'specialization' => $medtech->specialization ?? 'Medical Technology',
+                            'employee_id' => $medtech->employee_id,
+                            'availability' => 'Mon-Fri 9AM-5PM',
+                            'rating' => 4.5,
+                            'experience' => '5+ years',
+                            'nextAvailable' => now()->addDays(1)->format('M d, Y g:i A'),
+                            'schedule_data' => $medtech->schedule_data,
+                        ];
+                    });
                 
                 $appointmentTypes = [
                     'general_consultation' => 'General Consultation',
                     'cbc' => 'Complete Blood Count (CBC)',
                     'fecalysis_test' => 'Fecalysis Test',
-                    'urinarysis_test' => 'Urinalysis Test'
+                    'urinarysis_test' => 'Urinalysis Test',
                 ];
                 
                 return Inertia::render('shared/appointment-booking', [
@@ -606,16 +622,6 @@ Route::prefix('admin')
             Route::get('/api/by-subcategory', [ClinicProcedureController::class, 'getBySubcategory'])->name('api.by-subcategory');
         });
 
-        // Analytics and Reporting Routes - Admin and Hospital roles
-        Route::prefix('analytics')->name('analytics.')->middleware(['role:admin,hospital_admin,hospital_staff'])->group(function () {
-            Route::get('/', [AnalyticsController::class, 'index'])->name('index');
-            Route::get('/patients', [AnalyticsController::class, 'getPatientReport'])->name('patients');
-            Route::get('/specialists', [AnalyticsController::class, 'getSpecialistReport'])->name('specialists');
-            Route::get('/procedures', [AnalyticsController::class, 'getProcedureReport'])->name('procedures');
-            Route::get('/financial', [AnalyticsController::class, 'getFinancialReport'])->name('financial');
-            Route::get('/inventory', [AnalyticsController::class, 'getInventoryReport'])->name('inventory');
-            Route::get('/export/{type}', [AnalyticsController::class, 'exportReport'])->name('export');
-        });
 
         // Comprehensive Reports Routes - All staff can access
         Route::prefix('reports')->name('reports.')->group(function () {
@@ -630,7 +636,6 @@ Route::prefix('admin')
             Route::get('/inventory/test-data', [App\Http\Controllers\Admin\ReportsController::class, 'testInventoryData'])->name('inventory.test-data');
             Route::get('/inventory/test-reports', [App\Http\Controllers\Admin\ReportsController::class, 'testInventoryReports'])->name('inventory.test-reports');
             Route::get('/inventory/test-full', [App\Http\Controllers\Admin\ReportsController::class, 'testInventoryFull'])->name('inventory.test-full');
-            Route::get('/analytics', [App\Http\Controllers\Admin\ReportsController::class, 'analytics'])->name('analytics');
             
             // Export functionality
             Route::get('/export', [App\Http\Controllers\Admin\ReportsController::class, 'export'])->name('export');
@@ -664,11 +669,9 @@ Route::prefix('admin')
             });
             
             // Legacy hospital reports (redirected to admin reports)
-            Route::get('/appointments-legacy', [App\Http\Controllers\Admin\ReportsController::class, 'appointments'])->name('appointments.legacy');
-            Route::get('/specialist-management', [App\Http\Controllers\Admin\ReportsController::class, 'analytics'])->name('specialist.management');
+            Route::get('/appointments', [ReportsController::class, 'appointments'])->name('appointments');
             Route::get('/billing', [App\Http\Controllers\Admin\ReportsController::class, 'financial'])->name('billing');
             Route::get('/transfers', [App\Http\Controllers\Admin\ReportsController::class, 'patients'])->name('transfers');
-            Route::get('/clinic-operations', [App\Http\Controllers\Admin\ReportsController::class, 'analytics'])->name('clinic.operations');
             Route::get('/export/{type}', [App\Http\Controllers\Admin\ReportsController::class, 'export'])->name('export.legacy');
         });
 

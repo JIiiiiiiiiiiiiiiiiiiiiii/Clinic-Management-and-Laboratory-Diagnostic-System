@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Specialist;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 
 class NurseController extends Controller
@@ -20,8 +22,7 @@ class NurseController extends Controller
                     'specialist_id' => $nurse->specialist_id,
                     'name' => $nurse->name,
                     'email' => $nurse->email,
-                    'specialization' => $nurse->specialization,
-                    'license_number' => $nurse->license_number ?? 'N/A',
+                    'contact' => $nurse->contact,
                     'is_active' => $nurse->status === 'Active',
                     'created_at' => $nurse->created_at,
                     'updated_at' => $nurse->updated_at,
@@ -44,7 +45,7 @@ class NurseController extends Controller
             $validated = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
                 'email' => ['nullable', 'string', 'email', 'max:255'],
-                'specialization' => ['nullable', 'string', 'max:255'],
+                'password' => ['required', 'string', 'min:8', 'confirmed'],
                 'contact' => ['nullable', 'string', 'max:20'],
                 'status' => ['required', 'in:Active,Inactive'],
             ]);
@@ -56,7 +57,20 @@ class NurseController extends Controller
                 $validated['specialist_code'] = 'NUR' . str_pad(Specialist::where('role', 'Nurse')->count() + 1, 3, '0', STR_PAD_LEFT);
             }
 
-            Specialist::create($validated);
+            // Create specialist record
+            $specialist = Specialist::create($validated);
+
+            // Create user account if email is provided
+            if (!empty($validated['email'])) {
+                User::create([
+                    'name' => $validated['name'],
+                    'email' => $validated['email'],
+                    'password' => Hash::make($validated['password']),
+                    'role' => 'nurse',
+                    'is_active' => $validated['status'] === 'Active',
+                    'employee_id' => $validated['specialist_code'],
+                ]);
+            }
 
             return back()->with('success', 'Nurse created successfully!');
         } catch (\Throwable $e) {
@@ -85,12 +99,38 @@ class NurseController extends Controller
             $validated = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
                 'email' => ['nullable', 'string', 'email', 'max:255'],
-                'specialization' => ['nullable', 'string', 'max:255'],
+                'password' => ['nullable', 'string', 'min:8'],
+                'password_confirmation' => ['nullable', 'string', 'same:password'],
                 'contact' => ['nullable', 'string', 'max:20'],
                 'status' => ['required', 'in:Active,Inactive'],
             ]);
 
+            // Remove password_confirmation from the data to be saved
+            unset($validated['password_confirmation']);
+
             $nurse->update($validated);
+
+            // Update user account if email is provided
+            if (!empty($validated['email'])) {
+                $user = User::where('employee_id', $nurse->specialist_code)
+                    ->orWhere('email', $validated['email'])
+                    ->first();
+                
+                if ($user) {
+                    $userData = [
+                        'name' => $validated['name'],
+                        'email' => $validated['email'],
+                        'is_active' => $validated['status'] === 'Active',
+                    ];
+                    
+                    // Only update password if provided
+                    if (!empty($validated['password'])) {
+                        $userData['password'] = Hash::make($validated['password']);
+                    }
+                    
+                    $user->update($userData);
+                }
+            }
 
             return back()->with('success', 'Nurse updated successfully!');
         } catch (\Throwable $e) {

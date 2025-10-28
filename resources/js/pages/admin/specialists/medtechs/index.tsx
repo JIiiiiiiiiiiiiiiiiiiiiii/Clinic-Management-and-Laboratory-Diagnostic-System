@@ -26,6 +26,7 @@ import {
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
+import MedTechModal from '@/components/modals/medtech-modal';
 import {
     ColumnDef,
     ColumnFiltersState,
@@ -51,8 +52,7 @@ type MedTech = {
     id: number;
     name: string;
     email: string;
-    specialization?: string;
-    license_number?: string;
+    contact?: string;
     is_active: boolean;
     created_at: string;
     updated_at: string;
@@ -70,7 +70,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 // Column definitions for the med tech data table
-const createColumns = (handleDeleteMedTech: (medtech: MedTech) => void): ColumnDef<MedTech>[] => [
+const createColumns = (handleDeleteMedTech: (medtech: MedTech) => void, handleEditMedTech: (medtech: MedTech) => void, handleViewMedTech: (medtech: MedTech) => void): ColumnDef<MedTech>[] => [
     {
         accessorKey: "name",
         header: ({ column }) => {
@@ -108,17 +108,10 @@ const createColumns = (handleDeleteMedTech: (medtech: MedTech) => void): ColumnD
         ),
     },
     {
-        accessorKey: "specialization",
-        header: "Specialization",
+        accessorKey: "contact",
+        header: "Contact",
         cell: ({ row }) => (
-            <div className="text-sm">{row.getValue("specialization") || "N/A"}</div>
-        ),
-    },
-    {
-        accessorKey: "license_number",
-        header: "License Number",
-        cell: ({ row }) => (
-            <div className="text-sm">{row.getValue("license_number") || "N/A"}</div>
+            <div className="text-sm">{row.getValue("contact") || "N/A"}</div>
         ),
     },
     {
@@ -171,17 +164,13 @@ const createColumns = (handleDeleteMedTech: (medtech: MedTech) => void): ColumnD
                             Copy email
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => router.visit(`/admin/specialists/medtechs/${medtech.id}`)}>
+                        <DropdownMenuItem onClick={() => handleViewMedTech(medtech)}>
                             <Eye className="mr-2 h-4 w-4" />
                             View med tech
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.visit(`/admin/specialists/medtechs/${medtech.id}/edit`)}>
+                        <DropdownMenuItem onClick={() => handleEditMedTech(medtech)}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit med tech
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.visit(`/admin/specialists/medtechs/${medtech.id}/schedule`)}>
-                            <Calendar className="mr-2 h-4 w-4" />
-                            View Schedule
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -210,6 +199,40 @@ export default function MedTechIndex({ medtechs }: { medtechs: MedTech[] }) {
     const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
     const [medtechToDelete, setMedtechToDelete] = React.useState<MedTech | null>(null);
 
+    // Modal state
+    const [modalOpen, setModalOpen] = React.useState(false);
+    const [modalMode, setModalMode] = React.useState<'create' | 'edit' | 'view'>('create');
+    const [selectedMedTech, setSelectedMedTech] = React.useState<MedTech | null>(null);
+
+    // Modal handler functions
+    const handleCreateMedTech = () => {
+        setModalMode('create');
+        setSelectedMedTech(null);
+        setModalOpen(true);
+    };
+
+    const handleEditMedTech = (medtech: MedTech) => {
+        setModalMode('edit');
+        setSelectedMedTech(medtech);
+        setModalOpen(true);
+    };
+
+    const handleViewMedTech = (medtech: MedTech) => {
+        setModalMode('view');
+        setSelectedMedTech(medtech);
+        setModalOpen(true);
+    };
+
+    const handleModalClose = () => {
+        setModalOpen(false);
+        setSelectedMedTech(null);
+    };
+
+    const handleModalSuccess = () => {
+        // Refresh the page to get updated data
+        router.reload();
+    };
+
     // Delete handler functions
     const handleDeleteMedTech = (medtech: MedTech) => {
         setMedtechToDelete(medtech);
@@ -228,7 +251,7 @@ export default function MedTechIndex({ medtechs }: { medtechs: MedTech[] }) {
     };
 
     // Initialize table
-    const columns = createColumns(handleDeleteMedTech);
+    const columns = createColumns(handleDeleteMedTech, handleEditMedTech, handleViewMedTech);
     const table = useReactTable({
         data: medtechs || [],
         columns,
@@ -246,8 +269,7 @@ export default function MedTechIndex({ medtechs }: { medtechs: MedTech[] }) {
             const medtech = row.original;
             return (
                 medtech.name?.toLowerCase().includes(search) ||
-                medtech.email?.toLowerCase().includes(search) ||
-                medtech.specialization?.toLowerCase().includes(search)
+                medtech.email?.toLowerCase().includes(search)
             ) || false;
         },
         state: {
@@ -265,7 +287,7 @@ export default function MedTechIndex({ medtechs }: { medtechs: MedTech[] }) {
             <div className="min-h-screen bg-gray-50">
                 <div className="p-6">
                     {/* Statistics Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                         <Card className="bg-white border border-gray-200">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
@@ -291,21 +313,6 @@ export default function MedTechIndex({ medtechs }: { medtechs: MedTech[] }) {
                                     </div>
                                     <div className="p-3 bg-blue-100 rounded-full">
                                         <CheckCircle className="h-6 w-6 text-blue-600" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="bg-white border border-gray-200">
-                            <CardContent className="p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">Specializations</p>
-                                        <p className="text-3xl font-bold text-gray-900">{new Set(medtechs.map(m => m.specialization).filter(Boolean)).size}</p>
-                                        <p className="text-sm text-gray-500">Unique specializations</p>
-                                    </div>
-                                    <div className="p-3 bg-green-100 rounded-full">
-                                        <Activity className="h-6 w-6 text-green-600" />
                                     </div>
                                 </div>
                             </CardContent>
@@ -345,13 +352,11 @@ export default function MedTechIndex({ medtechs }: { medtechs: MedTech[] }) {
                                     className="max-w-sm"
                                 />
                                 <Button
-                                    asChild
+                                    onClick={handleCreateMedTech}
                                     className="bg-green-600 hover:bg-green-700 text-white ml-4"
                                 >
-                                    <Link href="/admin/specialists/medtechs/create">
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Add Med Tech
-                                    </Link>
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Add Med Tech
                                 </Button>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -533,6 +538,15 @@ export default function MedTechIndex({ medtechs }: { medtechs: MedTech[] }) {
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
+
+                {/* MedTech Modal */}
+                <MedTechModal
+                    isOpen={modalOpen}
+                    onClose={handleModalClose}
+                    medtech={selectedMedTech}
+                    mode={modalMode}
+                    onSuccess={handleModalSuccess}
+                />
             </div>
         </AppLayout>
     );

@@ -228,9 +228,6 @@ const getPermissionBasedNavigation = (permissions: any, userRole: string) => {
           show: getSubItemAccess('reports', 'Appointments'),
         },
         {
-          title: "Analytics",
-          url: "/admin/reports/analytics",
-          show: getSubItemAccess('reports', 'Analytics'),
         },
       ],
     },
@@ -245,6 +242,11 @@ const getPermissionBasedNavigation = (permissions: any, userRole: string) => {
       icon: UserCheckIcon,
       show: userRole === 'admin',
       items: [
+        {
+          title: "Overview",
+          url: "/admin/specialists",
+          show: true,
+        },
         {
           title: "Doctors",
           url: "/admin/specialists/doctors",
@@ -271,14 +273,19 @@ const getPermissionBasedNavigation = (permissions: any, userRole: string) => {
       show: getModuleAccess('billing'),
       items: [
         {
-          title: "Transactions",
+          title: "Overview",
           url: "/admin/billing",
+          show: getSubItemAccess('billing', 'Overview'),
+        },
+        {
+          title: "Transactions",
+          url: "/admin/billing/transactions",
           show: getSubItemAccess('billing', 'Transactions'),
         },
         {
-          title: "HMO Providers",
-          url: "/admin/billing/hmo-providers",
-          show: getSubItemAccess('billing', 'HMO Providers'),
+          title: "Pending Appointments",
+          url: "/admin/billing/pending-appointments",
+          show: getSubItemAccess('billing', 'Pending Appointments'),
         },
         {
           title: "Doctor Payments",
@@ -287,8 +294,13 @@ const getPermissionBasedNavigation = (permissions: any, userRole: string) => {
         },
         {
           title: "Reports",
-          url: "/admin/billing/doctor-summary",
+          url: "/admin/billing/reports",
           show: getSubItemAccess('billing', 'Reports'),
+        },
+        {
+          title: "HMO Providers",
+          url: "/admin/billing/hmo-providers",
+          show: getSubItemAccess('billing', 'HMO Providers'),
         },
       ],
     },

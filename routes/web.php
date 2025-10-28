@@ -41,6 +41,7 @@ Route::get('/patient/home', function () {
 
 // API endpoints (using web routes for proper session handling)
 Route::middleware(['auth:session'])->post('/api/appointments/online', [App\Http\Controllers\Api\OnlineAppointmentController::class, 'store']);
+Route::middleware(['auth:session'])->post('/api/appointments/walk-in', [App\Http\Controllers\Api\WalkInAppointmentController::class, 'store']);
 
 // Admin Appointment Management API
 Route::middleware(['auth:session'])->prefix('api/admin/appointments')->group(function () {

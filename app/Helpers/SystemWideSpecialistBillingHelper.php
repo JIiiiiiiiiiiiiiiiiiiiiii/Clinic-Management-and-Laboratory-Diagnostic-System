@@ -76,10 +76,7 @@ class SystemWideSpecialistBillingHelper
         $transactionData["doctor_id"] = $doctorId;
         
         // STEP 4: Check for existing transaction to prevent duplicates (SYSTEM-WIDE PREVENTION)
-        $existingTransaction = BillingTransaction::where("patient_id", $appointment->patient_id)
-            ->where("doctor_id", $doctorId)
-            ->where("total_amount", $transactionData["total_amount"] ?? $appointment->price)
-            ->where("status", $transactionData["status"] ?? "pending")
+        $existingTransaction = BillingTransaction::where("appointment_id", $appointment->id)
             ->first();
         
         if ($existingTransaction) {

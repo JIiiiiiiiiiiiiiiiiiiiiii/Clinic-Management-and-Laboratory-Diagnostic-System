@@ -328,7 +328,8 @@ class CompleteAppointmentService
      */
     private function createBillingTransaction(Appointment $appointment)
     {
-        $transaction = BillingTransaction::create([
+        // Use the system-wide helper to prevent duplicates
+        $transaction = \App\Helpers\SystemWideSpecialistBillingHelper::createBillingTransactionSafely($appointment->appointment_id, [
             'appointment_id' => $appointment->appointment_id,
             'patient_id' => $appointment->patient_id,
             'specialist_id' => $appointment->specialist_id,

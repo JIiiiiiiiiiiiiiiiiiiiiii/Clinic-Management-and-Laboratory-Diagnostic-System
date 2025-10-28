@@ -17,6 +17,438 @@ use Inertia\Inertia;
 
 class BillingController extends Controller
 {
+    public function transactions(Request $request)
+    {
+        try {
+            // Load necessary relationships for the frontend
+            $query = BillingTransaction::with(['patient', 'doctor', 'appointments']);
+
+            // Apply filters
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('transaction_id', 'like', "%{$search}%")
+                      ->orWhereHas('patient', function ($patientQuery) use ($search) {
+                          $patientQuery->where('first_name', 'like', "%{$search}%")
+                                      ->orWhere('last_name', 'like', "%{$search}%");
+                      });
+                });
+            }
+
+            if ($request->filled('status') && $request->status !== 'all') {
+                $query->where('status', $request->status);
+            }
+
+            if ($request->filled('payment_method') && $request->payment_method !== 'all') {
+                $query->where('payment_method', $request->payment_method);
+            }
+
+            if ($request->filled('doctor_id') && $request->doctor_id !== 'all') {
+                $query->where('doctor_id', $request->doctor_id);
+            }
+
+            // Get transactions with pagination
+            $transactions = $query->orderBy('created_at', 'desc')->paginate(15);
+            
+            // Get doctors for filter dropdown
+            $doctors = \App\Models\Specialist::where('role', 'doctor')->get(['specialist_id', 'name']);
+
+            // Get patients for the modal
+            $patients = \App\Models\Patient::select('id', 'first_name', 'last_name', 'patient_no')
+                ->orderBy('last_name')
+                ->get();
+
+            // Get lab tests for the modal
+            $labTests = \App\Models\LabTest::select('id', 'name', 'code', 'price')
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get();
+
+            // Get HMO providers for the modal
+            $hmoProviders = \App\Models\HmoProvider::select('id', 'name', 'code', 'is_active')
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get();
+
+            return Inertia::render('admin/billing/transactions', [
+                'transactions' => $transactions,
+                'doctors' => $doctors,
+                'patients' => $patients,
+                'labTests' => $labTests,
+                'hmoProviders' => $hmoProviders,
+                'filters' => $request->only(['search', 'status', 'payment_method', 'doctor_id']),
+            ]);
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Failed to load transactions: ' . $e->getMessage());
+        }
+    }
+
+    public function pendingAppointments(Request $request)
+    {
+        try {
+            // Get query parameters for filtering
+            $search = $request->get('search');
+            $status = $request->get('status');
+            $specialistId = $request->get('specialist_id');
+            $source = $request->get('source');
+
+            // Build the query - get all appointments for now to debug
+            $query = \App\Models\Appointment::query()
+                ->with(['patient', 'specialist']);
+
+            // Apply filters
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('patient_name', 'like', "%{$search}%")
+                      ->orWhere('patient_id', 'like', "%{$search}%")
+                      ->orWhere('appointment_type', 'like', "%{$search}%")
+                      ->orWhere('specialist_name', 'like', "%{$search}%");
+                });
+            }
+
+            if ($status && $status !== 'all') {
+                $query->where('billing_status', $status);
+            }
+
+            if ($specialistId && $specialistId !== 'all') {
+                $query->where('specialist_id', $specialistId);
+            }
+
+            if ($source && $source !== 'all') {
+                $query->where('source', $source);
+            }
+
+            // Get pending appointments with relationships
+            $pendingAppointments = $query->with(['patient', 'specialist'])
+                ->orderBy('appointment_date', 'asc')
+                ->get()
+                ->map(function ($appointment) {
+                    return [
+                        'id' => $appointment->id,
+                        'patient_name' => $appointment->patient_name,
+                        'patient_id' => $appointment->patient_id,
+                        'contact_number' => $appointment->contact_number ?? '',
+                        'appointment_type' => $appointment->appointment_type,
+                        'specialist_name' => $appointment->specialist_name,
+                        'specialist_id' => $appointment->specialist_id,
+                        'specialist_type' => $appointment->specialist_type ?? 'doctor',
+                        'appointment_date' => $appointment->appointment_date,
+                        'appointment_time' => $appointment->appointment_time,
+                        'duration' => $appointment->duration ?? '30 min',
+                        'status' => $appointment->status ?? 'pending',
+                        'price' => $appointment->price,
+                        'total_lab_amount' => $appointment->total_lab_amount ?? 0,
+                        'final_total_amount' => $appointment->final_total_amount ?? $appointment->price,
+                        'billing_status' => $appointment->billing_status,
+                        'source' => $appointment->source ?? 'online',
+                        'lab_tests_count' => 0, // Simplified for now
+                        'notes' => $appointment->notes,
+                        'special_requirements' => $appointment->special_requirements,
+                        'created_at' => $appointment->created_at,
+                        'updated_at' => $appointment->updated_at,
+                        'patient' => $appointment->patient ? [
+                            'id' => $appointment->patient->id,
+                            'first_name' => $appointment->patient->first_name,
+                            'last_name' => $appointment->patient->last_name,
+                            'patient_no' => $appointment->patient->patient_no,
+                            'present_address' => $appointment->patient->present_address ?? '',
+                            'mobile_no' => $appointment->patient->mobile_no ?? '',
+                            'birth_date' => $appointment->patient->birth_date ?? '',
+                            'gender' => $appointment->patient->gender ?? '',
+                        ] : null,
+                        'specialist' => $appointment->specialist ? [
+                            'id' => $appointment->specialist->specialist_id,
+                            'name' => $appointment->specialist->name,
+                            'role' => $appointment->specialist->role,
+                            'employee_id' => $appointment->specialist->specialist_code ?? '',
+                        ] : null,
+                        'labTests' => [], // Simplified for now
+                    ];
+                });
+
+            // Get doctors for filter dropdown
+            $doctors = \App\Models\Specialist::where('role', 'Doctor')
+                ->select('specialist_id as id', 'name', 'role', 'specialist_code as employee_id')
+                ->orderBy('name')
+                ->get();
+
+            // Get patients for create modal
+            $patients = \App\Models\Patient::select('id', 'first_name', 'last_name', 'patient_no')
+                ->orderBy('first_name')
+                ->get();
+
+            // Get HMO providers for payment modal
+            $hmoProviders = \App\Models\HmoProvider::where('is_active', true)
+                ->select('id', 'name', 'code', 'is_active')
+                ->orderBy('name')
+                ->get();
+
+            \Log::info('Pending appointments data being sent to frontend:', [
+                'appointments_count' => $pendingAppointments->count(),
+                'first_appointment' => $pendingAppointments->first(),
+                'doctors_count' => $doctors->count(),
+                'patients_count' => $patients->count(),
+                'all_appointment_ids' => $pendingAppointments->pluck('id')->toArray(),
+            ]);
+
+            return Inertia::render('admin/billing/pending-appointments', [
+                'pendingAppointments' => $pendingAppointments,
+                'doctors' => $doctors,
+                'patients' => $patients,
+                'hmoProviders' => $hmoProviders,
+                'filters' => [
+                    'search' => $search,
+                    'status' => $status,
+                    'specialist_id' => $specialistId,
+                    'source' => $source,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error in pendingAppointments method: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            return redirect()->back()->with('error', 'Failed to load pending appointments: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Store a new pending appointment
+     */
+    public function storePendingAppointment(Request $request)
+    {
+        $request->validate([
+            'patient_name' => 'required|string|max:255',
+            'patient_id' => 'required|string|max:255',
+            'appointment_type' => 'required|string|max:255',
+            'specialist_name' => 'required|string|max:255',
+            'specialist_id' => 'required|string|max:255',
+            'appointment_date' => 'required|date',
+            'appointment_time' => 'required|string',
+            'price' => 'required|numeric|min:0',
+            'billing_status' => 'required|string|in:pending,approved,cancelled,completed',
+            'source' => 'required|string|in:online,walk_in,phone',
+            'notes' => 'nullable|string',
+            'special_requirements' => 'nullable|string',
+        ]);
+
+        try {
+            $appointment = Appointment::create([
+                'patient_name' => $request->patient_name,
+                'patient_id' => $request->patient_id,
+                'appointment_type' => $request->appointment_type,
+                'specialist_name' => $request->specialist_name,
+                'specialist_id' => $request->specialist_id,
+                'appointment_date' => $request->appointment_date,
+                'appointment_time' => $request->appointment_time,
+                'price' => $request->price,
+                'total_lab_amount' => 0,
+                'final_total_amount' => $request->price,
+                'billing_status' => $request->billing_status,
+                'source' => $request->source,
+                'notes' => $request->notes,
+                'special_requirements' => $request->special_requirements,
+                'status' => 'pending',
+                'lab_tests_count' => 0,
+            ]);
+
+            return redirect()->back()->with('success', 'Appointment created successfully.');
+        } catch (\Exception $e) {
+            \Log::error('Error creating appointment: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to create appointment. Please try again.');
+        }
+    }
+
+    /**
+     * Update a pending appointment
+     */
+    public function updatePendingAppointment(Request $request, Appointment $appointment)
+    {
+        $request->validate([
+            'patient_name' => 'required|string|max:255',
+            'patient_id' => 'required|string|max:255',
+            'appointment_type' => 'required|string|max:255',
+            'specialist_name' => 'required|string|max:255',
+            'specialist_id' => 'required|string|max:255',
+            'appointment_date' => 'required|date',
+            'appointment_time' => 'required|string',
+            'price' => 'required|numeric|min:0',
+            'billing_status' => 'required|string|in:pending,approved,cancelled,completed',
+            'source' => 'required|string|in:online,walk_in,phone',
+            'notes' => 'nullable|string',
+            'special_requirements' => 'nullable|string',
+        ]);
+
+        try {
+            $appointment->update([
+                'patient_name' => $request->patient_name,
+                'patient_id' => $request->patient_id,
+                'appointment_type' => $request->appointment_type,
+                'specialist_name' => $request->specialist_name,
+                'specialist_id' => $request->specialist_id,
+                'appointment_date' => $request->appointment_date,
+                'appointment_time' => $request->appointment_time,
+                'price' => $request->price,
+                'final_total_amount' => $request->price,
+                'billing_status' => $request->billing_status,
+                'source' => $request->source,
+                'notes' => $request->notes,
+                'special_requirements' => $request->special_requirements,
+            ]);
+
+            return redirect()->back()->with('success', 'Appointment updated successfully.');
+        } catch (\Exception $e) {
+            \Log::error('Error updating appointment: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to update appointment. Please try again.');
+        }
+    }
+
+    /**
+     * Delete a pending appointment
+     */
+    public function destroyPendingAppointment(Appointment $appointment)
+    {
+        try {
+            $appointment->delete();
+            return redirect()->back()->with('success', 'Appointment deleted successfully.');
+        } catch (\Exception $e) {
+            \Log::error('Error deleting appointment: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to delete appointment. Please try again.');
+        }
+    }
+
+    /**
+     * Store a new billing transaction from appointment payment modal
+     */
+    public function storeTransaction(Request $request)
+    {
+        \Log::info('Billing transaction creation from modal called', $request->all());
+        
+        $validator = Validator::make($request->all(), [
+            'appointment_id' => 'required|integer|exists:appointments,id',
+            'patient_name' => 'required|string|max:255',
+            'patient_id' => 'required|string|max:50',
+            'appointment_type' => 'required|string',
+            'specialist_name' => 'required|string|max:255',
+            'appointment_date' => 'required|date',
+            'appointment_time' => 'required|string',
+            'base_amount' => 'required|numeric|min:0',
+            'lab_tests_amount' => 'nullable|numeric|min:0',
+            'total_amount' => 'required|numeric|min:0',
+            'payment_method' => 'required|string|in:cash,credit_card,debit_card,bank_transfer,check,insurance,hmo',
+            'amount_paid' => 'required|numeric|min:0',
+            'status' => 'required|string|in:pending,paid,partial,cancelled',
+            'notes' => 'nullable|string',
+            'payment_reference' => 'nullable|string|max:255',
+            'transaction_date' => 'required|date',
+        ]);
+
+        if ($validator->fails()) {
+            \Log::error('Billing transaction validation failed:', $validator->errors()->toArray());
+            
+            // Return JSON for API requests (modals)
+            if (request()->wantsJson() || request()->ajax()) {
+                return response()->json([
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+            
+            return back()->withErrors($validator)->withInput();
+        }
+
+        try {
+            // Create billing transaction data
+            $transactionData = $request->all();
+            
+            // Set additional required fields
+            $transactionData['transaction_type'] = 'appointment_payment';
+            $transactionData['created_by'] = auth()->id();
+            $transactionData['updated_by'] = auth()->id();
+            
+            // Create the billing transaction
+            $transaction = \App\Models\BillingTransaction::create($transactionData);
+            
+            // Update appointment billing status if payment is complete
+            if ($request->status === 'paid') {
+                \App\Models\Appointment::where('id', $request->appointment_id)
+                    ->update(['billing_status' => 'paid']);
+            }
+            
+            \Log::info('Billing transaction created successfully:', ['id' => $transaction->id]);
+
+            // Return JSON for API requests (modals)
+            if (request()->wantsJson() || request()->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Payment transaction created successfully!',
+                    'transaction' => $transaction->fresh()
+                ]);
+            }
+
+            return redirect()->route('admin.billing.transactions')
+                            ->with('success', 'Payment transaction created successfully!');
+        } catch (\Exception $e) {
+            \Log::error('Failed to create billing transaction:', ['error' => $e->getMessage()]);
+            
+            // Return JSON for API requests (modals)
+            if (request()->wantsJson() || request()->ajax()) {
+                return response()->json([
+                    'error' => 'Failed to create payment transaction. Please try again.',
+                    'message' => $e->getMessage()
+                ], 500);
+            }
+            
+            return back()->withErrors(['error' => 'Failed to create payment transaction. Please try again.']);
+        }
+    }
+
+    public function doctorPayments(Request $request)
+    {
+        try {
+            // Load doctor payments data from the database
+            $doctorPayments = \App\Models\DoctorPayment::with('doctor')->orderBy('created_at', 'desc')
+                ->paginate(15);
+
+            return Inertia::render('admin/billing/doctor-payments', [
+                'doctorPayments' => $doctorPayments,
+            ]);
+        } catch (\Exception $e) {
+            return Inertia::render('admin/billing/doctor-payments', [
+                'doctorPayments' => [
+                    'data' => [],
+                    'links' => [],
+                    'meta' => []
+                ]
+            ]);
+        }
+    }
+
+    public function reports(Request $request)
+    {
+        try {
+            // Calculate summary data for reports
+            $totalRevenue = BillingTransaction::where('status', 'paid')->sum('total_amount');
+            $totalDoctorPayments = \App\Models\DoctorPayment::where('status', 'paid')->sum('net_payment');
+            $netProfit = $totalRevenue - $totalDoctorPayments;
+
+            $summary = [
+                'total_revenue' => $totalRevenue,
+                'total_doctor_payments' => $totalDoctorPayments,
+                'net_profit' => $netProfit,
+            ];
+
+            return Inertia::render('admin/billing/reports', [
+                'summary' => $summary,
+            ]);
+        } catch (\Exception $e) {
+            return Inertia::render('admin/billing/reports', [
+                'summary' => [
+                    'total_revenue' => 0,
+                    'total_doctor_payments' => 0,
+                    'net_profit' => 0,
+                ],
+            ]);
+        }
+    }
+
     public function index(Request $request)
     {
         try {
@@ -79,7 +511,24 @@ class BillingController extends Controller
             $pendingAppointments = Appointment::where('billing_status', 'pending')
                 ->with(['patient', 'specialist', 'labTests.labTest'])
                 ->orderBy('appointment_date', 'asc')
-                ->get();
+                ->get()
+                ->map(function ($appointment) {
+                    return [
+                        'id' => $appointment->id,
+                        'patient_name' => $appointment->patient_name,
+                        'patient_id' => $appointment->patient_id,
+                        'appointment_type' => $appointment->appointment_type,
+                        'specialist_name' => $appointment->specialist_name,
+                        'appointment_date' => $appointment->appointment_date,
+                        'appointment_time' => $appointment->appointment_time,
+                        'price' => $appointment->price,
+                        'total_lab_amount' => $appointment->total_lab_amount ?? 0,
+                        'final_total_amount' => $appointment->final_total_amount ?? $appointment->price,
+                        'billing_status' => $appointment->billing_status,
+                        'source' => $appointment->source,
+                        'lab_tests_count' => $appointment->labTests->count(),
+                    ];
+                });
                 
 
         // Get summary statistics
@@ -143,21 +592,15 @@ class BillingController extends Controller
             ];
 
 
-        return Inertia::render('admin/billing/index', [
-            'transactions' => $transactions,
-                'pendingAppointments' => $pendingAppointments,
-                'doctorPayments' => $doctorPayments,
-                'revenueData' => $revenueData,
-                'doctorPaymentData' => $doctorPaymentData,
-                'summary' => $enhancedSummary,
-            'doctors' => $doctors,
-            'filters' => $request->only(['search', 'status', 'payment_method', 'doctor_id', 'date_from', 'date_to']),
-            'defaultTab' => $request->get('tab', 'transactions'),
-            'debug' => [
-                'transactions_count' => $transactions->count(),
-                'transactions_total' => $transactions->total(),
-                'doctor_payments_count' => $doctorPayments->count(),
-            ]
+        return Inertia::render('admin/billing/overview', [
+            'summary' => [
+                'totalTransactions' => $transactions->count(),
+                'paidTransactions' => $transactions->where('status', 'paid')->count(),
+                'pendingTransactions' => $transactions->where('status', 'pending')->count(),
+                'totalRevenue' => $transactions->where('status', 'paid')->sum('amount'),
+                'pendingAppointments' => $pendingAppointments->count(),
+                'doctorPayments' => $doctorPayments->count(),
+            ],
         ]);
         } catch (\Exception $e) {
             \Log::error('Billing index error: ' . $e->getMessage());
@@ -165,47 +608,15 @@ class BillingController extends Controller
             \Log::error('Error details: ' . $e->getFile() . ':' . $e->getLine());
             
             // Return a comprehensive fallback with all required data
-            return Inertia::render('admin/billing/index', [
-                'transactions' => (object) [
-                    'data' => [], 
-                    'links' => [], 
-                    'meta' => [
-                        'current_page' => 1,
-                        'last_page' => 1,
-                        'per_page' => 15,
-                        'total' => 0
-                    ]
-                ],
-                'pendingAppointments' => [],
-                'doctorPayments' => (object) [
-                    'data' => [],
-                    'links' => [],
-                    'meta' => [
-                        'current_page' => 1,
-                        'last_page' => 1,
-                        'per_page' => 15,
-                        'total' => 0
-                    ]
-                ],
-                'revenueData' => [],
-                'doctorPaymentData' => [],
+            return Inertia::render('admin/billing/overview', [
                 'summary' => [
-                    'total_revenue' => 0,
-                    'pending_amount' => 0,
-                    'total_transactions' => 0,
-                    'paid_transactions' => 0,
-                    'total_doctor_payments' => 0,
-                    'net_profit' => 0,
+                    'totalTransactions' => 0,
+                    'paidTransactions' => 0,
+                    'pendingTransactions' => 0,
+                    'totalRevenue' => 0,
+                    'pendingAppointments' => 0,
+                    'doctorPayments' => 0,
                 ],
-                'doctors' => [],
-                'filters' => $request->only(['search', 'status', 'payment_method', 'doctor_id', 'date_from', 'date_to']),
-                'defaultTab' => $request->get('tab', 'transactions'),
-                'debug' => [
-                    'transactions_count' => 0,
-                    'transactions_total' => 0,
-                    'doctor_payments_count' => 0,
-                    'expenses_count' => 0,
-                ]
             ]);
         }
     }
@@ -234,15 +645,15 @@ class BillingController extends Controller
     public function createFromAppointments()
     {
         \Log::info('createFromAppointments method called');
-        \Log::info('Request URL: ' . request()->fullUrl());
-        \Log::info('Request parameters: ' . json_encode(request()->all()));
+        \Log::info('Request URL:', ['url' => request()->fullUrl()]);
+        \Log::info('Request parameters:', request()->all());
         
         $pendingAppointments = Appointment::pendingBilling()
             ->with(['billingLinks', 'labTests.labTest'])
             ->orderBy('appointment_date', 'asc')
             ->get();
 
-        $doctors = User::where('role', 'doctor')->select('id', 'name')->get();
+        $doctors = \App\Models\Specialist::where('role', 'Doctor')->select('specialist_id as id', 'name')->get();
         $hmoProviders = \App\Models\HmoProvider::where('is_active', true)
             ->select('id', 'name', 'code', 'is_active')
             ->orderBy('name')
@@ -250,11 +661,11 @@ class BillingController extends Controller
 
         // Get the appointment_id from the request to pre-select it
         $selectedAppointmentId = request()->get('appointment_id');
-        \Log::info('Selected appointment ID: ' . $selectedAppointmentId);
+        \Log::info('Selected appointment ID:', ['id' => $selectedAppointmentId]);
 
-        \Log::info('Pending appointments found: ' . $pendingAppointments->count());
-        \Log::info('Doctors found: ' . $doctors->count());
-        \Log::info('HMO providers found: ' . $hmoProviders->count());
+        \Log::info('Pending appointments found:', ['count' => $pendingAppointments->count()]);
+        \Log::info('Doctors found:', ['count' => $doctors->count()]);
+        \Log::info('HMO providers found:', ['count' => $hmoProviders->count()]);
 
         // If no doctors found, log a warning but continue
         if ($doctors->isEmpty()) {
@@ -275,11 +686,11 @@ class BillingController extends Controller
     public function storeFromAppointments(Request $request)
     {
         \Log::info('=== STORE FROM APPOINTMENTS CALLED ===');
-        \Log::info('Request method: ' . $request->method());
-        \Log::info('Request URL: ' . $request->fullUrl());
-        \Log::info('Request data: ' . json_encode($request->all()));
-        \Log::info('User authenticated: ' . (auth()->check() ? 'Yes' : 'No'));
-        \Log::info('User ID: ' . (auth()->id() ?? 'No user'));
+        \Log::info('Request method:', ['method' => $request->method()]);
+        \Log::info('Request URL:', ['url' => $request->fullUrl()]);
+        \Log::info('Request data:', $request->all());
+        \Log::info('User authenticated:', ['authenticated' => auth()->check()]);
+        \Log::info('User ID:', ['id' => auth()->id()]);
         
         
         // SYSTEM-WIDE FIX: Ensure all appointments have valid specialist data
@@ -314,22 +725,20 @@ class BillingController extends Controller
                           ->orWhere('billing_status', 'pending')
                           ->orWhere('billing_status', 'not_billed');
                 })
+                ->whereDoesntHave('billingTransactions') // Exclude appointments that already have billing transactions
                 ->with(['labTests.labTest']) // Load lab tests relationship
                 ->get();
 
-            \Log::info('Found appointments: ' . $appointments->count());
-            \Log::info('Appointment IDs: ' . $appointments->pluck('id')->toJson());
-            \Log::info('Request appointment IDs: ' . json_encode($request->appointment_ids));
+            \Log::info('Found appointments:', ['count' => $appointments->count()]);
+            \Log::info('Appointment IDs:', ['ids' => $appointments->pluck('id')->toArray()]);
+            \Log::info('Request appointment IDs:', ['ids' => $request->appointment_ids]);
 
             if ($appointments->isEmpty()) {
                 \Log::warning('No valid pending appointments found');
-                \Log::warning('Requested IDs: ' . json_encode($request->appointment_ids));
+                \Log::warning('Requested IDs:', ['ids' => $request->appointment_ids]);
                 
                 // Check what appointments exist with these IDs
                 $allAppointments = Appointment::whereIn('id', $request->appointment_ids)->get();
-                \Log::warning('All appointments with these IDs: ' . $allAppointments->map(function($apt) {
-                    return "ID: {$apt->id}, Status: {$apt->status}, Billing Status: " . ($apt->billing_status ?? 'NULL');
-                })->toJson());
                 
                 // Check if appointments exist but are not approved
                 $unapprovedAppointments = $allAppointments->where('status', '!=', 'Confirmed');
@@ -369,8 +778,8 @@ class BillingController extends Controller
             }
             
             $totalAmount += $totalLabAmount;
-            \Log::info('Total amount (including lab tests): ' . $totalAmount);
-            \Log::info('Lab test amount: ' . $totalLabAmount);
+            \Log::info('Total amount (including lab tests):', ['amount' => $totalAmount]);
+            \Log::info('Lab test amount:', ['amount' => $totalLabAmount]);
 
             // Calculate senior citizen discount
             $isSeniorCitizen = $request->boolean('is_senior_citizen', false);
@@ -385,7 +794,7 @@ class BillingController extends Controller
 
             // Generate unique transaction ID (increment like patient ID)
             $transactionId = $this->getNextAvailableTransactionId();
-            \Log::info('Generated transaction ID: ' . $transactionId);
+            \Log::info('Generated transaction ID:', ['id' => $transactionId]);
 
             // Create billing transaction
             $now = now();
@@ -444,7 +853,7 @@ class BillingController extends Controller
             
             $transaction = BillingTransaction::create($transactionData);
             
-            \Log::info('Billing transaction created with ID: ' . $transaction->id);
+            \Log::info('Billing transaction created with ID:', ['id' => $transaction->id]);
             
             // Debug logging for amount calculations
             \Log::info('Transaction amount debug:', [
@@ -517,8 +926,8 @@ class BillingController extends Controller
                 ->with('success', 'Transaction created successfully for ' . $appointments->count() . ' appointment(s)!');
         } catch (\Exception $e) {
             DB::rollback();
-            \Log::error('Transaction creation failed: ' . $e->getMessage());
-            \Log::error('Exception trace: ' . $e->getTraceAsString());
+            \Log::error('Transaction creation failed:', ['error' => $e->getMessage()]);
+            \Log::error('Exception trace:', ['trace' => $e->getTraceAsString()]);
             return back()->withErrors(['error' => 'Failed to create transaction. Please try again.']);
         }
     }
@@ -566,52 +975,144 @@ class BillingController extends Controller
 
     public function store(Request $request)
     {
+        \Log::info('=== BILLING TRANSACTION STORE CALLED ===');
+        \Log::info('Request data:', $request->all());
+        \Log::info('Request method:', ['method' => $request->method()]);
+        \Log::info('Request URL:', ['url' => $request->fullUrl()]);
+        \Log::info('Items field:', ['items' => $request->input('items')]);
+        \Log::info('Items count:', ['count' => count($request->input('items', []))]);
         
         // SYSTEM-WIDE FIX: Ensure all appointments have valid specialist data
         \App\Helpers\SystemWideSpecialistBillingHelper::validateAllAppointments();
         \App\Helpers\SystemWideSpecialistBillingHelper::fixAllBillingTransactions();
-        $request->validate([
-            'patient_id' => 'required|exists:patients,id',
-            'doctor_id' => 'nullable|exists:users,id',
-            'payment_type' => 'required|in:cash,health_card,discount',
-            'payment_method' => 'required|in:cash,hmo',
-            'total_amount' => 'required|numeric|min:0',
-            'discount_amount' => 'nullable|numeric|min:0',
-            'discount_percentage' => 'nullable|numeric|min:0|max:100',
-            'hmo_provider' => 'nullable|string|max:255',
-            'hmo_reference' => 'nullable|string|max:255',
-            'payment_reference' => 'nullable|string|max:255',
-            'description' => 'nullable|string',
-            'notes' => 'nullable|string',
-            'transaction_date' => 'required|date',
-            'due_date' => 'nullable|date|after_or_equal:transaction_date',
-            'items' => 'required|array|min:1',
-            'items.*.item_type' => 'required|in:consultation,laboratory,medicine,procedure,other',
-            'items.*.item_name' => 'required|string|max:255',
-            'items.*.item_description' => 'nullable|string',
-            'items.*.quantity' => 'required|integer|min:1',
-            'items.*.unit_price' => 'required|numeric|min:0',
-        ]);
+        
+        // First, let's check what we're actually receiving
+        \Log::info('Raw request data:', $request->all());
+        \Log::info('Items field specifically:', ['items' => $request->input('items')]);
+        \Log::info('Items field type:', ['type' => gettype($request->input('items'))]);
+        \Log::info('Items field count:', ['count' => count($request->input('items', []))]);
+        \Log::info('All request keys:', ['keys' => array_keys($request->all())]);
+        \Log::info('Request has items:', ['has_items' => $request->has('items')]);
+        
+        try {
+            // Convert empty string to null for doctor_id
+            $request->merge([
+                'doctor_id' => $request->doctor_id === '' ? null : $request->doctor_id
+            ]);
+            
+            // Log the incoming request data for debugging
+            \Log::info('Billing transaction request data:', [
+                'patient_id' => $request->patient_id,
+                'doctor_id' => $request->doctor_id,
+                'payment_type' => $request->payment_type,
+                'items_count' => count($request->items ?? []),
+                'items' => $request->items,
+                'total_amount' => $request->total_amount,
+                'transaction_date' => $request->transaction_date,
+            ]);
+            
+            $request->validate([
+                'patient_id' => 'required|exists:patients,id',
+                'doctor_id' => 'nullable|exists:specialists,specialist_id',
+                'payment_type' => 'required|in:cash,health_card,discount',
+                'total_amount' => 'required|numeric|min:0',
+                'amount' => 'nullable|numeric|min:0',
+                'discount_amount' => 'nullable|numeric|min:0',
+                'discount_percentage' => 'nullable|numeric|min:0|max:100',
+                'is_senior_citizen' => 'nullable|boolean',
+                'senior_discount_amount' => 'nullable|numeric|min:0',
+                'senior_discount_percentage' => 'nullable|numeric|min:0|max:100',
+                'hmo_provider' => 'nullable|string|max:255',
+                'hmo_reference' => 'nullable|string|max:255',
+                'hmo_reference_number' => 'nullable|string|max:255',
+                'payment_reference' => 'nullable|string|max:255',
+                'description' => 'nullable|string',
+                'notes' => 'nullable|string',
+                'transaction_date' => 'required|date',
+                'due_date' => 'nullable|date|after_or_equal:transaction_date',
+                'items' => 'required|array|min:1',
+                'items.*.item_type' => 'required|in:consultation,laboratory,medicine,procedure,other',
+                'items.*.item_name' => 'required|string|max:255',
+                'items.*.item_description' => 'nullable|string',
+                'items.*.quantity' => 'required|integer|min:1',
+                'items.*.unit_price' => 'required|numeric|min:0',
+                'items.*.total_price' => 'required|numeric|min:0',
+                'items.*.lab_test_id' => 'nullable|exists:lab_tests,id',
+            ]);
+            
+            \Log::info('Validation passed successfully');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Validation failed:', $e->errors());
+            
+            // Return the actual validation errors
+            return back()->withErrors($e->errors())->withInput();
+        }
 
         DB::beginTransaction();
         try {
             // Generate transaction ID (increment like patient ID)
             $transactionId = $this->getNextAvailableTransactionId();
+            \Log::info('Generated transaction ID:', ['id' => $transactionId]);
 
             // Create billing transaction
             $transactionDate = \Carbon\Carbon::parse($request->transaction_date);
-            $transaction = BillingTransaction::create([
+            \Log::info('Creating billing transaction...');
+            
+            // Set payment_method based on payment_type
+            $paymentMethod = match($request->payment_type) {
+                'health_card' => 'hmo',
+                'discount' => 'cash',
+                default => 'cash'
+            };
+            
+            // Create a dummy appointment for manual transactions since appointment_id is required
+            $patient = \App\Models\Patient::find($request->patient_id);
+            
+            // Handle specialist_id - if doctor_id is provided, use it, otherwise set to null
+            $specialistId = null;
+            $specialistType = null;
+            $specialistName = null;
+            if ($request->doctor_id) {
+                // Check if the doctor_id exists in specialists table
+                $specialist = \App\Models\Specialist::find($request->doctor_id);
+                if ($specialist) {
+                    $specialistId = $specialist->specialist_id;
+                    $specialistType = $specialist->role;
+                    $specialistName = $specialist->name;
+                }
+            }
+            
+            $dummyAppointment = \App\Models\Appointment::create([
+                'patient_id' => $request->patient_id,
+                'patient_name' => $patient ? $patient->first_name . ' ' . $patient->last_name : 'Unknown Patient',
+                'specialist_id' => $specialistId,
+                'specialist_type' => $specialistType,
+                'specialist_name' => $specialistName,
+                'appointment_type' => 'manual_transaction',
+                'appointment_date' => $transactionDate->toDateString(),
+                'appointment_time' => $transactionDate->toTimeString(),
+                'status' => 'Confirmed',
+                'price' => 0, // Will be updated with actual amount
+                'source' => 'Walk-in', // Use 'Walk-in' instead of 'manual' to match enum values
+                'billing_status' => 'in_transaction',
+                'created_by' => auth()->id(),
+            ]);
+            
+            // Prepare transaction data
+            $transactionData = [
                 'transaction_id' => $transactionId,
+                'appointment_id' => $dummyAppointment->id,
                 'patient_id' => $request->patient_id,
                 'doctor_id' => $request->doctor_id,
                 'payment_type' => $request->payment_type,
                 'total_amount' => $request->total_amount,
-                'amount' => $request->total_amount,
+                'amount' => $request->amount ?? $request->total_amount,
                 'discount_amount' => $request->discount_amount ?? 0,
                 'discount_percentage' => $request->discount_percentage,
                 'hmo_provider' => $request->hmo_provider,
                 'hmo_reference' => $request->hmo_reference,
-                'payment_method' => $request->payment_method,
+                'hmo_reference_number' => $request->hmo_reference_number,
+                'payment_method' => $paymentMethod,
                 'payment_reference' => $request->payment_reference,
                 'status' => 'pending',
                 'description' => $request->description,
@@ -621,28 +1122,82 @@ class BillingController extends Controller
                 'transaction_time_only' => $transactionDate->toTimeString(),
                 'due_date' => $request->due_date,
                 'created_by' => auth()->id(),
+            ];
+            
+            // Add senior citizen fields if present
+            if ($request->has('is_senior_citizen')) {
+                $transactionData['is_senior_citizen'] = $request->boolean('is_senior_citizen');
+            }
+            if ($request->has('senior_discount_amount')) {
+                $transactionData['senior_discount_amount'] = $request->senior_discount_amount;
+            }
+            if ($request->has('senior_discount_percentage')) {
+                $transactionData['senior_discount_percentage'] = $request->senior_discount_percentage;
+            }
+            
+            \Log::info('Creating transaction with data:', $transactionData);
+            
+            $transaction = BillingTransaction::create($transactionData);
+            
+            // Update the dummy appointment with the actual transaction amount
+            $dummyAppointment->update([
+                'price' => $request->total_amount,
+                'final_total_amount' => $request->amount ?? $request->total_amount,
             ]);
 
             // Create transaction items
-            foreach ($request->items as $item) {
+            $items = $request->input('items', []);
+            \Log::info('Processing items:', ['items' => $items, 'count' => count($items)]);
+            
+            // Always create at least one item for the transaction
+            if (!empty($items) && is_array($items)) {
+                foreach ($items as $item) {
+                    if (is_array($item) && isset($item['item_name']) && !empty($item['item_name'])) {
+                        $itemData = [
+                            'billing_transaction_id' => $transaction->id,
+                            'item_type' => $item['item_type'] ?? 'consultation',
+                            'item_name' => $item['item_name'],
+                            'item_description' => $item['item_description'] ?? '',
+                            'quantity' => $item['quantity'] ?? 1,
+                            'unit_price' => $item['unit_price'] ?? 0,
+                            'total_price' => $item['total_price'] ?? (($item['quantity'] ?? 1) * ($item['unit_price'] ?? 0)),
+                        ];
+                        
+                        // Add lab_test_id if present
+                        if (isset($item['lab_test_id']) && $item['lab_test_id']) {
+                            $itemData['lab_test_id'] = $item['lab_test_id'];
+                        }
+                        
+                        \Log::info('Creating transaction item:', $itemData);
+                        
+                        BillingTransactionItem::create($itemData);
+                    }
+                }
+            }
+            
+            // If no valid items were created, create a default item
+            $itemCount = BillingTransactionItem::where('billing_transaction_id', $transaction->id)->count();
+            if ($itemCount === 0) {
+                \Log::info('No valid items created, creating default item');
                 BillingTransactionItem::create([
                     'billing_transaction_id' => $transaction->id,
-                    'item_type' => $item['item_type'],
-                    'item_name' => $item['item_name'],
-                    'item_description' => $item['item_description'],
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
-                    'total_price' => $item['quantity'] * $item['unit_price'],
-                    'lab_test_id' => $item['lab_test_id'] ?? null,
+                    'item_type' => 'consultation',
+                    'item_name' => 'Manual Transaction',
+                    'item_description' => $request->description ?? 'Manual billing transaction',
+                    'quantity' => 1,
+                    'unit_price' => $request->total_amount,
+                    'total_price' => $request->total_amount,
                 ]);
             }
 
             DB::commit();
 
-            return redirect()->route('admin.billing.index')
-                ->with('success', 'Billing transaction created successfully.');
+            // For modal requests, return back to the same page with success message
+            return back()->with('success', 'Billing transaction created successfully.');
         } catch (\Exception $e) {
             DB::rollback();
+            \Log::error('Billing transaction creation failed:', ['error' => $e->getMessage()]);
+            
             return back()->withErrors(['error' => 'Failed to create billing transaction. Please try again.']);
         }
     }
@@ -765,6 +1320,13 @@ class BillingController extends Controller
             'appointments_count' => $transaction->appointmentLinks->count()
         ]);
 
+        // Check if this is an API request (for modal)
+        if (request()->header('Accept') === 'application/json' || request()->ajax()) {
+            return response()->json([
+                'transaction' => $transaction
+            ]);
+        }
+
         return Inertia::render('admin/billing/show', [
             'transaction' => $transaction,
         ]);
@@ -803,6 +1365,16 @@ class BillingController extends Controller
     public function update(Request $request, BillingTransaction $transaction)
     {
         if (!$transaction->canBeEdited()) {
+            if ($request->header('X-Inertia') || $request->header('X-Inertia-Version')) {
+                // This is an Inertia request, return redirect with error
+                return redirect()->route('admin.billing.transactions')
+                    ->with('error', 'This transaction cannot be edited.');
+            } elseif ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'This transaction cannot be edited.'
+                ], 403);
+            }
             return redirect()->route('admin.billing.index')
                 ->with('error', 'This transaction cannot be edited.');
         }
@@ -811,29 +1383,47 @@ class BillingController extends Controller
         // SYSTEM-WIDE FIX: Ensure all appointments have valid specialist data
         \App\Helpers\SystemWideSpecialistBillingHelper::validateAllAppointments();
         \App\Helpers\SystemWideSpecialistBillingHelper::fixAllBillingTransactions();
-        $request->validate([
-            'patient_id' => 'required|exists:patients,id',
-            'doctor_id' => 'nullable|exists:users,id',
-            'payment_type' => 'required|in:cash,health_card,discount',
-            'payment_method' => 'required|in:cash,hmo',
-            'total_amount' => 'required|numeric|min:0',
-            'discount_amount' => 'nullable|numeric|min:0',
-            'discount_percentage' => 'nullable|numeric|min:0|max:100',
-            'hmo_provider' => 'nullable|string|max:255',
-            'hmo_reference' => 'nullable|string|max:255',
-            'payment_reference' => 'nullable|string|max:255',
-            'status' => 'required|in:draft,pending,paid,cancelled,refunded',
-            'description' => 'nullable|string',
-            'notes' => 'nullable|string',
-            'transaction_date' => 'required|date',
-            'due_date' => 'nullable|date|after_or_equal:transaction_date',
-            'items' => 'required|array|min:1',
-            'items.*.item_type' => 'required|in:consultation,laboratory,medicine,procedure,other',
-            'items.*.item_name' => 'required|string|max:255',
-            'items.*.item_description' => 'nullable|string',
-            'items.*.quantity' => 'required|integer|min:1',
-            'items.*.unit_price' => 'required|numeric|min:0',
-        ]);
+        
+        try {
+            // Debug: Log the incoming request data
+            \Log::info('Update request data:', $request->all());
+            \Log::info('Status field:', ['status' => $request->input('status')]);
+            
+            $request->validate([
+                'patient_id' => 'required|exists:patients,id',
+                'doctor_id' => 'nullable|exists:specialists,specialist_id',
+                'payment_type' => 'required|in:cash,health_card',
+                'total_amount' => 'required|numeric|min:0',
+                'discount_amount' => 'nullable|numeric|min:0',
+                'discount_percentage' => 'nullable|numeric|min:0|max:100',
+                'hmo_provider' => 'nullable|string|max:255',
+                'hmo_reference' => 'nullable|string|max:255',
+                'payment_reference' => 'nullable|string|max:255',
+                'status' => 'required|in:draft,pending,paid,cancelled,refunded',
+                'description' => 'nullable|string',
+                'notes' => 'nullable|string',
+                'transaction_date' => 'required|date',
+                'due_date' => 'nullable|date|after_or_equal:transaction_date',
+                'items' => 'required|array|min:1',
+                'items.*.item_type' => 'required|in:consultation,laboratory,medicine,procedure,other',
+                'items.*.item_name' => 'required|string|max:255',
+                'items.*.item_description' => 'nullable|string',
+                'items.*.quantity' => 'required|integer|min:1',
+                'items.*.unit_price' => 'required|numeric|min:0',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            if ($request->header('X-Inertia') || $request->header('X-Inertia-Version')) {
+                // This is an Inertia request, return redirect with validation errors
+                return redirect()->back()->withErrors($e->errors())->withInput();
+            } elseif ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Validation failed',
+                    'errors' => $e->errors()
+                ], 422);
+            }
+            return back()->withErrors($e->errors())->withInput();
+        }
 
         DB::beginTransaction();
         try {
@@ -847,7 +1437,7 @@ class BillingController extends Controller
                 'discount_percentage' => $request->discount_percentage,
                 'hmo_provider' => $request->hmo_provider,
                 'hmo_reference' => $request->hmo_reference,
-                'payment_method' => $request->payment_method,
+                'payment_method' => $request->payment_type, // Map payment_type to payment_method for database
                 'payment_reference' => $request->payment_reference,
                 'status' => $request->status,
                 'description' => $request->description,
@@ -857,8 +1447,10 @@ class BillingController extends Controller
                 'updated_by' => auth()->id(),
             ]);
 
-            // Note: No items table, items are derived from appointmentLinks
-            // $transaction->items()->delete(); // Commented out - items relationship doesn't exist
+            // Delete existing items before creating new ones
+            BillingTransactionItem::where('billing_transaction_id', $transaction->id)->delete();
+            
+            // Create new items
             foreach ($request->items as $item) {
                 BillingTransactionItem::create([
                     'billing_transaction_id' => $transaction->id,
@@ -874,10 +1466,37 @@ class BillingController extends Controller
 
             DB::commit();
 
+            // Return appropriate response based on request type
+            if ($request->header('X-Inertia') || $request->header('X-Inertia-Version')) {
+                // This is an Inertia request, return redirect to transactions page
+                return redirect()->route('admin.billing.transactions')
+                    ->with('success', 'Billing transaction updated successfully.');
+            } elseif ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Billing transaction updated successfully.',
+                    'transaction' => $transaction->fresh(['patient', 'doctor', 'items'])
+                ]);
+            }
+
             return redirect()->route('admin.billing.index')
                 ->with('success', 'Billing transaction updated successfully.');
         } catch (\Exception $e) {
             DB::rollback();
+            
+            // Return appropriate error response based on request type
+            if ($request->header('X-Inertia') || $request->header('X-Inertia-Version')) {
+                // This is an Inertia request, return redirect with errors
+                return redirect()->route('admin.billing.transactions')
+                    ->withErrors(['error' => 'Failed to update billing transaction. Please try again.']);
+            } elseif ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Failed to update billing transaction. Please try again.',
+                    'details' => $e->getMessage()
+                ], 422);
+            }
+            
             return back()->withErrors(['error' => 'Failed to update billing transaction. Please try again.']);
         }
     }

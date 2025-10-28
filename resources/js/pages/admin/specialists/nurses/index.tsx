@@ -26,6 +26,7 @@ import {
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
+import NurseModal from '@/components/modals/nurse-modal';
 import {
     ColumnDef,
     ColumnFiltersState,
@@ -51,8 +52,7 @@ type Nurse = {
     id: number;
     name: string;
     email: string;
-    specialization?: string;
-    license_number?: string;
+    contact?: string;
     is_active: boolean;
     created_at: string;
     updated_at: string;
@@ -70,7 +70,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 // Column definitions for the nurse data table
-const createColumns = (handleDeleteNurse: (nurse: Nurse) => void): ColumnDef<Nurse>[] => [
+const createColumns = (handleDeleteNurse: (nurse: Nurse) => void, handleEditNurse: (nurse: Nurse) => void, handleViewNurse: (nurse: Nurse) => void): ColumnDef<Nurse>[] => [
     {
         accessorKey: "name",
         header: ({ column }) => {
@@ -108,17 +108,10 @@ const createColumns = (handleDeleteNurse: (nurse: Nurse) => void): ColumnDef<Nur
         ),
     },
     {
-        accessorKey: "specialization",
-        header: "Specialization",
+        accessorKey: "contact",
+        header: "Contact",
         cell: ({ row }) => (
-            <div className="text-sm">{row.getValue("specialization") || "N/A"}</div>
-        ),
-    },
-    {
-        accessorKey: "license_number",
-        header: "License Number",
-        cell: ({ row }) => (
-            <div className="text-sm">{row.getValue("license_number") || "N/A"}</div>
+            <div className="text-sm">{row.getValue("contact") || "N/A"}</div>
         ),
     },
     {
@@ -171,17 +164,13 @@ const createColumns = (handleDeleteNurse: (nurse: Nurse) => void): ColumnDef<Nur
                             Copy email
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => router.visit(`/admin/specialists/nurses/${nurse.id}`)}>
+                        <DropdownMenuItem onClick={() => handleViewNurse(nurse)}>
                             <Eye className="mr-2 h-4 w-4" />
                             View nurse
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.visit(`/admin/specialists/nurses/${nurse.id}/edit`)}>
+                        <DropdownMenuItem onClick={() => handleEditNurse(nurse)}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit nurse
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.visit(`/admin/specialists/nurses/${nurse.id}/schedule`)}>
-                            <Calendar className="mr-2 h-4 w-4" />
-                            View Schedule
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -210,6 +199,40 @@ export default function NurseIndex({ nurses }: { nurses: Nurse[] }) {
     const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
     const [nurseToDelete, setNurseToDelete] = React.useState<Nurse | null>(null);
 
+    // Modal state
+    const [modalOpen, setModalOpen] = React.useState(false);
+    const [modalMode, setModalMode] = React.useState<'create' | 'edit' | 'view'>('create');
+    const [selectedNurse, setSelectedNurse] = React.useState<Nurse | null>(null);
+
+    // Modal handler functions
+    const handleCreateNurse = () => {
+        setModalMode('create');
+        setSelectedNurse(null);
+        setModalOpen(true);
+    };
+
+    const handleEditNurse = (nurse: Nurse) => {
+        setModalMode('edit');
+        setSelectedNurse(nurse);
+        setModalOpen(true);
+    };
+
+    const handleViewNurse = (nurse: Nurse) => {
+        setModalMode('view');
+        setSelectedNurse(nurse);
+        setModalOpen(true);
+    };
+
+    const handleModalClose = () => {
+        setModalOpen(false);
+        setSelectedNurse(null);
+    };
+
+    const handleModalSuccess = () => {
+        // Refresh the page to get updated data
+        router.reload();
+    };
+
     // Delete handler functions
     const handleDeleteNurse = (nurse: Nurse) => {
         setNurseToDelete(nurse);
@@ -228,7 +251,7 @@ export default function NurseIndex({ nurses }: { nurses: Nurse[] }) {
     };
 
     // Initialize table
-    const columns = createColumns(handleDeleteNurse);
+    const columns = createColumns(handleDeleteNurse, handleEditNurse, handleViewNurse);
     const table = useReactTable({
         data: nurses || [],
         columns,
@@ -246,8 +269,7 @@ export default function NurseIndex({ nurses }: { nurses: Nurse[] }) {
             const nurse = row.original;
             return (
                 nurse.name?.toLowerCase().includes(search) ||
-                nurse.email?.toLowerCase().includes(search) ||
-                nurse.specialization?.toLowerCase().includes(search)
+                nurse.email?.toLowerCase().includes(search)
             );
         },
         state: {
@@ -265,7 +287,7 @@ export default function NurseIndex({ nurses }: { nurses: Nurse[] }) {
             <div className="min-h-screen bg-gray-50">
                 <div className="p-6">
                     {/* Statistics Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                         <Card className="bg-white border border-gray-200">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
@@ -291,21 +313,6 @@ export default function NurseIndex({ nurses }: { nurses: Nurse[] }) {
                                     </div>
                                     <div className="p-3 bg-blue-100 rounded-full">
                                         <CheckCircle className="h-6 w-6 text-blue-600" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="bg-white border border-gray-200">
-                            <CardContent className="p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">Specializations</p>
-                                        <p className="text-3xl font-bold text-gray-900">{new Set(nurses.map(n => n.specialization).filter(Boolean)).size}</p>
-                                        <p className="text-sm text-gray-500">Unique specializations</p>
-                                    </div>
-                                    <div className="p-3 bg-green-100 rounded-full">
-                                        <Activity className="h-6 w-6 text-green-600" />
                                     </div>
                                 </div>
                             </CardContent>
@@ -345,13 +352,11 @@ export default function NurseIndex({ nurses }: { nurses: Nurse[] }) {
                                     className="max-w-sm"
                                 />
                                 <Button
-                                    asChild
+                                    onClick={handleCreateNurse}
                                     className="bg-green-600 hover:bg-green-700 text-white ml-4"
                                 >
-                                    <Link href="/admin/specialists/nurses/create">
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Add Nurse
-                                    </Link>
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Add Nurse
                                 </Button>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -533,6 +538,15 @@ export default function NurseIndex({ nurses }: { nurses: Nurse[] }) {
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
+
+                {/* Nurse Modal */}
+                <NurseModal
+                    isOpen={modalOpen}
+                    onClose={handleModalClose}
+                    nurse={selectedNurse}
+                    mode={modalMode}
+                    onSuccess={handleModalSuccess}
+                />
             </div>
         </AppLayout>
     );

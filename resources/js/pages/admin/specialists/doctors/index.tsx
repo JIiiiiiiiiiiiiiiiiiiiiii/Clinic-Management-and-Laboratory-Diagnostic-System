@@ -26,6 +26,8 @@ import {
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
+import DoctorModal from '@/components/modals/doctor-modal';
+import DoctorScheduleModal from '@/components/modals/doctor-schedule-modal';
 import {
     ColumnDef,
     ColumnFiltersState,
@@ -51,11 +53,19 @@ type Doctor = {
     id: number;
     name: string;
     email: string;
-    specialization?: string;
-    license_number?: string;
+    contact?: string;
     is_active: boolean;
     created_at: string;
     updated_at: string;
+    schedule_data?: {
+        monday?: string[];
+        tuesday?: string[];
+        wednesday?: string[];
+        thursday?: string[];
+        friday?: string[];
+        saturday?: string[];
+        sunday?: string[];
+    };
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -70,7 +80,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 // Column definitions for the doctor data table
-const createColumns = (handleDeleteDoctor: (doctor: Doctor) => void): ColumnDef<Doctor>[] => [
+const createColumns = (handleDeleteDoctor: (doctor: Doctor) => void, handleEditDoctor: (doctor: Doctor) => void, handleViewDoctor: (doctor: Doctor) => void, handleScheduleDoctor: (doctor: Doctor) => void): ColumnDef<Doctor>[] => [
     {
         accessorKey: "name",
         header: ({ column }) => {
@@ -108,17 +118,10 @@ const createColumns = (handleDeleteDoctor: (doctor: Doctor) => void): ColumnDef<
         ),
     },
     {
-        accessorKey: "specialization",
-        header: "Specialization",
+        accessorKey: "contact",
+        header: "Contact",
         cell: ({ row }) => (
-            <div className="text-sm">{row.getValue("specialization") || "N/A"}</div>
-        ),
-    },
-    {
-        accessorKey: "license_number",
-        header: "License Number",
-        cell: ({ row }) => (
-            <div className="text-sm">{row.getValue("license_number") || "N/A"}</div>
+            <div className="text-sm">{row.getValue("contact") || "N/A"}</div>
         ),
     },
     {
@@ -171,15 +174,15 @@ const createColumns = (handleDeleteDoctor: (doctor: Doctor) => void): ColumnDef<
                             Copy email
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => router.visit(`/admin/specialists/doctors/${doctor.id}`)}>
+                        <DropdownMenuItem onClick={() => handleViewDoctor(doctor)}>
                             <Eye className="mr-2 h-4 w-4" />
                             View doctor
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.visit(`/admin/specialists/doctors/${doctor.id}/edit`)}>
+                        <DropdownMenuItem onClick={() => handleEditDoctor(doctor)}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit doctor
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.visit(`/admin/specialists/doctors/${doctor.id}/schedule`)}>
+                        <DropdownMenuItem onClick={() => handleScheduleDoctor(doctor)}>
                             <Calendar className="mr-2 h-4 w-4" />
                             View Schedule
                         </DropdownMenuItem>
@@ -210,6 +213,60 @@ export default function DoctorIndex({ doctors }: { doctors: Doctor[] }) {
     const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
     const [doctorToDelete, setDoctorToDelete] = React.useState<Doctor | null>(null);
 
+    // Modal state
+    const [modalOpen, setModalOpen] = React.useState(false);
+    const [modalMode, setModalMode] = React.useState<'create' | 'edit' | 'view'>('create');
+    const [selectedDoctor, setSelectedDoctor] = React.useState<Doctor | null>(null);
+
+    // Schedule modal state
+    const [scheduleModalOpen, setScheduleModalOpen] = React.useState(false);
+    const [selectedDoctorForSchedule, setSelectedDoctorForSchedule] = React.useState<Doctor | null>(null);
+
+    // Modal handler functions
+    const handleCreateDoctor = () => {
+        setModalMode('create');
+        setSelectedDoctor(null);
+        setModalOpen(true);
+    };
+
+    const handleEditDoctor = (doctor: Doctor) => {
+        setModalMode('edit');
+        setSelectedDoctor(doctor);
+        setModalOpen(true);
+    };
+
+    const handleViewDoctor = (doctor: Doctor) => {
+        setModalMode('view');
+        setSelectedDoctor(doctor);
+        setModalOpen(true);
+    };
+
+    const handleModalClose = () => {
+        setModalOpen(false);
+        setSelectedDoctor(null);
+    };
+
+    const handleModalSuccess = () => {
+        // Refresh the page to get updated data
+        router.reload();
+    };
+
+    // Schedule modal handler functions
+    const handleScheduleDoctor = (doctor: Doctor) => {
+        setSelectedDoctorForSchedule(doctor);
+        setScheduleModalOpen(true);
+    };
+
+    const handleScheduleModalClose = () => {
+        setScheduleModalOpen(false);
+        setSelectedDoctorForSchedule(null);
+    };
+
+    const handleScheduleModalSuccess = () => {
+        // Refresh the page to get updated data
+        router.reload();
+    };
+
     // Delete handler functions
     const handleDeleteDoctor = (doctor: Doctor) => {
         setDoctorToDelete(doctor);
@@ -228,7 +285,7 @@ export default function DoctorIndex({ doctors }: { doctors: Doctor[] }) {
     };
 
     // Initialize table
-    const columns = createColumns(handleDeleteDoctor);
+    const columns = createColumns(handleDeleteDoctor, handleEditDoctor, handleViewDoctor, handleScheduleDoctor);
     const table = useReactTable({
         data: doctors || [],
         columns,
@@ -246,8 +303,7 @@ export default function DoctorIndex({ doctors }: { doctors: Doctor[] }) {
             const doctor = row.original;
             return (
                 doctor.name?.toLowerCase().includes(search) ||
-                doctor.email?.toLowerCase().includes(search) ||
-                doctor.specialization?.toLowerCase().includes(search)
+                doctor.email?.toLowerCase().includes(search)
             );
         },
         state: {
@@ -265,7 +321,7 @@ export default function DoctorIndex({ doctors }: { doctors: Doctor[] }) {
             <div className="min-h-screen bg-gray-50">
                 <div className="p-6">
                     {/* Statistics Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                         <Card className="bg-white border border-gray-200">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
@@ -291,21 +347,6 @@ export default function DoctorIndex({ doctors }: { doctors: Doctor[] }) {
                                     </div>
                                     <div className="p-3 bg-blue-100 rounded-full">
                                         <UserCheck className="h-6 w-6 text-blue-600" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="bg-white border border-gray-200">
-                            <CardContent className="p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">Specializations</p>
-                                        <p className="text-3xl font-bold text-gray-900">{new Set(doctors.map(d => d.specialization).filter(Boolean)).size}</p>
-                                        <p className="text-sm text-gray-500">Unique specializations</p>
-                                    </div>
-                                    <div className="p-3 bg-purple-100 rounded-full">
-                                        <Activity className="h-6 w-6 text-purple-600" />
                                     </div>
                                 </div>
                             </CardContent>
@@ -345,13 +386,11 @@ export default function DoctorIndex({ doctors }: { doctors: Doctor[] }) {
                                     className="max-w-sm"
                                 />
                                 <Button
-                                    asChild
+                                    onClick={handleCreateDoctor}
                                     className="bg-green-600 hover:bg-green-700 text-white ml-4"
                                 >
-                                    <Link href="/admin/specialists/doctors/create">
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Add Doctor
-                                    </Link>
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Add Doctor
                                 </Button>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -533,6 +572,23 @@ export default function DoctorIndex({ doctors }: { doctors: Doctor[] }) {
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
+
+                {/* Doctor Modal */}
+                <DoctorModal
+                    isOpen={modalOpen}
+                    onClose={handleModalClose}
+                    doctor={selectedDoctor}
+                    mode={modalMode}
+                    onSuccess={handleModalSuccess}
+                />
+
+                {/* Doctor Schedule Modal */}
+                <DoctorScheduleModal
+                    isOpen={scheduleModalOpen}
+                    onClose={handleScheduleModalClose}
+                    doctor={selectedDoctorForSchedule}
+                    onSuccess={handleScheduleModalSuccess}
+                />
             </div>
         </AppLayout>
     );

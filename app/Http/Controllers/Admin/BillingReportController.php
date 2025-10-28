@@ -37,9 +37,9 @@ class BillingReportController extends Controller
             
             // Calculate summary
             $summary = [
-                'total_revenue' => $revenueData->sum('total_amount'),
+                'total_revenue' => $revenueData->sum('amount'), // Use final amount after discounts
                 'total_doctor_payments' => $doctorPaymentData->sum('amount_paid'),
-                'net_profit' => $revenueData->sum('total_amount') - $doctorPaymentData->sum('amount_paid'),
+                'net_profit' => $revenueData->sum('amount') - $doctorPaymentData->sum('amount_paid'), // Use final amount after discounts
                 'revenue_count' => $revenueData->count(),
             ];
             
@@ -231,7 +231,7 @@ class BillingReportController extends Controller
                 ];
             }
             
-            $consolidatedTransactions[$key]['total_amount'] += $transaction->total_amount;
+            $consolidatedTransactions[$key]['total_amount'] += $transaction->amount; // Use final amount after discounts
             $consolidatedTransactions[$key]['items_count'] += $transaction->items->count();
             $consolidatedTransactions[$key]['appointments_count'] += $transaction->appointmentLinks->count();
             $consolidatedTransactions[$key]['all_transactions'][] = $transaction;
@@ -290,10 +290,10 @@ class BillingReportController extends Controller
 
         // Calculate summary using filtered transactions
         $summary = [
-            'total_revenue' => $billingTransactions->sum('total_amount'),
+            'total_revenue' => $billingTransactions->sum('amount'), // Use final amount after discounts
             'total_doctor_payments' => $doctorPayments->sum('amount_paid'),
             'total_expenses' => 0, // Expense model removed
-            'net_profit' => $billingTransactions->sum('total_amount') - $doctorPayments->sum('amount_paid'), // Expenses removed
+            'net_profit' => $billingTransactions->sum('amount') - $doctorPayments->sum('amount_paid'), // Use final amount after discounts
             'transaction_count' => $billingTransactions->count(),
             'expense_count' => 0, // Expense model removed
             'doctor_payment_count' => $doctorPayments->count(),
@@ -345,7 +345,7 @@ class BillingReportController extends Controller
                 ];
             }
             
-            $consolidatedTransactions[$key]['total_amount'] += $transaction->total_amount;
+            $consolidatedTransactions[$key]['total_amount'] += $transaction->amount; // Use final amount after discounts
             $consolidatedTransactions[$key]['items_count'] += $transaction->items->count();
             $consolidatedTransactions[$key]['appointments_count'] += $transaction->appointmentLinks->count();
             $consolidatedTransactions[$key]['all_transactions'][] = $transaction;
@@ -404,10 +404,10 @@ class BillingReportController extends Controller
 
         // Calculate summary using filtered transactions
         $summary = [
-            'total_revenue' => $billingTransactions->sum('total_amount'),
+            'total_revenue' => $billingTransactions->sum('amount'), // Use final amount after discounts
             'total_doctor_payments' => $doctorPayments->sum('amount_paid'),
             'total_expenses' => 0, // Expense model removed
-            'net_profit' => $billingTransactions->sum('total_amount') - $doctorPayments->sum('amount_paid'), // Expenses removed
+            'net_profit' => $billingTransactions->sum('amount') - $doctorPayments->sum('amount_paid'), // Use final amount after discounts
             'transaction_count' => $billingTransactions->count(),
             'expense_count' => 0, // Expense model removed
             'doctor_payment_count' => $doctorPayments->count(),
@@ -452,7 +452,7 @@ class BillingReportController extends Controller
 
         // Calculate summary
         $summary = [
-            'total_revenue' => $transactions->sum('total_amount'),
+            'total_revenue' => $transactions->sum('amount'), // Use final amount after discounts
             'total_transactions' => $transactions->count(),
             'paid_transactions' => $transactions->where('status', 'paid')->count(),
             'pending_transactions' => $transactions->where('status', 'pending')->count(),
@@ -525,7 +525,7 @@ class BillingReportController extends Controller
                         'id' => $doctorId,
                         'name' => $doctor ? $doctor->name : 'Unknown Doctor',
                     ],
-                    'total_revenue' => $transactions->sum('total_amount'),
+                    'total_revenue' => $transactions->sum('amount'), // Use final amount after discounts
                     'transaction_count' => $transactions->count(),
                 ];
             });
@@ -617,7 +617,7 @@ class BillingReportController extends Controller
                             'id' => $doctorId,
                             'name' => $doctor ? $doctor->name : 'Unknown Doctor',
                         ],
-                        'total_revenue' => $transactions->sum('total_amount'),
+                        'total_revenue' => $transactions->sum('amount'), // Use final amount after discounts
                         'transaction_count' => $transactions->count(),
                     ];
                 });
@@ -705,7 +705,7 @@ class BillingReportController extends Controller
                 'Transaction ID' => $transaction->transaction_id,
                 'Patient Name' => $this->getPatientName($transaction),
                 'Specialist' => $this->getSpecialistName($transaction),
-                'Amount' => $transaction->total_amount,
+                'Amount' => $transaction->amount, // Use final amount after discounts
                 'Payment Method' => $transaction->payment_method,
                 'HMO Provider' => $transaction->hmo_provider ?? 'N/A',
                 'Status' => $transaction->status,
@@ -833,7 +833,7 @@ class BillingReportController extends Controller
                 return [
                     'id' => $txn->transaction_id,
                     'date' => $txn->transaction_date,
-                    'amount' => $txn->total_amount,
+                    'amount' => $txn->amount, // Use final amount after discounts
                     'payment_type' => $txn->payment_type
                 ];
             })->toArray()
@@ -904,7 +904,7 @@ class BillingReportController extends Controller
                 'Transaction ID' => $transaction->transaction_id,
                 'Patient Name' => $this->getPatientName($transaction),
                 'Specialist' => $this->getSpecialistName($transaction),
-                'Amount' => $transaction->total_amount,
+                'Amount' => $transaction->amount, // Use final amount after discounts
                 'Payment Method' => $transaction->payment_method,
                 'Status' => $transaction->status,
                 'Description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',
@@ -1009,7 +1009,7 @@ class BillingReportController extends Controller
                 'Transaction ID' => $transaction->transaction_id,
                 'Patient Name' => $this->getPatientName($transaction),
                 'Specialist' => $this->getSpecialistName($transaction),
-                'Amount' => $transaction->total_amount,
+                'Amount' => $transaction->amount, // Use final amount after discounts
                 'Payment Method' => $transaction->payment_method,
                 'Status' => $transaction->status,
                 'Description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',
@@ -1101,7 +1101,7 @@ class BillingReportController extends Controller
                 'Transaction ID' => $transaction->transaction_id,
                 'Patient Name' => $this->getPatientName($transaction),
                 'Specialist' => $this->getSpecialistName($transaction),
-                'Amount' => $transaction->total_amount,
+                'Amount' => $transaction->amount, // Use final amount after discounts
                 'Payment Method' => $transaction->payment_method,
                 'Status' => $transaction->status,
                 'Description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',
