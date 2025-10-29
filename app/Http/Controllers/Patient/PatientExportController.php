@@ -204,7 +204,7 @@ class PatientExportController extends Controller
                 ->setPaper('a4', 'portrait')
                 ->setOptions([
                     'isHtml5ParserEnabled' => true,
-                    'isRemoteEnabled' => false,
+                    'isRemoteEnabled' => true,
                     'defaultFont' => 'Arial'
                 ]);
 
@@ -255,7 +255,7 @@ class PatientExportController extends Controller
             ])->setPaper('a4', 'portrait')
               ->setOptions([
                   'isHtml5ParserEnabled' => true,
-                  'isRemoteEnabled' => false,
+                  'isRemoteEnabled' => true,
                   'defaultFont' => 'Arial'
               ]);
 

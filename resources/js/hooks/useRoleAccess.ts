@@ -6,6 +6,7 @@ export interface RolePermissions {
     canAccessLaboratory: boolean;
     canAccessBilling: boolean;
     canAccessAppointments: boolean;
+    canAccessVisits: boolean;
     canAccessInventory: boolean;
     canAccessReports: boolean;
     canAccessSettings: boolean;
@@ -15,6 +16,7 @@ export interface RolePermissions {
     canCreatePatients: boolean;
     canEditPatients: boolean;
     canDeletePatients: boolean;
+    canTransferPatients: boolean;
 
     // Laboratory Permissions
     canCreateLabTests: boolean;
@@ -35,48 +37,146 @@ export interface RolePermissions {
 export function useRoleAccess() {
     const { auth } = usePage().props as any;
     const userRole = auth?.user?.role;
+    const userPermissions = auth?.user?.permissions || [];
 
     const isAdmin = userRole === 'admin';
     const isDoctor = userRole === 'doctor';
+    const isNurse = userRole === 'nurse';
     const isLabStaff = userRole === 'laboratory_technologist' || userRole === 'medtech';
     const isCashier = userRole === 'cashier';
     const isPatient = userRole === 'patient';
     const isHospital = userRole === 'hospital_admin' || userRole === 'hospital_staff';
-    const isStaff = isDoctor || isLabStaff || isCashier || isAdmin;
+    const isStaff = isDoctor || isNurse || isLabStaff || isCashier || isAdmin;
+
+    // Helper function to check permissions using User model methods
+    const checkPermission = (permission: string): boolean => {
+        // Use role-based permission checking for all roles
+        const [module, action] = permission.split('.');
+        return checkModulePermission(module, action);
+    };
+
+    // Helper function to check module permissions for all roles
+    const checkModulePermission = (module: string, action: string): boolean => {
+        switch (userRole) {
+            case 'admin':
+                return true; // Admin has access to everything
+            case 'doctor':
+                if (module === 'patients') {
+                    return ['create', 'read', 'update', 'delete', 'transfer'].includes(action);
+                }
+                if (module === 'laboratory') {
+                    return ['create', 'read', 'update', 'delete'].includes(action);
+                }
+                if (module === 'reports') {
+                    return ['read', 'export'].includes(action);
+                }
+                if (module === 'appointments') {
+                    return ['create', 'read', 'update', 'delete'].includes(action);
+                }
+                if (module === 'inventory') {
+                    return ['create', 'read', 'update', 'delete'].includes(action);
+                }
+                return false;
+            case 'nurse':
+                if (module === 'patients') {
+                    return ['create', 'read', 'update', 'delete', 'transfer'].includes(action);
+                }
+                if (module === 'appointments') {
+                    return ['create', 'read', 'update', 'delete'].includes(action);
+                }
+                if (module === 'visits') {
+                    return ['create', 'read', 'update', 'delete'].includes(action);
+                }
+                if (module === 'inventory') {
+                    return ['create', 'read', 'update', 'delete'].includes(action);
+                }
+                if (module === 'reports') {
+                    return ['read', 'export'].includes(action);
+                }
+                return false;
+            case 'medtech':
+                if (module === 'laboratory') {
+                    return ['create', 'read', 'update', 'delete'].includes(action);
+                }
+                if (module === 'inventory') {
+                    return ['create', 'read', 'update', 'delete'].includes(action);
+                }
+                if (module === 'reports') {
+                    return ['read', 'export'].includes(action);
+                }
+                if (module === 'patients') {
+                    return ['read'].includes(action); // Read-only access for medtech
+                }
+                if (module === 'visits') {
+                    return ['create', 'read', 'update', 'delete'].includes(action);
+                }
+                return false;
+            case 'cashier':
+                if (module === 'billing') {
+                    return ['create', 'read', 'update', 'delete'].includes(action);
+                }
+                if (module === 'reports') {
+                    return ['read', 'export'].includes(action);
+                }
+                return false;
+            case 'hospital_admin':
+            case 'hospital_staff':
+                // Hospital users have access to patients, reports, and inventory
+                if (module === 'patients') {
+                    return ['create', 'read', 'update', 'delete', 'transfer'].includes(action);
+                }
+                if (module === 'reports') {
+                    return ['read', 'export'].includes(action);
+                }
+                if (module === 'inventory') {
+                    return ['create', 'read', 'update', 'delete'].includes(action);
+                }
+                return false;
+            case 'patient':
+                if (module === 'patients') {
+                    return ['read'].includes(action); // Read-only access to own data
+                }
+                return false;
+            default:
+                return false;
+        }
+    };
     
     // If no role is found, assume staff (safer default for admin interface)
     const hasValidRole = userRole && (isAdmin || isDoctor || isLabStaff || isCashier || isPatient || isHospital);
 
     const permissions: RolePermissions = {
-        // Module Access - Only staff can access admin panel
-        canAccessPatients: isStaff,
-        canAccessLaboratory: isLabStaff || isDoctor || isAdmin,
-        canAccessBilling: isCashier || isAdmin,
-        canAccessAppointments: isDoctor || isAdmin,
-        canAccessInventory: isStaff, // All staff can access inventory
-        canAccessReports: isAdmin,
-        canAccessSettings: isAdmin,
-        canAccessAdminPanel: isStaff, // Patients cannot access admin panel
+        // Module Access - Based on permission checks
+        canAccessPatients: checkPermission('patients.read') || checkPermission('patients.create') || checkPermission('patients.update'),
+        canAccessLaboratory: checkPermission('laboratory.read') || checkPermission('laboratory.create') || checkPermission('laboratory.update'),
+        canAccessBilling: checkPermission('billing.read') || checkPermission('billing.create') || checkPermission('billing.update'),
+        canAccessAppointments: checkPermission('appointments.read') || checkPermission('appointments.create') || checkPermission('appointments.update'),
+        canAccessVisits: checkPermission('visits.read') || checkPermission('visits.create') || checkPermission('visits.update'),
+        canAccessInventory: checkPermission('inventory.read') || checkPermission('inventory.create') || checkPermission('inventory.update'),
+        canAccessReports: checkPermission('reports.read') || checkPermission('reports.export'),
+        canAccessSettings: checkPermission('settings.read') || checkPermission('settings.update'),
+        canAccessAdminPanel: isStaff || (isHospital && (checkPermission('patients.read') || checkPermission('reports.read'))),
 
         // Patient Permissions
-        canCreatePatients: isStaff,
-        canEditPatients: isStaff,
-        canDeletePatients: isAdmin,
+        canCreatePatients: checkPermission('patients.create'),
+        canEditPatients: checkPermission('patients.update'),
+        canDeletePatients: checkPermission('patients.delete'),
+        canTransferPatients: checkPermission('patients.transfer'),
 
         // Laboratory Permissions
-        canCreateLabTests: isLabStaff || isAdmin,
-        canEditLabTests: isLabStaff || isAdmin,
-        canDeleteLabTests: isAdmin,
+        canCreateLabTests: checkPermission('laboratory.create'),
+        canEditLabTests: checkPermission('laboratory.update'),
+        canDeleteLabTests: checkPermission('laboratory.delete'),
 
         // Billing Permissions
-        canCreateBilling: isCashier || isAdmin,
-        canEditBilling: isCashier || isAdmin,
-        canDeleteBilling: isAdmin,
+        canCreateBilling: checkPermission('billing.create'),
+        canEditBilling: checkPermission('billing.update'),
+        canDeleteBilling: checkPermission('billing.delete'),
 
         // Appointment Permissions
-        canCreateAppointments: isDoctor || isAdmin,
-        canEditAppointments: isDoctor || isAdmin,
-        canDeleteAppointments: isAdmin,
+        canCreateAppointments: checkPermission('appointments.create'),
+        canEditAppointments: checkPermission('appointments.update'),
+        canDeleteAppointments: checkPermission('appointments.delete'),
     };
 
     const hasPermission = (permission: keyof RolePermissions): boolean => {
@@ -93,6 +193,8 @@ export function useRoleAccess() {
                 return permissions.canAccessBilling;
             case 'appointments':
                 return permissions.canAccessAppointments;
+            case 'visits':
+                return permissions.canAccessVisits;
             case 'inventory':
                 return permissions.canAccessInventory;
             case 'reports':
@@ -110,7 +212,7 @@ export function useRoleAccess() {
             return '/patient/dashboard';
         }
         if (isHospital) {
-            return '/hospital/dashboard';
+            return '/admin/dashboard';
         }
         // Default to admin dashboard for staff or undefined roles
         return '/admin/dashboard';
@@ -127,6 +229,7 @@ export function useRoleAccess() {
         userRole,
         isAdmin,
         isDoctor,
+        isNurse,
         isLabStaff,
         isCashier,
         isPatient,

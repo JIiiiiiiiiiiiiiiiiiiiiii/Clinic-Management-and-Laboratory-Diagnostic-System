@@ -7,17 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
+import SharedNavigation from '@/components/SharedNavigation';
 import { Head, router, useForm, Link } from '@inertiajs/react';
 import { Calendar, CheckCircle, Clock, Plus, Search, Stethoscope, Edit, Eye, CalendarDays, Bell, UserCheck, MapPin, Phone, Save, X, AlertCircle, ArrowLeft } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import RealtimeNotificationBell from '@/components/RealtimeNotificationBell';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/patient/dashboard-simple' },
-    { title: 'Appointments', href: '/patient/appointments' },
-];
 
 interface PatientAppointmentsProps {
     user: {
@@ -321,41 +316,12 @@ export default function PatientAppointments({
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="My Appointments" />
-            <div className="min-h-screen bg-white p-6">
-                {/* Header Section */}
-                <div className="mb-8">
-                    <div className="mb-4">
-                        <Link href={route('patient.dashboard.simple')} className="inline-flex items-center text-blue-600 hover:text-blue-800">
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Dashboard
-                        </Link>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-6">
-                            <div>
-                                <h1 className="text-4xl font-semibold text-black mb-4">My Appointments</h1>
-                                <p className="text-sm text-black mt-1">Manage your appointments and book new ones online</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            {/* Notification Bell */}
-                            <RealtimeNotificationBell 
-                                userRole="patient"
-                                initialNotifications={notificationsList}
-                                unreadCount={unreadCountState}
-                            />
-                            <Button 
-                                onClick={() => router.visit('/patient/register-and-book')}
-                                className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg flex items-center gap-2"
-                            >
-                                <CalendarDays className="h-5 w-5" />
-                                Book New Appointment
-                            </Button>
-                        </div>
-                    </div>
-                </div>
+        <div className="min-h-screen bg-white">
+            <Head title="My Appointments - SJHI Industrial Clinic" />
+            
+            {/* Shared Navigation */}
+            <SharedNavigation user={user} currentPath="/patient/appointments" notifications={notificationsList} unreadCount={unreadCountState} />
+            <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 p-6">
 
                 {/* Online Booking System */}
                 {showBookingForm && (
@@ -917,6 +883,6 @@ export default function PatientAppointments({
                     </DialogContent>
                 </Dialog>
             </div>
-        </AppLayout>
+        </div>
     );
 }

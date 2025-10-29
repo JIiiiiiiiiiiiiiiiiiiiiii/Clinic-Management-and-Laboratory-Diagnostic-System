@@ -1,61 +1,72 @@
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PatientInfoCard } from '@/components/patient/PatientPageLayout';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { 
     Package, 
     AlertTriangle, 
+    Clock, 
     TrendingDown, 
+    CheckCircle, 
     BarChart3, 
+    TrendingUp, 
     Users,
+    ArrowUp,
+    ArrowDown,
+    Search,
     Plus,
+    Edit,
+    Eye,
     Trash2,
-    FlaskConical,
-    CheckCircle
+    FlaskConical
 } from 'lucide-react';
 import { useState } from 'react';
 
 type InventoryStats = {
-    totalSupplies: number;
-    lowStockItems: number;
-    outOfStockItems: number;
-    totalConsumed: number;
-    totalRejected: number;
+    total_products: number;
+    low_stock_products: number;
+    expiring_soon: number;
+    expired_stock: number;
+    total_value: number;
+    recent_transactions: number;
 };
 
-type DoctorNurseItem = {
+type PendingApproval = {
     id: number;
-    item_name: string;
-    item_code: string;
-    category: string;
-    unit: string;
-    stock: number;
-    consumed: number;
-    rejected: number;
-    status: string;
-    low_stock_alert: number;
+    product_name: string;
+    quantity: number;
+    type: string;
+    requested_by: string;
+    created_at: string;
 };
 
-type MedTechItem = {
+type RecentTransaction = {
     id: number;
-    item_name: string;
-    item_code: string;
-    category: string;
-    unit: string;
-    stock: number;
-    consumed: number;
-    rejected: number;
-    status: string;
-    low_stock_alert: number;
+    product_name: string;
+    quantity: number;
+    type: 'in' | 'out';
+    reason: string;
+    created_at: string;
 };
 
-interface InventoryIndexProps {
+type LowStockItem = {
+    id: number;
+    name: string;
+    current_stock: number;
+    minimum_stock: number;
+    unit: string;
+};
+
+interface InventoryDashboardProps {
     stats: InventoryStats;
-    doctorNurseItems: DoctorNurseItem[];
-    medTechItems: MedTechItem[];
+    pendingApprovals: PendingApproval[];
+    recentTransactions: RecentTransaction[];
+    lowStockItems: LowStockItem[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -65,99 +76,18 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function InventoryIndex({
+export default function InventoryDashboard({
     stats,
-    doctorNurseItems = [],
-    medTechItems = [],
-}: InventoryIndexProps) {
-    const [noStockDialogOpen, setNoStockDialogOpen] = useState(false);
-    const [clickedDepartment, setClickedDepartment] = useState('');
+    pendingApprovals = [],
+    recentTransactions = [],
+    lowStockItems = [],
+}: InventoryDashboardProps) {
+    const [searchTerm, setSearchTerm] = useState('');
 
-    // Calculate low stock and out of stock counts for each department
-    const doctorNurseLowStock = doctorNurseItems.filter(item => 
-        item.status === 'Low Stock'
-    ).length;
-    const doctorNurseOutOfStock = doctorNurseItems.filter(item => 
-        item.status === 'Out of Stock'
-    ).length;
-    const medTechLowStock = medTechItems.filter(item => 
-        item.status === 'Low Stock'
-    ).length;
-    const medTechOutOfStock = medTechItems.filter(item => 
-        item.status === 'Out of Stock'
-    ).length;
-
-    const handleDepartmentClick = (department: string) => {
-        if (department === 'doctor-nurse') {
-            router.visit('/admin/inventory/doctor-nurse');
-        } else if (department === 'medtech') {
-            router.visit('/admin/inventory/medtech');
-        }
-    };
-
-    const handleLowStockClick = () => {
-        console.log('Low stock clicked!', {
-            statsLowStock: stats.lowStockItems,
-            doctorNurseLowStock,
-            medTechLowStock
-        });
-        
-        if (stats.lowStockItems > 0) {
-            if (doctorNurseLowStock > 0 && medTechLowStock > 0) {
-                // Both departments have low stock - redirect to supply items page
-                console.log('Both departments have low stock, redirecting to supply items');
-                router.visit('/admin/inventory/supply-items');
-            } else if (doctorNurseLowStock > 0) {
-                // Only doctor & nurse has low stock
-                console.log('Only doctor & nurse has low stock, redirecting to doctor-nurse');
-                router.visit('/admin/inventory/doctor-nurse');
-            } else if (medTechLowStock > 0) {
-                // Only med tech has low stock
-                console.log('Only med tech has low stock, redirecting to medtech');
-                router.visit('/admin/inventory/medtech');
-            } else {
-                // Fallback to supply items page
-                console.log('Fallback: redirecting to supply items');
-                router.visit('/admin/inventory/supply-items');
-            }
-        } else {
-            console.log('No low stock items found, showing popup...');
-            setClickedDepartment('Overall Inventory');
-            setNoStockDialogOpen(true);
-        }
-    };
-
-    const handleOutOfStockClick = () => {
-        console.log('Out of stock clicked!', {
-            statsOutOfStock: stats.outOfStockItems,
-            doctorNurseOutOfStock,
-            medTechOutOfStock
-        });
-        
-        if (stats.outOfStockItems > 0) {
-            if (doctorNurseOutOfStock > 0 && medTechOutOfStock > 0) {
-                // Both departments have out of stock - redirect to supply items page
-                console.log('Both departments have out of stock, redirecting to supply items');
-                router.visit('/admin/inventory/supply-items');
-            } else if (doctorNurseOutOfStock > 0) {
-                // Only doctor & nurse has out of stock
-                console.log('Only doctor & nurse has out of stock, redirecting to doctor-nurse');
-                router.visit('/admin/inventory/doctor-nurse');
-            } else if (medTechOutOfStock > 0) {
-                // Only med tech has out of stock
-                console.log('Only med tech has out of stock, redirecting to medtech');
-                router.visit('/admin/inventory/medtech');
-            } else {
-                // Fallback to supply items page
-                console.log('Fallback: redirecting to supply items');
-                router.visit('/admin/inventory/supply-items');
-            }
-        } else {
-            console.log('No out of stock items found, showing popup...');
-            setClickedDepartment('Overall Inventory');
-            setNoStockDialogOpen(true);
-        }
-    };
+    const filteredLowStock = lowStockItems.filter((item) => {
+        const search = searchTerm.toLowerCase();
+        return item.name.toLowerCase().includes(search);
+    });
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -172,222 +102,151 @@ export default function InventoryIndex({
                                 <p className="text-sm text-black mt-1">Track and manage clinic items and equipment</p>
                             </div>
                         </div>
+                        <div className="flex items-center gap-4">
+                        </div>
                     </div>
                 </div>
 
                 {/* Main content */}
                 <div className="w-full">
-                    {/* Action Buttons */}
-                    <div className="mb-6 flex gap-4 justify-end">
-                        <Button 
-                            onClick={() => router.visit('/admin/inventory/supply-items')}
-                            className="bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-sm font-semibold rounded-xl"
-                        >
-                            <Package className="mr-2 h-4 w-4" />
-                            View all Supply Items
-                        </Button>
-                        <Button 
-                            onClick={() => router.visit('/admin/inventory/create')}
-                            className="bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 text-sm font-semibold rounded-xl"
-                        >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Supply Item
-                        </Button>
-                    </div>
-                    
                     <PatientInfoCard
                         title="Inventory Overview"
                         icon={<Package className="h-5 w-5 text-black" />}
                         actions={
                             <div className="flex items-center gap-2">
                                 <Button 
-                                    onClick={() => router.visit('/admin/inventory/create')}
+                                    onClick={() => router.visit('/admin/inventory/transactions/create')}
+                                    className="bg-gray-600 hover:bg-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
+                                >
+                                    <Package className="mr-2 h-4 w-4" />
+                                    Record Movement
+                                </Button>
+                                <Button 
+                                    onClick={() => router.visit('/admin/inventory/products/create')}
                                     className="bg-gray-600 hover:bg-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
                                 >
                                     <Plus className="mr-2 h-4 w-4" />
                                     Add Item
                                 </Button>
-                                <Button 
-                                    onClick={() => router.visit('/admin/inventory/reports')}
-                                    className="bg-gray-600 hover:bg-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl"
-                                >
-                                    <BarChart3 className="mr-2 h-4 w-4" />
-                                    Reports
-                                </Button>
                             </div>
                         }
                     >
-                        {/* Statistics Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-                            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Package className="h-4 w-4 text-black" />
-                                    <span className="text-sm font-medium text-gray-800">Total Items</span>
-                                </div>
-                                <div className="text-2xl font-bold text-gray-900">{stats.totalSupplies}</div>
-                            </div>
-                            <div 
-                                className={`rounded-lg p-4 border shadow-sm cursor-pointer hover:shadow-lg transition-all duration-200 ${
-                                    stats.lowStockItems > 0 
-                                        ? 'bg-orange-500 border-orange-500 hover:bg-orange-600' 
-                                        : 'bg-white border-gray-200 hover:bg-gray-50'
-                                }`}
-                                onClick={handleLowStockClick}
-                            >
-                                <div className="flex items-center gap-2 mb-2">
-                                    <AlertTriangle className={`h-4 w-4 ${
-                                        stats.lowStockItems > 0 ? 'text-white' : 'text-black'
-                                    }`} />
-                                    <span className={`text-sm font-medium ${
-                                        stats.lowStockItems > 0 ? 'text-white' : 'text-gray-800'
-                                    }`}>Low Stock</span>
-                                </div>
-                                <div className={`text-2xl font-bold ${
-                                    stats.lowStockItems > 0 ? 'text-white' : 'text-gray-900'
-                                }`}>{stats.lowStockItems}</div>
-                                {stats.lowStockItems > 0 && (
-                                    <div className="text-xs text-white/80 mt-1">
-                                        Click to view low stock items
+                            {/* Statistics Grid */}
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                                <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <AlertTriangle className="h-4 w-4 text-black" />
+                                        <span className="text-sm font-medium text-gray-800">Low Stock</span>
                                     </div>
-                                )}
-                            </div>
-                            <div 
-                                className={`rounded-lg p-4 border shadow-sm cursor-pointer hover:shadow-lg transition-all duration-200 ${
-                                    stats.outOfStockItems > 0 
-                                        ? 'bg-red-500 border-red-500 hover:bg-red-600' 
-                                        : 'bg-white border-gray-200 hover:bg-gray-50'
-                                }`}
-                                onClick={handleOutOfStockClick}
-                            >
-                                <div className="flex items-center gap-2 mb-2">
-                                    <AlertTriangle className={`h-4 w-4 ${
-                                        stats.outOfStockItems > 0 ? 'text-white' : 'text-black'
-                                    }`} />
-                                    <span className={`text-sm font-medium ${
-                                        stats.outOfStockItems > 0 ? 'text-white' : 'text-gray-800'
-                                    }`}>Out of Stock</span>
+                                    <div className="text-2xl font-bold text-gray-900">{stats.low_stock_products}</div>
                                 </div>
-                                <div className={`text-2xl font-bold ${
-                                    stats.outOfStockItems > 0 ? 'text-white' : 'text-gray-900'
-                                }`}>{stats.outOfStockItems}</div>
-                                {stats.outOfStockItems > 0 && (
-                                    <div className="text-xs text-white/80 mt-1">
-                                        Click to view out of stock items
+                                <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Clock className="h-4 w-4 text-black" />
+                                        <span className="text-sm font-medium text-gray-800">Expiring Soon</span>
                                     </div>
-                                )}
-                            </div>
-                            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <TrendingDown className="h-4 w-4 text-black" />
-                                    <span className="text-sm font-medium text-gray-800">Consumed</span>
+                                    <div className="text-2xl font-bold text-gray-900">{stats.expiring_soon}</div>
                                 </div>
-                                <div className="text-2xl font-bold text-gray-900">{stats.totalConsumed}</div>
-                            </div>
-                            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Trash2 className="h-4 w-4 text-black" />
-                                    <span className="text-sm font-medium text-gray-800">Rejected</span>
+                                <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <TrendingDown className="h-4 w-4 text-black" />
+                                        <span className="text-sm font-medium text-gray-800">Expired</span>
+                                    </div>
+                                    <div className="text-2xl font-bold text-gray-900">{stats.expired_stock}</div>
                                 </div>
-                                <div className="text-2xl font-bold text-gray-900">{stats.totalRejected}</div>
                             </div>
-                        </div>
 
-                        {/* Quick Navigation */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                            <Card 
-                                className="hover:shadow-lg transition-shadow cursor-pointer"
-                                onClick={() => handleDepartmentClick('doctor-nurse')}
-                            >
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Users className="h-5 w-5" />
-                                        Doctor & Nurse Items
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold text-gray-900 mb-2">{doctorNurseItems.length}</div>
-                                    <p className="text-sm text-gray-600 mb-4">Items assigned to Doctor & Nurse</p>
-                                    <Button 
-                                        className="w-full"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDepartmentClick('doctor-nurse');
-                                        }}
-                                    >
-                                        View Items
-                                    </Button>
-                                </CardContent>
-                            </Card>
-
-                            <Card 
-                                className="hover:shadow-lg transition-shadow cursor-pointer"
-                                onClick={() => handleDepartmentClick('medtech')}
-                            >
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <FlaskConical className="h-5 w-5" />
-                                        Med Tech Items
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold text-gray-900 mb-2">{medTechItems.length}</div>
-                                    <p className="text-sm text-gray-600 mb-4">Items assigned to Med Tech</p>
-                                    <Button 
-                                        className="w-full"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDepartmentClick('medtech');
-                                        }}
-                                    >
-                                        View Items
-                                    </Button>
-                                </CardContent>
-                            </Card>
-                        </div>
-
+                            {/* Low Stock Items Table */}
+                            <div className="mb-6">
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="relative flex-1 max-w-md">
+                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                        <Input
+                                            placeholder="Search low stock items..."
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            className="pl-10 h-12 border-gray-200 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                    <Table>
+                                    <TableHeader className="bg-gray-50">
+                                        <TableRow className="hover:bg-gray-100">
+                                            <TableHead className="font-semibold text-black">
+                                                    <div className="flex items-center gap-2">
+                                                        <AlertTriangle className="h-4 w-4" />
+                                                        Item Name
+                                                    </div>
+                                                </TableHead>
+                                            <TableHead className="font-semibold text-black">Current Stock</TableHead>
+                                            <TableHead className="font-semibold text-black">Minimum Stock</TableHead>
+                                            <TableHead className="font-semibold text-black">Unit</TableHead>
+                                            <TableHead className="font-semibold text-black">Status</TableHead>
+                                            <TableHead className="font-semibold text-black">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {filteredLowStock.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={6} className="text-center py-8">
+                                                        <div className="flex flex-col items-center">
+                                                            <Package className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                                        <h3 className="mb-2 text-lg font-semibold text-black">{searchTerm ? 'No items found' : 'No low stock items'}</h3>
+                                                        <p className="text-black">
+                                                                {searchTerm ? 'Try adjusting your search terms' : 'All items are well stocked'}
+                                                            </p>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                filteredLowStock.map((item) => (
+                                                    <TableRow key={item.id} className="hover:bg-gray-50">
+                                                        <TableCell className="font-medium">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="p-1 bg-gray-100 rounded-full">
+                                                                    <AlertTriangle className="h-4 w-4 text-black" />
+                                                                </div>
+                                                                {item.name}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-sm text-black">{item.current_stock}</TableCell>
+                                                        <TableCell className="text-sm text-black">{item.minimum_stock}</TableCell>
+                                                        <TableCell className="text-sm text-black">{item.unit}</TableCell>
+                                                        <TableCell>
+                                                            <Badge 
+                                                                variant="secondary"
+                                                                className="bg-orange-100 text-orange-800 border-orange-200"
+                                                            >
+                                                                Low Stock
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex gap-2">
+                                                                <Button asChild size="sm">
+                                                                    <Link href={`/admin/inventory/products/${item.id}/edit`}>
+                                                                        <Edit className="mr-1 h-3 w-3" />
+                                                                        Edit
+                                                                    </Link>
+                                                                </Button>
+                                                                <Button asChild size="sm" variant="outline">
+                                                                    <Link href={`/admin/inventory/products/${item.id}`}>
+                                                                        <Eye className="mr-1 h-3 w-3" />
+                                                                        View
+                                                                    </Link>
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
                     </PatientInfoCard>
                 </div>
             </div>
-
-            {/* No Low Stock Dialog */}
-            <Dialog open={noStockDialogOpen} onOpenChange={setNoStockDialogOpen}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <CheckCircle className="h-5 w-5 text-green-600" />
-                            No Low Stock Items
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4">
-                        <p className="text-gray-600 mb-4">
-                            Great news! There are currently no low stock or out of stock items in the {clickedDepartment === 'Overall Inventory' ? 'entire inventory system' : clickedDepartment + ' department'}. 
-                            All inventory levels are within acceptable limits.
-                        </p>
-                        <div className="flex justify-end gap-2">
-                            <Button 
-                                variant="outline" 
-                                onClick={() => setNoStockDialogOpen(false)}
-                            >
-                                Close
-                            </Button>
-                            <Button 
-                                onClick={() => {
-                                    setNoStockDialogOpen(false);
-                                    if (clickedDepartment === 'Overall Inventory') {
-                                        router.visit('/admin/inventory/supply-items');
-                                    } else if (clickedDepartment === 'Doctor & Nurse') {
-                                        router.visit('/admin/inventory/doctor-nurse');
-                                    } else {
-                                        router.visit('/admin/inventory/medtech');
-                                    }
-                                }}
-                            >
-                                View All Items
-                            </Button>
-                        </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
         </AppLayout>
     );
 }

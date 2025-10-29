@@ -167,7 +167,7 @@ class PatientRegistrationController extends Controller
                     ->withInput();
             }
 
-            // Create patient record - use actual database column names
+            // Instead of creating patient directly, create a transfer record
             $patientData = [
                 'last_name' => $request->last_name,
                 'first_name' => $request->first_name,
@@ -177,25 +177,39 @@ class PatientRegistrationController extends Controller
                 'sex' => $request->sex,
                 'civil_status' => $request->civil_status,
                 'nationality' => $request->nationality,
-                'present_address' => $request->present_address, // Use actual database column name
+                'present_address' => $request->present_address,
                 'telephone_no' => $request->telephone_no,
                 'mobile_no' => $request->mobile_no,
-                'informant_name' => $request->informant_name, // Use actual database column name
-                'relationship' => $request->relationship, // Use actual database column name
-                'company_name' => $request->company_name, // Use actual database column name
+                'informant_name' => $request->informant_name,
+                'relationship' => $request->relationship,
+                'company_name' => $request->company_name,
                 'hmo_name' => $request->hmo_name,
-                'hmo_company_id_no' => $request->hmo_company_id_no, // Use actual database column name
-                'validation_approval_code' => $request->validation_approval_code, // Use actual database column name
+                'hmo_company_id_no' => $request->hmo_company_id_no,
+                'validation_approval_code' => $request->validation_approval_code,
                 'validity' => $request->validity,
                 'drug_allergies' => $request->drug_allergies,
                 'past_medical_history' => $request->past_medical_history,
                 'family_history' => $request->family_history,
-                'social_personal_history' => $request->social_personal_history, // Use actual database column name
-                'obstetrics_gynecology_history' => $request->obstetrics_gynecology_history, // Use actual database column name
+                'social_personal_history' => $request->social_personal_history,
+                'obstetrics_gynecology_history' => $request->obstetrics_gynecology_history,
             ];
 
-            $patientData['user_id'] = $user->id;
-            $patient = $this->patientService->createPatient($patientData);
+            // Create patient transfer record instead of direct patient
+            $transfer = \App\Models\PatientTransfer::create([
+                'patient_id' => null, // Will be set when approved
+                'patient_data' => $patientData,
+                'registration_type' => 'patient', // Patient self-registration
+                'approval_status' => 'pending',
+                'requested_by' => $user->id,
+                'transfer_reason' => 'Patient self-registration request',
+                'priority' => 'medium',
+                'status' => 'pending',
+                'transferred_by' => $user->id,
+                'transfer_date' => now(),
+            ]);
+
+            // Create history record
+            $transfer->createHistoryRecord('created', $user->id, 'Patient self-registration request created');
 
             // Create appointment
             $specialist = User::find($request->specialist_id);
@@ -226,7 +240,7 @@ class PatientRegistrationController extends Controller
                 'appointment_date' => $request->appointment_date,
                 'appointment_time' => $this->formatTimeForDatabase($request->appointment_time),
                 'duration' => '30 min',
-                'price' => $this->calculatePrice($request->appointment_type),
+                'price' => null, // Will be calculated using Appointment model's calculatePrice method
                 'additional_info' => $request->notes,
                 'source' => 'Online',
                 'status' => 'Pending',
@@ -234,14 +248,23 @@ class PatientRegistrationController extends Controller
 
             $appointment = \App\Models\Appointment::create($appointmentData);
 
-            // Send notification to admin for approval
-            $this->notifyAdminPendingAppointment($appointment);
+            // Calculate and set price using the model's calculatePrice method
+            $calculatedPrice = $appointment->calculatePrice();
+            $appointment->update([
+                'price' => $calculatedPrice,
+                'final_total_amount' => $calculatedPrice, // Set final_total_amount to the same as price when no lab tests
+                'total_lab_amount' => 0 // No lab tests initially
+            ]);
+
+            // Send notification to admin for approval using centralized service
+            $notificationService = app(\App\Services\NotificationService::class);
+            $notificationService->notifyNewAppointment($appointment);
 
             DB::commit();
 
-            return redirect()->route('patient.dashboard')
-                ->with('success', 'Registration and appointment request submitted successfully! You will be notified once it\'s approved by the admin.')
-                ->with('pending_appointment_id', $pendingAppointment->id);
+            return redirect()->route('home')
+                ->with('success', 'Patient registration request submitted successfully! You will be notified once it\'s approved by the admin.')
+                ->with('pending_appointment_id', $appointment->id);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -320,52 +343,4 @@ class PatientRegistrationController extends Controller
         return $prices[$appointmentType] ?? 300.00;
     }
 
-    private function notifyAdminPendingAppointment($appointment)
-    {
-        try {
-            // Get all admin users
-            $adminUsers = \App\Models\User::where('role', 'admin')->get();
-
-            \Log::info('Sending notifications to admin users', [
-                'admin_count' => $adminUsers->count(),
-                'appointment_id' => $appointment->appointment_id
-            ]);
-
-            // Get patient information
-            $patient = $appointment->patient;
-            $patientName = $patient ? $patient->first_name . ' ' . $patient->last_name : 'Unknown Patient';
-
-            foreach ($adminUsers as $admin) {
-                // Create notification
-                $notification = \App\Models\Notification::create([
-                    'type' => 'appointment_request',
-                    'title' => 'New Appointment Request - Pending Approval',
-                    'message' => "Patient {$patientName} has requested an appointment for {$appointment->appointment_type} on {$appointment->appointment_date} at {$appointment->appointment_time}. Please review and approve.",
-                    'data' => [
-                        'appointment_id' => $appointment->appointment_id,
-                        'patient_name' => $patientName,
-                        'appointment_type' => $appointment->appointment_type,
-                        'appointment_date' => $appointment->appointment_date,
-                        'appointment_time' => $appointment->appointment_time,
-                        'specialist_name' => $appointment->specialist ? $appointment->specialist->name : 'Unknown Specialist',
-                        'status' => $appointment->status,
-                        'price' => $appointment->price,
-                    ],
-                    'user_id' => $admin->id,
-                    'read' => false,
-                ]);
-
-                \Log::info('Notification created successfully', [
-                    'notification_id' => $notification->id,
-                    'admin_id' => $admin->id,
-                    'admin_name' => $admin->name
-                ]);
-            }
-        } catch (\Exception $e) {
-            \Log::error('Failed to create admin notifications', [
-                'error' => $e->getMessage(),
-                'pending_appointment_id' => $pendingAppointment->id
-            ]);
-        }
-    }
 }

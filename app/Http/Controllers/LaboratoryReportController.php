@@ -34,10 +34,32 @@ class LaboratoryReportController extends Controller
         $startDate = $this->getStartDate($filter, $date);
         $endDate = $this->getEndDate($filter, $date);
         
+        // Debug logging
+        \Log::info('Laboratory Report Debug:', [
+            'filter' => $filter,
+            'date' => $date,
+            'startDate' => $startDate->format('Y-m-d H:i:s'),
+            'endDate' => $endDate->format('Y-m-d H:i:s'),
+            'startDate_timestamp' => $startDate->timestamp,
+            'endDate_timestamp' => $endDate->timestamp,
+        ]);
+        
         // Get lab orders for the period
-        $labOrders = LabOrder::with(['patient', 'labTests', 'results'])
+        $labOrders = LabOrder::with(['patient', 'results.test', 'results'])
             ->whereBetween('created_at', [$startDate, $endDate])
             ->get();
+            
+        // Debug the actual orders found
+        \Log::info('Lab Orders Found:', [
+            'count' => $labOrders->count(),
+            'orders' => $labOrders->map(function($order) {
+                return [
+                    'id' => $order->id,
+                    'created_at' => $order->created_at->format('Y-m-d H:i:s'),
+                    'created_at_timestamp' => $order->created_at->timestamp,
+                ];
+            })->toArray()
+        ]);
 
         // Calculate statistics
         $totalOrders = $labOrders->count();
@@ -53,14 +75,16 @@ class LaboratoryReportController extends Controller
                 'order_id' => $order->id,
                 'patient_name' => $order->patient ? $order->patient->last_name . ', ' . $order->patient->first_name : 'N/A',
                 'patient_id' => $order->patient_id,
-                'tests_ordered' => $order->labTests->pluck('name')->join(', '),
+                'tests_ordered' => $order->results->map(function ($result) {
+                    return $result->test?->name;
+                })->filter()->join(', '),
                 'status' => $order->status,
                 'ordered_at' => $order->created_at->format('Y-m-d H:i:s'),
                 'ordered_by' => $order->orderedBy ? $order->orderedBy->name : 'N/A'
             ];
         });
 
-        return [
+        $result = [
             'total_orders' => $totalOrders,
             'pending_orders' => $pendingOrders,
             'completed_orders' => $completedOrders,
@@ -71,6 +95,15 @@ class LaboratoryReportController extends Controller
             'start_date' => $startDate->format('Y-m-d'),
             'end_date' => $endDate->format('Y-m-d')
         ];
+        
+        // Debug the result
+        \Log::info('Laboratory Report Result:', [
+            'total_orders' => $totalOrders,
+            'order_details_count' => $orderDetails->count(),
+            'order_details_sample' => $orderDetails->take(3)->toArray()
+        ]);
+        
+        return $result;
     }
 
     private function getStartDate($filter, $date)
@@ -110,7 +143,9 @@ class LaboratoryReportController extends Controller
         $testCounts = [];
         
         foreach ($labOrders as $order) {
-            foreach ($order->labTests as $test) {
+            foreach ($order->results as $result) {
+                $test = $result->test;
+                if (!$test) continue;
                 $testName = strtolower($test->name);
                 
                 // Categorize tests

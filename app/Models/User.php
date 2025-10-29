@@ -13,6 +13,32 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasRoles;
 
+    protected $guard_name = 'session';
+
+    /**
+     * Get the guard name for the model.
+     */
+    public function getGuardName(): string
+    {
+        return 'session';
+    }
+
+    /**
+     * Override the guard name for Spatie permissions
+     */
+    public function getGuardNameAttribute(): string
+    {
+        return 'session';
+    }
+
+    /**
+     * Get the guard name for Spatie permissions
+     */
+    public function getGuardNameForSpatie(): string
+    {
+        return 'session';
+    }
+
     /**
      * The attributes that are mass assignable.
      *
@@ -23,6 +49,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'role_id',
         'is_active',
         'employee_id',
         'specialization',
@@ -61,15 +88,10 @@ class User extends Authenticatable
         $mappedRole = $this->getMappedRole();
 
         if ($mappedRole === 'patient') {
-            return route('patient.dashboard');
+            return route('home');
         }
 
-        // Hospital staff should go to hospital dashboard
-        if (in_array($mappedRole, ['hospital_admin', 'hospital_staff'])) {
-            return route('hospital.dashboard');
-        }
-
-        // All other roles (clinic staff) go to admin dashboard
+        // All other roles (staff) go to admin dashboard
         return route('admin.dashboard');
     }
 
@@ -87,6 +109,7 @@ class User extends Authenticatable
             'medtech',
             'cashier',
             'doctor',
+            'nurse',
             'patient',
             'hospital_admin',
             'hospital_staff'
@@ -160,5 +183,232 @@ class User extends Authenticatable
     public function patient()
     {
         return $this->hasOne(Patient::class);
+    }
+
+    /**
+     * Get the user's role
+     */
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
+    }
+
+    /**
+     * Check if user has a specific permission using role-based logic
+     */
+    public function hasModulePermission(string $module, string $action): bool
+    {
+        if ($this->isAdmin()) {
+            return true; // Admin has all permissions
+        }
+
+        $userRole = $this->getMappedRole();
+        
+        // Define role-based permissions
+        switch ($userRole) {
+            case 'doctor':
+                if ($module === 'patients') {
+                    return in_array($action, ['create', 'read', 'update', 'delete', 'transfer']);
+                }
+                if ($module === 'laboratory') {
+                    return in_array($action, ['create', 'read', 'update', 'delete']);
+                }
+                if ($module === 'reports') {
+                    return in_array($action, ['read', 'export']); // Full access to all reports including financial
+                }
+                if ($module === 'appointments') {
+                    return in_array($action, ['create', 'read', 'update', 'delete']);
+                }
+                if ($module === 'inventory') {
+                    return in_array($action, ['create', 'read', 'update', 'delete']); // Full access for doctors
+                }
+                return false;
+            case 'nurse':
+                if ($module === 'patients') {
+                    return in_array($action, ['create', 'read', 'update', 'delete', 'transfer']);
+                }
+                if ($module === 'appointments') {
+                    return in_array($action, ['create', 'read', 'update', 'delete']); // Full access to all appointment modules
+                }
+                if ($module === 'visits') {
+                    return in_array($action, ['create', 'read', 'update', 'delete']); // Grant access to visits
+                }
+                if ($module === 'inventory') {
+                    return in_array($action, ['create', 'read', 'update', 'delete']);
+                }
+                if ($module === 'reports') {
+                    return in_array($action, ['read', 'export']); // Full access to all reports
+                }
+                return false;
+            case 'medtech':
+                if ($module === 'laboratory') {
+                    return in_array($action, ['create', 'read', 'update', 'delete']);
+                }
+                if ($module === 'inventory') {
+                    return in_array($action, ['create', 'read', 'update', 'delete']);
+                }
+                if ($module === 'reports') {
+                    return in_array($action, ['read', 'export']); // Full access to all reports including financial
+                }
+                if ($module === 'patients') {
+                    return in_array($action, ['read']); // Read-only access for medtech
+                }
+                if ($module === 'visits') {
+                    return in_array($action, ['create', 'read', 'update', 'delete']); // Grant access to visits
+                }
+                return false;
+            case 'cashier':
+                if ($module === 'billing') {
+                    return in_array($action, ['create', 'read', 'update', 'delete']);
+                }
+                if ($module === 'reports') {
+                    return in_array($action, ['read', 'export']);
+                }
+                return false;
+            case 'hospital_staff':
+            case 'hospital_admin':
+                if ($module === 'patients') {
+                    return in_array($action, ['create', 'read', 'update', 'delete', 'transfer']); // Full access to Patient Management
+                }
+                if ($module === 'reports') {
+                    return in_array($action, ['read', 'export']); // Full access to Reports
+                }
+                return false;
+            case 'patient':
+                if ($module === 'patients') {
+                    return in_array($action, ['read']); // Read-only access to own data
+                }
+                return false;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Check if user can access a module
+     */
+    public function canAccessModule(string $module): bool
+    {
+        if ($this->isAdmin()) {
+            return true; // Admin has access to all modules
+        }
+
+        $userRole = $this->getMappedRole();
+        
+        // Define role-based module access
+        switch ($userRole) {
+            case 'doctor':
+                return in_array($module, ['patients', 'laboratory', 'reports', 'appointments', 'inventory', 'visits']);
+            case 'nurse':
+                return in_array($module, ['patients', 'appointments', 'inventory', 'reports', 'visits']); // Full access to all appointment modules
+            case 'medtech':
+                return in_array($module, ['laboratory', 'inventory', 'reports', 'patients', 'visits']);
+            case 'cashier':
+                return in_array($module, ['billing', 'reports']);
+            case 'hospital_staff':
+            case 'hospital_admin':
+                return in_array($module, ['patients', 'reports', 'billing', 'inventory']);
+            case 'patient':
+                return in_array($module, ['patients']);
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Get user's permissions for a specific module
+     */
+    public function getModulePermissions(string $module): array
+    {
+        if ($this->isAdmin()) {
+            return ['create', 'read', 'update', 'delete', 'export', 'transfer'];
+        }
+
+        $userRole = $this->getMappedRole();
+        
+        // Define role-based permissions for each module
+        switch ($userRole) {
+            case 'doctor':
+                if ($module === 'patients') {
+                    return ['create', 'read', 'update', 'delete', 'transfer'];
+                }
+                if ($module === 'laboratory') {
+                    return ['create', 'read', 'update', 'delete'];
+                }
+                if ($module === 'reports') {
+                    return ['read', 'export'];
+                }
+                if ($module === 'appointments') {
+                    return ['create', 'read', 'update', 'delete'];
+                }
+                if ($module === 'inventory') {
+                    return ['create', 'read', 'update', 'delete']; // Full access for doctors
+                }
+                return [];
+            case 'nurse':
+                if ($module === 'patients') {
+                    return ['create', 'read', 'update', 'delete', 'transfer'];
+                }
+                if ($module === 'appointments') {
+                    return ['create', 'read', 'update', 'delete']; // Full access to all appointment modules
+                }
+                if ($module === 'visits') {
+                    return ['create', 'read', 'update', 'delete']; // Grant access to visits
+                }
+                if ($module === 'inventory') {
+                    return ['create', 'read', 'update', 'delete'];
+                }
+                if ($module === 'reports') {
+                    return ['read', 'export']; // Full access to all reports
+                }
+                return [];
+            case 'medtech':
+                if ($module === 'laboratory') {
+                    return ['create', 'read', 'update', 'delete'];
+                }
+                if ($module === 'inventory') {
+                    return ['create', 'read', 'update', 'delete'];
+                }
+                if ($module === 'reports') {
+                    return ['read', 'export']; // Full access to all reports including financial
+                }
+                if ($module === 'patients') {
+                    return ['read']; // Read-only access for medtech
+                }
+                if ($module === 'visits') {
+                    return ['create', 'read', 'update', 'delete']; // Grant access to visits
+                }
+                return [];
+            case 'cashier':
+                if ($module === 'billing') {
+                    return ['create', 'read', 'update', 'delete'];
+                }
+                if ($module === 'reports') {
+                    return ['read', 'export'];
+                }
+                return [];
+            case 'hospital_staff':
+            case 'hospital_admin':
+                if ($module === 'patients') {
+                    return ['create', 'read', 'update', 'delete', 'transfer']; // Full access to Patient Management
+                }
+                if ($module === 'reports') {
+                    return ['read', 'export']; // Full access to Reports
+                }
+                if ($module === 'billing') {
+                    return ['read', 'export']; // Read access to billing for financial reports
+                }
+                if ($module === 'inventory') {
+                    return ['create', 'read', 'update', 'delete']; // Full access to inventory management
+                }
+                return [];
+            case 'patient':
+                if ($module === 'patients') {
+                    return ['read']; // Read-only access to own data
+                }
+                return [];
+            default:
+                return [];
+        }
     }
 }

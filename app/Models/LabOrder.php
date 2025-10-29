@@ -35,14 +35,26 @@ class LabOrder extends Model
 
     public function labTests()
     {
-        return $this->belongsToMany(LabTest::class, 'lab_results', 'lab_order_id', 'lab_test_id')
-            ->withPivot('results', 'verified_by', 'verified_at')
-            ->withTimestamps();
+        return $this->hasManyThrough(
+            LabTest::class,
+            LabResult::class,
+            'lab_order_id',
+            'id',
+            'id',
+            'lab_test_id'
+        );
     }
 
-    public function visit()
+    public function appointments()
     {
-        return $this->belongsTo(Visit::class, 'patient_visit_id');
+        return $this->hasManyThrough(
+            Appointment::class,
+            AppointmentLabOrder::class,
+            'lab_order_id',
+            'id',
+            'id',
+            'appointment_id'
+        );
     }
 }
 

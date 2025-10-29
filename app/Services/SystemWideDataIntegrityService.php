@@ -329,7 +329,8 @@ class SystemWideDataIntegrityService
             $billingTransaction = BillingTransaction::where('appointment_id', $appointment->id)->first();
             
             if (!$billingTransaction) {
-                $billingTransaction = BillingTransaction::create([
+                // Use the system-wide helper to prevent duplicates
+                $billingTransaction = \App\Helpers\SystemWideSpecialistBillingHelper::createBillingTransactionSafely($appointment->id, [
                     'appointment_id' => $appointment->id,
                     'patient_id' => $appointment->patient_id,
                     'total_amount' => $appointment->price,
@@ -337,7 +338,6 @@ class SystemWideDataIntegrityService
                     'status' => 'pending',
                     'transaction_date' => now(),
                     'created_by' => 1,
-                    'transaction_id' => 'TXN-' . str_pad(BillingTransaction::max('id') + 1, 6, '0', STR_PAD_LEFT)
                 ]);
             }
 
@@ -374,7 +374,12 @@ class SystemWideDataIntegrityService
                 'transaction_id' => $transaction->transaction_id,
                 'patient_name' => $transaction->patient ? $transaction->patient->first_name . ' ' . $transaction->patient->last_name : 'Unknown',
                 'specialist_name' => 'Unknown',
-                'amount' => $transaction->total_amount,
+                'amount' => $transaction->amount, // Use final amount after discounts
+                'total_amount' => $transaction->total_amount, // Original amount before discounts
+                'final_amount' => $transaction->amount, // Final amount after discounts
+                'discount_amount' => $transaction->discount_amount ?? 0,
+                'senior_discount_amount' => $transaction->senior_discount_amount ?? 0,
+                'is_senior_citizen' => $transaction->is_senior_citizen ?? false,
                 'payment_method' => $transaction->payment_method ?? 'Cash',
                 'status' => $transaction->status,
                 'description' => $transaction->description ?? 'Payment for appointment',

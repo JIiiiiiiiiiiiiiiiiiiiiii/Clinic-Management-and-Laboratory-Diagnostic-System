@@ -37,17 +37,17 @@ class AuthenticatedSessionController extends Controller
             // Clean and normalize input
             $email = trim(strtolower($request->input('email')));
             $password = trim($request->input('password'));
-
+            
             // Debug logging
             \Log::info('Login attempt', [
                 'original_email' => $request->input('email'),
                 'cleaned_email' => $email,
                 'password_length' => strlen($password)
             ]);
-
+            
             // First try database authentication
             $user = \App\Models\User::where('email', $email)->first();
-
+            
             if ($user && \Hash::check($password, $user->password)) {
                 // Database user found and password matches
                 \Log::info('Database user authenticated successfully', [
@@ -55,28 +55,25 @@ class AuthenticatedSessionController extends Controller
                     'email' => $user->email,
                     'role' => $user->role
                 ]);
-
+                
                 // Login the user using Laravel's standard authentication
                 Auth::login($user);
-
+                
                 // Redirect based on role
-                $mappedRole = $user->getMappedRole();
-                if ($mappedRole === 'patient') {
-                    return redirect()->route('patient.dashboard.simple');
-                } elseif (in_array($mappedRole, ['hospital_admin', 'hospital_staff'])) {
-                    return redirect()->route('hospital.dashboard');
+                if ($user->role === 'patient') {
+                    return redirect()->route('home');
                 } else {
                     return redirect()->route('admin.dashboard');
                 }
             }
-
+            
             // Fallback to temporary credentials for development
             $validCredentials = $this->getTemporaryCredentials();
-
+            
             if (isset($validCredentials[$email]) && $validCredentials[$email] === $password) {
                 // Create a temporary user object
                 $tempUser = $this->createTemporaryUser($email);
-
+                
                 // Store user in session for custom provider
                 $request->session()->put('auth.user', $tempUser);
                 $request->session()->put('auth.login', true);
@@ -90,7 +87,7 @@ class AuthenticatedSessionController extends Controller
                     'mapped_role' => $tempUser->getMappedRole()
                 ]);
 
-                // Redirect based on mapped role
+                // Redirect based on mapped role (admin -> admin.dashboard, patient -> patient.dashboard.simple)
                 \Log::info('Redirecting user to: ' . $tempUser->getRedirectPath());
                 return redirect($tempUser->getRedirectPath());
             } else {
@@ -101,14 +98,14 @@ class AuthenticatedSessionController extends Controller
                 } elseif ($user && !\Hash::check($password, $user->password)) {
                     $errorMessage = 'Incorrect password. Please try again.';
                 }
-
+                
                 \Log::warning('Login failed', [
                     'email' => $email,
                     'password_provided' => !empty($password),
                     'user_found_in_db' => $user ? true : false,
                     'temp_credentials_exist' => isset($validCredentials[$email])
                 ]);
-
+                
                 throw ValidationException::withMessages([
                     'email' => $errorMessage,
                 ]);
@@ -152,11 +149,11 @@ class AuthenticatedSessionController extends Controller
             'cashier@clinic.com' => 'cashier',
             'patient@clinic.com' => 'patient',
             'ron@patient.com' => 'patient',
-            'hospital@stjames.com' => 'hospital_admin',
+            'hospital@stjames.com' => 'admin',
         ];
 
         $role = $roleMap[$email] ?? 'admin';
-
+        
         return new SimpleUser($email, $role);
     }
 
@@ -168,7 +165,7 @@ class AuthenticatedSessionController extends Controller
         // Clear custom session authentication
         $request->session()->forget('auth.user');
         $request->session()->forget('auth.login');
-
+        
         // Also clear standard Laravel auth
         Auth::guard('web')->logout();
         Auth::guard('session')->logout();
@@ -176,10 +173,10 @@ class AuthenticatedSessionController extends Controller
         // Completely invalidate and regenerate session
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-
+        
         // Clear all session data
         $request->session()->flush();
-
+        
         \Log::info('User logged out successfully');
 
         return redirect('/');

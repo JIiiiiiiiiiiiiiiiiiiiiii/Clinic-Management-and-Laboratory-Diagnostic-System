@@ -137,16 +137,6 @@ class InventoryItem extends Model
         return self::sum('rejected');
     }
 
-    // Update status for all inventory items
-    public static function updateAllStatuses()
-    {
-        $items = self::all();
-        foreach ($items as $item) {
-            $item->updateStatus();
-        }
-        return $items->count();
-    }
-
     // Get items with rejections
     public static function getItemsWithRejections()
     {

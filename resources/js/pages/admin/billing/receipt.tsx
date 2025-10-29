@@ -4,6 +4,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 import Heading from '@/components/heading';
+import { safeFormatDate, safeFormatTime } from '@/utils/dateTime';
 import { 
     ArrowLeft, 
     Printer,
@@ -15,7 +16,6 @@ import {
     DollarSign,
     FileText
 } from 'lucide-react';
-import { formatCurrency } from '@/utils/currency';
 
 type BillingTransaction = {
     id: number;
@@ -34,14 +34,20 @@ type BillingTransaction = {
     } | null;
     payment_type: 'cash' | 'health_card' | 'discount';
     total_amount: number;
+    amount: number;
     discount_amount: number;
     discount_percentage: number | null;
+    is_senior_citizen: boolean;
+    senior_discount_amount: number;
+    senior_discount_percentage: number;
     hmo_provider: string | null;
     hmo_reference: string | null;
+    hmo_reference_number: string | null;
     payment_method: 'cash' | 'card' | 'bank_transfer' | 'check' | 'hmo';
     payment_reference: string | null;
     status: 'draft' | 'pending' | 'paid' | 'cancelled' | 'refunded';
     description: string | null;
+    notes: string | null;
     transaction_date: string;
     due_date: string | null;
     created_at: string;
@@ -62,6 +68,7 @@ type BillingTransaction = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Billing', href: '/admin/billing' },
+    { title: 'Transaction', href: '/admin/billing/transactions' },
     { title: 'Receipt', href: '/admin/billing/receipt' },
 ];
 
@@ -70,25 +77,47 @@ export default function BillingReceipt({
 }: { 
     transaction: BillingTransaction;
 }) {
+    // Debug logging
+    console.log('Transaction data:', transaction);
+    console.log('Items:', transaction.items);
+    console.log('Items with prices:', transaction.items.map(item => ({
+        name: item.item_name,
+        unit_price: item.unit_price,
+        total_price: item.total_price,
+        unit_price_type: typeof item.unit_price,
+        total_price_type: typeof item.total_price
+    })));
+
     const handlePrint = () => {
         window.print();
     };
 
     const calculateSubtotal = () => {
-        return transaction.items.reduce((sum, item) => sum + item.total_price, 0);
+        // Use total_amount from transaction for accurate subtotal
+        return typeof transaction.total_amount === 'string' ? parseFloat(transaction.total_amount) : transaction.total_amount || 0;
     };
 
     const calculateDiscount = () => {
         if (transaction.discount_percentage) {
             return (calculateSubtotal() * transaction.discount_percentage) / 100;
         }
-        return transaction.discount_amount;
+        const discountAmount = typeof transaction.discount_amount === 'string' ? parseFloat(transaction.discount_amount) : transaction.discount_amount;
+        return isNaN(discountAmount) ? 0 : discountAmount;
+    };
+
+    const calculateSeniorDiscount = () => {
+        const seniorDiscountAmount = typeof transaction.senior_discount_amount === 'string' ? parseFloat(transaction.senior_discount_amount) : transaction.senior_discount_amount;
+        return isNaN(seniorDiscountAmount) ? 0 : seniorDiscountAmount;
+    };
+
+    const calculateTotalDiscount = () => {
+        return calculateDiscount() + calculateSeniorDiscount();
     };
 
     const calculateNetAmount = () => {
-        return calculateSubtotal() - calculateDiscount();
+        // Use the final amount from the transaction, not calculated
+        return typeof transaction.amount === 'string' ? parseFloat(transaction.amount) : transaction.amount || 0;
     };
-
 
     const getPaymentMethodLabel = (method: string) => {
         const methods = {
@@ -192,14 +221,14 @@ export default function BillingReceipt({
                                             Transaction Details
                                         </h3>
                                         <div className="space-y-2 text-sm">
-                                            <div><span className="font-medium">Date:</span> {new Date(transaction.transaction_date).toLocaleDateString()}</div>
-                                            <div><span className="font-medium">Time:</span> {new Date(transaction.transaction_date).toLocaleTimeString()}</div>
+                                            <div><span className="font-medium">Date:</span> {safeFormatDate(transaction.transaction_date)}</div>
+                                            <div><span className="font-medium">Time:</span> {safeFormatTime(transaction.transaction_date)}</div>
                                             {transaction.doctor && (
                                                 <div><span className="font-medium">Doctor:</span> {transaction.doctor.name}</div>
                                             )}
                                             <div><span className="font-medium">Status:</span> {getStatusLabel(transaction.status)}</div>
                                             {transaction.due_date && (
-                                                <div><span className="font-medium">Due Date:</span> {new Date(transaction.due_date).toLocaleDateString()}</div>
+                                                <div><span className="font-medium">Due Date:</span> {safeFormatDate(transaction.due_date)}</div>
                                             )}
                                         </div>
                                     </div>
@@ -219,8 +248,11 @@ export default function BillingReceipt({
                                         {transaction.hmo_provider && (
                                             <div><span className="font-medium">HMO Provider:</span> {transaction.hmo_provider}</div>
                                         )}
-                                        {transaction.hmo_reference && (
-                                            <div><span className="font-medium">HMO Reference:</span> {transaction.hmo_reference}</div>
+                                        {transaction.hmo_reference_number && (
+                                            <div><span className="font-medium">HMO Reference Number:</span> {transaction.hmo_reference_number}</div>
+                                        )}
+                                        {transaction.is_senior_citizen && (
+                                            <div><span className="font-medium">Senior Citizen:</span> Yes (20% discount applied)</div>
                                         )}
                                     </div>
                                 </div>
@@ -248,8 +280,8 @@ export default function BillingReceipt({
                                                         <td className="border border-gray-300 px-4 py-3 font-medium">{item.item_name}</td>
                                                         <td className="border border-gray-300 px-4 py-3 text-sm text-gray-600">{item.item_description}</td>
                                                         <td className="border border-gray-300 px-4 py-3 text-center">{item.quantity}</td>
-                                                        <td className="border border-gray-300 px-4 py-3 text-right">₱{formatCurrency(item.unit_price)}</td>
-                                                        <td className="border border-gray-300 px-4 py-3 text-right font-semibold">₱{formatCurrency(item.total_price)}</td>
+                                                        <td className="border border-gray-300 px-4 py-3 text-right">₱{Number(item.unit_price).toLocaleString()}</td>
+                                                        <td className="border border-gray-300 px-4 py-3 text-right font-semibold">₱{Number(item.total_price).toLocaleString()}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -263,22 +295,31 @@ export default function BillingReceipt({
                                         <div className="space-y-3">
                                             <div className="flex justify-between text-lg">
                                                 <span className="font-medium">Subtotal:</span>
-                                                <span className="font-semibold">₱{formatCurrency(calculateSubtotal())}</span>
+                                                <span className="font-semibold">₱{calculateSubtotal().toLocaleString()}</span>
                                             </div>
                                             
                                             {calculateDiscount() > 0 && (
                                                 <div className="flex justify-between text-lg text-red-600">
                                                     <span className="font-medium">
-                                                        Discount {transaction.discount_percentage ? `(${transaction.discount_percentage}%)` : ''}:
+                                                        Regular Discount {transaction.discount_percentage ? `(${transaction.discount_percentage}%)` : ''}:
                                                     </span>
-                                                    <span className="font-semibold">-₱{formatCurrency(calculateDiscount())}</span>
+                                                    <span className="font-semibold">-₱{calculateDiscount().toLocaleString()}</span>
+                                                </div>
+                                            )}
+
+                                            {calculateSeniorDiscount() > 0 && (
+                                                <div className="flex justify-between text-lg text-red-600">
+                                                    <span className="font-medium">
+                                                        Senior Citizen Discount (20%):
+                                                    </span>
+                                                    <span className="font-semibold">-₱{calculateSeniorDiscount().toLocaleString()}</span>
                                                 </div>
                                             )}
 
                                             <div className="border-t border-gray-300 pt-3">
                                                 <div className="flex justify-between text-xl font-bold">
                                                     <span>Total Amount:</span>
-                                                    <span>₱{formatCurrency(calculateNetAmount())}</span>
+                                                    <span>₱{calculateNetAmount().toLocaleString()}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -318,7 +359,7 @@ export default function BillingReceipt({
                 </div>
             </div>
 
-            <style jsx>{`
+            <style>{`
                 @media print {
                     .print\\:shadow-none {
                         box-shadow: none !important;

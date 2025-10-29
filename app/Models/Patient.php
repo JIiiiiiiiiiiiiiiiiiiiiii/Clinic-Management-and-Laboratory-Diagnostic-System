@@ -4,11 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Patient extends Model
 {
-    use HasFactory;
-
+    use HasFactory, SoftDeletes;
+    
     protected $primaryKey = 'id';
 
     protected $fillable = [
@@ -23,18 +24,22 @@ class Patient extends Model
         'middle_name',
         'birthdate',
         'age',
+        'is_senior_citizen',
+        'senior_citizen_id',
         'sex',
         'occupation',
         'religion',
         'attending_physician',
         'civil_status',
         'nationality',
-        'address',
         'present_address',
+        'address',
         'telephone_no',
         'mobile_no',
         'emergency_name',
         'emergency_relation',
+        'informant_name',
+        'relationship',
         'insurance_company',
         'hmo_name',
         'hmo_id_no',
@@ -100,11 +105,6 @@ class Patient extends Model
         return $this->belongsTo(User::class, 'user_id', 'id');
     }
 
-    public function transfers()
-    {
-        return $this->hasMany(PatientTransfer::class, 'patient_id', 'id');
-    }
-
     // Scopes
     public function scopeBySex($query, $sex)
     {
@@ -114,7 +114,11 @@ class Patient extends Model
     // Accessors
     public function getFullNameAttribute()
     {
-        return $this->first_name . ' ' . $this->last_name;
+        $name = trim($this->first_name . ' ' . $this->last_name);
+        if ($this->middle_name) {
+            $name = trim($this->first_name . ' ' . $this->middle_name . ' ' . $this->last_name);
+        }
+        return $name;
     }
 
     public function getFormattedBirthdateAttribute()
@@ -122,7 +126,7 @@ class Patient extends Model
         return $this->birthdate ? $this->birthdate->format('M d, Y') : 'N/A';
     }
 
-    // Boot method to generate patient number and ensure address consistency
+    // Boot method to generate patient number
     protected static function boot()
     {
         parent::boot();
@@ -133,18 +137,26 @@ class Patient extends Model
                 $nextId = static::max('id') + 1;
                 $patient->patient_no = 'P' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
             }
-
-            // Ensure present_address is set - use address if present_address is empty
-            if (empty($patient->present_address) && !empty($patient->address)) {
-                $patient->present_address = $patient->address;
-            }
         });
+    }
 
-        static::updating(function ($patient) {
-            // Ensure present_address is set - use address if present_address is empty
-            if (empty($patient->present_address) && !empty($patient->address)) {
-                $patient->present_address = $patient->address;
-            }
-        });
+    // Senior citizen methods
+    public function isSeniorCitizen()
+    {
+        return $this->is_senior_citizen ?? false;
+    }
+
+    public function getAge()
+    {
+        if ($this->birthdate) {
+            return \Carbon\Carbon::parse($this->birthdate)->age;
+        }
+        return $this->age ?? 0;
+    }
+
+    public function shouldBeSeniorCitizen()
+    {
+        $age = $this->getAge();
+        return $age >= 60;
     }
 }

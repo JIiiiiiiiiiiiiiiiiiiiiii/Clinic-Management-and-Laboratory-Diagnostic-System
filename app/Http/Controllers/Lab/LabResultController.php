@@ -15,7 +15,7 @@ class LabResultController extends Controller
 {
     public function show(Request $request, LabOrder $order)
     {
-        $order->load(['patient', 'labTests', 'results.test', 'results.values']);
+        $order->load(['patient', 'results.test', 'results.values']);
 
         return Inertia::render('admin/laboratory/results/show', [
             'patient' => $order->patient,
@@ -26,9 +26,13 @@ class LabResultController extends Controller
 
     public function entry(Request $request, LabOrder $order)
     {
-        $order->load(['patient', 'labTests', 'results.values']);
+        $order->load(['patient', 'results.test', 'results.values']);
 
-        $tests = $order->labTests;
+        // Get tests through the results relationship
+        $tests = $order->results->map(function ($result) {
+            return $result->test;
+        })->filter();
+        
         $existingResults = [];
 
         // Load existing results if any (prefer structured values, fallback to JSON)

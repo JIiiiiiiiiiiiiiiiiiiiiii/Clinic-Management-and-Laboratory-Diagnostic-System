@@ -84,17 +84,31 @@ class PatientAppointmentController extends Controller
                     ];
                 });
 
-            // Combine both collections
-            $allAppointments = $pendingAppointments->concat($confirmedAppointments)->sortByDesc('created_at');
+            // Combine both collections but filter out duplicates
+            // A duplicate is when we have the same appointment in both pending and confirmed
+            $allAppointments = $pendingAppointments->concat($confirmedAppointments);
+            
+            // Remove duplicates based on appointment date, time, and type
+            $uniqueAppointments = $allAppointments->unique(function ($appointment) {
+                return $appointment['appointment_date'] . '|' . $appointment['appointment_time'] . '|' . $appointment['appointment_type'];
+            });
+            
+            // Sort by creation date
+            $allAppointments = $uniqueAppointments->sortByDesc('created_at');
 
             \Log::info('Appointments loaded', [
                 'total_count' => $allAppointments->count(),
+                'pending_count' => $pendingAppointments->count(),
+                'confirmed_count' => $confirmedAppointments->count(),
+                'unique_count' => $uniqueAppointments->count(),
                 'patient_id' => $patient->patient_id,
                 'appointments_data' => $allAppointments->map(function($apt) {
                     return [
                         'id' => $apt['id'],
                         'type' => $apt['appointment_type'],
-                        'price' => $apt['price']
+                        'price' => $apt['price'],
+                        'source' => $apt['source'],
+                        'status' => $apt['status']
                     ];
                 })->toArray()
             ]);
@@ -328,7 +342,9 @@ class PatientAppointmentController extends Controller
             // Send notification to admin for approval
             \Log::info('Starting notification process');
             try {
-                $this->notifyAdminPendingAppointment($appointment);
+                // Send notification to admin using centralized service
+                $notificationService = app(\App\Services\NotificationService::class);
+                $notificationService->notifyNewAppointment($appointment);
                 \Log::info('Notification process completed successfully');
             } catch (\Exception $e) {
                 \Log::error('Notification process failed', [
@@ -616,73 +632,6 @@ class PatientAppointmentController extends Controller
         return $specialist ? $specialist->name : 'Unknown';
     }
 
-    /**
-     * Notify admin about pending appointment request
-     */
-    private function notifyAdminPendingAppointment($appointment)
-    {
-        try {
-            // Get all admin users
-            $adminUsers = User::where('role', 'admin')->get();
-
-            \Log::info('Sending notifications to admin users', [
-                'admin_count' => $adminUsers->count(),
-                'appointment_id' => $appointment->id
-            ]);
-
-            foreach ($adminUsers as $admin) {
-                // Create notification
-                $notification = Notification::create([
-                    'type' => 'appointment_request',
-                    'title' => 'New Online Appointment Request - Pending Approval',
-                    'message' => "Patient {$appointment->patient_name} has requested an appointment for {$appointment->appointment_type} on {$appointment->appointment_date} at {$appointment->appointment_time}. Please review and approve.",
-                    'data' => [
-                        'appointment_id' => $appointment->id,
-                        'patient_name' => $appointment->patient_name,
-                        'appointment_type' => $appointment->appointment_type,
-                        'appointment_date' => $appointment->appointment_date,
-                        'appointment_time' => $appointment->appointment_time,
-                        'specialist_name' => $appointment->specialist_name,
-                        'status' => $appointment->status_approval,
-                        'price' => $appointment->price,
-                    ],
-                    'user_id' => $admin->id,
-                    'read' => false,
-                ]);
-
-                \Log::info('Notification created successfully', [
-                    'notification_id' => $notification->id,
-                    'admin_id' => $admin->id,
-                    'admin_name' => $admin->name
-                ]);
-
-                    // Broadcast real-time notification to admin
-                    try {
-                        broadcast(new \App\Events\NewAppointmentNotification($notification, $admin->id));
-                        \Log::info('Broadcast sent successfully', [
-                            'admin_id' => $admin->id,
-                            'notification_id' => $notification->id
-                        ]);
-                    } catch (\Exception $e) {
-                        \Log::error('Failed to broadcast notification to admin', [
-                            'admin_id' => $admin->id,
-                            'notification_id' => $notification->id,
-                            'error' => $e->getMessage()
-                        ]);
-                    }
-            }
-        } catch (\Exception $e) {
-            \Log::error('Failed to create admin notifications', [
-                'error' => $e->getMessage(),
-                'appointment_id' => $appointment->id
-            ]);
-        }
-
-        \Log::info('Appointment notification sent to admin users', [
-            'appointment_id' => $appointment->id,
-            'patient_name' => $appointment->patient_name
-        ]);
-    }
 
     /**
      * Notify admin about appointment update

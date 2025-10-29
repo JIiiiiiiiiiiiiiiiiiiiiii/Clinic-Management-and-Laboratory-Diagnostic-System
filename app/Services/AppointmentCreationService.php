@@ -55,30 +55,41 @@ class AppointmentCreationService
             
             $appointment = Appointment::create($appointmentData);
 
+            // Calculate and set price using the model's calculatePrice method
+            $calculatedPrice = $appointment->calculatePrice();
+            $appointment->update([
+                'price' => $calculatedPrice,
+                'final_total_amount' => $calculatedPrice, // Set final_total_amount to the same as price when no lab tests
+                'total_lab_amount' => 0 // No lab tests initially
+            ]);
+
             Log::info('Appointment created successfully', [
                 'appointment_id' => $appointment->id,
                 'patient_id' => $patient->id,
-                'appointment_type' => $appointment->appointment_type
+                'appointment_type' => $appointment->appointment_type,
+                'price' => $calculatedPrice
             ]);
 
             // Create visit automatically
             $visit = $this->createVisit($appointment);
 
-            // Create billing transaction and link if appointment is confirmed
-            $billingTransaction = null;
-            $billingLink = null;
+            // Set billing status to pending for manual processing
+            $appointment->update(['billing_status' => 'pending']);
             
-            if ($appointment->status === 'Confirmed') {
-                $billingTransaction = $this->createBillingTransaction($appointment);
-                $billingLink = $this->createBillingLink($appointment, $billingTransaction);
-            }
+            // Skip auto-generating billing transaction - admin will handle this manually
+            // $billingTransaction = null;
+            // $billingLink = null;
+            
+            // if ($appointment->status === 'Confirmed') {
+            //     $billingTransaction = $this->createBillingTransaction($appointment);
+            //     $billingLink = $this->createBillingLink($appointment, $billingTransaction);
+            // }
 
             return [
                 'patient' => $patient,
                 'appointment' => $appointment,
                 'visit' => $visit,
-                'billing_transaction' => $billingTransaction,
-                'billing_link' => $billingLink
+                'note' => 'Billing transaction will be created manually by admin'
             ];
         });
     }
@@ -279,7 +290,7 @@ class AppointmentCreationService
      * @param Appointment $appointment
      * @return BillingTransaction
      */
-        private function createBillingTransaction(Appointment $appointment)
+    private function createBillingTransaction(Appointment $appointment)
     {
         // SYSTEM-WIDE FIX: Use the comprehensive helper
         return \App\Helpers\SystemWideSpecialistBillingHelper::createBillingTransactionSafely($appointment->id, [

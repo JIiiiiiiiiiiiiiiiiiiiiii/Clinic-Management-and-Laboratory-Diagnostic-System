@@ -28,7 +28,7 @@ import {
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
-  data: TData[]
+  data: TData[] | undefined | null
   searchKey?: string
   searchPlaceholder?: string
 }
@@ -45,8 +45,11 @@ export function DataTable<TData, TValue>({
   const [rowSelection, setRowSelection] = React.useState({})
   const [globalFilter, setGlobalFilter] = React.useState("")
 
+  // Ensure data is always an array to prevent TanStack React Table errors
+  const safeData = React.useMemo(() => data || [], [data])
+
   const table = useReactTable({
-    data,
+    data: safeData,
     columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,

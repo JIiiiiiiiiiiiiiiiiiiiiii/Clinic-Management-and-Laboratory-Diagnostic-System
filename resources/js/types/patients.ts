@@ -1,8 +1,8 @@
 export interface PatientItem {
-    patient_id: number;
+    id: number;
     // Arrival Information
-    arrival_date: string;
-    arrival_time: string;
+    arrival_date?: string;
+    arrival_time?: string;
 
     // Patient Identification
     last_name: string;
@@ -22,6 +22,8 @@ export interface PatientItem {
 
     // Contact Information
     present_address: string;
+    address?: string; // Legacy address field
+    display_address?: string; // Computed field for display
     telephone_no: string;
     mobile_no: string;
 
@@ -87,6 +89,8 @@ export interface CreatePatientItem {
 
     // Contact Information
     present_address: string;
+    address?: string; // Legacy address field
+    display_address?: string; // Computed field for display
     telephone_no: string;
     mobile_no: string;
 

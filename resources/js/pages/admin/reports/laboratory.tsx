@@ -1,18 +1,33 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { CustomDatePicker } from '@/components/ui/date-picker';
+import { ReportDatePicker } from '@/components/ui/report-date-picker';
 import { PatientInfoCard } from '@/components/patient/PatientPageLayout';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import Heading from '@/components/heading';
-import { BarChart3, FileDown, Filter, Search, Eye, Calendar, TestTube, Users, TrendingUp, Download, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { BarChart3, FileDown, Filter, Search, Eye, Calendar, TestTube, Users, TrendingUp, Download, Clock, CheckCircle, AlertCircle, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
+import {
+    ColumnDef,
+    ColumnFiltersState,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+    VisibilityState,
+} from '@tanstack/react-table';
+import * as React from 'react';
 
 type LabTest = { id: number; name: string; code: string };
 type Patient = { id: number; first_name: string; last_name: string };
@@ -46,13 +61,185 @@ type LaboratoryReportsIndexProps = {
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Laboratory Reports', href: '/laboratory-reports' },
+    { title: 'Reports', href: '/admin/reports' },
+    { title: 'Laboratory Reports', href: '/admin/reports/laboratory' },
+];
+
+// Column definitions for the laboratory orders table
+const columns: ColumnDef<OrderDetail>[] = [
+    {
+        accessorKey: 'order_id',
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Order #
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">#{row.getValue("order_id")}</div>
+        ),
+    },
+    {
+        accessorKey: 'patient_name',
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Patient Name
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const order = row.original;
+            return (
+                <div>
+                    <div className="font-medium">{order.patient_name}</div>
+                    <div className="text-xs text-gray-500">ID: {order.patient_id}</div>
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: 'tests_ordered',
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Tests Ordered
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const tests = row.getValue("tests_ordered") as string;
+            return (
+                <div className="max-w-xs truncate" title={tests}>
+                    {tests}
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: 'status',
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Status
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const status = row.getValue("status") as string;
+            const getStatusIcon = (status: string) => {
+                switch (status.toLowerCase()) {
+                    case 'completed':
+                        return <CheckCircle className="h-4 w-4 text-green-500" />;
+                    case 'processing':
+                        return <Clock className="h-4 w-4 text-blue-500" />;
+                    case 'ordered':
+                        return <AlertCircle className="h-4 w-4 text-orange-500" />;
+                    default:
+                        return <AlertCircle className="h-4 w-4 text-gray-500" />;
+                }
+            };
+            const getStatusColor = (status: string) => {
+                switch (status.toLowerCase()) {
+                    case 'completed':
+                        return 'bg-green-100 text-green-800 border-green-200';
+                    case 'processing':
+                        return 'bg-blue-100 text-blue-800 border-blue-200';
+                    case 'ordered':
+                        return 'bg-orange-100 text-orange-800 border-orange-200';
+                    default:
+                        return 'bg-gray-100 text-gray-800 border-gray-200';
+                }
+            };
+            return (
+                <Badge className={`${getStatusColor(status)} border`}>
+                    {getStatusIcon(status)}
+                    <span className="ml-1">{status}</span>
+                </Badge>
+            );
+        },
+    },
+    {
+        accessorKey: 'ordered_at',
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Ordered At
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const date = new Date(row.getValue("ordered_at"));
+            return (
+                <div className="text-sm">
+                    {date.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })}
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: 'ordered_by',
+        header: "Ordered By",
+        cell: ({ row }) => (
+            <div className="text-sm">{row.getValue("ordered_by")}</div>
+        ),
+    },
 ];
 
 export default function LaboratoryReportsIndex({ filter, date, data, availableTests }: LaboratoryReportsIndexProps) {
     const [currentFilter, setCurrentFilter] = useState(filter);
     const [currentDate, setCurrentDate] = useState(date);
     const [isLoading, setIsLoading] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
+
+    // Handle data updates when props change
+    useEffect(() => {
+        console.log('Laboratory data updated:', {
+            filter,
+            date,
+            data,
+            orderDetailsCount: data?.order_details?.length || 0
+        });
+    }, [filter, date, data]);
+
+    // TanStack Table state
+    const [sorting, setSorting] = React.useState<SortingState>([]);
+    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+    const [rowSelection, setRowSelection] = React.useState({});
+    const [globalFilter, setGlobalFilter] = React.useState('');
 
     const handleFilterChange = (newFilter: string) => {
         setCurrentFilter(newFilter);
@@ -61,7 +248,7 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
             filter: newFilter,
             date: currentDate
         }, {
-            preserveState: true,
+            preserveState: false,
             onFinish: () => setIsLoading(false)
         });
     };
@@ -73,23 +260,67 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
             filter: currentFilter,
             date: newDate
         }, {
-            preserveState: true,
+            preserveState: false,
             onFinish: () => setIsLoading(false)
         });
     };
 
-    const handleExport = (format: 'excel' | 'pdf') => {
-        const params = new URLSearchParams({
-            filter: currentFilter,
-            date: currentDate
-        });
-        
-        if (format === 'excel') {
-            window.open(`/admin/reports/laboratory/export/excel?${params}`, '_blank');
-        } else {
-            window.open(`/admin/reports/laboratory/export/pdf?${params}`, '_blank');
+    const handleExport = async (format: 'excel' | 'pdf') => {
+        try {
+            setIsExporting(true);
+            const params = new URLSearchParams({
+                filter: currentFilter,
+                date: currentDate,
+                format
+            });
+            
+            if (format === 'excel') {
+                window.location.href = `/admin/reports/laboratory/export/excel?${params}`;
+            } else {
+                window.location.href = `/admin/reports/laboratory/export/pdf?${params}`;
+            }
+
+            setTimeout(() => {
+                setIsExporting(false);
+            }, 2000);
+        } catch (error) {
+            console.error('Export failed:', error);
+            setIsExporting(false);
         }
     };
+
+    // Initialize table
+    const table = useReactTable({
+        data: data.order_details || [],
+        columns,
+        onSortingChange: setSorting,
+        onColumnFiltersChange: setColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onColumnVisibilityChange: setColumnVisibility,
+        onRowSelectionChange: setRowSelection,
+        onGlobalFilterChange: setGlobalFilter,
+        globalFilterFn: (row, columnId, value) => {
+            const search = value.toLowerCase();
+            const order = row.original;
+            return (
+                order.patient_name?.toLowerCase().includes(search) ||
+                order.tests_ordered?.toLowerCase().includes(search) ||
+                order.status?.toLowerCase().includes(search) ||
+                order.ordered_by?.toLowerCase().includes(search) ||
+                order.order_id?.toString().includes(search)
+            );
+        },
+        state: {
+            sorting,
+            columnFilters,
+            columnVisibility,
+            rowSelection,
+            globalFilter,
+        },
+    });
 
     const getStatusIcon = (status: string) => {
         switch (status.toLowerCase()) {
@@ -131,26 +362,64 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Laboratory Reports" />
             <div className="min-h-screen bg-gray-50 p-6">
-                {/* Header Section */}
-                <div className="mb-8">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-6">
-                            <Heading title="Laboratory Reports" description="Comprehensive laboratory data analysis and reporting" icon={BarChart3} />
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <div className="bg-white rounded-xl shadow-lg border px-6 py-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg">
-                                        <BarChart3 className="h-6 w-6 text-black" />
-                                    </div>
-                                    <div>
-                                        <div className="text-3xl font-bold text-gray-900">{data.total_orders}</div>
-                                        <div className="text-gray-600 text-sm font-medium">Total Orders</div>
-                                    </div>
+
+                {/* Insight Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-lg">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-blue-100 text-sm font-medium">Total Orders</p>
+                                    <p className="text-3xl font-bold">{data.total_orders}</p>
+                                    <p className="text-blue-100 text-xs mt-1">All time orders</p>
                                 </div>
+                                <TestTube className="h-8 w-8 text-blue-200" />
                             </div>
-                        </div>
-                    </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white border-0 shadow-lg">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-green-100 text-sm font-medium">Completed</p>
+                                    <p className="text-3xl font-bold">{data.completed_orders}</p>
+                                    <p className="text-green-100 text-xs mt-1">
+                                        {data.completion_rate.toFixed(1)}% completion rate
+                                    </p>
+                                </div>
+                                <CheckCircle className="h-8 w-8 text-green-200" />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-r from-orange-500 to-orange-600 text-white border-0 shadow-lg">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-orange-100 text-sm font-medium">Pending</p>
+                                    <p className="text-3xl font-bold">{data.pending_orders}</p>
+                                    <p className="text-orange-100 text-xs mt-1">
+                                        {data.total_orders > 0 ? ((data.pending_orders / data.total_orders) * 100).toFixed(1) : 0}% of total
+                                    </p>
+                                </div>
+                                <Clock className="h-8 w-8 text-orange-200" />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0 shadow-lg">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-purple-100 text-sm font-medium">Test Types</p>
+                                    <p className="text-3xl font-bold">{Object.keys(data.test_summary).length}</p>
+                                    <p className="text-purple-100 text-xs mt-1">Different test types</p>
+                                </div>
+                                <TrendingUp className="h-8 w-8 text-purple-200" />
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
 
                 {/* Unified Reports Interface */}
@@ -162,27 +431,50 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
                     <div className="mb-8">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                             <div className="space-y-2 w-full">
-                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">Report Type</Label>
+                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">
+                                    Time Period {isLoading && <span className="text-blue-500">(Loading...)</span>}
+                                </Label>
                                 <select
-                                    className="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-500 focus:ring-gray-500"
+                                    className="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-500 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                     value={currentFilter}
                                     onChange={(e) => handleFilterChange(e.target.value)}
                                     disabled={isLoading}
                                 >
-                                    <option value="daily">Daily Report</option>
-                                    <option value="monthly">Monthly Report</option>
-                                    <option value="yearly">Yearly Report</option>
+                                    <option value="daily">Daily</option>
+                                    <option value="monthly">Monthly</option>
+                                    <option value="yearly">Yearly</option>
                                 </select>
                             </div>
                             
-                            <div className="w-full">
-                                <CustomDatePicker
-                                    label={currentFilter === 'daily' ? 'Select Date' : currentFilter === 'monthly' ? 'Select Month' : 'Select Year'}
-                                    value={currentDate ? new Date(currentDate) : undefined}
-                                    onChange={(date) => handleDateChange(date ? date.toISOString().split('T')[0] : '')}
+                            <div className="space-y-2 w-full">
+                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">
+                                    Select Date {isLoading && <span className="text-blue-500">(Loading...)</span>}
+                                </Label>
+                                <ReportDatePicker
+                                    date={currentDate ? new Date(currentDate) : undefined}
+                                    onDateChange={(date: Date | undefined) => {
+                                        if (date) {
+                                            // Use local date formatting to avoid timezone issues
+                                            const year = date.getFullYear();
+                                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                                            const day = String(date.getDate()).padStart(2, '0');
+                                            
+                                            let formattedDate: string;
+                                            if (currentFilter === 'monthly') {
+                                                formattedDate = `${year}-${month}`;
+                                            } else if (currentFilter === 'yearly') {
+                                                formattedDate = year.toString();
+                                            } else {
+                                                formattedDate = `${year}-${month}-${day}`;
+                                            }
+                                            
+                                            handleDateChange(formattedDate);
+                                        } else {
+                                            handleDateChange('');
+                                        }
+                                    }}
+                                    filter={currentFilter as 'daily' | 'monthly' | 'yearly'}
                                     placeholder={`Select ${currentFilter} date`}
-                                    variant="responsive"
-                                    className="w-full"
                                 />
                             </div>
 
@@ -318,52 +610,193 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
                                 <p className="text-gray-500">No laboratory orders found for the selected period</p>
                             </div>
                         ) : (
-                            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order #</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient Name</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tests Ordered</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ordered At</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ordered By</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {data.order_details.map((order) => (
-                                            <tr key={order.order_id} className="hover:bg-gray-50">
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                    #{order.order_id}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    <div>
-                                                        <div className="font-medium">{order.patient_name}</div>
-                                                        <div className="text-xs text-gray-500">ID: {order.patient_id}</div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 text-sm text-gray-900">
-                                                    <div className="max-w-xs truncate" title={order.tests_ordered}>
-                                                        {order.tests_ordered}
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <Badge className={`${getStatusColor(order.status)} border`}>
-                                                        {getStatusIcon(order.status)}
-                                                        <span className="ml-1">{order.status}</span>
-                                                    </Badge>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {formatDate(order.ordered_at)}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {order.ordered_by}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                            <Card className="bg-white border border-gray-200">
+                                <CardContent className="p-6">
+                                    {/* Table Controls */}
+                                    <div className="flex items-center py-4">
+                                        <Input
+                                            placeholder="Search orders..."
+                                            value={globalFilter ?? ""}
+                                            onChange={(event) => setGlobalFilter(event.target.value)}
+                                            className="max-w-sm"
+                                        />
+                                        <Button
+                                            onClick={() => handleExport('excel')}
+                                            disabled={isExporting}
+                                            className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                                        >
+                                            <Download className="h-4 w-4 mr-2" />
+                                            Export Excel
+                                        </Button>
+                                        <Button
+                                            onClick={() => handleExport('pdf')}
+                                            disabled={isExporting}
+                                            variant="outline"
+                                            className="ml-2"
+                                        >
+                                            <FileDown className="h-4 w-4 mr-2" />
+                                            Export PDF
+                                        </Button>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="outline" className="ml-auto">
+                                                    Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                                                {table
+                                                    .getAllColumns()
+                                                    .filter((column) => column.getCanHide())
+                                                    .map((column) => {
+                                                        return (
+                                                            <DropdownMenuCheckboxItem
+                                                                key={column.id}
+                                                                className="capitalize"
+                                                                checked={column.getIsVisible()}
+                                                                onCheckedChange={(value) => {
+                                                                    column.toggleVisibility(!!value);
+                                                                }}
+                                                                onSelect={(e) => {
+                                                                    e.preventDefault();
+                                                                }}
+                                                            >
+                                                                {column.id}
+                                                            </DropdownMenuCheckboxItem>
+                                                        )
+                                                    })}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                            
+                                    {/* Table */}
+                                    <div className="rounded-md border">
+                                        <Table>
+                                            <TableHeader>
+                                                {table.getHeaderGroups().map((headerGroup) => (
+                                                    <TableRow key={headerGroup.id}>
+                                                        {headerGroup.headers.map((header) => {
+                                                            return (
+                                                                <TableHead key={header.id}>
+                                                                    {header.isPlaceholder
+                                                                        ? null
+                                                                        : flexRender(
+                                                                            header.column.columnDef.header,
+                                                                            header.getContext()
+                                                                        )}
+                                                                </TableHead>
+                                                            )
+                                                        })}
+                                                    </TableRow>
+                                                ))}
+                                            </TableHeader>
+                                            <TableBody>
+                                                {table.getRowModel().rows?.length ? (
+                                                    table.getRowModel().rows.map((row) => (
+                                                        <TableRow
+                                                            key={row.id}
+                                                            data-state={row.getIsSelected() && "selected"}
+                                                        >
+                                                            {row.getVisibleCells().map((cell) => (
+                                                                <TableCell key={cell.id}>
+                                                                    {flexRender(
+                                                                        cell.column.columnDef.cell,
+                                                                        cell.getContext()
+                                                                    )}
+                                                                </TableCell>
+                                                            ))}
+                                                        </TableRow>
+                                                    ))
+                                                ) : (
+                                                    <TableRow>
+                                                        <TableCell
+                                                            colSpan={columns.length}
+                                                            className="h-24 text-center"
+                                                        >
+                                                            No results.
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                    
+                                    {/* Pagination */}
+                                    <div className="flex items-center justify-between px-2 py-4">
+                                        <div className="text-muted-foreground flex-1 text-sm">
+                                            {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                                            {table.getFilteredRowModel().rows.length} row(s) selected.
+                                        </div>
+                                        <div className="flex items-center space-x-6 lg:space-x-8">
+                                            <div className="flex items-center space-x-2">
+                                                <p className="text-sm font-medium">Rows per page</p>
+                                                <Select
+                                                    value={`${table.getState().pagination.pageSize}`}
+                                                    onValueChange={(value) => {
+                                                        table.setPageSize(Number(value))
+                                                    }}
+                                                >
+                                                    <SelectTrigger className="h-8 w-[70px]">
+                                                        <SelectValue placeholder={table.getState().pagination.pageSize} />
+                                                    </SelectTrigger>
+                                                    <SelectContent side="top">
+                                                        {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                            <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                                {pageSize}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                                Page {table.getState().pagination.pageIndex + 1} of{" "}
+                                                {table.getPageCount()}
+                                            </div>
+                                            <div className="flex items-center space-x-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="hidden size-8 lg:flex"
+                                                    onClick={() => table.setPageIndex(0)}
+                                                    disabled={!table.getCanPreviousPage()}
+                                                >
+                                                    <span className="sr-only">Go to first page</span>
+                                                    <ChevronsLeft className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="size-8"
+                                                    onClick={() => table.previousPage()}
+                                                    disabled={!table.getCanPreviousPage()}
+                                                >
+                                                    <span className="sr-only">Go to previous page</span>
+                                                    <ChevronLeft className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="size-8"
+                                                    onClick={() => table.nextPage()}
+                                                    disabled={!table.getCanNextPage()}
+                                                >
+                                                    <span className="sr-only">Go to next page</span>
+                                                    <ChevronRight className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="hidden size-8 lg:flex"
+                                                    onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                                                    disabled={!table.getCanNextPage()}
+                                                >
+                                                    <span className="sr-only">Go to last page</span>
+                                                    <ChevronsRight className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         )}
                     </div>
                 </PatientInfoCard>

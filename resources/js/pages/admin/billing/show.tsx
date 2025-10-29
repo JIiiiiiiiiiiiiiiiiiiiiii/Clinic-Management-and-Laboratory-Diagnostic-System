@@ -6,6 +6,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import Heading from '@/components/heading';
+import { safeFormatDate } from '@/utils/dateTime';
 import { 
     ArrowLeft, 
     Edit,
@@ -20,7 +21,6 @@ import {
     XCircle,
     AlertCircle
 } from 'lucide-react';
-import { formatCurrency } from '@/utils/currency';
 
 type BillingTransaction = {
     id: number;
@@ -41,10 +41,15 @@ type BillingTransaction = {
     } | null;
     payment_type: 'cash' | 'health_card' | 'discount';
     total_amount: number;
+    amount: number;
     discount_amount: number;
     discount_percentage: number | null;
+    is_senior_citizen: boolean;
+    senior_discount_amount: number;
+    senior_discount_percentage: number;
     hmo_provider: string | null;
     hmo_reference: string | null;
+    hmo_reference_number: string | null;
     payment_method: 'cash' | 'card' | 'bank_transfer' | 'check' | 'hmo';
     payment_reference: string | null;
     status: 'draft' | 'pending' | 'paid' | 'cancelled' | 'refunded';
@@ -124,13 +129,25 @@ export default function BillingShow({
     };
 
     const calculateSubtotal = () => {
-        return transaction.items.reduce((sum, item) => sum + item.total_price, 0);
+        // Use total_amount from transaction for accurate subtotal
+        return typeof transaction.total_amount === 'string' ? parseFloat(transaction.total_amount) : transaction.total_amount || 0;
+    };
+
+    const calculateSeniorDiscount = () => {
+        const seniorDiscountAmount = typeof transaction.senior_discount_amount === 'string' ? parseFloat(transaction.senior_discount_amount) : transaction.senior_discount_amount;
+        return isNaN(seniorDiscountAmount) ? 0 : seniorDiscountAmount;
+    };
+
+    const calculateTotalDiscount = () => {
+        const regularDiscount = typeof transaction.discount_amount === 'string' ? parseFloat(transaction.discount_amount) : transaction.discount_amount || 0;
+        const seniorDiscount = calculateSeniorDiscount();
+        return regularDiscount + seniorDiscount;
     };
 
     const calculateNetAmount = () => {
-        return calculateSubtotal() - transaction.discount_amount;
+        // Use the final amount from the transaction, not calculated
+        return typeof transaction.amount === 'string' ? parseFloat(transaction.amount) : transaction.amount || 0;
     };
-
 
     const handleStatusUpdate = (newStatus: string) => {
         router.put(
@@ -255,8 +272,8 @@ export default function BillingShow({
                                                     <TableCell className="font-medium">{item.item_name}</TableCell>
                                                     <TableCell className="text-sm text-gray-600">{item.item_description}</TableCell>
                                                     <TableCell className="text-center">{item.quantity}</TableCell>
-                                                    <TableCell className="text-right">₱{formatCurrency(item.unit_price || 0)}</TableCell>
-                                                    <TableCell className="text-right font-semibold">₱{formatCurrency(item.total_price || 0)}</TableCell>
+                                                    <TableCell className="text-right">₱{(item.unit_price || 0).toLocaleString()}</TableCell>
+                                                    <TableCell className="text-right font-semibold">₱{(item.total_price || 0).toLocaleString()}</TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -328,6 +345,18 @@ export default function BillingShow({
                                             <span>{transaction.hmo_provider}</span>
                                         </div>
                                     )}
+                                    {transaction.hmo_reference_number && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-medium">HMO Reference:</span>
+                                            <span>{transaction.hmo_reference_number}</span>
+                                        </div>
+                                    )}
+                                    {transaction.is_senior_citizen && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-medium">Senior Citizen:</span>
+                                            <span className="text-green-600 font-semibold">Yes (20% discount applied)</span>
+                                        </div>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
@@ -344,20 +373,27 @@ export default function BillingShow({
                                 <div className="space-y-3">
                                     <div className="flex justify-between">
                                         <span className="text-gray-600">Subtotal:</span>
-                                        <span className="font-semibold">₱{formatCurrency(calculateSubtotal() || 0)}</span>
+                                        <span className="font-semibold">₱{(calculateSubtotal() || 0).toLocaleString()}</span>
                                     </div>
                                     
                                     {transaction.discount_amount > 0 && (
                                         <div className="flex justify-between text-red-600">
-                                            <span>Discount {transaction.discount_percentage ? `(${transaction.discount_percentage}%)` : ''}:</span>
-                                            <span className="font-semibold">-₱{formatCurrency(transaction.discount_amount || 0)}</span>
+                                            <span>Regular Discount {transaction.discount_percentage ? `(${transaction.discount_percentage}%)` : ''}:</span>
+                                            <span className="font-semibold">-₱{(transaction.discount_amount || 0).toLocaleString()}</span>
+                                        </div>
+                                    )}
+
+                                    {calculateSeniorDiscount() > 0 && (
+                                        <div className="flex justify-between text-red-600">
+                                            <span>Senior Citizen Discount (20%):</span>
+                                            <span className="font-semibold">-₱{calculateSeniorDiscount().toLocaleString()}</span>
                                         </div>
                                     )}
 
                                     <div className="border-t border-gray-300 pt-3">
                                         <div className="flex justify-between text-lg font-bold">
                                             <span>Total Amount:</span>
-                                            <span>₱{formatCurrency(calculateNetAmount() || 0)}</span>
+                                            <span>₱{(calculateNetAmount() || 0).toLocaleString()}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -376,17 +412,17 @@ export default function BillingShow({
                                 <div className="space-y-3">
                                     <div className="flex justify-between">
                                         <span className="font-medium">Transaction Date:</span>
-                                        <span>{new Date(transaction.transaction_date).toLocaleDateString()}</span>
+                                        <span>{safeFormatDate(transaction.transaction_date)}</span>
                                     </div>
                                     {transaction.due_date && (
                                         <div className="flex justify-between">
                                             <span className="font-medium">Due Date:</span>
-                                            <span>{new Date(transaction.due_date).toLocaleDateString()}</span>
+                                            <span>{safeFormatDate(transaction.due_date)}</span>
                                         </div>
                                     )}
                                     <div className="flex justify-between">
                                         <span className="font-medium">Created:</span>
-                                        <span>{new Date(transaction.created_at).toLocaleDateString()}</span>
+                                        <span>{safeFormatDate(transaction.created_at)}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="font-medium">Created By:</span>

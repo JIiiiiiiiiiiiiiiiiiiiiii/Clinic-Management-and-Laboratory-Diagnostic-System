@@ -4,73 +4,88 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Appointment extends Model
 {
     use HasFactory;
     
-    protected $primaryKey = 'id';
+    protected $primaryKey = "id";
 
     protected $fillable = [
-        'appointment_code',
-        'sequence_number',
-        'patient_name',
-        'patient_id',
-        'contact_number',
-        'appointment_type',
-        'price',
-        'specialist_type',
-        'specialist_name',
-        'specialist_id',
-        'appointment_date',
-        'appointment_time',
-        'duration',
-        'status',
-        'appointment_source',
-        'booking_method',
-        'billing_status',
-        'billing_reference',
-        'confirmation_sent',
-        'notes',
-        'special_requirements',
-        'source',
-        'patient_id_fk',
+        "appointment_code",
+        "sequence_number",
+        "patient_name",
+        "patient_id",
+        "contact_number",
+        "appointment_type",
+        "price",
+        "total_lab_amount",
+        "final_total_amount",
+        "specialist_type",
+        "specialist_name",
+        "specialist_id",
+        "appointment_date",
+        "appointment_time",
+        "duration",
+        "status",
+        "appointment_source",
+        "booking_method",
+        "billing_status",
+        "billing_reference",
+        "confirmation_sent",
+        "notes",
+        "special_requirements",
+        "source",
+        "patient_id_fk",
+        "unique_appointment_key",
     ];
 
     protected $casts = [
-        'appointment_date' => 'date',
-        'appointment_time' => 'datetime',
-        'price' => 'decimal:2',
+        "appointment_date" => "date",
+        "appointment_time" => "datetime:H:i:s",
+        "price" => "decimal:2",
+        "total_lab_amount" => "decimal:2",
+        "final_total_amount" => "decimal:2",
     ];
+
 
     // Relationships
     public function patient()
     {
-        // After migration, patient_id will be bigint foreign key to patients.id
-        return $this->belongsTo(Patient::class, 'patient_id', 'id');
+        return $this->belongsTo(Patient::class, "patient_id", "id");
     }
 
     public function specialist()
     {
-        // Try to load from staff table first since that's what's being used
-        return $this->belongsTo(\App\Models\Staff::class, 'specialist_id', 'staff_id');
+        return $this->belongsTo(Specialist::class, "specialist_id", "specialist_id");
     }
 
     public function visit()
     {
-        return $this->hasOne(Visit::class, 'appointment_id', 'id');
+        return $this->hasOne(Visit::class, "appointment_id", "id");
     }
 
     public function billingLinks()
     {
-        return $this->hasMany(\App\Models\AppointmentBillingLink::class, 'appointment_id', 'id');
+        return $this->hasMany(AppointmentBillingLink::class, "appointment_id", "id");
+    }
+
+    public function labTests()
+    {
+        return $this->hasMany(AppointmentLabTest::class);
+    }
+
+    public function labOrders()
+    {
+        return $this->hasManyThrough(LabOrder::class, AppointmentLabOrder::class, 'appointment_id', 'id', 'id', 'lab_order_id');
     }
 
     public function billingTransactions()
     {
         return $this->hasManyThrough(
-            \App\Models\BillingTransaction::class,
-            \App\Models\AppointmentBillingLink::class,
+            BillingTransaction::class,
+            AppointmentBillingLink::class,
             'appointment_id',
             'id',
             'id',
@@ -79,58 +94,141 @@ class Appointment extends Model
     }
 
     // Scopes
-    public function scopePending($query)
+    public function scopePendingBilling($query)
     {
-        return $query->where('status', 'Pending');
+        return $query->where("billing_status", "pending");
     }
 
     public function scopeConfirmed($query)
     {
-        return $query->where('status', 'Confirmed');
-    }
-
-    public function scopeCompleted($query)
-    {
-        return $query->where('status', 'Completed');
+        return $query->where("status", "Confirmed");
     }
 
     public function scopeByDate($query, $date)
     {
-        return $query->where('appointment_date', $date);
+        return $query->whereDate("appointment_date", $date);
+    }
+
+    public function scopeBySpecialist($query, $specialistId)
+    {
+        return $query->where("specialist_id", $specialistId);
     }
 
     // Methods
     public function calculatePrice()
     {
-        $prices = [
-            'consultation' => 300,
-            'general_consultation' => 300,
-            'checkup' => 300,
-            'fecalysis' => 500,
-            'fecalysis_test' => 500,
-            'cbc' => 500,
-            'urinalysis' => 500,
-            'urinarysis_test' => 500,
-            'x-ray' => 700,
-            'ultrasound' => 800,
-        ];
-
-        return $prices[$this->appointment_type] ?? 300;
+        return match($this->appointment_type) {
+            'consultation' => 300.00,
+            'general_consultation' => 300.00,
+            'checkup' => 300.00,
+            'fecalysis' => 500.00,
+            'fecalysis_test' => 500.00,
+            'cbc' => 500.00,
+            'urinalysis' => 500.00,
+            'urinarysis_test' => 500.00,
+            'x-ray' => 700.00,
+            'ultrasound' => 800.00,
+            'follow-up' => 240.00, // 20% discount for follow-up
+            'check-up' => 360.00, // 20% premium for check-up
+            'emergency' => 450.00, // 50% premium for emergency
+            default => 300.00,
+        };
     }
 
-    // markBillingAsPaid method removed - no direct billing relationship
-
-    // isBillingPending method removed - no direct billing relationship
-
-    // isBillingPaid method removed - no direct billing relationship
-
-    // Boot method removed - existing table doesn't have appointment_code column
-
-    // Scope for pending billing appointments
-    public function scopePendingBilling($query)
+    public function generateUniqueKey()
     {
-        return $query->where('billing_status', 'pending')
-                    ->orWhere('billing_status', null)
-                    ->where('status', '!=', 'Cancelled');
+        return "APT-" . $this->patient_id . "-" . $this->specialist_id . "-" . $this->appointment_date->format("Y-m-d") . "-" . $this->appointment_time->format("H-i-s");
+    }
+
+    public function checkForDuplicates()
+    {
+        $uniqueKey = $this->generateUniqueKey();
+        
+        $duplicate = Appointment::where("unique_appointment_key", $uniqueKey)
+            ->where("id", "!=", $this->id ?? 0)
+            ->where("status", "!=", "Cancelled")
+            ->first();
+            
+        return $duplicate;
+    }
+
+    public function isDuplicate()
+    {
+        return $this->checkForDuplicates() !== null;
+    }
+
+    // Accessors
+    public function getStatusColorAttribute()
+    {
+        return match($this->status) {
+            'Pending' => 'yellow',
+            'Confirmed' => 'green',
+            'Completed' => 'blue',
+            'Cancelled' => 'red',
+            'No Show' => 'gray',
+            default => 'gray'
+        };
+    }
+
+    public function getFormattedPriceAttribute()
+    {
+        return '₱' . number_format($this->price ?? 0, 2);
+    }
+
+    public function getBillingStatusAttribute()
+    {
+        return $this->billing_status ?? 'pending';
+    }
+
+    /**
+     * Boot the model with date validation and unique key generation
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        // Validate dates before saving
+        static::saving(function ($appointment) {
+            // Validate appointment_date
+            if ($appointment->appointment_date) {
+                $date = \Carbon\Carbon::parse($appointment->appointment_date);
+                if (!$date || $date->year < 1900 || $date->year > 2100) {
+                    throw new \InvalidArgumentException('Invalid appointment date. Date must be between 1900 and 2100.');
+                }
+            }
+
+            // Validate appointment_time
+            if ($appointment->appointment_time) {
+                $time = \Carbon\Carbon::parse($appointment->appointment_time);
+                if (!$time) {
+                    throw new \InvalidArgumentException('Invalid appointment time format.');
+                }
+            }
+
+            return true;
+        });
+
+        // Generate unique key and check for duplicates
+        static::creating(function ($appointment) {
+            if (empty($appointment->unique_appointment_key)) {
+                $appointment->unique_appointment_key = $appointment->generateUniqueKey();
+            }
+            
+            // Check for duplicates before creating
+            if ($appointment->isDuplicate()) {
+                throw new \Exception("Duplicate appointment detected. An appointment already exists for this patient, specialist, date, and time.");
+            }
+        });
+
+        static::updating(function ($appointment) {
+            if ($appointment->isDirty(["patient_id", "specialist_id", "appointment_date", "appointment_time"])) {
+                $appointment->unique_appointment_key = $appointment->generateUniqueKey();
+                
+                // Check for duplicates before updating
+                if ($appointment->isDuplicate()) {
+                    throw new \Exception("Duplicate appointment detected. An appointment already exists for this patient, specialist, date, and time.");
+                }
+            }
+        });
     }
 }

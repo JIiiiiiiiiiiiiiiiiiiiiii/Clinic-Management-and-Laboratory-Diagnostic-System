@@ -23,6 +23,7 @@ export default function TestCreate(): React.ReactElement {
     const [processing, setProcessing] = useState(false);
 
     const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Laboratory', href: '/admin/laboratory' },
         { title: 'Test Templates', href: '/admin/laboratory/tests' },
         { title: 'Create New Test', href: '/admin/laboratory/tests/create' },
     ];

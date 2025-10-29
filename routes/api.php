@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use App\Http\Controllers\Api\OnlineAppointmentController;
 use App\Http\Controllers\Api\AdminAppointmentController;
 use App\Http\Controllers\Api\BillingController;
@@ -42,7 +43,12 @@ Route::middleware('auth:sanctum')->prefix('billing')->group(function () {
 
 // Specialists API
 Route::get('/specialists', function () {
-    return App\Models\Specialist::where('status', 'Active')->get();
+    // Check if status column exists, if not, return all specialists
+    if (Schema::hasColumn('specialists', 'status')) {
+        return App\Models\Specialist::where('status', 'Active')->get();
+    } else {
+        return App\Models\Specialist::all();
+    }
 });
 
 // System Fix API

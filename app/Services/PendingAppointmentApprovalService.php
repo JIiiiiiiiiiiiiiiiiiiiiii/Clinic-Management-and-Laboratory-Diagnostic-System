@@ -38,30 +38,26 @@ class PendingAppointmentApprovalService
 
                 // Step 2: Create appointment record
                 $appointment = $this->createAppointmentFromPending($pendingAppointment, $patient, $adminData);
-                
-                // Set billing status to pending for manual processing
-                $appointment->update(['billing_status' => 'pending']);
 
                 // Step 3: Create visit record
                 $visit = $this->createVisitFromAppointment($appointment);
 
-                // Step 4: Skip auto-generating billing transaction - admin will handle this manually
+                // Step 4: Set billing status to pending for manual processing
+                $appointment->update(['billing_status' => 'pending']);
+
+                // Step 5: Skip auto-generating billing transaction - admin will handle this manually
                 // $billingTransaction = $this->createBillingTransactionFromAppointment($appointment);
                 // $billingLink = $this->createBillingLink($appointment, $billingTransaction);
 
-                // Step 6: Update pending appointment status
-                $pendingAppointment->update([
-                    'status_approval' => 'approved',
-                    'admin_notes' => $adminData['admin_notes'] ?? null,
-                    'approved_by' => auth()->id(),
-                    'approved_at' => now(),
-                ]);
+                // Step 6: Delete the pending appointment since it's now approved
+                $pendingAppointmentId = $pendingAppointment->id;
+                $pendingAppointment->delete();
 
                 // Step 7: Notify patient
                 $this->notifyPatient($appointment, $adminData['admin_notes'] ?? null);
 
                 Log::info('Pending appointment approved successfully', [
-                    'pending_appointment_id' => $pendingAppointment->id,
+                    'pending_appointment_id' => $pendingAppointmentId,
                     'appointment_id' => $appointment->id,
                     'visit_id' => $visit->id,
                     'note' => 'Billing transaction will be created manually by admin'
@@ -69,7 +65,7 @@ class PendingAppointmentApprovalService
 
                 return [
                     'success' => true,
-                    'pending_appointment' => $pendingAppointment,
+                    'pending_appointment_id' => $pendingAppointmentId,
                     'appointment' => $appointment,
                     'visit' => $visit,
                     'note' => 'Billing transaction will be created manually by admin'
@@ -113,20 +109,20 @@ class PendingAppointmentApprovalService
         $patientData = [
             'first_name' => $firstName,
             'last_name' => $lastName,
-            'birthdate' => '1990-01-01', // Default birthdate
-            'age' => 30, // Default age
-            'sex' => 'male', // Default sex
-            'civil_status' => 'single',
-            'nationality' => 'Filipino',
-            'present_address' => 'Not specified',
-            'address' => 'Not specified', // Keep for backward compatibility
+            'birthdate' => $pendingAppointment->birthdate ?? '1990-01-01',
+            'age' => $pendingAppointment->age ?? 30,
+            'sex' => $pendingAppointment->sex ?? 'male',
+            'civil_status' => $pendingAppointment->civil_status ?? 'single',
+            'nationality' => $pendingAppointment->nationality ?? 'Filipino',
+            'address' => $pendingAppointment->address ?? 'Not specified',
+            'present_address' => $pendingAppointment->present_address ?? 'Not specified',
             'mobile_no' => $pendingAppointment->contact_number ?? 'Not specified',
-            'emergency_name' => 'Not specified',
-            'emergency_relation' => 'Self',
-            'attending_physician' => 'To be assigned',
-            'arrival_date' => now()->toDateString(),
-            'arrival_time' => now()->format('H:i:s'),
-            'time_seen' => now()->format('H:i:s'),
+            'emergency_name' => $pendingAppointment->emergency_name ?? 'Not specified',
+            'emergency_relation' => $pendingAppointment->emergency_relation ?? 'Self',
+            'attending_physician' => $pendingAppointment->attending_physician ?? 'To be assigned',
+            'arrival_date' => $pendingAppointment->arrival_date ?? now()->toDateString(),
+            'arrival_time' => $pendingAppointment->arrival_time ?? now()->format('H:i:s'),
+            'time_seen' => $pendingAppointment->time_seen ?? now()->format('H:i:s'),
         ];
 
         // Generate patient number
@@ -161,7 +157,7 @@ class PendingAppointmentApprovalService
             'appointment_date' => $pendingAppointment->appointment_date,
             'appointment_time' => $pendingAppointment->appointment_time,
             'duration' => $pendingAppointment->duration,
-            'price' => $pendingAppointment->price,
+            'price' => null, // Will be calculated after creation
             'notes' => $pendingAppointment->notes,
             'special_requirements' => $pendingAppointment->special_requirements,
             'source' => 'Online',
@@ -172,10 +168,21 @@ class PendingAppointmentApprovalService
 
         $appointment = Appointment::create($appointmentData);
         
+        // Calculate and set price using the Appointment model's calculatePrice method
+        $calculatedPrice = $appointment->calculatePrice();
+        $appointment->update([
+            'price' => $calculatedPrice,
+            'final_total_amount' => $calculatedPrice, // Set final_total_amount to the same as price when no lab tests
+            'total_lab_amount' => 0 // No lab tests initially
+        ]);
+        
         Log::info('Appointment created from pending', [
             'appointment_id' => $appointment->id,
             'patient_id' => $patient->id,
-            'pending_appointment_id' => $pendingAppointment->id
+            'pending_appointment_id' => $pendingAppointment->id,
+            'appointment_type' => $appointment->appointment_type,
+            'calculated_price' => $calculatedPrice,
+            'final_price' => $appointment->fresh()->price
         ]);
 
         return $appointment;

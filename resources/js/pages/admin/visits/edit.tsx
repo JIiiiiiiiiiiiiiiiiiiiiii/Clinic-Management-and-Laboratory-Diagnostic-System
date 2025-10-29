@@ -20,19 +20,19 @@ const breadcrumbs: BreadcrumbItem[] = [
 interface VisitEditProps {
     visit: {
         id: number;
-        visit_date: string;
+        visit_date_time_time: string;
         purpose: string;
         notes?: string;
         status: string;
         visit_type: string;
         patient: {
-            patient_id: number;
+            id: number;
             first_name: string;
             last_name: string;
             patient_no: string;
             sequence_number?: string;
         };
-        staff: {
+        attending_staff: {
             id: number;
             name: string;
             role: string;
@@ -48,9 +48,9 @@ interface VisitEditProps {
 export default function VisitEdit({ visit, staff }: VisitEditProps) {
     const { hasPermission } = useRoleAccess();
     const [formData, setFormData] = useState({
-        visit_date: visit.visit_date.split('T')[0] + 'T' + visit.visit_date.split('T')[1].substring(0, 5),
+        visit_date: visit.visit_date_time_time ? visit.visit_date_time_time.split('T')[0] + 'T' + visit.visit_date_time_time.split('T')[1].substring(0, 5) : '',
         purpose: visit.purpose,
-        staff_id: visit.staff?.id?.toString() || '',
+        staff_id: visit.attending_staff?.id?.toString() || '',
         status: visit.status,
         visit_type: visit.visit_type || 'initial',
         notes: visit.notes || '',
@@ -65,12 +65,12 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
 
         // Map staff_id to doctor_id for backend compatibility
         const submitData = {
-            ...formData,
+            visit_date: formData.visit_date,
+            purpose: formData.purpose,
             doctor_id: formData.staff_id,
+            status: formData.status,
+            notes: formData.notes,
         };
-        // Remove staff_id and visit_type as they're not in the database
-        delete submitData.staff_id;
-        delete submitData.visit_type;
 
         router.put(`/admin/visits/${visit.id}`, submitData, {
             onSuccess: () => {
@@ -116,7 +116,7 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
                             <div>
                                 <h1 className="text-4xl font-semibold text-black mb-4">Edit Visit</h1>
                                 <p className="text-sm text-gray-600 mt-1">
-                                    {visit.patient.first_name} {visit.patient.last_name} - {visit.patient.patient_code || visit.patient.sequence_number || visit.patient.patient_no}
+                                    {visit.patient.first_name} {visit.patient.last_name} - {visit.patient.patient_no}
                                 </p>
                             </div>
                         </div>
@@ -300,12 +300,12 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
                                     </div>
                                     <div>
                                         <label className="text-sm font-medium text-gray-500">Patient Number</label>
-                                        <p className="text-lg font-semibold mt-1">{visit.patient.patient_code || visit.patient.sequence_number || visit.patient.patient_no}</p>
+                                        <p className="text-lg font-semibold mt-1">{visit.patient.patient_no}</p>
                                     </div>
                                 </div>
                                 
                                 <div className="pt-6">
-                                    <Link href={`/admin/patient/${visit.patient.patient_id}`}>
+                                    <Link href={`/admin/patient/${visit.patient.id}`}>
                                         <Button variant="outline" className="w-full">
                                             View Patient Profile
                                         </Button>
@@ -330,8 +330,8 @@ export default function VisitEdit({ visit, staff }: VisitEditProps) {
                                 <div className="space-y-3">
                                     <div>
                                         <label className="text-sm font-medium text-gray-500">Current Staff</label>
-                                        <p className="font-semibold mt-1">{visit.staff?.name || 'No staff assigned'}</p>
-                                        <p className="text-sm text-gray-500 capitalize">{visit.staff?.role || 'N/A'}</p>
+                                        <p className="font-semibold mt-1">{visit.attending_staff?.name || 'No staff assigned'}</p>
+                                        <p className="text-sm text-gray-500 capitalize">{visit.attending_staff?.role || 'N/A'}</p>
                                     </div>
                                 </div>
                             </CardContent>

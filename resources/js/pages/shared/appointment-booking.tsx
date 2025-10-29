@@ -16,7 +16,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { PatientPageLayout, PatientActionButton, PatientFormSection, PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { CreatePatientItem } from '@/types/patients';
@@ -42,6 +41,15 @@ type Doctor = {
     rating: number;
     experience: string;
     nextAvailable: string;
+    schedule_data?: {
+        monday?: string[];
+        tuesday?: string[];
+        wednesday?: string[];
+        thursday?: string[];
+        friday?: string[];
+        saturday?: string[];
+        sunday?: string[];
+    };
 };
 
 type Medtech = { 
@@ -53,6 +61,15 @@ type Medtech = {
     rating: number;
     experience: string;
     nextAvailable: string;
+    schedule_data?: {
+        monday?: string[];
+        tuesday?: string[];
+        wednesday?: string[];
+        thursday?: string[];
+        friday?: string[];
+        saturday?: string[];
+        sunday?: string[];
+    };
 };
 
 interface AppointmentBookingProps {
@@ -88,6 +105,12 @@ export default function AppointmentBooking({
 
     const { data, setData, processing, errors, reset, post } = useForm<CreatePatientItem & { 
         force_create?: boolean;
+        email_address?: string;
+        insurance_company?: string;
+        hmo_id_no?: string;
+        approval_code?: string;
+        social_history?: string;
+        obgyn_history?: string;
         // Appointment fields
         appointment_type: string;
         specialist_type: 'doctor' | 'medtech';
@@ -115,6 +138,7 @@ export default function AppointmentBooking({
         present_address: '',
         telephone_no: '',
         mobile_no: '',
+        email_address: '',
 
         // Emergency Contact
         informant_name: '',
@@ -152,6 +176,7 @@ export default function AppointmentBooking({
     const [selectedSpecialist, setSelectedSpecialist] = useState<Doctor | Medtech | null>(null);
     const [availableTimes, setAvailableTimes] = useState<Array<{value: string, label: string}>>([]);
     const [appointmentPrice, setAppointmentPrice] = useState(0);
+    const [isProcessing, setIsProcessing] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     const totalSteps = 6; // 5 patient steps + 1 appointment step
@@ -175,11 +200,11 @@ export default function AppointmentBooking({
     const calculatePrice = (type: string) => {
         const prices: Record<string, number> = {
             'general_consultation': 300,
-            'cbc': 800,
-            'fecalysis_test': 800,
-            'urinarysis_test': 800,
+            'cbc': 500,
+            'fecalysis_test': 500,
+            'urinarysis_test': 500,
         };
-        return prices[type] || 0;
+        return prices[type] || 300;
     };
 
     // Update price and specialist type when appointment type changes
@@ -218,6 +243,7 @@ export default function AppointmentBooking({
                 present_address: patient.present_address || '',
                 telephone_no: patient.telephone_no || '',
                 mobile_no: patient.mobile_no || '',
+                email_address: patient.email_address || '',
                 informant_name: patient.informant_name || '',
                 relationship: patient.relationship || '',
                 company_name: patient.company_name || '',
@@ -243,25 +269,42 @@ export default function AppointmentBooking({
     }, [data.appointment_date, data.specialist_id]);
 
     const generateTimeSlots = () => {
-        const slots = [];
-        const startHour = 8;
-        const endHour = 17;
-        
-        for (let hour = startHour; hour < endHour; hour++) {
-            for (let minute = 0; minute < 60; minute += 30) {
-                const time = new Date();
-                time.setHours(hour, minute, 0, 0);
-                const timeString = time.toLocaleTimeString('en-US', { 
-                    hour: 'numeric', 
-                    minute: '2-digit', 
-                    hour12: true 
-                });
-                slots.push({
-                    value: timeString,
-                    label: timeString
-                });
-            }
+        if (!data.specialist_id || !data.appointment_date) {
+            setAvailableTimes([]);
+            return;
         }
+
+        // Get selected specialist
+        const specialist = [...doctors, ...medtechs].find(s => s.id.toString() === data.specialist_id);
+        if (!specialist || !specialist.schedule_data) {
+            setAvailableTimes([]);
+            return;
+        }
+
+        // Get day of week from selected date
+        const selectedDate = new Date(data.appointment_date);
+        const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        
+        // Get available times for that day from specialist's schedule
+        const daySchedule = (specialist.schedule_data as any)[dayOfWeek] || [];
+        
+        // Convert times to display format
+        const slots = daySchedule.map((time: string) => {
+            // Convert 24-hour format to 12-hour format
+            const [hours, minutes] = time.split(':');
+            const date = new Date();
+            date.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+            const timeString = date.toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit', 
+                hour12: true 
+            });
+            return {
+                value: timeString,
+                label: timeString
+            };
+        });
+
         setAvailableTimes(slots);
     };
 
@@ -291,13 +334,13 @@ export default function AppointmentBooking({
         }
     };
 
-    const handleFinalSubmit = (e?: React.FormEvent) => {
+    const handleFinalSubmit = async (e?: React.FormEvent) => {
         if (e) {
             e.preventDefault();
         }
         
         // Prevent multiple submissions
-        if (processing) {
+        if (isProcessing) {
             console.log('Form already processing, ignoring submission');
             return;
         }
@@ -344,32 +387,90 @@ export default function AppointmentBooking({
             }
         }
 
-        // Submit the form with all data
-        if (isAdmin) {
-            // For admin walk-in appointments, submit all data to admin route
-            console.log('Submitting walk-in appointment for admin:', data);
-            
-            post(route('admin.appointments.walk-in.store'));
-        } else if (isExistingPatient) {
-            // For existing patients, only submit appointment data
-            const appointmentData = {
+        // Prepare request body for new API (matching online form structure)
+        const requestBody = {
+            existingPatientId: isExistingPatient && patient ? patient.id : 0,
+            patient: !isExistingPatient ? {
+                last_name: data.last_name,
+                first_name: data.first_name,
+                middle_name: data.middle_name,
+                birthdate: data.birthdate,
+                age: data.age,
+                sex: data.sex,
+                nationality: data.nationality,
+                civil_status: data.civil_status,
+                address: data.present_address,
+                telephone_no: data.telephone_no,
+                mobile_no: data.mobile_no,
+                email: data.email_address,
+                emergency_name: data.informant_name,
+                emergency_relation: data.relationship,
+                insurance_company: data.insurance_company,
+                hmo_name: data.hmo_name,
+                hmo_id_no: data.hmo_id_no,
+                approval_code: data.approval_code,
+                validity: data.validity,
+                drug_allergies: data.drug_allergies,
+                past_medical_history: data.past_medical_history,
+                family_history: data.family_history,
+                social_history: data.social_history,
+                obgyn_history: data.obgyn_history,
+            } : undefined,
+            appointment: {
                 appointment_type: data.appointment_type,
-                specialist_type: data.specialist_type,
-                specialist_id: data.specialist_id,
-                appointment_date: data.appointment_date,
-                appointment_time: data.appointment_time,
-                notes: data.notes,
-                special_requirements: data.special_requirements,
-            };
+                specialist_type: data.specialist_type === 'doctor' ? 'Doctor' : 'MedTech',
+                specialist_id: parseInt(data.specialist_id),
+                date: data.appointment_date,
+                time: data.appointment_time,
+                duration: '30 min',
+                price: appointmentPrice,
+                additional_info: `${data.notes || ''}${data.special_requirements ? '\nSpecial Requirements: ' + data.special_requirements : ''}`.trim(),
+            },
+        };
+
+        try {
+            setIsProcessing(true);
             
-            console.log('Submitting appointment for existing patient:', appointmentData);
+            // Use different API endpoints based on context
+            const apiEndpoint = isAdmin ? '/api/appointments/walk-in' : '/api/appointments/online';
             
-            post(route('patient.appointments.store'));
-        } else {
-            // For new patients, submit all data
-            console.log('Submitting registration and appointment for new patient:', data);
-            
-            post(route('patient.online.appointment.store'));
+            const response = await fetch(apiEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify(requestBody),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Show success message
+                const successMessage = isAdmin 
+                    ? `✅ Walk-in Appointment Created Successfully!\n\nPatient Code: ${result.patient_code}\nAppointment Code: ${result.appointment_code}`
+                    : `✅ Appointment Created Successfully!\n\nPatient Code: ${result.patient_code}\nAppointment Code: ${result.appointment_code}\n\nYour appointment request has been sent to admin for approval. You will be notified once it's confirmed.`;
+                
+                alert(successMessage);
+                
+                // Redirect based on context
+                if (isAdmin) {
+                    window.location.href = '/admin/appointments';
+                } else {
+                    window.location.href = '/patient/appointments';
+                }
+            } else {
+                // Show error message
+                const errorMsg = result.message || result.error || 'Failed to create appointment';
+                const errors = result.errors ? '\n\n' + Object.values(result.errors).flat().join('\n') : '';
+                alert('❌ Error: ' + errorMsg + errors);
+                setIsProcessing(false);
+            }
+        } catch (error) {
+            console.error('Error creating appointment:', error);
+            alert('❌ Failed to create appointment. Please check your internet connection and try again.');
+            setIsProcessing(false);
         }
     };
 
@@ -421,10 +522,42 @@ export default function AppointmentBooking({
         return maxDate.toISOString().split('T')[0];
     };
 
+    // Helper function to get specialist schedule information
+    const getSpecialistScheduleInfo = (specialist: Doctor | Medtech) => {
+        // For now, return mock data - this will be replaced with actual schedule data
+        const scheduleData = specialist.schedule_data || {};
+        
+        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        
+        const availableDays: string[] = [];
+        const allTimes: string[] = [];
+        
+        days.forEach((day, index) => {
+            const daySchedule = (scheduleData as any)[day];
+            if (daySchedule && daySchedule.length > 0) {
+                availableDays.push(dayNames[index]);
+                allTimes.push(...daySchedule);
+            }
+        });
+        
+        const uniqueTimes = [...new Set(allTimes)].sort();
+        
+        return {
+            availableDays: availableDays.length > 0 ? availableDays.join(', ') : 'Not scheduled',
+            availableTimes: uniqueTimes.length > 0 ? uniqueTimes.join(', ') : 'Not available',
+            nextAvailable: availableDays.length > 0 ? `${availableDays[0]} ${uniqueTimes[0] || ''}` : null
+        };
+    };
+
     const breadcrumbs: BreadcrumbItem[] = [
         {
-            title: isAdmin ? 'Admin Panel' : 'Patient Portal',
+            title: isAdmin ? 'Appointments' : 'Patient Portal',
             href: isAdmin ? '/admin/appointments' : '/patient/dashboard',
+        },
+        {
+            title: isAdmin ? 'All Appointments' : 'Online Appointment',
+            href: isAdmin ? '/admin/appointments' : '/patient/online-appointment',
         },
         {
             title: isAdmin ? 'Walk-in Appointment' : 'Online Appointment',
@@ -437,37 +570,36 @@ export default function AppointmentBooking({
             <Head title={isAdmin ? "Create Walk-in Appointment" : "Create New Appointment"} />
             <div className="flex flex-1 flex-col gap-6 p-6">
                 <div className="@container/main flex flex-1 flex-col gap-6">
-                    {/* Header Section */}
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div>
-                                <h1 className="text-4xl font-bold text-black">
-                                    {isAdmin ? 'Create Walk-in Appointment' : (isExistingPatient ? 'Book New Appointment' : 'Online Appointment')}
-                                </h1>
-                                <p className="text-sm text-gray-600 mt-1">
-                                    {isAdmin 
-                                        ? 'Create a new appointment for a walk-in patient'
-                                        : (isExistingPatient 
+                    {/* Header Section - Hidden for Admin */}
+                    {!isAdmin && (
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div>
+                                    <h1 className="text-4xl font-bold text-black">
+                                        {isExistingPatient ? 'Book New Appointment' : 'Online Appointment'}
+                                    </h1>
+                                    <p className="text-sm text-gray-600 mt-1">
+                                        {isExistingPatient 
                                             ? 'You are already registered. Book your appointment below.'
                                             : 'Complete your registration and submit an appointment request for admin approval'
-                                        )
-                                    }
-                                </p>
+                                        }
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <Button
+                                    variant="outline"
+                                    asChild
+                                    className="hover:bg-gray-50"
+                                >
+                                    <Link href={backUrl || "/patient/dashboard"}>
+                                        <ArrowLeft className="mr-2 h-4 w-4" />
+                                        Back to Dashboard
+                                    </Link>
+                                </Button>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <Button
-                                variant="outline"
-                                asChild
-                                className="hover:bg-gray-50"
-                            >
-                                <Link href={backUrl || (isAdmin ? "/admin/appointments" : "/patient/dashboard")}>
-                                    <ArrowLeft className="mr-2 h-4 w-4" />
-                                    Back to {isAdmin ? 'Appointments' : 'Dashboard'}
-                                </Link>
-                            </Button>
-                        </div>
-                    </div>
+                    )}
 
                     {/* Progress Stepper */}
                     <Card className="holographic-card shadow-lg overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50">
@@ -627,10 +759,14 @@ export default function AppointmentBooking({
                     <form onSubmit={submit} className="space-y-6">
                         {/* Step 1: Personal Information */}
                         {currentStep === 1 && (
-                            <PatientInfoCard
-                                title="Personal Information"
-                                icon={getStepIcon(1)}
-                            >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {getStepIcon(1)}
+                                        Personal Information
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                 <div className="space-y-6">
                                     {/* Name Section */}
                                     <div className="space-y-3">
@@ -722,7 +858,10 @@ export default function AppointmentBooking({
                                                     <Heart className="h-4 w-4" />
                                                     Sex *
                                                 </Label>
-                                                <Select onValueChange={(value: 'male' | 'female') => setData('sex', value)} defaultValue={data.sex}>
+                                                <Select 
+                                                    value={data.sex} 
+                                                    onValueChange={(value: 'male' | 'female') => setData('sex', value)}
+                                                >
                                                     <SelectTrigger id="sex" className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.sex ? 'border-gray-500' : ''}`} style={{ width: '100%', minWidth: '0' }}>
                                                         <SelectValue placeholder="Select sex" />
                                                     </SelectTrigger>
@@ -739,7 +878,36 @@ export default function AppointmentBooking({
                                     {/* Demographics Section */}
                                     <div className="space-y-3">
                                         <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Demographics</h3>
-                                        <div className="grid gap-4 md:grid-cols-2">
+                                        <div className="grid gap-4 md:grid-cols-3">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="occupation" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                    <Briefcase className="h-4 w-4" />
+                                                    Occupation
+                                                </Label>
+                                                <Input
+                                                    id="occupation"
+                                                    name="occupation"
+                                                    autoComplete="organization-title"
+                                                    value={data.occupation}
+                                                    onChange={(e) => setData('occupation', e.target.value)}
+                                                    className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                                    placeholder="Enter occupation"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="religion" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                    <Heart className="h-4 w-4" />
+                                                    Religion
+                                                </Label>
+                                                <Input
+                                                    id="religion"
+                                                    name="religion"
+                                                    value={data.religion}
+                                                    onChange={(e) => setData('religion', e.target.value)}
+                                                    className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                                    placeholder="Enter religion"
+                                                />
+                                            </div>
                                             <div className="space-y-2">
                                                 <Label htmlFor="nationality" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                     <Globe className="h-4 w-4" />
@@ -755,12 +923,17 @@ export default function AppointmentBooking({
                                                     placeholder="Enter nationality"
                                                 />
                                             </div>
+                                        </div>
+                                        <div className="grid gap-4 md:grid-cols-1">
                                             <div className="space-y-2">
                                                 <Label htmlFor="civil_status" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                     <Heart className="h-4 w-4" />
                                                     Civil Status *
                                                 </Label>
-                                                <Select onValueChange={(value: 'single' | 'married' | 'widowed' | 'divorced' | 'separated') => setData('civil_status', value)} defaultValue={data.civil_status}>
+                                                <Select 
+                                                    value={data.civil_status} 
+                                                    onValueChange={(value: 'single' | 'married' | 'widowed' | 'divorced' | 'separated') => setData('civil_status', value)}
+                                                >
                                                     <SelectTrigger id="civil_status" className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.civil_status ? 'border-gray-500' : ''}`}>
                                                         <SelectValue placeholder="Select civil status" />
                                                     </SelectTrigger>
@@ -777,15 +950,20 @@ export default function AppointmentBooking({
                                         </div>
                                     </div>
                                 </div>
-                            </PatientInfoCard>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Step 2: Contact Details */}
                         {currentStep === 2 && (
-                            <PatientInfoCard
-                                title="Contact Details"
-                                icon={getStepIcon(2)}
-                            >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {getStepIcon(2)}
+                                        Contact Details
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                 <div className="space-y-6">
                                     {/* Address Section */}
                                     <div className="space-y-3">
@@ -810,7 +988,7 @@ export default function AppointmentBooking({
 
                                     {/* Contact Numbers Section */}
                                     <div className="space-y-3">
-                                        <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Contact Numbers</h3>
+                                        <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Contact Information</h3>
                                         <div className="grid gap-4 md:grid-cols-2">
                                             <div className="space-y-2">
                                                 <Label htmlFor="telephone_no" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -844,17 +1022,38 @@ export default function AppointmentBooking({
                                                 {errors.mobile_no && <p className="text-sm text-black">{errors.mobile_no}</p>}
                                             </div>
                                         </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="email_address" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                <Mail className="h-4 w-4" />
+                                                Email Address
+                                            </Label>
+                                            <Input
+                                                id="email_address"
+                                                name="email_address"
+                                                type="email"
+                                                autoComplete="email"
+                                                value={data.email_address}
+                                                onChange={(e) => setData('email_address', e.target.value)}
+                                                className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                                placeholder="Enter email address"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
-                            </PatientInfoCard>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Step 3: Emergency Contact */}
                         {currentStep === 3 && (
-                            <PatientInfoCard
-                                title="Emergency Contact"
-                                icon={getStepIcon(3)}
-                            >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {getStepIcon(3)}
+                                        Emergency Contact
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                 <div className="space-y-6">
                                     {/* Emergency Contact Information */}
                                     <div className="space-y-3">
@@ -891,15 +1090,20 @@ export default function AppointmentBooking({
                                         </div>
                                     </div>
                                 </div>
-                            </PatientInfoCard>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Step 4: Insurance & Financial */}
                         {currentStep === 4 && (
-                            <PatientInfoCard
-                                title="Insurance & Financial"
-                                icon={getStepIcon(4)}
-                            >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {getStepIcon(4)}
+                                        Insurance & Financial
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                 <div className="grid gap-6 md:grid-cols-2">
                                     <div className="space-y-3">
                                         <Label htmlFor="company_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -965,15 +1169,20 @@ export default function AppointmentBooking({
                                         />
                                     </div>
                                 </div>
-                            </PatientInfoCard>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Step 5: Medical History */}
                         {currentStep === 5 && (
-                            <PatientInfoCard
-                                title="Medical History"
-                                icon={getStepIcon(5)}
-                            >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {getStepIcon(5)}
+                                        Medical History
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                 <div className="space-y-6">
                                     <div className="grid gap-6 md:grid-cols-2">
                                         <div className="space-y-3">
@@ -1066,15 +1275,20 @@ export default function AppointmentBooking({
                                         />
                                     </div>
                                 </div>
-                            </PatientInfoCard>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Step 6: Appointment Booking */}
                         {currentStep === 6 && (
-                            <PatientInfoCard
-                                title="Appointment Booking"
-                                icon={getStepIcon(6)}
-                            >
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        {getStepIcon(6)}
+                                        Appointment Booking
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                 <div className="space-y-6">
                                     {/* Appointment Type Selection */}
                                     <div className="space-y-3">
@@ -1085,7 +1299,10 @@ export default function AppointmentBooking({
                                                     <Stethoscope className="h-4 w-4" />
                                                     Appointment Type *
                                                 </Label>
-                                                <Select onValueChange={(value) => setData('appointment_type', value)}>
+                                                <Select 
+                                                    value={data.appointment_type} 
+                                                    onValueChange={(value) => setData('appointment_type', value)}
+                                                >
                                                     <SelectTrigger id="appointment_type" className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.appointment_type ? 'border-gray-500' : ''}`}>
                                                         <SelectValue placeholder="Select appointment type" />
                                                     </SelectTrigger>
@@ -1114,54 +1331,81 @@ export default function AppointmentBooking({
                                         </div>
                                     </div>
 
-                                    {/* Specialist Selection */}
+                                    {/* Specialist Selection - Checkbox Style */}
                                     <div className="space-y-3">
                                         <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Select Specialist</h3>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="specialist_id" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <div className="space-y-4">
+                                            <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                 <User className="h-4 w-4" />
-                                                {data.specialist_type === 'doctor' ? 'Doctor' : 'Medical Technologist'} *
+                                                {data.specialist_type === 'doctor' ? 'Available Doctors' : 'Available Medical Technologists'} *
                                             </Label>
-                                            <Select onValueChange={handleSpecialistChange} disabled={!data.specialist_type}>
-                                                <SelectTrigger id="specialist_id" className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.specialist_id ? 'border-gray-500' : ''} ${!data.specialist_type ? 'bg-gray-50' : ''}`}>
-                                                    <SelectValue placeholder={data.specialist_type ? `Select ${data.specialist_type === 'doctor' ? 'doctor' : 'medical technologist'}` : 'Select appointment type first'} />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {(data.specialist_type === 'doctor' ? doctors : medtechs).map((specialist) => (
-                                                        <SelectItem key={specialist.id} value={specialist.id.toString()}>
-                                                            <div className="flex flex-col">
-                                                                <span className="font-medium">{specialist.name}</span>
-                                                                <span className="text-sm text-gray-500">{specialist.specialization}</span>
+                                            
+                                            {/* Specialist Checkboxes */}
+                                            <div className="grid gap-4">
+                                                {(data.specialist_type === 'doctor' ? doctors : medtechs).map((specialist) => {
+                                                    const isSelected = data.specialist_id === specialist.id.toString();
+                                                    const scheduleInfo = getSpecialistScheduleInfo(specialist);
+                                                    
+                                                    return (
+                                                        <div key={specialist.id} className={`border-2 rounded-lg p-4 transition-all duration-200 ${
+                                                            isSelected 
+                                                                ? 'border-blue-500 bg-blue-50' 
+                                                                : 'border-gray-200 bg-white hover:border-gray-300'
+                                                        }`}>
+                                                            <div className="flex items-start space-x-3">
+                                                                <input
+                                                                    type="radio"
+                                                                    id={`specialist-${specialist.id}`}
+                                                                    name="specialist_id"
+                                                                    value={specialist.id.toString()}
+                                                                    checked={isSelected}
+                                                                    onChange={(e) => {
+                                                                        setData('specialist_id', e.target.value);
+                                                                        const selectedSpecialist = [...doctors, ...medtechs].find(s => s.id.toString() === e.target.value);
+                                                                        setSelectedSpecialist(selectedSpecialist || null);
+                                                                    }}
+                                                                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
+                                                                />
+                                                                <div className="flex-1">
+                                                                    <label htmlFor={`specialist-${specialist.id}`} className="cursor-pointer">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <div>
+                                                                                <h4 className="font-semibold text-gray-900">{specialist.name}</h4>
+                                                                                <p className="text-sm text-gray-600">{specialist.specialization}</p>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                                                <Star className="h-3 w-3" />
+                                                                                {specialist.rating}
+                                                                            </div>
+                                                                        </div>
+                                                                        
+                                                                        {/* Schedule Information */}
+                                                                        <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                                                                            <div className="flex items-center gap-2 text-sm text-gray-700">
+                                                                                <Calendar className="h-4 w-4" />
+                                                                                <span className="font-medium">Available:</span>
+                                                                                <span>{scheduleInfo.availableDays}</span>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                                                                                <Clock className="h-4 w-4" />
+                                                                                <span>Times: {scheduleInfo.availableTimes}</span>
+                                                                            </div>
+                                                                            {scheduleInfo.nextAvailable && (
+                                                                                <div className="text-xs text-blue-600 mt-1">
+                                                                                    Next Available: {scheduleInfo.nextAvailable}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </label>
+                                                                </div>
                                                             </div>
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            {errors.specialist_id && <p className="text-sm text-black">{errors.specialist_id}</p>}
-                                        </div>
-
-                                        {/* Selected Specialist Info */}
-                                        {selectedSpecialist && (
-                                            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="p-2 bg-blue-100 rounded-full">
-                                                        <User className="h-5 w-5 text-blue-600" />
-                                                    </div>
-                                                    <div>
-                                                        <h4 className="font-semibold text-blue-900">{selectedSpecialist.name}</h4>
-                                                        <p className="text-sm text-blue-700">{selectedSpecialist.specialization}</p>
-                                                        <div className="flex items-center gap-4 mt-2 text-xs text-blue-600">
-                                                            <span className="flex items-center gap-1">
-                                                                <Star className="h-3 w-3" />
-                                                                {selectedSpecialist.rating}
-                                                            </span>
-                                                            <span>{selectedSpecialist.experience}</span>
-                                                            <span>{selectedSpecialist.availability}</span>
                                                         </div>
-                                                    </div>
-                                                </div>
+                                                    );
+                                                })}
                                             </div>
-                                        )}
+                                            
+                                            {errors.specialist_id && <p className="text-sm text-red-600">{errors.specialist_id}</p>}
+                                        </div>
                                     </div>
 
                                     {/* Date and Time Selection */}
@@ -1189,7 +1433,10 @@ export default function AppointmentBooking({
                                                     <Clock3 className="h-4 w-4" />
                                                     Appointment Time *
                                                 </Label>
-                                                <Select onValueChange={(value) => setData('appointment_time', value)}>
+                                                <Select 
+                                                    value={data.appointment_time} 
+                                                    onValueChange={(value) => setData('appointment_time', value)}
+                                                >
                                                     <SelectTrigger id="appointment_time" className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.appointment_time ? 'border-gray-500' : ''}`}>
                                                         <SelectValue placeholder="Select time" />
                                                     </SelectTrigger>
@@ -1253,7 +1500,8 @@ export default function AppointmentBooking({
                                         </div>
                                     )}
                                 </div>
-                            </PatientInfoCard>
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* Navigation Buttons */}
@@ -1302,12 +1550,12 @@ export default function AppointmentBooking({
                                     // Show complete button when all fields are filled
                                     return (
                                         <Button 
-                                            disabled={processing} 
+                                            disabled={isProcessing} 
                                             type="submit"
                                             className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 h-12 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold"
                                         >
                                             <Save className="mr-3 h-6 w-6" />
-                                            {processing ? 'Submitting Request...' : (isAdmin ? 'Create Walk-in Appointment' : 'Submit Online Appointment Request')}
+                                            {isProcessing ? 'Submitting Request...' : (isAdmin ? 'Create Walk-in Appointment' : 'Submit Online Appointment Request')}
                                         </Button>
                                     );
                                 })()}

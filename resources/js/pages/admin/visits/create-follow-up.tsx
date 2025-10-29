@@ -12,7 +12,7 @@ import { Calendar, ArrowRight, ArrowLeft, Save, X, User, Stethoscope, FileText }
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/admin/dashboard' },
+    { title: 'Patient Management', href: '/admin/patient' },
     { title: 'Visits', href: '/admin/visits' },
     { title: 'Create Follow-up', href: '#' },
 ];
@@ -20,17 +20,17 @@ const breadcrumbs: BreadcrumbItem[] = [
 interface CreateFollowUpProps {
     original_visit: {
         id: number;
-        visit_date: string;
+        visit_date_time_time: string;
         purpose: string;
         notes?: string;
         patient: {
-            patient_id: number;
+            id: number;
             first_name: string;
             last_name: string;
             patient_no: string;
             sequence_number?: string;
         };
-        staff: {
+        attending_staff: {
             id: number;
             name: string;
             role: string;
@@ -48,7 +48,7 @@ export default function CreateFollowUp({ original_visit, staff }: CreateFollowUp
     const [formData, setFormData] = useState({
         visit_date: '',
         purpose: `Follow-up: ${original_visit.purpose}`,
-        staff_id: original_visit.staff?.id?.toString() || '',
+        staff_id: original_visit.attending_staff?.id?.toString() || '',
         notes: '',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -61,11 +61,11 @@ export default function CreateFollowUp({ original_visit, staff }: CreateFollowUp
 
         // Map staff_id to doctor_id for backend compatibility
         const submitData = {
-            ...formData,
+            visit_date: formData.visit_date,
+            purpose: formData.purpose,
             doctor_id: formData.staff_id,
+            notes: formData.notes,
         };
-        // Remove staff_id as it's not in the database
-        delete submitData.staff_id;
 
         router.post(`/admin/visits/${original_visit.id}/follow-up`, submitData, {
             onSuccess: () => {
@@ -131,7 +131,7 @@ export default function CreateFollowUp({ original_visit, staff }: CreateFollowUp
                             <div>
                                 <h1 className="text-4xl font-semibold text-black mb-4">Create Follow-up Visit</h1>
                                 <p className="text-sm text-gray-600 mt-1">
-                                    {original_visit.patient.first_name} {original_visit.patient.last_name} - {original_visit.patient.patient_code || original_visit.patient.sequence_number || original_visit.patient.patient_no}
+                                    {original_visit.patient.first_name} {original_visit.patient.last_name} - {original_visit.patient.patient_no}
                                 </p>
                             </div>
                         </div>
@@ -269,7 +269,7 @@ export default function CreateFollowUp({ original_visit, staff }: CreateFollowUp
                                 <div className="space-y-4">
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-gray-500">Date & Time</label>
-                                        <p className="font-semibold">{formatDateTime(original_visit.visit_date)}</p>
+                                        <p className="font-semibold">{formatDateTime(original_visit.visit_date_time_time)}</p>
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-gray-500">Purpose</label>
@@ -277,8 +277,8 @@ export default function CreateFollowUp({ original_visit, staff }: CreateFollowUp
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-gray-500">Staff</label>
-                                        <p className="font-semibold">{original_visit.staff?.name || 'No staff assigned'}</p>
-                                        <p className="text-sm text-gray-500 capitalize">{original_visit.staff?.role || 'N/A'}</p>
+                                        <p className="font-semibold">{original_visit.attending_staff?.name || 'No staff assigned'}</p>
+                                        <p className="text-sm text-gray-500 capitalize">{original_visit.attending_staff?.role || 'N/A'}</p>
                                     </div>
                                     {original_visit.notes && (
                                         <div className="space-y-2">
@@ -312,12 +312,12 @@ export default function CreateFollowUp({ original_visit, staff }: CreateFollowUp
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-gray-500">Patient Number</label>
-                                        <p className="text-lg font-semibold">{original_visit.patient.patient_code || original_visit.patient.sequence_number || original_visit.patient.patient_no}</p>
+                                        <p className="text-lg font-semibold">{original_visit.patient.patient_no}</p>
                                     </div>
                                 </div>
                                 
                                 <div className="pt-6">
-                                    <Link href={`/admin/patient/${original_visit.patient.patient_id}`}>
+                                    <Link href={`/admin/patient/${original_visit.patient.id}`}>
                                         <Button variant="outline" className="w-full">
                                             View Patient Profile
                                         </Button>

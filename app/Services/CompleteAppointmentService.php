@@ -137,13 +137,14 @@ class CompleteAppointmentService
                 // 3. Create visit automatically
                 $visit = $this->createVisit($appointment);
                 
-                // 4. Skip auto-generating billing transaction - admin will handle this manually
-                // $billingTransaction = $this->createBillingTransaction($appointment);
+                // 4. Create billing transaction automatically
+                $billingTransaction = $this->createBillingTransaction($appointment);
                 
                 Log::info('Appointment approved successfully', [
                     'appointment_id' => $appointment->appointment_id,
                     'visit_id' => $visit->visit_id,
-                    'note' => 'Billing transaction will be created manually by admin'
+                    'billing_transaction_id' => $billingTransaction->id,
+                    'note' => 'Billing transaction created automatically'
                 ]);
                 
                 return [
@@ -258,7 +259,7 @@ class CompleteAppointmentService
      */
     private function createAppointment(int $patientId, array $data, string $source, string $status)
     {
-        return Appointment::create([
+        $appointment = Appointment::create([
             'patient_id' => $patientId,
             'specialist_id' => $data['specialist_id'] ?? null,
             'appointment_type' => $data['appointment_type'] ?? 'General Consultation',
@@ -266,12 +267,18 @@ class CompleteAppointmentService
             'appointment_date' => $data['appointment_date'],
             'appointment_time' => $data['appointment_time'],
             'duration' => $data['duration'] ?? '30 min',
-            'price' => $data['price'] ?? 0.00,
+            'price' => $data['price'] ?? null, // Will be calculated after creation
             'additional_info' => $data['additional_info'] ?? null,
             'source' => $source,
             'status' => $status,
             'billing_status' => 'pending'
         ]);
+
+        // Calculate and set price using the model's calculatePrice method
+        $calculatedPrice = $data['price'] ?? $appointment->calculatePrice();
+        $appointment->update(['price' => $calculatedPrice]);
+
+        return $appointment;
     }
     
     /**
@@ -321,7 +328,8 @@ class CompleteAppointmentService
      */
     private function createBillingTransaction(Appointment $appointment)
     {
-        $transaction = BillingTransaction::create([
+        // Use the system-wide helper to prevent duplicates
+        $transaction = \App\Helpers\SystemWideSpecialistBillingHelper::createBillingTransactionSafely($appointment->appointment_id, [
             'appointment_id' => $appointment->appointment_id,
             'patient_id' => $appointment->patient_id,
             'specialist_id' => $appointment->specialist_id,

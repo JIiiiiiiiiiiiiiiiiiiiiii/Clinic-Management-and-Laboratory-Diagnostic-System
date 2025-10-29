@@ -78,6 +78,7 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
     const formRef = useRef<HTMLFormElement>(null);
 
     const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Laboratory', href: '/admin/laboratory' },
         { title: 'Lab Orders', href: '/admin/laboratory/orders' },
         { title: `Order #${order.id}`, href: `/admin/laboratory/orders/${order.id}` },
         { title: 'Enter Results', href: `/admin/laboratory/orders/${order.id}/results` },

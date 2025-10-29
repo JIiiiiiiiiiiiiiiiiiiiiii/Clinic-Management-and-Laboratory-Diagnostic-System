@@ -25,7 +25,9 @@ class LabOrdersExport extends BaseExport implements FromArray, WithHeadings
                 'Status' => $order->status,
                 'Patient No' => $patient?->id,
                 'Patient Name' => $patient ? ($patient->last_name . ', ' . $patient->first_name) : 'N/A',
-                'Tests' => $order->labTests->pluck('name')->join(', '),
+                'Tests' => $order->results->map(function ($result) {
+                    return $result->test?->name;
+                })->filter()->join(', '),
                 'Ordered At' => optional($order->created_at)->format('Y-m-d H:i:s'),
             ];
         })->toArray();
@@ -47,7 +49,9 @@ class LabOrdersExport extends BaseExport implements FromArray, WithHeadings
                 'Status' => $order->status,
                 'Patient No' => $patient?->id,
                 'Patient Name' => $patient ? ($patient->last_name . ', ' . $patient->first_name) : 'N/A',
-                'Tests' => $order->labTests->pluck('name')->join(', '),
+                'Tests' => $order->results->map(function ($result) {
+                    return $result->test?->name;
+                })->filter()->join(', '),
                 'Ordered At' => optional($order->created_at)->format('Y-m-d H:i:s'),
             ];
         });

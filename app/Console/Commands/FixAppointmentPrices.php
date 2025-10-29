@@ -4,62 +4,42 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\Appointment;
-use App\Models\PendingAppointment;
+use Illuminate\Support\Facades\DB;
 
 class FixAppointmentPrices extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
-    protected $signature = 'appointments:fix-prices';
+    protected $signature = 'fix:appointment-prices';
+    protected $description = 'Fix appointments that have 0 or null prices';
 
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
-    protected $description = 'Fix appointment prices by recalculating them based on appointment type';
-
-    /**
-     * Execute the console command.
-     */
     public function handle()
     {
-        $this->info('Fixing appointment prices...');
-        
-        // Fix regular appointments
-        $appointments = Appointment::all();
-        $fixedCount = 0;
-        
+        $this->info('Starting to fix appointment prices...');
+
+        // Find appointments with 0 or null prices
+        $appointments = Appointment::where(function($query) {
+            $query->where('price', 0)
+                  ->orWhereNull('price');
+        })->get();
+
+        $this->info("Found {$appointments->count()} appointments with incorrect prices");
+
+        $fixed = 0;
         foreach ($appointments as $appointment) {
-            $oldPrice = $appointment->price;
-            $newPrice = $appointment->calculatePrice();
+            $this->line("Processing appointment ID {$appointment->id} - Type: {$appointment->appointment_type}");
             
-            if ($oldPrice != $newPrice) {
-                $appointment->update(['price' => $newPrice]);
-                $this->line("Appointment ID {$appointment->id}: {$appointment->appointment_type} - ₱{$oldPrice} → ₱{$newPrice}");
-                $fixedCount++;
+            // Calculate correct price
+            $calculatedPrice = $appointment->calculatePrice();
+            
+            if ($calculatedPrice > 0) {
+                $appointment->update(['price' => $calculatedPrice]);
+                $fixed++;
+                $this->info("  ✓ Fixed appointment {$appointment->id} - Set price to ₱{$calculatedPrice}");
+            } else {
+                $this->warn("  - Appointment {$appointment->id} calculated price is 0, skipping");
             }
         }
-        
-        // Fix pending appointments
-        $pendingAppointments = PendingAppointment::all();
-        
-        foreach ($pendingAppointments as $pendingAppointment) {
-            $oldPrice = $pendingAppointment->price;
-            $newPrice = $pendingAppointment->calculatePrice();
-            
-            if ($oldPrice != $newPrice) {
-                $pendingAppointment->update(['price' => $newPrice]);
-                $this->line("Pending Appointment ID {$pendingAppointment->id}: {$pendingAppointment->appointment_type} - ₱{$oldPrice} → ₱{$newPrice}");
-                $fixedCount++;
-            }
-        }
-        
-        $this->info("Fixed {$fixedCount} appointment prices.");
-        
-        return 0;
+
+        $this->info("Fixed {$fixed} appointments");
+        $this->info('Done!');
     }
 }

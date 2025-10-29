@@ -8,6 +8,7 @@ use App\Models\Appointment;
 use App\Models\Specialist;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class AdminAppointmentController extends Controller
 {
@@ -123,7 +124,9 @@ class AdminAppointmentController extends Controller
     public function specialists()
     {
         try {
-            $specialists = Specialist::where('status', 'Active')
+            $specialists = Specialist::when(Schema::hasColumn('specialists', 'status'), function($query) {
+                    return $query->where('status', 'Active');
+                })
                 ->orderBy('role')
                 ->orderBy('name')
                 ->get();

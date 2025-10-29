@@ -2,15 +2,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
+import SharedNavigation from '@/components/SharedNavigation';
 import { Head } from '@inertiajs/react';
 import { Calendar, CheckCircle, Clock, FileText, Heart } from 'lucide-react';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Patient Dashboard', href: '/patient/dashboard' },
-    { title: 'Test Results', href: '/patient/test-results' },
-];
 
 interface PatientTestResultsProps {
     user: {
@@ -54,6 +49,16 @@ interface PatientTestResultsProps {
             completed_tests: number;
         };
     };
+    notifications?: Array<{
+        id: number;
+        type: string;
+        title: string;
+        message: string;
+        read: boolean;
+        created_at: string;
+        data: any;
+    }>;
+    unreadCount?: number;
 }
 
 const getStatusBadge = (status: string) => {
@@ -76,15 +81,15 @@ const getResultStatusBadge = (result: any) => {
     }
 };
 
-export default function PatientTestResults({ user, patient, testResults }: PatientTestResultsProps) {
+export default function PatientTestResults({ user, patient, testResults, notifications = [], unreadCount = 0 }: PatientTestResultsProps) {
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Test Results" />
+        <div className="min-h-screen bg-white">
+            <Head title="Test Results - SJHI Industrial Clinic" />
+            
+            {/* Shared Navigation */}
+            <SharedNavigation user={user} currentPath="/patient/test-results" notifications={notifications} unreadCount={unreadCount} />
+            
             <div className="min-h-screen bg-gray-50 p-6">
-                <div className="mb-8">
-                    <h1 className="text-4xl font-bold text-black">Test Results</h1>
-                    <p className="text-gray-500">View your laboratory test results and track pending tests</p>
-                </div>
 
                 {/* Summary Cards */}
                 <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -283,6 +288,6 @@ export default function PatientTestResults({ user, patient, testResults }: Patie
                     </Card>
                 )}
             </div>
-        </AppLayout>
+        </div>
     );
 }

@@ -19,7 +19,11 @@ class BillingReportController extends Controller
             $dateTo = $request->get('date_to', now()->endOfMonth()->format('Y-m-d'));
             
             // Get revenue data (billing transactions)
-            $revenueData = BillingTransaction::whereBetween('transaction_date', [$dateFrom, $dateTo])
+            // Convert date strings to datetime range for proper filtering
+            $startDateTime = $dateFrom . ' 00:00:00';
+            $endDateTime = $dateTo . ' 23:59:59';
+            
+            $revenueData = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
                 ->with(['patient', 'doctor'])
                 ->orderBy('transaction_date', 'desc')
                 ->get();
@@ -33,9 +37,9 @@ class BillingReportController extends Controller
             
             // Calculate summary
             $summary = [
-                'total_revenue' => $revenueData->sum('total_amount'),
+                'total_revenue' => $revenueData->sum('amount'), // Use final amount after discounts
                 'total_doctor_payments' => $doctorPaymentData->sum('amount_paid'),
-                'net_profit' => $revenueData->sum('total_amount') - $doctorPaymentData->sum('amount_paid'),
+                'net_profit' => $revenueData->sum('amount') - $doctorPaymentData->sum('amount_paid'), // Use final amount after discounts
                 'revenue_count' => $revenueData->count(),
             ];
             
@@ -104,7 +108,9 @@ class BillingReportController extends Controller
 
             Log::info('Generating daily report', [
                 'date' => $date,
-                'user_id' => auth()->id()
+                'user_id' => auth()->id(),
+                'current_date' => now()->format('Y-m-d'),
+                'request_all' => $request->all()
             ]);
 
             // Validate date format
@@ -132,6 +138,11 @@ class BillingReportController extends Controller
                 'patient_name' => $transaction->patient_name,
                 'specialist_name' => $transaction->specialist_name,
                 'amount' => $transaction->amount,
+                'total_amount' => $transaction->total_amount,
+                'final_amount' => $transaction->final_amount,
+                'discount_amount' => $transaction->discount_amount,
+                'senior_discount_amount' => $transaction->senior_discount_amount,
+                'is_senior_citizen' => $transaction->is_senior_citizen,
                 'payment_method' => $transaction->payment_method,
                 'status' => $transaction->status,
                 'description' => $transaction->description,
@@ -184,11 +195,18 @@ class BillingReportController extends Controller
     {
         $month = $request->get('month', now()->format('Y-m'));
 
-        // Get all transactions for the month
+        // Get all transactions for the month, but only the LATEST transaction for each appointment
         $billingTransactions = BillingTransaction::whereYear('transaction_date', substr($month, 0, 4))
             ->whereMonth('transaction_date', substr($month, 5, 2))
-            ->with(['patient', 'doctor', 'appointmentLinks.appointment'])
-            ->get();
+            ->with(['patient', 'doctor', 'appointmentLinks.appointment', 'items'])
+            ->get()
+            ->groupBy('appointment_id')
+            ->map(function ($transactions) {
+                // Return only the latest transaction for each appointment
+                return $transactions->sortByDesc('created_at')->first();
+            })
+            ->filter() // Remove null values
+            ->values();
 
         $doctorPayments = DoctorPayment::whereYear('payment_date', substr($month, 0, 4))
             ->whereMonth('payment_date', substr($month, 5, 2))
@@ -197,24 +215,53 @@ class BillingReportController extends Controller
 
         $expenses = collect(); // Expense model removed
 
+        // Group transactions by patient and specialist to consolidate duplicates
+        $consolidatedTransactions = [];
+        
+        foreach ($billingTransactions as $transaction) {
+            $key = $transaction->patient_id . '_' . $transaction->doctor_id;
+            
+            if (!isset($consolidatedTransactions[$key])) {
+                $consolidatedTransactions[$key] = [
+                    'transaction' => $transaction,
+                    'total_amount' => 0,
+                    'items_count' => 0,
+                    'appointments_count' => 0,
+                    'all_transactions' => []
+                ];
+            }
+            
+            $consolidatedTransactions[$key]['total_amount'] += $transaction->amount; // Use final amount after discounts
+            $consolidatedTransactions[$key]['items_count'] += $transaction->items->count();
+            $consolidatedTransactions[$key]['appointments_count'] += $transaction->appointmentLinks->count();
+            $consolidatedTransactions[$key]['all_transactions'][] = $transaction;
+        }
+
         // Combine all transactions
         $allTransactions = collect();
 
-        // Add billing transactions
-        foreach ($billingTransactions as $transaction) {
+        // Add consolidated billing transactions
+        foreach ($consolidatedTransactions as $key => $consolidated) {
+            $primaryTransaction = $consolidated['transaction'];
+            
+            // Use the most recent transaction ID as the primary one
+            $latestTransaction = collect($consolidated['all_transactions'])
+                ->sortByDesc('created_at')
+                ->first();
+            
             $allTransactions->push((object) [
-                'id' => $transaction->id,
+                'id' => $latestTransaction->id,
                 'type' => 'billing',
-                'transaction_id' => $transaction->transaction_id,
-                'patient_name' => $this->getPatientName($transaction),
-                'specialist_name' => $this->getSpecialistName($transaction),
-                'amount' => $transaction->total_amount,
-                'payment_method' => $transaction->payment_method,
-                'status' => $transaction->status,
-                'description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',
-                'time' => $transaction->transaction_date,
-                'items_count' => $transaction->appointmentLinks->count(), // Use appointmentLinks instead of items
-                'appointments_count' => $transaction->appointmentLinks->count(),
+                'transaction_id' => $latestTransaction->transaction_id,
+                'patient_name' => $this->getPatientName($primaryTransaction),
+                'specialist_name' => $this->getSpecialistName($primaryTransaction),
+                'amount' => $consolidated['total_amount'],
+                'payment_method' => $primaryTransaction->payment_method,
+                'status' => $primaryTransaction->status,
+                'description' => $primaryTransaction->description ?: 'Payment for ' . $consolidated['appointments_count'] . ' appointment(s)',
+                'time' => $primaryTransaction->transaction_date,
+                'items_count' => $consolidated['items_count'],
+                'appointments_count' => $consolidated['appointments_count'],
             ]);
         }
 
@@ -241,12 +288,12 @@ class BillingReportController extends Controller
         // Sort by time
         $allTransactions = $allTransactions->sortBy('time');
 
-        // Calculate summary
+        // Calculate summary using filtered transactions
         $summary = [
-            'total_revenue' => $billingTransactions->sum('total_amount'),
+            'total_revenue' => $billingTransactions->sum('amount'), // Use final amount after discounts
             'total_doctor_payments' => $doctorPayments->sum('amount_paid'),
             'total_expenses' => 0, // Expense model removed
-            'net_profit' => $billingTransactions->sum('total_amount') - $doctorPayments->sum('amount_paid'), // Expenses removed
+            'net_profit' => $billingTransactions->sum('amount') - $doctorPayments->sum('amount_paid'), // Use final amount after discounts
             'transaction_count' => $billingTransactions->count(),
             'expense_count' => 0, // Expense model removed
             'doctor_payment_count' => $doctorPayments->count(),
@@ -264,10 +311,17 @@ class BillingReportController extends Controller
     {
         $year = $request->get('year', now()->format('Y'));
 
-        // Get all transactions for the year
+        // Get all transactions for the year, but only the LATEST transaction for each appointment
         $billingTransactions = BillingTransaction::whereYear('transaction_date', $year)
-            ->with(['patient', 'doctor', 'appointmentLinks.appointment'])
-            ->get();
+            ->with(['patient', 'doctor', 'appointmentLinks.appointment', 'items'])
+            ->get()
+            ->groupBy('appointment_id')
+            ->map(function ($transactions) {
+                // Return only the latest transaction for each appointment
+                return $transactions->sortByDesc('created_at')->first();
+            })
+            ->filter() // Remove null values
+            ->values();
 
         $doctorPayments = DoctorPayment::whereYear('payment_date', $year)
             ->with(['doctor'])
@@ -275,24 +329,53 @@ class BillingReportController extends Controller
 
         $expenses = collect(); // Expense model removed
 
+        // Group transactions by patient and specialist to consolidate duplicates
+        $consolidatedTransactions = [];
+        
+        foreach ($billingTransactions as $transaction) {
+            $key = $transaction->patient_id . '_' . $transaction->doctor_id;
+            
+            if (!isset($consolidatedTransactions[$key])) {
+                $consolidatedTransactions[$key] = [
+                    'transaction' => $transaction,
+                    'total_amount' => 0,
+                    'items_count' => 0,
+                    'appointments_count' => 0,
+                    'all_transactions' => []
+                ];
+            }
+            
+            $consolidatedTransactions[$key]['total_amount'] += $transaction->amount; // Use final amount after discounts
+            $consolidatedTransactions[$key]['items_count'] += $transaction->items->count();
+            $consolidatedTransactions[$key]['appointments_count'] += $transaction->appointmentLinks->count();
+            $consolidatedTransactions[$key]['all_transactions'][] = $transaction;
+        }
+
         // Combine all transactions
         $allTransactions = collect();
 
-        // Add billing transactions
-        foreach ($billingTransactions as $transaction) {
+        // Add consolidated billing transactions
+        foreach ($consolidatedTransactions as $key => $consolidated) {
+            $primaryTransaction = $consolidated['transaction'];
+            
+            // Use the most recent transaction ID as the primary one
+            $latestTransaction = collect($consolidated['all_transactions'])
+                ->sortByDesc('created_at')
+                ->first();
+            
             $allTransactions->push((object) [
-                'id' => $transaction->id,
+                'id' => $latestTransaction->id,
                 'type' => 'billing',
-                'transaction_id' => $transaction->transaction_id,
-                'patient_name' => $this->getPatientName($transaction),
-                'specialist_name' => $this->getSpecialistName($transaction),
-                'amount' => $transaction->total_amount,
-                'payment_method' => $transaction->payment_method,
-                'status' => $transaction->status,
-                'description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',
-                'time' => $transaction->transaction_date,
-                'items_count' => $transaction->appointmentLinks->count(), // Use appointmentLinks instead of items
-                'appointments_count' => $transaction->appointmentLinks->count(),
+                'transaction_id' => $latestTransaction->transaction_id,
+                'patient_name' => $this->getPatientName($primaryTransaction),
+                'specialist_name' => $this->getSpecialistName($primaryTransaction),
+                'amount' => $consolidated['total_amount'],
+                'payment_method' => $primaryTransaction->payment_method,
+                'status' => $primaryTransaction->status,
+                'description' => $primaryTransaction->description ?: 'Payment for ' . $consolidated['appointments_count'] . ' appointment(s)',
+                'time' => $primaryTransaction->transaction_date,
+                'items_count' => $consolidated['items_count'],
+                'appointments_count' => $consolidated['appointments_count'],
             ]);
         }
 
@@ -319,12 +402,12 @@ class BillingReportController extends Controller
         // Sort by time
         $allTransactions = $allTransactions->sortBy('time');
 
-        // Calculate summary
+        // Calculate summary using filtered transactions
         $summary = [
-            'total_revenue' => $billingTransactions->sum('total_amount'),
+            'total_revenue' => $billingTransactions->sum('amount'), // Use final amount after discounts
             'total_doctor_payments' => $doctorPayments->sum('amount_paid'),
             'total_expenses' => 0, // Expense model removed
-            'net_profit' => $billingTransactions->sum('total_amount') - $doctorPayments->sum('amount_paid'), // Expenses removed
+            'net_profit' => $billingTransactions->sum('amount') - $doctorPayments->sum('amount_paid'), // Use final amount after discounts
             'transaction_count' => $billingTransactions->count(),
             'expense_count' => 0, // Expense model removed
             'doctor_payment_count' => $doctorPayments->count(),
@@ -347,7 +430,11 @@ class BillingReportController extends Controller
         $doctorId = $request->get('doctor_id', 'all');
 
         // Build query
-        $query = BillingTransaction::whereBetween('transaction_date', [$dateFrom, $dateTo])
+        // Convert date strings to datetime range for proper filtering
+        $startDateTime = $dateFrom . ' 00:00:00';
+        $endDateTime = $dateTo . ' 23:59:59';
+        
+        $query = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
             ->with(['patient', 'doctor', 'appointmentLinks.appointment']);
 
         // Apply filters
@@ -361,48 +448,19 @@ class BillingReportController extends Controller
             $query->where('doctor_id', $doctorId);
         }
 
-        // Get paginated transactions
-        $transactions = $query->orderBy('transaction_date', 'desc')->paginate(20);
-
-        // Transform transactions to include patient_name and doctor_name
-        $transactions->getCollection()->transform(function ($transaction) {
-            $transaction->patient_name = $transaction->patient ? $transaction->patient->first_name . ' ' . $transaction->patient->last_name : 'N/A';
-            $transaction->doctor_name = $transaction->doctor ? $transaction->doctor->name : 'N/A';
-            return $transaction;
-        });
+        $transactions = $query->get();
 
         // Calculate summary
-        $allTransactions = $query->get();
         $summary = [
-            'total_revenue' => $allTransactions->sum('total_amount'),
-            'total_transactions' => $allTransactions->count(),
-            'average_transaction' => $allTransactions->count() > 0 ? $allTransactions->avg('total_amount') : 0,
-            'date_from' => $dateFrom,
-            'date_to' => $dateTo,
-        ];
-
-        // Get filter options
-        $filterOptions = [
-            'doctors' => \App\Models\User::where('role', 'doctor')->select('id', 'name')->get(),
-            'departments' => ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'General Medicine'],
-            'statuses' => ['paid', 'pending', 'cancelled', 'refunded'],
-            'payment_methods' => ['cash', 'card', 'hmo', 'insurance'],
-            'hmo_providers' => ['Maxicare', 'PhilHealth', 'Intellicare', 'Medicard'],
-        ];
-
-        // Metadata
-        $metadata = [
-            'generated_at' => now()->toISOString(),
-            'generated_by' => auth()->user()->name ?? 'System',
-            'generated_by_role' => auth()->user()->role ?? 'User',
-            'system_version' => '1.0.0',
+            'total_revenue' => $transactions->sum('amount'), // Use final amount after discounts
+            'total_transactions' => $transactions->count(),
+            'paid_transactions' => $transactions->where('status', 'paid')->count(),
+            'pending_transactions' => $transactions->where('status', 'pending')->count(),
         ];
 
         return inertia('admin/billing/transaction-report', [
             'transactions' => $transactions,
             'summary' => $summary,
-            'filterOptions' => $filterOptions,
-            'metadata' => $metadata,
             'filters' => [
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
@@ -429,8 +487,28 @@ class BillingReportController extends Controller
 
         $doctorPayments = $query->get();
 
+        // Group doctor payments by doctor
+        $doctorPaymentsGrouped = $doctorPayments->groupBy('doctor_id')
+            ->map(function ($payments, $doctorId) {
+                $doctor = $payments->first()->doctor;
+                return [
+                    'doctor' => [
+                        'id' => $doctorId,
+                        'name' => $doctor ? $doctor->name : 'Unknown Doctor',
+                    ],
+                    'total_paid' => $payments->where('status', 'paid')->sum('net_payment'),
+                    'pending_amount' => $payments->where('status', 'pending')->sum('net_payment'),
+                    'payment_count' => $payments->count(),
+                    'paid_payments' => $payments->where('status', 'paid')->count(),
+                ];
+            });
+
         // Get revenue by doctor
-        $revenueQuery = BillingTransaction::whereBetween('transaction_date', [$dateFrom, $dateTo])
+        // Convert date strings to datetime range for proper filtering
+        $startDateTime = $dateFrom . ' 00:00:00';
+        $endDateTime = $dateTo . ' 23:59:59';
+        
+        $revenueQuery = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
             ->where('status', 'paid')
             ->with(['doctor']);
 
@@ -443,25 +521,33 @@ class BillingReportController extends Controller
             ->map(function ($transactions, $doctorId) {
                 $doctor = $transactions->first()->doctor;
                 return [
-                    'doctor_id' => $doctorId,
-                    'doctor_name' => $doctor ? $doctor->name : 'Unknown',
-                    'total_revenue' => $transactions->sum('total_amount'),
+                    'doctor' => [
+                        'id' => $doctorId,
+                        'name' => $doctor ? $doctor->name : 'Unknown Doctor',
+                    ],
+                    'total_revenue' => $transactions->sum('amount'), // Use final amount after discounts
                     'transaction_count' => $transactions->count(),
                 ];
             });
 
         // Calculate summary
         $summary = [
-            'total_doctor_payments' => $doctorPayments->sum('amount_paid'),
+            'total_doctor_payments' => $doctorPayments->where('status', 'paid')->sum('net_payment'),
             'total_doctor_revenue' => $revenueByDoctor->sum('total_revenue'),
-            'doctors_count' => $doctorPayments->groupBy('doctor_id')->count(),
+            'doctors_count' => $doctorPaymentsGrouped->count(),
         ];
 
-        // Get all doctors for filter
-        $doctors = \App\Models\User::where('role', 'doctor')->get(['id', 'name']);
+        // Get all doctors for filter from specialists table
+        $doctors = \App\Models\Specialist::where('role', 'Doctor')
+            ->when(\Schema::hasColumn('specialists', 'status'), function($query) {
+                return $query->where('status', 'Active');
+            })
+            ->select('specialist_id as id', 'name', 'specialization')
+            ->orderBy('name')
+            ->get();
 
         return inertia('admin/billing/doctor-summary', [
-            'doctorPayments' => $doctorPayments,
+            'doctorPayments' => $doctorPaymentsGrouped,
             'revenueByDoctor' => $revenueByDoctor,
             'summary' => $summary,
             'doctors' => $doctors,
@@ -473,48 +559,119 @@ class BillingReportController extends Controller
         ]);
     }
 
-    public function hmoReport(Request $request)
+    /**
+     * Export doctor summary report
+     */
+    public function exportDoctorSummary(Request $request)
     {
         $dateFrom = $request->get('date_from', now()->subDays(30)->format('Y-m-d'));
         $dateTo = $request->get('date_to', now()->format('Y-m-d'));
+        $doctorId = $request->get('doctor_id', 'all');
+        $format = $request->get('format', 'excel');
 
-        // Get HMO transactions
-        $hmoTransactions = BillingTransaction::whereBetween('transaction_date', [$dateFrom, $dateTo])
-            ->where('payment_method', 'hmo')
-            ->whereNotNull('hmo_provider')
-            ->with(['patient', 'doctor', 'appointmentLinks.appointment'])
-            ->get();
+        try {
+            // Get doctor payments
+            $query = DoctorPayment::whereBetween('payment_date', [$dateFrom, $dateTo])
+                ->with(['doctor']);
 
-        // Group by HMO provider
-        $hmoSummary = $hmoTransactions->groupBy('hmo_provider')
-            ->map(function ($transactions, $provider) {
-                return [
-                    'provider' => $provider,
-                    'total_amount' => $transactions->sum('total_amount'),
-                    'transaction_count' => $transactions->count(),
-                    'paid_count' => $transactions->where('status', 'paid')->count(),
-                    'pending_count' => $transactions->where('status', 'pending')->count(),
+            if ($doctorId !== 'all') {
+                $query->where('doctor_id', $doctorId);
+            }
+
+            $doctorPayments = $query->get();
+
+            // Group doctor payments by doctor
+            $doctorPaymentsGrouped = $doctorPayments->groupBy('doctor_id')
+                ->map(function ($payments, $doctorId) {
+                    $doctor = $payments->first()->doctor;
+                    return [
+                        'doctor' => [
+                            'id' => $doctorId,
+                            'name' => $doctor ? $doctor->name : 'Unknown Doctor',
+                        ],
+                        'total_paid' => $payments->where('status', 'paid')->sum('net_payment'),
+                        'pending_amount' => $payments->where('status', 'pending')->sum('net_payment'),
+                        'payment_count' => $payments->count(),
+                        'paid_payments' => $payments->where('status', 'paid')->count(),
+                    ];
+                });
+
+            // Get revenue by doctor
+            $startDateTime = $dateFrom . ' 00:00:00';
+            $endDateTime = $dateTo . ' 23:59:59';
+            
+            $revenueQuery = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
+                ->where('status', 'paid')
+                ->with(['doctor']);
+
+            if ($doctorId !== 'all') {
+                $revenueQuery->where('doctor_id', $doctorId);
+            }
+
+            $revenueByDoctor = $revenueQuery->get()
+                ->groupBy('doctor_id')
+                ->map(function ($transactions, $doctorId) {
+                    $doctor = $transactions->first()->doctor;
+                    return [
+                        'doctor' => [
+                            'id' => $doctorId,
+                            'name' => $doctor ? $doctor->name : 'Unknown Doctor',
+                        ],
+                        'total_revenue' => $transactions->sum('amount'), // Use final amount after discounts
+                        'transaction_count' => $transactions->count(),
+                    ];
+                });
+
+            // Calculate summary
+            $summary = [
+                'total_doctors' => $doctorPaymentsGrouped->count(),
+                'total_payments' => $doctorPayments->count(),
+                'total_paid' => $doctorPayments->where('status', 'paid')->sum('net_payment'),
+                'total_pending' => $doctorPayments->where('status', 'pending')->sum('net_payment'),
+                'total_revenue' => $revenueByDoctor->sum('total_revenue'),
+            ];
+
+            // Create export data
+            $exportData = [];
+            foreach ($doctorPaymentsGrouped as $doctorId => $paymentData) {
+                $revenueData = $revenueByDoctor->get($doctorId, ['total_revenue' => 0, 'transaction_count' => 0]);
+                
+                $exportData[] = [
+                    'Doctor Name' => $paymentData['doctor']['name'],
+                    'Total Paid' => number_format($paymentData['total_paid'], 2),
+                    'Pending Amount' => number_format($paymentData['pending_amount'], 2),
+                    'Payment Count' => $paymentData['payment_count'],
+                    'Paid Payments' => $paymentData['paid_payments'],
+                    'Total Revenue' => number_format($revenueData['total_revenue'], 2),
+                    'Transaction Count' => $revenueData['transaction_count'],
                 ];
-            });
+            }
 
-        // Calculate summary
-        $summary = [
-            'total_hmo_revenue' => $hmoTransactions->sum('total_amount'),
-            'total_hmo_transactions' => $hmoTransactions->count(),
-            'hmo_providers_count' => $hmoSummary->count(),
-            'paid_hmo_transactions' => $hmoTransactions->where('status', 'paid')->count(),
-            'pending_hmo_transactions' => $hmoTransactions->where('status', 'pending')->count(),
-        ];
+            if ($format === 'pdf') {
+                $filename = 'Doctor_Summary_Report_' . now()->format('Y-m-d') . '.pdf';
+                $html = $this->buildHtmlTable('Doctor Summary Report - ' . $dateFrom . ' to ' . $dateTo, $exportData);
+                return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)->download($filename);
+            }
+            
+            $filename = 'Doctor_Summary_Report_' . now()->format('Y-m-d') . '.xlsx';
 
-        return inertia('admin/billing/hmo-report', [
-            'hmoTransactions' => $hmoTransactions,
-            'hmoSummary' => $hmoSummary,
-            'summary' => $summary,
-            'filters' => [
-                'date_from' => $dateFrom,
-                'date_to' => $dateTo,
-            ]
-        ]);
+            return \Maatwebsite\Excel\Facades\Excel::download(
+                new \App\Exports\ArrayExport($exportData, 'Doctor Summary Report - ' . $dateFrom . ' to ' . $dateTo),
+                $filename,
+                \Maatwebsite\Excel\Excel::XLSX
+            );
+
+        } catch (\Exception $e) {
+            \Log::error('Doctor Summary Export Error: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Failed to export doctor summary report. Please try again.']);
+        }
+    }
+
+    public function hmoReport(Request $request)
+    {
+        // Redirect to the enhanced HMO report with the same parameters
+        $queryParams = $request->query();
+        return redirect()->route('admin.billing.enhanced-hmo-report.index', $queryParams);
     }
 
     public function exportAll(Request $request)
@@ -524,7 +681,11 @@ class BillingReportController extends Controller
         $format = $request->get('format', 'excel');
 
         // Get all data
-        $billingTransactions = BillingTransaction::whereBetween('transaction_date', [$dateFrom, $dateTo])
+        // Convert date strings to datetime range for proper filtering
+        $startDateTime = $dateFrom . ' 00:00:00';
+        $endDateTime = $dateTo . ' 23:59:59';
+        
+        $billingTransactions = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
             ->with(['patient', 'doctor', 'appointmentLinks.appointment'])
             ->get();
 
@@ -544,7 +705,7 @@ class BillingReportController extends Controller
                 'Transaction ID' => $transaction->transaction_id,
                 'Patient Name' => $this->getPatientName($transaction),
                 'Specialist' => $this->getSpecialistName($transaction),
-                'Amount' => $transaction->total_amount,
+                'Amount' => $transaction->amount, // Use final amount after discounts
                 'Payment Method' => $transaction->payment_method,
                 'HMO Provider' => $transaction->hmo_provider ?? 'N/A',
                 'Status' => $transaction->status,
@@ -652,55 +813,58 @@ class BillingReportController extends Controller
 
     private function syncDailyTransactions($date)
     {
+        Log::info('Syncing daily transactions', [
+            'date' => $date,
+            'current_time' => now()->format('Y-m-d H:i:s')
+        ]);
+
         // Clear existing records for the date
         DailyTransaction::where('transaction_date', $date)->delete();
 
-        // Get all transactions for the date
+        // Get all billing transactions for the date (including doctor payments)
         $billingTransactions = BillingTransaction::whereDate('transaction_date', $date)
-            ->with(['patient', 'doctor', 'appointmentLinks.appointment'])
+            ->with(['patient', 'doctor', 'appointmentLinks.appointment', 'items'])
             ->get();
 
-        $doctorPayments = DoctorPayment::whereDate('payment_date', $date)
-            ->with(['doctor'])
-            ->get();
+        Log::info('Found billing transactions for sync', [
+            'date' => $date,
+            'count' => $billingTransactions->count(),
+            'transactions' => $billingTransactions->map(function($txn) {
+                return [
+                    'id' => $txn->transaction_id,
+                    'date' => $txn->transaction_date,
+                    'amount' => $txn->amount, // Use final amount after discounts
+                    'payment_type' => $txn->payment_type
+                ];
+            })->toArray()
+        ]);
 
         $expenses = collect(); // Expense model removed
 
-        // Sync billing transactions
+        // Create daily transactions from billing transactions
         foreach ($billingTransactions as $transaction) {
+            $transactionType = $transaction->payment_type === 'doctor_payment' ? 'doctor_payment' : 'billing';
+            $amount = $transaction->payment_type === 'doctor_payment' ? -$transaction->total_amount : $transaction->amount;
+            
             DailyTransaction::create([
                 'transaction_date' => $date,
-                'transaction_type' => 'billing',
+                'transaction_type' => $transactionType,
                 'transaction_id' => $transaction->transaction_id,
-                'patient_name' => $this->getPatientName($transaction),
+                'patient_name' => $transaction->payment_type === 'doctor_payment' ? 'Doctor Payment' : $this->getPatientName($transaction),
                 'specialist_name' => $this->getSpecialistName($transaction),
-                'amount' => $transaction->total_amount,
+                'amount' => $amount,
+                'total_amount' => $transaction->total_amount, // Original amount before discount
+                'final_amount' => $transaction->amount, // Final amount after discount
+                'discount_amount' => $transaction->discount_amount ?? 0,
+                'senior_discount_amount' => $transaction->senior_discount_amount ?? 0,
+                'is_senior_citizen' => $transaction->is_senior_citizen ?? false,
                 'payment_method' => $transaction->payment_method,
                 'status' => $transaction->status,
-                'description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',
-                'items_count' => $transaction->appointmentLinks->count(), // Count appointment links instead of items
+                'description' => $transaction->description ?: ($transaction->payment_type === 'doctor_payment' ? 'Doctor Payment - Incentives' : 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)'),
+                'items_count' => $transaction->items->count(),
                 'appointments_count' => $transaction->appointmentLinks->count(),
                 'original_transaction_id' => $transaction->id,
                 'original_table' => 'billing_transactions',
-            ]);
-        }
-
-        // Sync doctor payments
-        foreach ($doctorPayments as $payment) {
-            DailyTransaction::create([
-                'transaction_date' => $date,
-                'transaction_type' => 'doctor_payment',
-                'transaction_id' => 'DP-' . $payment->id,
-                'patient_name' => 'Doctor Payment',
-                'specialist_name' => $payment->doctor ? $payment->doctor->name : 'Unknown Doctor',
-                'amount' => -$payment->amount_paid,
-                'payment_method' => $payment->payment_method ?? 'cash',
-                'status' => $payment->status,
-                'description' => 'Doctor Payment - ' . $payment->description,
-                'items_count' => 0,
-                'appointments_count' => 0,
-                'original_transaction_id' => $payment->id,
-                'original_table' => 'doctor_payments',
             ]);
         }
 
@@ -740,7 +904,7 @@ class BillingReportController extends Controller
                 'Transaction ID' => $transaction->transaction_id,
                 'Patient Name' => $this->getPatientName($transaction),
                 'Specialist' => $this->getSpecialistName($transaction),
-                'Amount' => $transaction->total_amount,
+                'Amount' => $transaction->amount, // Use final amount after discounts
                 'Payment Method' => $transaction->payment_method,
                 'Status' => $transaction->status,
                 'Description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',
@@ -845,7 +1009,7 @@ class BillingReportController extends Controller
                 'Transaction ID' => $transaction->transaction_id,
                 'Patient Name' => $this->getPatientName($transaction),
                 'Specialist' => $this->getSpecialistName($transaction),
-                'Amount' => $transaction->total_amount,
+                'Amount' => $transaction->amount, // Use final amount after discounts
                 'Payment Method' => $transaction->payment_method,
                 'Status' => $transaction->status,
                 'Description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',
@@ -937,7 +1101,7 @@ class BillingReportController extends Controller
                 'Transaction ID' => $transaction->transaction_id,
                 'Patient Name' => $this->getPatientName($transaction),
                 'Specialist' => $this->getSpecialistName($transaction),
-                'Amount' => $transaction->total_amount,
+                'Amount' => $transaction->amount, // Use final amount after discounts
                 'Payment Method' => $transaction->payment_method,
                 'Status' => $transaction->status,
                 'Description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',

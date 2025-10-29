@@ -8,6 +8,19 @@ import { PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
+import {
+    ColumnDef,
+    ColumnFiltersState,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+    VisibilityState,
+} from '@tanstack/react-table';
+import * as React from 'react';
 import { 
     Package, 
     BarChart3,
@@ -30,9 +43,118 @@ import {
     Trash2,
     Save,
     ArrowUp,
-    ArrowDown
+    ArrowDown,
+    ArrowUpDown,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight
 } from 'lucide-react';
 import { useState } from 'react';
+
+// Column definitions for the Recent Movements table
+const createMovementColumns = (): ColumnDef<any>[] => [
+    {
+        accessorKey: "created_at",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Date
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const date = new Date(row.getValue("created_at"));
+            return (
+                <div className="text-sm">
+                    {date.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    })}
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "inventory_item.item_name",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Item Name
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">{row.original.inventory_item?.item_name || 'N/A'}</div>
+        ),
+    },
+    {
+        accessorKey: "movement_type",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Type
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const type = row.getValue("movement_type") as string;
+            return (
+                <Badge variant={type === 'IN' ? 'default' : 'destructive'}>
+                    {type}
+                </Badge>
+            );
+        },
+    },
+    {
+        accessorKey: "quantity",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Quantity
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="text-center">{row.getValue("quantity")}</div>
+        ),
+    },
+    {
+        accessorKey: "created_by",
+        header: "Handled By",
+        cell: ({ row }) => (
+            <div className="text-sm">{row.getValue("created_by") || 'N/A'}</div>
+        ),
+    },
+    {
+        accessorKey: "remarks",
+        header: "Remarks",
+        cell: ({ row }) => (
+            <div className="text-sm">{row.getValue("remarks") || 'N/A'}</div>
+        ),
+    },
+];
 
 type InOutSuppliesData = {
     summary: {
@@ -94,6 +216,46 @@ export default function InOutSuppliesReport({
 }: InOutSuppliesReportProps) {
     const [selectedFormat, setSelectedFormat] = useState('pdf');
     const [saveReport, setSaveReport] = useState(false);
+
+    // TanStack Table state for Recent Movements
+    const [sorting, setSorting] = React.useState<SortingState>([]);
+    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+    const [rowSelection, setRowSelection] = React.useState({});
+    const [globalFilter, setGlobalFilter] = React.useState('');
+
+    // Initialize table for Recent Movements
+    const movementColumns = createMovementColumns();
+    const movementTable = useReactTable({
+        data: data.movements || [],
+        columns: movementColumns,
+        onSortingChange: setSorting,
+        onColumnFiltersChange: setColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onColumnVisibilityChange: setColumnVisibility,
+        onRowSelectionChange: setRowSelection,
+        onGlobalFilterChange: setGlobalFilter,
+        globalFilterFn: (row, columnId, value) => {
+            const search = value.toLowerCase();
+            const movement = row.original;
+            return Boolean(
+                movement.inventory_item?.item_name?.toLowerCase().includes(search) ||
+                movement.movement_type?.toLowerCase().includes(search) ||
+                movement.created_by?.toLowerCase().includes(search) ||
+                movement.remarks?.toLowerCase().includes(search)
+            );
+        },
+        state: {
+            sorting,
+            columnFilters,
+            columnVisibility,
+            rowSelection,
+            globalFilter,
+        },
+    });
 
     const handleExport = (format: string) => {
         // Create export URL with current filters
@@ -357,37 +519,61 @@ export default function InOutSuppliesReport({
                         {/* Recent Movements */}
                         <div className="mb-6">
                             <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Movements</h3>
-                            <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                <Table>
-                                    <TableHeader className="bg-gray-50">
-                                        <TableRow>
-                                            <TableHead className="font-semibold text-black">Date</TableHead>
-                                            <TableHead className="font-semibold text-black">Item Name</TableHead>
-                                            <TableHead className="font-semibold text-black">Type</TableHead>
-                                            <TableHead className="font-semibold text-black">Quantity</TableHead>
-                                            <TableHead className="font-semibold text-black">Handled By</TableHead>
-                                            <TableHead className="font-semibold text-black">Remarks</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {data.movements && data.movements.length > 0 ? (
-                                            data.movements.map((movement, index) => (
-                                                <TableRow key={index}>
-                                                    <TableCell>{new Date(movement.created_at).toLocaleDateString()}</TableCell>
-                                                    <TableCell className="font-medium">{movement.inventory_item?.item_name || 'N/A'}</TableCell>
-                                                    <TableCell>
-                                                        <Badge variant={movement.movement_type === 'IN' ? 'default' : 'destructive'}>
-                                                            {movement.movement_type}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>{movement.quantity}</TableCell>
-                                                    <TableCell>{movement.created_by || 'N/A'}</TableCell>
-                                                    <TableCell>{movement.remarks || 'N/A'}</TableCell>
+                            
+                            {/* Table Controls */}
+                            <div className="flex items-center py-4">
+                                <Input
+                                    placeholder="Search movements..."
+                                    value={globalFilter ?? ""}
+                                    onChange={(event) => setGlobalFilter(event.target.value)}
+                                    className="max-w-sm"
+                                />
+                            </div>
+                                    
+                            {/* Table */}
+                            <div className="rounded-md border">
+                                        <Table>
+                                    <TableHeader>
+                                        {movementTable.getHeaderGroups().map((headerGroup) => (
+                                            <TableRow key={headerGroup.id}>
+                                                {headerGroup.headers.map((header) => {
+                                                    return (
+                                                        <TableHead key={header.id}>
+                                                            {header.isPlaceholder
+                                                                ? null
+                                                                : flexRender(
+                                                                    header.column.columnDef.header,
+                                                                    header.getContext()
+                                                        )}
+                                                    </TableHead>
+                                                    )
+                                                })}
+                                                </TableRow>
+                                        ))}
+                                            </TableHeader>
+                                            <TableBody>
+                                        {movementTable.getRowModel().rows?.length ? (
+                                            movementTable.getRowModel().rows.map((row) => (
+                                                <TableRow
+                                                    key={row.id}
+                                                    data-state={row.getIsSelected() && "selected"}
+                                                >
+                                                    {row.getVisibleCells().map((cell) => (
+                                                        <TableCell key={cell.id}>
+                                                            {flexRender(
+                                                                cell.column.columnDef.cell,
+                                                                cell.getContext()
+                                                            )}
+                                                        </TableCell>
+                                                    ))}
                                                 </TableRow>
                                             ))
                                         ) : (
                                             <TableRow>
-                                                <TableCell colSpan={6} className="text-center py-8">
+                                                <TableCell
+                                                    colSpan={movementColumns.length}
+                                                    className="h-24 text-center"
+                                                >
                                                     <div className="flex flex-col items-center">
                                                         <Activity className="mx-auto mb-4 h-12 w-12 text-gray-400" />
                                                         <h3 className="mb-2 text-lg font-semibold text-black">No movements found</h3>
@@ -396,8 +582,84 @@ export default function InOutSuppliesReport({
                                                 </TableCell>
                                             </TableRow>
                                         )}
-                                    </TableBody>
-                                </Table>
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                            
+                            {/* Pagination */}
+                            <div className="flex items-center justify-between px-2 py-4">
+                                <div className="text-muted-foreground flex-1 text-sm">
+                                    {movementTable.getFilteredSelectedRowModel().rows.length} of{" "}
+                                    {movementTable.getFilteredRowModel().rows.length} row(s) selected.
+                                </div>
+                                <div className="flex items-center space-x-6 lg:space-x-8">
+                                    <div className="flex items-center space-x-2">
+                                        <p className="text-sm font-medium">Rows per page</p>
+                                        <Select
+                                            value={`${movementTable.getState().pagination.pageSize}`}
+                                            onValueChange={(value) => {
+                                                movementTable.setPageSize(Number(value))
+                                            }}
+                                        >
+                                            <SelectTrigger className="h-8 w-[70px]">
+                                                <SelectValue placeholder={movementTable.getState().pagination.pageSize} />
+                                            </SelectTrigger>
+                                            <SelectContent side="top">
+                                                {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                        {pageSize}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                        Page {movementTable.getState().pagination.pageIndex + 1} of{" "}
+                                        {movementTable.getPageCount()}
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="hidden size-8 lg:flex"
+                                            onClick={() => movementTable.setPageIndex(0)}
+                                            disabled={!movementTable.getCanPreviousPage()}
+                                        >
+                                            <span className="sr-only">Go to first page</span>
+                                            <ChevronsLeft className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="size-8"
+                                            onClick={() => movementTable.previousPage()}
+                                            disabled={!movementTable.getCanPreviousPage()}
+                                        >
+                                            <span className="sr-only">Go to previous page</span>
+                                            <ChevronLeft className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="size-8"
+                                            onClick={() => movementTable.nextPage()}
+                                            disabled={!movementTable.getCanNextPage()}
+                                        >
+                                            <span className="sr-only">Go to next page</span>
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="hidden size-8 lg:flex"
+                                            onClick={() => movementTable.setPageIndex(movementTable.getPageCount() - 1)}
+                                            disabled={!movementTable.getCanNextPage()}
+                                        >
+                                            <span className="sr-only">Go to last page</span>
+                                            <ChevronsRight className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </PatientInfoCard>

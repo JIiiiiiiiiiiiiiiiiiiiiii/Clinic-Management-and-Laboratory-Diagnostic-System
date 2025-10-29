@@ -1,19 +1,233 @@
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useRoleAccess } from '@/hooks/useRoleAccess';
-import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
+import React, { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { Calendar, CheckCircle, Clock, Filter, Search, Stethoscope, Edit, Eye, UserCheck, CalendarDays, Users, X, Save, Trash2, Plus, ArrowRight } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import AppLayout from '@/layouts/app-layout';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    DropdownMenu,
+    DropdownMenuCheckboxItem,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+    ColumnDef,
+    ColumnFiltersState,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+    VisibilityState,
+} from '@tanstack/react-table';
+import { 
+    Eye, CheckCircle, XCircle, Clock, User, Calendar, Users, UserCheck, 
+    Heart, ArrowUpDown, ChevronDown, Search, Filter, RefreshCw, Plus, History,
+    MoreHorizontal, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight,
+    Stethoscope, CalendarDays, ArrowRight, Edit
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { type BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/admin/dashboard' },
+    { title: 'Patient Management', href: '/admin/patient' },
     { title: 'Visits', href: '/admin/visits' },
+];
+
+// Column definitions for the visits table
+const createColumns = (): ColumnDef<any>[] => [
+    {
+        accessorKey: "patient",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Patient
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const visit = row.original;
+            return (
+                <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-gray-500" />
+                    <div>
+                        <div className="font-medium">
+                            {visit.patient?.first_name} {visit.patient?.last_name}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                            {visit.patient?.patient_code || visit.patient?.sequence_number || visit.patient?.patient_no}
+                        </div>
+                    </div>
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "visit_date",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Date & Time
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const visit = row.original;
+            const dateTime = visit.visit_date_time_time || visit.visit_date_time || visit.visit_date;
+            return (
+                <div className="flex items-center gap-1 text-sm text-gray-500">
+                    <Calendar className="w-3 h-3" />
+                    {dateTime ? format(new Date(dateTime), 'MMM dd, yyyy HH:mm') : 'N/A'}
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "purpose",
+        header: "Purpose",
+        cell: ({ row }) => (
+            <div className="text-sm max-w-[200px] truncate" title={row.getValue("purpose")}>
+                {row.getValue("purpose") || "N/A"}
+            </div>
+        ),
+    },
+    {
+        accessorKey: "staff",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Staff
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const visit = row.original;
+            return (
+                <div>
+                    <div className="font-medium">{visit.staff?.name || 'No staff assigned'}</div>
+                    <div className="text-sm text-gray-500 capitalize">{visit.staff?.role || 'N/A'}</div>
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "status",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Status
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const status = row.getValue("status") as string;
+            const getStatusBadge = (status: string) => {
+                switch (status) {
+                    case 'scheduled':
+                        return <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200"><Clock className="w-3 h-3 mr-1" />Scheduled</Badge>;
+                    case 'in_progress':
+                        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200"><Clock className="w-3 h-3 mr-1" />In Progress</Badge>;
+                    case 'completed':
+                        return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200"><CheckCircle className="w-3 h-3 mr-1" />Completed</Badge>;
+                    case 'cancelled':
+                        return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200"><XCircle className="w-3 h-3 mr-1" />Cancelled</Badge>;
+                    default:
+                        return <Badge variant="outline">{status}</Badge>;
+                }
+            };
+            return getStatusBadge(status);
+        },
+    },
+    {
+        accessorKey: "visit_type",
+        header: "Type",
+        cell: ({ row }) => {
+            const type = row.getValue("visit_type") as string;
+            const getTypeBadge = (type: string) => {
+                switch (type) {
+                    case 'initial':
+                        return <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">Initial Visit</Badge>;
+                    case 'follow_up':
+                        return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">Follow-up</Badge>;
+                    case 'lab_result_review':
+                        return <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">Lab Review</Badge>;
+                    default:
+                        return <Badge variant="outline">{type}</Badge>;
+                }
+            };
+            return getTypeBadge(type);
+        },
+    },
+    {
+        id: "actions",
+        enableHiding: false,
+        cell: ({ row }) => {
+            const visit = row.original;
+
+            return (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem asChild>
+                            <Link href={`/admin/visits/${visit.id}`}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Details
+                            </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                            <Link href={`/admin/visits/${visit.id}/edit`}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit Visit
+                            </Link>
+                        </DropdownMenuItem>
+                        {visit.visit_type === 'initial' && (
+                            <DropdownMenuItem asChild>
+                                <Link href={`/admin/visits/${visit.id}/follow-up`}>
+                                    <ArrowRight className="mr-2 h-4 w-4" />
+                                    Create Follow-up
+                                </Link>
+                            </DropdownMenuItem>
+                        )}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )
+        },
+    },
 ];
 
 interface VisitsIndexProps {
@@ -56,540 +270,294 @@ export default function VisitsIndex({
     status_options = {}, 
     visit_type_options = {} 
 }: VisitsIndexProps) {
-    const { hasPermission } = useRoleAccess();
-    
-    const [searchTerm, setSearchTerm] = useState(filters.search || '');
-    const [statusFilter, setStatusFilter] = useState(filters.status || undefined);
-    const [visitTypeFilter, setVisitTypeFilter] = useState(filters.visit_type || undefined);
-    const [dateFromFilter, setDateFromFilter] = useState(filters.date_from || '');
-    const [dateToFilter, setDateToFilter] = useState(filters.date_to || '');
-    const [staffFilter, setStaffFilter] = useState(filters.staff_id || undefined);
-    const [sortBy, setSortBy] = useState(filters.sort_by || 'visit_date');
-    const [sortDir, setSortDir] = useState(filters.sort_dir || 'desc');
+    // TanStack Table state
+    const [sorting, setSorting] = useState<SortingState>([]);
+    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+    const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+    const [rowSelection, setRowSelection] = useState({});
+    const [globalFilter, setGlobalFilter] = useState(filters.search || '');
 
-    const handleSearch = () => {
-        router.get('/admin/visits', {
-            search: searchTerm,
-            status: statusFilter || '',
-            visit_type: visitTypeFilter || '',
-            date_from: dateFromFilter,
-            date_to: dateToFilter,
-            staff_id: staffFilter || '',
-            sort_by: sortBy,
-            sort_dir: sortDir,
-        }, {
-            preserveState: true,
-            replace: true,
-        });
-    };
+    // Combine all visits for the table
+    const allVisits = [...initial_visits, ...follow_up_visits];
 
-    const handleSort = (field: string) => {
-        const newSortDir = sortBy === field && sortDir === 'asc' ? 'desc' : 'asc';
-        setSortBy(field);
-        setSortDir(newSortDir);
-        
-        router.get('/admin/visits', {
-            ...filters,
-            sort_by: field,
-            sort_dir: newSortDir,
-        }, {
-            preserveState: true,
-            replace: true,
-        });
-    };
+    // Initialize table
+    const columns = createColumns();
+    const table = useReactTable({
+        data: allVisits || [],
+        columns,
+        onSortingChange: setSorting,
+        onColumnFiltersChange: setColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onColumnVisibilityChange: setColumnVisibility,
+        onRowSelectionChange: setRowSelection,
+        onGlobalFilterChange: setGlobalFilter,
+        globalFilterFn: (row, columnId, value) => {
+            const search = value.toLowerCase();
+            const visit = row.original;
+            return (
+                visit.patient?.first_name?.toLowerCase().includes(search) ||
+                visit.patient?.last_name?.toLowerCase().includes(search) ||
+                visit.patient?.patient_code?.toLowerCase().includes(search) ||
+                visit.purpose?.toLowerCase().includes(search) ||
+                visit.staff?.name?.toLowerCase().includes(search)
+            );
+        },
+        state: {
+            sorting,
+            columnFilters,
+            columnVisibility,
+            rowSelection,
+            globalFilter,
+        },
+    });
 
-    const formatDateTime = (dateTime: string | null | undefined) => {
-        if (!dateTime) return 'No date set';
-        
-        try {
-            const date = new Date(dateTime);
-            if (isNaN(date.getTime())) {
-                return 'Invalid date';
-            }
-            return date.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        } catch (error) {
-            return 'Invalid date';
-        }
-    };
-
-    const getStatusColor = (status: string) => {
-        const colors = {
-            scheduled: 'bg-blue-100 text-blue-800',
-            in_progress: 'bg-yellow-100 text-yellow-800',
-            completed: 'bg-green-100 text-green-800',
-            cancelled: 'bg-red-100 text-red-800',
-        };
-        return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
-    };
-
-    const getVisitTypeColor = (type: string) => {
-        const colors = {
-            initial: 'bg-blue-100 text-blue-800',
-            follow_up: 'bg-green-100 text-green-800',
-            lab_result_review: 'bg-purple-100 text-purple-800',
-        };
-        return colors[type as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+    const stats = {
+        totalVisits: initial_visits_pagination.total + follow_up_visits_pagination.total,
+        initialVisits: initial_visits_pagination.total,
+        followUpVisits: follow_up_visits_pagination.total,
+        completedToday: initial_visits.filter(v => v.status === 'completed' && new Date(v.visit_date).toDateString() === new Date().toDateString()).length + 
+                       follow_up_visits.filter(v => v.status === 'completed' && new Date(v.visit_date).toDateString() === new Date().toDateString()).length
     };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Visits Management" />
-            
-            <div className="flex flex-1 flex-col gap-6 p-6">
-                <div className="@container/main flex flex-1 flex-col gap-6">
-                    {/* Header Section */}
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-blue-100 rounded-xl">
-                                <Stethoscope className="h-6 w-6 text-blue-600" />
-                            </div>
-                            <div>
-                                <h1 className="text-4xl font-semibold text-black mb-4">Visits Management</h1>
-                                <p className="text-sm text-gray-600 mt-1">Manage patient visits and follow-up consultations</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <Link href="/admin/appointments">
-                                <Button variant="outline" size="sm">
-                                    <Calendar className="h-4 w-4 mr-2" />
-                                    View Appointments
-                                </Button>
-                            </Link>
-                        </div>
-                    </div>
-
+            <div className="min-h-screen bg-gray-50">
+                <div className="p-6">
                     {/* Statistics Cards */}
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                        <Card className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all duration-300">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <Card className="bg-white border border-gray-200">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm font-medium text-gray-600">Total Visits</p>
-                                        <div className="text-2xl font-bold text-gray-900">
-                                            {initial_visits_pagination.total + follow_up_visits_pagination.total}
-                                        </div>
+                                        <p className="text-3xl font-bold text-gray-900">{stats.totalVisits}</p>
+                                        <p className="text-sm text-gray-500">All patient visits</p>
                                     </div>
-                                    <div className="p-3 bg-blue-100 rounded-lg">
+                                    <div className="p-3 bg-blue-100 rounded-full">
                                         <Calendar className="h-6 w-6 text-blue-600" />
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        <Card className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all duration-300">
+                        <Card className="bg-white border border-gray-200">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm font-medium text-gray-600">Initial Visits</p>
-                                        <div className="text-2xl font-bold text-gray-900">
-                                            {initial_visits_pagination.total}
-                                        </div>
+                                        <p className="text-3xl font-bold text-gray-900">{stats.initialVisits}</p>
+                                        <p className="text-sm text-gray-500">First-time visits</p>
                                     </div>
-                                    <div className="p-3 bg-blue-100 rounded-lg">
-                                        <UserCheck className="h-6 w-6 text-blue-600" />
+                                    <div className="p-3 bg-green-100 rounded-full">
+                                        <UserCheck className="h-6 w-6 text-green-600" />
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        <Card className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all duration-300">
+                        <Card className="bg-white border border-gray-200">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm font-medium text-gray-600">Follow-up Visits</p>
-                                        <div className="text-2xl font-bold text-gray-900">
-                                            {follow_up_visits_pagination.total}
-                                        </div>
+                                        <p className="text-3xl font-bold text-gray-900">{stats.followUpVisits}</p>
+                                        <p className="text-sm text-gray-500">Subsequent visits</p>
                                     </div>
-                                    <div className="p-3 bg-green-100 rounded-lg">
-                                        <ArrowRight className="h-6 w-6 text-green-600" />
+                                    <div className="p-3 bg-purple-100 rounded-full">
+                                        <ArrowRight className="h-6 w-6 text-purple-600" />
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        <Card className="holographic-card shadow-lg overflow-hidden rounded-lg bg-white/60 backdrop-blur-md border border-white/40 hover:bg-white/70 transition-all duration-300">
+                        <Card className="bg-white border border-gray-200">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm font-medium text-gray-600">Completed Today</p>
-                                        <div className="text-2xl font-bold text-gray-900">
-                                            {initial_visits.filter(v => v.status === 'completed' && new Date(v.visit_date).toDateString() === new Date().toDateString()).length + 
-                                             follow_up_visits.filter(v => v.status === 'completed' && new Date(v.visit_date).toDateString() === new Date().toDateString()).length}
-                                        </div>
+                                        <p className="text-3xl font-bold text-gray-900">{stats.completedToday}</p>
+                                        <p className="text-sm text-gray-500">Finished visits</p>
                                     </div>
-                                    <div className="p-3 bg-green-100 rounded-lg">
-                                        <CheckCircle className="h-6 w-6 text-green-600" />
+                                    <div className="p-3 bg-orange-100 rounded-full">
+                                        <CheckCircle className="h-6 w-6 text-orange-600" />
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
                     </div>
 
-                    {/* Filters */}
-                    <Card className="holographic-card shadow-lg overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50 hover:bg-white/80 transition-all duration-300">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-gray-100 rounded-lg">
-                                    <Filter className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-lg font-semibold text-gray-900">Filters</CardTitle>
-                                </div>
+                    {/* Data Table */}
+                    <Card className="bg-white border border-gray-200">
+                        <CardContent className="p-6">
+                            {/* Table Controls */}
+                            <div className="flex items-center py-4">
+                                <Input
+                                    placeholder="Search visits..."
+                                    value={globalFilter ?? ""}
+                                    onChange={(event) => setGlobalFilter(event.target.value)}
+                                    className="max-w-sm"
+                                />
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" className="ml-auto">
+                                            Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                                        {table
+                                            .getAllColumns()
+                                            .filter((column) => column.getCanHide())
+                                            .map((column) => {
+                                                return (
+                                                    <DropdownMenuCheckboxItem
+                                                        key={column.id}
+                                                        className="capitalize"
+                                                        checked={column.getIsVisible()}
+                                                        onCheckedChange={(value) => {
+                                                            column.toggleVisibility(!!value);
+                                                        }}
+                                                        onSelect={(e) => {
+                                                            e.preventDefault();
+                                                        }}
+                                                    >
+                                                        {column.id}
+                                                    </DropdownMenuCheckboxItem>
+                                                )
+                                            })}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </div>
-                        </CardHeader>
-                        <CardContent>
-                        <div className="space-y-6">
-                            {/* First Row - Search and Basic Filters */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-medium text-gray-700">Search</label>
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                                        <Input
-                                            placeholder="Search patients..."
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                            className="pl-10"
-                                        />
+
+                            {/* Table */}
+                            <div className="rounded-md border">
+                                <Table>
+                                    <TableHeader>
+                                        {table.getHeaderGroups().map((headerGroup) => (
+                                            <TableRow key={headerGroup.id}>
+                                                {headerGroup.headers.map((header) => {
+                                                    return (
+                                                        <TableHead key={header.id}>
+                                                            {header.isPlaceholder
+                                                                ? null
+                                                                : flexRender(
+                                                                    header.column.columnDef.header,
+                                                                    header.getContext()
+                                                                )}
+                                                        </TableHead>
+                                                    )
+                                                })}
+                                            </TableRow>
+                                        ))}
+                                    </TableHeader>
+                                    <TableBody>
+                                        {table.getRowModel().rows?.length ? (
+                                            table.getRowModel().rows.map((row) => (
+                                                <TableRow
+                                                    key={row.id}
+                                                    data-state={row.getIsSelected() && "selected"}
+                                                >
+                                                    {row.getVisibleCells().map((cell) => (
+                                                        <TableCell key={cell.id}>
+                                                            {flexRender(
+                                                                cell.column.columnDef.cell,
+                                                                cell.getContext()
+                                                            )}
+                                                        </TableCell>
+                                                    ))}
+                                                </TableRow>
+                                            ))
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell
+                                                    colSpan={columns.length}
+                                                    className="h-24 text-center"
+                                                >
+                                                    No results.
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                            {/* Pagination */}
+                            <div className="flex items-center justify-between px-2 py-4">
+                                <div className="text-muted-foreground flex-1 text-sm">
+                                    {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                                    {table.getFilteredRowModel().rows.length} row(s) selected.
+                                </div>
+                                <div className="flex items-center space-x-6 lg:space-x-8">
+                                    <div className="flex items-center space-x-2">
+                                        <p className="text-sm font-medium">Rows per page</p>
+                                        <Select
+                                            value={`${table.getState().pagination.pageSize}`}
+                                            onValueChange={(value) => {
+                                                table.setPageSize(Number(value))
+                                            }}
+                                        >
+                                            <SelectTrigger className="h-8 w-[70px]">
+                                                <SelectValue placeholder={table.getState().pagination.pageSize} />
+                                            </SelectTrigger>
+                                            <SelectContent side="top">
+                                                {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                        {pageSize}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                        Page {table.getState().pagination.pageIndex + 1} of{" "}
+                                        {table.getPageCount()}
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="hidden size-8 lg:flex"
+                                            onClick={() => table.setPageIndex(0)}
+                                            disabled={!table.getCanPreviousPage()}
+                                        >
+                                            <span className="sr-only">Go to first page</span>
+                                            <ChevronsLeft className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="size-8"
+                                            onClick={() => table.previousPage()}
+                                            disabled={!table.getCanPreviousPage()}
+                                        >
+                                            <span className="sr-only">Go to previous page</span>
+                                            <ChevronLeft className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="size-8"
+                                            onClick={() => table.nextPage()}
+                                            disabled={!table.getCanNextPage()}
+                                        >
+                                            <span className="sr-only">Go to next page</span>
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="hidden size-8 lg:flex"
+                                            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                                            disabled={!table.getCanNextPage()}
+                                        >
+                                            <span className="sr-only">Go to last page</span>
+                                            <ChevronsRight className="h-4 w-4" />
+                                        </Button>
                                     </div>
                                 </div>
-
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-medium text-gray-700">Status</label>
-                                    <Select value={statusFilter || ''} onValueChange={(value) => setStatusFilter(value || undefined)}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="All Status" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {status_options && Object.entries(status_options).map(([key, label]) => (
-                                                <SelectItem key={key} value={key}>{label}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-medium text-gray-700">Visit Type</label>
-                                    <Select value={visitTypeFilter || ''} onValueChange={(value) => setVisitTypeFilter(value || undefined)}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="All Types" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {visit_type_options && Object.entries(visit_type_options).map(([key, label]) => (
-                                                <SelectItem key={key} value={key}>{label}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-medium text-gray-700">Staff</label>
-                                    <Select value={staffFilter || ''} onValueChange={(value) => setStaffFilter(value || undefined)}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="All Staff" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {staff && staff.length > 0 ? staff.map((member) => (
-                                                <SelectItem key={member.id} value={member.id.toString()}>
-                                                    {member.name} ({member.role})
-                                                </SelectItem>
-                                            )) : (
-                                                <SelectItem value="no-staff" disabled>
-                                                    No staff available
-                                                </SelectItem>
-                                            )}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
                             </div>
-
-                            {/* Second Row - Date Range Filters */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-medium text-gray-700">Date From</label>
-                                    <Input
-                                        type="date"
-                                        value={dateFromFilter}
-                                        onChange={(e) => setDateFromFilter(e.target.value)}
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-medium text-gray-700">Date To</label>
-                                    <Input
-                                        type="date"
-                                        value={dateToFilter}
-                                        onChange={(e) => setDateToFilter(e.target.value)}
-                                    />
-                                </div>
-
-                                <div className="flex items-end">
-                                    <Button onClick={handleSearch} className="w-full">
-                                        <Search className="h-4 w-4 mr-2" />
-                                        Search
-                                    </Button>
-                                </div>
-
-                                <div className="flex items-end">
-                                    <Button 
-                                        variant="outline" 
-                                        onClick={() => {
-                                            setSearchTerm('');
-                                            setStatusFilter(undefined);
-                                            setVisitTypeFilter(undefined);
-                                            setDateFromFilter('');
-                                            setDateToFilter('');
-                                            setStaffFilter(undefined);
-                                            router.get('/admin/visits');
-                                        }}
-                                        className="w-full"
-                                    >
-                                        <X className="h-4 w-4 mr-2" />
-                                        Clear
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                    {/* Initial Visits Table */}
-                    <Card className="holographic-card shadow-lg overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50 hover:bg-white/80 transition-all duration-300">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <Calendar className="h-5 w-5 text-blue-600" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-lg font-semibold text-gray-900">Initial Visits</CardTitle>
-                                    <p className="text-sm text-gray-500 mt-1">Primary patient visits and consultations</p>
-                                </div>
-                            </div>
-                            <div className="text-sm text-gray-500">
-                                {initial_visits_pagination.total} total
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                        <div className="overflow-x-auto">
-                            <Table className="min-w-full">
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="whitespace-nowrap">Date & Time</TableHead>
-                                        <TableHead className="whitespace-nowrap">Patient</TableHead>
-                                        <TableHead className="whitespace-nowrap">Purpose</TableHead>
-                                        <TableHead className="whitespace-nowrap">Staff</TableHead>
-                                        <TableHead className="whitespace-nowrap">Status</TableHead>
-                                        <TableHead className="whitespace-nowrap">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {initial_visits && initial_visits.length > 0 ? initial_visits.map((visit) => (
-                                        <TableRow key={visit.id} className="hover:bg-gray-50">
-                                            <TableCell className="font-medium py-4">
-                                                <div className="text-sm">
-                                                    {formatDateTime(visit.visit_date_time_time || visit.visit_date_time || visit.visit_date)}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <div className="space-y-1">
-                                                    <div className="font-medium text-sm">{visit.patient?.first_name} {visit.patient?.last_name}</div>
-                                                    <div className="text-xs text-gray-500">{visit.patient?.patient_code || visit.patient?.sequence_number || visit.patient?.patient_no}</div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <div className="text-sm max-w-[200px] truncate" title={visit.purpose}>
-                                                    {visit.purpose}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <div className="space-y-1">
-                                                    <div className="font-medium text-sm">{visit.staff?.name || 'No staff assigned'}</div>
-                                                    <div className="text-xs text-gray-500 capitalize">{visit.staff?.role || 'N/A'}</div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <Badge className={getStatusColor(visit.status)}>
-                                                    {status_options[visit.status] || visit.status}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm"
-                                                    onClick={() => router.visit(`/admin/visits/${visit.id}`)}
-                                                >
-                                                    <Eye className="h-4 w-4 mr-2" />
-                                                    View
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    )) : (
-                                        <TableRow>
-                                            <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                                                No initial visits found
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-
-                        {/* Initial Visits Pagination */}
-                        {initial_visits_pagination.last_page > 1 && (
-                            <div className="flex items-center justify-between mt-6 pt-4 border-t">
-                                <div className="text-sm text-gray-700">
-                                    Showing {((initial_visits_pagination.current_page - 1) * initial_visits_pagination.per_page) + 1} to{' '}
-                                    {Math.min(initial_visits_pagination.current_page * initial_visits_pagination.per_page, initial_visits_pagination.total)} of{' '}
-                                    {initial_visits_pagination.total} results
-                                </div>
-                                <div className="flex gap-2">
-                                    {initial_visits_pagination.current_page > 1 && (
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => router.get('/admin/visits', { ...filters, page: initial_visits_pagination.current_page - 1 })}
-                                        >
-                                            Previous
-                                        </Button>
-                                    )}
-                                    {initial_visits_pagination.current_page < initial_visits_pagination.last_page && (
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => router.get('/admin/visits', { ...filters, page: initial_visits_pagination.current_page + 1 })}
-                                        >
-                                            Next
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                        </CardContent>
-                    </Card>
-
-                    {/* Follow-up Visits Table */}
-                    <Card className="holographic-card shadow-lg overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50 hover:bg-white/80 transition-all duration-300">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-green-100 rounded-lg">
-                                    <ArrowRight className="h-5 w-5 text-green-600" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-lg font-semibold text-gray-900">Follow-up Visits</CardTitle>
-                                    <p className="text-sm text-gray-500 mt-1">Subsequent visits and follow-up consultations</p>
-                                </div>
-                            </div>
-                            <div className="text-sm text-gray-500">
-                                {follow_up_visits_pagination.total} total
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                        <div className="overflow-x-auto">
-                            <Table className="min-w-full">
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="whitespace-nowrap">Date & Time</TableHead>
-                                        <TableHead className="whitespace-nowrap">Patient</TableHead>
-                                        <TableHead className="whitespace-nowrap">Purpose</TableHead>
-                                        <TableHead className="whitespace-nowrap">Staff</TableHead>
-                                        <TableHead className="whitespace-nowrap">Status</TableHead>
-                                        <TableHead className="whitespace-nowrap">Original Visit</TableHead>
-                                        <TableHead className="whitespace-nowrap">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {follow_up_visits && follow_up_visits.length > 0 ? follow_up_visits.map((visit) => (
-                                        <TableRow key={visit.id} className="hover:bg-gray-50">
-                                            <TableCell className="font-medium py-4">
-                                                <div className="text-sm">
-                                                    {formatDateTime(visit.visit_date_time_time || visit.visit_date_time || visit.visit_date)}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <div className="space-y-1">
-                                                    <div className="font-medium text-sm">{visit.patient?.first_name} {visit.patient?.last_name}</div>
-                                                    <div className="text-xs text-gray-500">{visit.patient?.patient_code || visit.patient?.sequence_number || visit.patient?.patient_no}</div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <div className="text-sm max-w-[200px] truncate" title={visit.purpose}>
-                                                    {visit.purpose}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <div className="space-y-1">
-                                                    <div className="font-medium text-sm">{visit.staff?.name || 'No staff assigned'}</div>
-                                                    <div className="text-xs text-gray-500 capitalize">{visit.staff?.role || 'N/A'}</div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <Badge className={getStatusColor(visit.status)}>
-                                                    {status_options[visit.status] || visit.status}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <Link 
-                                                    href={`/admin/visits/${visit.follow_up_visit_id}`}
-                                                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                                >
-                                                    View Original
-                                                </Link>
-                                            </TableCell>
-                                            <TableCell className="py-4">
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm"
-                                                    onClick={() => router.visit(`/admin/visits/${visit.id}`)}
-                                                >
-                                                    <Eye className="h-4 w-4 mr-2" />
-                                                    View
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    )) : (
-                                        <TableRow>
-                                            <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                                                No follow-up visits found
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-
-                        {/* Follow-up Visits Pagination */}
-                        {follow_up_visits_pagination.last_page > 1 && (
-                            <div className="flex items-center justify-between mt-6 pt-4 border-t">
-                                <div className="text-sm text-gray-700">
-                                    Showing {((follow_up_visits_pagination.current_page - 1) * follow_up_visits_pagination.per_page) + 1} to{' '}
-                                    {Math.min(follow_up_visits_pagination.current_page * follow_up_visits_pagination.per_page, follow_up_visits_pagination.total)} of{' '}
-                                    {follow_up_visits_pagination.total} results
-                                </div>
-                                <div className="flex gap-2">
-                                    {follow_up_visits_pagination.current_page > 1 && (
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => router.get('/admin/visits', { ...filters, page: follow_up_visits_pagination.current_page - 1 })}
-                                        >
-                                            Previous
-                                        </Button>
-                                    )}
-                                    {follow_up_visits_pagination.current_page < follow_up_visits_pagination.last_page && (
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => router.get('/admin/visits', { ...filters, page: follow_up_visits_pagination.current_page + 1 })}
-                                        >
-                                            Next
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-                        )}
                         </CardContent>
                     </Card>
                 </div>

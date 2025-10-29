@@ -26,7 +26,7 @@ class NotificationService
         $adminUsers = User::where('role', 'admin')->get();
 
         foreach ($adminUsers as $admin) {
-            Notification::create([
+            $notification = Notification::create([
                 'type' => 'appointment',
                 'title' => 'New Appointment Request',
                 'message' => "New appointment request from {$appointment->patient_name} for {$appointment->appointment_type} on {$appointment->appointment_date} at {$appointment->appointment_time}",
@@ -41,6 +41,17 @@ class NotificationService
                 'related_id' => $appointment->id,
                 'related_type' => 'Appointment',
             ]);
+
+            // Broadcast real-time notification to admin
+            try {
+                broadcast(new \App\Events\NewAppointmentNotification($notification, $admin->id));
+            } catch (\Exception $e) {
+                \Log::error('Failed to broadcast notification to admin', [
+                    'admin_id' => $admin->id,
+                    'notification_id' => $notification->id,
+                    'error' => $e->getMessage()
+                ]);
+            }
         }
     }
 
@@ -53,7 +64,7 @@ class NotificationService
         $adminUsers = User::where('role', 'admin')->get();
 
         foreach ($adminUsers as $admin) {
-            Notification::create([
+            $notification = Notification::create([
                 'type' => 'appointment_request',
                 'title' => 'New Pending Appointment Request',
                 'message' => "New appointment request from {$pendingAppointment->patient_name} for {$pendingAppointment->appointment_type} on {$pendingAppointment->appointment_date} at {$pendingAppointment->appointment_time} - Requires approval",
@@ -68,6 +79,17 @@ class NotificationService
                 'related_id' => $pendingAppointment->id,
                 'related_type' => 'PendingAppointment',
             ]);
+
+            // Broadcast real-time notification to admin
+            try {
+                broadcast(new \App\Events\NewAppointmentNotification($notification, $admin->id));
+            } catch (\Exception $e) {
+                \Log::error('Failed to broadcast notification to admin', [
+                    'admin_id' => $admin->id,
+                    'notification_id' => $notification->id,
+                    'error' => $e->getMessage()
+                ]);
+            }
         }
     }
 

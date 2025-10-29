@@ -82,7 +82,7 @@ class BillingService
             $existing->update([
                 'status' => $transaction->status,
                 'payment_method' => $transaction->payment_method,
-                'amount' => $transaction->total_amount,
+                'amount' => $transaction->amount, // Use final amount after discounts
             ]);
         } else {
             // Create new record
@@ -92,7 +92,12 @@ class BillingService
                 'transaction_id' => $transaction->transaction_id,
                 'patient_name' => $transaction->patient->first_name . ' ' . $transaction->patient->last_name ?? 'Unknown',
                 'specialist_name' => $this->getSpecialistName($transaction),
-                'amount' => $transaction->total_amount,
+                'amount' => $transaction->amount, // Use final amount after discounts
+                'total_amount' => $transaction->total_amount, // Original amount before discounts
+                'final_amount' => $transaction->amount, // Final amount after discounts
+                'discount_amount' => $transaction->discount_amount ?? 0,
+                'senior_discount_amount' => $transaction->senior_discount_amount ?? 0,
+                'is_senior_citizen' => $transaction->is_senior_citizen ?? false,
                 'payment_method' => $transaction->payment_method,
                 'status' => $transaction->status,
                 'description' => "Payment for medical services",

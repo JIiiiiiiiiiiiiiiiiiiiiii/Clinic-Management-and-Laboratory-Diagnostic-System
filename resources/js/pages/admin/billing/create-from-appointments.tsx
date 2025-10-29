@@ -10,7 +10,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import Heading from '@/components/heading';
-import { formatAppointmentTime, formatAppointmentDateShort } from '@/utils/dateTime';
+import { safeFormatDate, safeFormatTime } from '@/utils/dateTime';
 import { 
     ArrowLeft, 
     Calendar,
@@ -30,6 +30,8 @@ type PendingAppointment = {
     patient_id: string;
     appointment_type: string;
     price: number;
+    total_lab_amount?: number;
+    final_total_amount?: number;
     appointment_date: string;
     appointment_time: string;
     specialist_name: string;
@@ -39,6 +41,13 @@ type PendingAppointment = {
 type Doctor = {
     id: number;
     name: string;
+};
+
+type HmoProvider = {
+    id: number;
+    name: string;
+    code: string;
+    is_active: boolean;
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -55,10 +64,12 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function CreateFromAppointments({ 
     pendingAppointments,
     doctors,
+    hmoProviders = [],
     selectedAppointmentId 
 }: { 
     pendingAppointments: PendingAppointment[];
     doctors: Doctor[];
+    hmoProviders?: HmoProvider[];
     selectedAppointmentId?: string;
 }) {
     const [selectedAppointments, setSelectedAppointments] = useState<number[]>(
@@ -66,13 +77,41 @@ export default function CreateFromAppointments({
     );
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [paymentReference, setPaymentReference] = useState('');
+    const [hmoProvider, setHmoProvider] = useState('');
+    const [hmoReferenceNumber, setHmoReferenceNumber] = useState('');
+    const [isSeniorCitizen, setIsSeniorCitizen] = useState(false);
     const [notes, setNotes] = useState('');
 
     const selectedAppointmentsData = pendingAppointments.filter(apt => 
         selectedAppointments.includes(apt.id)
     );
 
-    const totalAmount = selectedAppointmentsData.reduce((sum, apt) => sum + apt.price, 0);
+    // Calculate total amount - use final_total_amount if available, otherwise calculate from price + lab tests
+    const totalAmount = selectedAppointmentsData.reduce((sum, apt) => {
+        if (apt.final_total_amount && apt.final_total_amount > 0) {
+            return sum + Number(apt.final_total_amount);
+        }
+        // Fallback: calculate from price + lab tests
+        const labAmount = Number(apt.total_lab_amount) || 0;
+        return sum + (Number(apt.price) || 0) + labAmount;
+    }, 0);
+    
+    // Calculate senior citizen discount (20% on consultation appointments including lab tests)
+    const consultationAppointments = selectedAppointmentsData.filter(apt => 
+        apt.appointment_type === 'consultation' || apt.appointment_type === 'general_consultation'
+    );
+    
+    // Calculate senior citizen discount - only apply to consultation portion (not lab tests)
+    const consultationAmount = consultationAppointments.reduce((sum, apt) => sum + (Number(apt.price) || 0), 0);
+    const seniorDiscountAmount = isSeniorCitizen && paymentMethod !== 'hmo' ? (consultationAmount * 0.20) : 0;
+    const finalAmount = totalAmount - seniorDiscountAmount;
+    
+    // Debug logging
+    console.log('Debug - Appointment data:', selectedAppointmentsData);
+    console.log('Debug - Total amount:', totalAmount);
+    console.log('Debug - Consultation amount:', consultationAmount);
+    console.log('Debug - Senior discount amount:', seniorDiscountAmount);
+    console.log('Debug - Final amount:', finalAmount);
 
     const handleAppointmentToggle = (appointmentId: number) => {
         setSelectedAppointments(prev => 
@@ -109,26 +148,14 @@ export default function CreateFromAppointments({
             appointment_ids: selectedAppointments,
             payment_method: paymentMethod,
             payment_reference: paymentReference,
+            hmo_provider: hmoProvider,
+            hmo_reference_number: hmoReferenceNumber,
+            is_senior_citizen: isSeniorCitizen,
             notes: notes,
         }, {
             onStart: () => console.log('Form submission started'),
-            onSuccess: (page) => {
-                console.log('Form submission successful:', page);
-                // Check if we got redirected to billing index
-                if (page.url.includes('/admin/billing') && !page.url.includes('create-from-appointments')) {
-                    console.log('Redirected to billing index successfully');
-                } else {
-                    console.log('Still on create-from-appointments page');
-                }
-            },
-            onError: (errors) => {
-                console.error('Form submission failed:', errors);
-                if (errors.error) {
-                    alert('Error: ' + errors.error);
-                } else {
-                    alert('Error: Unknown error occurred');
-                }
-            },
+            onSuccess: (page) => console.log('Form submission successful:', page),
+            onError: (errors) => console.error('Form submission failed:', errors),
             onFinish: () => console.log('Form submission finished')
         });
     };
@@ -169,8 +196,20 @@ export default function CreateFromAppointments({
                                     <span className="font-semibold">{selectedAppointments.length}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium">Subtotal:</span>
+                                    <span className="text-lg font-semibold">₱{Number(totalAmount || 0).toFixed(2)}</span>
+                                </div>
+                                
+                                {isSeniorCitizen && seniorDiscountAmount > 0 && (
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm font-medium text-blue-600">Senior Citizen Discount (20%):</span>
+                                        <span className="text-lg font-semibold text-blue-600">-₱{Number(seniorDiscountAmount).toFixed(2)}</span>
+                                    </div>
+                                )}
+                                
+                                <div className="flex items-center justify-between border-t pt-2">
                                     <span className="text-sm font-medium">Total Amount:</span>
-                                    <span className="text-lg font-bold text-green-600">₱{Number(totalAmount || 0).toFixed(2)}</span>
+                                    <span className="text-lg font-bold text-green-600">₱{Number(finalAmount || 0).toFixed(2)}</span>
                                 </div>
                                 
                                 {selectedAppointmentsData.length > 0 && (
@@ -183,7 +222,7 @@ export default function CreateFromAppointments({
                                                         <div className="text-sm font-medium">{appointment.patient_name}</div>
                                                         <div className="text-xs text-gray-500">{appointment.appointment_type}</div>
                                                     </div>
-                                                    <div className="text-sm font-semibold">₱{Number(appointment.price || 0).toFixed(2)}</div>
+                                                    <div className="text-sm font-semibold">₱{Number(appointment.final_total_amount || appointment.price || 0).toFixed(2)}</div>
                                                 </div>
                                             ))}
                                         </div>
@@ -227,6 +266,56 @@ export default function CreateFromAppointments({
                                                 placeholder="Reference number (optional)"
                                             />
                                         </div>
+                                    </div>
+
+                                    {paymentMethod === 'hmo' && (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="hmo_provider">HMO Provider</Label>
+                                                <Select value={hmoProvider} onValueChange={setHmoProvider}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select HMO provider" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {hmoProviders.map((provider) => (
+                                                            <SelectItem key={provider.id} value={provider.name}>
+                                                                {provider.name} ({provider.code})
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="hmo_reference_number">HMO Reference Number</Label>
+                                                <Input
+                                                    id="hmo_reference_number"
+                                                    value={hmoReferenceNumber}
+                                                    onChange={(e) => setHmoReferenceNumber(e.target.value)}
+                                                    placeholder="Enter HMO reference number"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Senior Citizen Discount */}
+                                    <div className="space-y-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                                        <div className="flex items-center space-x-2">
+                                            <input
+                                                type="checkbox"
+                                                id="is_senior_citizen"
+                                                checked={isSeniorCitizen}
+                                                onChange={(e) => setIsSeniorCitizen(e.target.checked)}
+                                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                            />
+                                            <Label htmlFor="is_senior_citizen" className="text-sm font-medium text-gray-700">
+                                                Senior Citizen (20% discount on consultation)
+                                            </Label>
+                                        </div>
+                                        {isSeniorCitizen && (
+                                            <div className="text-sm text-blue-700 bg-blue-100 p-3 rounded-lg">
+                                                <strong>Senior Citizen Discount Applied:</strong> 20% discount will be applied to consultation appointments only.
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="notes">Notes</Label>
@@ -312,11 +401,11 @@ export default function CreateFromAppointments({
                                                     <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
                                                         <div className="flex items-center gap-1">
                                                             <Calendar className="h-4 w-4" />
-                                                            {formatAppointmentDateShort(appointment.appointment_date)}
+                                                            {safeFormatDate(appointment.appointment_date)}
                                                         </div>
                                                         <div className="flex items-center gap-1">
                                                             <Clock className="h-4 w-4" />
-                                                            {formatAppointmentTime(appointment.appointment_time)}
+                                                            {safeFormatTime(appointment.appointment_time)}
                                                         </div>
                                                         <div className="flex items-center gap-1">
                                                             <User className="h-4 w-4" />

@@ -81,34 +81,8 @@ class UpdatedAppointmentController extends Controller
     {
         $appointment->load(['patient', 'specialist', 'visits', 'billingTransactions']);
 
-        // Format the appointment data for frontend display
-        $formattedAppointment = [
-            'id' => $appointment->id,
-            'patient_name' => $appointment->patient_name,
-            'patient_id' => $appointment->patient_id,
-            'contact_number' => $appointment->contact_number,
-            'appointment_type' => $appointment->appointment_type,
-            'price' => $appointment->price,
-            'specialist_type' => $appointment->specialist_type,
-            'specialist_name' => $appointment->specialist_name,
-            'specialist_id' => $appointment->specialist_id,
-            'appointment_date' => $appointment->appointment_date ? $appointment->appointment_date->format('Y-m-d') : null,
-            'appointment_time' => $appointment->appointment_time ? $appointment->appointment_time->format('H:i:s') : null,
-            'duration' => $appointment->duration,
-            'status' => $appointment->status,
-            'billing_status' => $appointment->billing_status,
-            'notes' => $appointment->notes,
-            'special_requirements' => $appointment->special_requirements,
-            'created_at' => $appointment->created_at,
-            'updated_at' => $appointment->updated_at,
-            'patient' => $appointment->patient,
-            'specialist' => $appointment->specialist,
-            'visits' => $appointment->visits,
-            'billingTransactions' => $appointment->billingTransactions
-        ];
-
         return Inertia::render('admin/appointments/show', [
-            'appointment' => $formattedAppointment
+            'appointment' => $appointment
         ]);
     }
 
@@ -130,10 +104,10 @@ class UpdatedAppointmentController extends Controller
             );
 
             return redirect()->route('admin.appointments.pending')
-                ->with('success', 'Appointment approved successfully! Visit and billing transaction created.')
+                ->with('success', 'Appointment approved successfully! Visit created. Billing transaction will be created manually.')
                 ->with('appointment_code', $result['appointment']->appointment_code)
                 ->with('visit_code', $result['visit_code'])
-                ->with('transaction_code', $result['transaction_code']);
+                ->with('note', 'Billing transaction will be created manually by admin');
 
         } catch (\Exception $e) {
             \Log::error('Failed to approve appointment', [
@@ -271,15 +245,14 @@ class UpdatedAppointmentController extends Controller
                 'appointment_code' => $result['appointment_code'],
                 'visit_id' => $result['visit_id'],
                 'visit_code' => $result['visit_code'],
-                'transaction_id' => $result['transaction_id'],
-                'transaction_code' => $result['transaction_code']
+                'note' => 'Billing transaction will be created manually by admin'
             ]);
 
             return redirect()->route('admin.appointments.index')
-                ->with('success', 'Walk-in appointment created successfully! Visit and billing transaction created.')
+                ->with('success', 'Walk-in appointment created successfully! Visit created. Billing transaction will be created manually.')
                 ->with('appointment_code', $result['appointment_code'])
                 ->with('visit_code', $result['visit_code'])
-                ->with('transaction_code', $result['transaction_code']);
+                ->with('note', 'Billing transaction will be created manually by admin');
 
         } catch (\Exception $e) {
             \Log::error('Failed to create walk-in appointment', [

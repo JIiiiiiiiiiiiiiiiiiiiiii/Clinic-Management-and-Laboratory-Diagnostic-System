@@ -16,6 +16,11 @@ class DailyTransaction extends Model
         'patient_name',
         'specialist_name',
         'amount',
+        'total_amount',
+        'final_amount',
+        'discount_amount',
+        'senior_discount_amount',
+        'is_senior_citizen',
         'payment_method',
         'status',
         'description',
@@ -28,6 +33,11 @@ class DailyTransaction extends Model
     protected $casts = [
         'transaction_date' => 'date',
         'amount' => 'decimal:2',
+        'total_amount' => 'decimal:2',
+        'final_amount' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
+        'senior_discount_amount' => 'decimal:2',
+        'is_senior_citizen' => 'boolean',
     ];
 
     // Scopes

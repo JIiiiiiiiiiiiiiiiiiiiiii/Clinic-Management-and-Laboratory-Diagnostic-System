@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { CustomDatePicker } from '@/components/ui/date-picker';
+import { ReportDatePicker } from '@/components/ui/report-date-picker';
 import { PatientPageLayout, PatientActionButton, PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
@@ -183,12 +183,12 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="birthdate" className="text-base font-bold text-gray-700">Birth Date *</Label>
-                                    <CustomDatePicker
-                                        value={data.birthdate}
-                                        onChange={(date) => setData('birthdate', date ? date.toISOString().split('T')[0] : '')}
+                                    <ReportDatePicker
+                                        date={data.birthdate ? new Date(data.birthdate) : undefined}
+                                        onDateChange={(date) => setData('birthdate', date ? date.toISOString().split('T')[0] : '')}
+                                        filter="daily"
                                         placeholder="Select birthdate"
-                                        variant="responsive"
-                                        className="w-full"
+                                        disabled={false}
                                     />
                                     {errors.birthdate && <p className="text-black text-sm">{errors.birthdate}</p>}
                                 </div>

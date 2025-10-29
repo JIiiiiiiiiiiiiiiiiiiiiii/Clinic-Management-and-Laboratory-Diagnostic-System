@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 import { PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
@@ -28,9 +29,28 @@ import {
     Plus,
     Eye,
     Trash2,
-    Save
+    Save,
+    ArrowUpDown,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight
 } from 'lucide-react';
 import { useState } from 'react';
+import {
+    ColumnDef,
+    ColumnFiltersState,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+    VisibilityState,
+} from '@tanstack/react-table';
+import * as React from 'react';
 
 type UsedRejectedData = {
     summary: {
@@ -90,6 +110,154 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
+// Column definitions for Top Consumed Items table
+const consumedItemsColumns: ColumnDef<any>[] = [
+    {
+        accessorKey: 'item_name',
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Item Name
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">{row.getValue("item_name")}</div>
+        ),
+    },
+    {
+        accessorKey: 'quantity_consumed',
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Quantity Consumed
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="text-center">{row.getValue("quantity_consumed")}</div>
+        ),
+    },
+    {
+        accessorKey: 'unit',
+        header: "Unit",
+        cell: ({ row }) => (
+            <div className="text-sm">{row.getValue("unit")}</div>
+        ),
+    },
+    {
+        accessorKey: 'total_cost',
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Total Cost
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">₱{Number(row.getValue("total_cost") || 0).toFixed(2)}</div>
+        ),
+    },
+    {
+        accessorKey: 'department',
+        header: "Department",
+        cell: ({ row }) => (
+            <Badge variant="outline" className="capitalize">
+                {row.getValue("department")}
+            </Badge>
+        ),
+    },
+];
+
+// Column definitions for Top Rejected Items table
+const rejectedItemsColumns: ColumnDef<any>[] = [
+    {
+        accessorKey: 'item_name',
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Item Name
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">{row.getValue("item_name")}</div>
+        ),
+    },
+    {
+        accessorKey: 'quantity_rejected',
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Quantity Rejected
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="text-center">{row.getValue("quantity_rejected")}</div>
+        ),
+    },
+    {
+        accessorKey: 'unit',
+        header: "Unit",
+        cell: ({ row }) => (
+            <div className="text-sm">{row.getValue("unit")}</div>
+        ),
+    },
+    {
+        accessorKey: 'total_cost',
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Total Cost
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">₱{Number(row.getValue("total_cost") || 0).toFixed(2)}</div>
+        ),
+    },
+    {
+        accessorKey: 'reason',
+        header: "Reason",
+        cell: ({ row }) => (
+            <div className="text-sm max-w-[200px] truncate" title={row.getValue("reason")}>
+                {row.getValue("reason") || 'N/A'}
+            </div>
+        ),
+    },
+];
+
 export default function UsedRejectedReport({
     data,
     filters,
@@ -97,6 +265,21 @@ export default function UsedRejectedReport({
 }: UsedRejectedReportProps) {
     const [selectedFormat, setSelectedFormat] = useState('pdf');
     const [saveReport, setSaveReport] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
+
+    // TanStack Table state for Top Consumed Items
+    const [consumedSorting, setConsumedSorting] = React.useState<SortingState>([]);
+    const [consumedColumnFilters, setConsumedColumnFilters] = React.useState<ColumnFiltersState>([]);
+    const [consumedColumnVisibility, setConsumedColumnVisibility] = React.useState<VisibilityState>({});
+    const [consumedRowSelection, setConsumedRowSelection] = React.useState({});
+    const [consumedGlobalFilter, setConsumedGlobalFilter] = React.useState('');
+
+    // TanStack Table state for Top Rejected Items
+    const [rejectedSorting, setRejectedSorting] = React.useState<SortingState>([]);
+    const [rejectedColumnFilters, setRejectedColumnFilters] = React.useState<ColumnFiltersState>([]);
+    const [rejectedColumnVisibility, setRejectedColumnVisibility] = React.useState<VisibilityState>({});
+    const [rejectedRowSelection, setRejectedRowSelection] = React.useState({});
+    const [rejectedGlobalFilter, setRejectedGlobalFilter] = React.useState('');
 
     const handleExport = (format: string) => {
         // Create export URL with current filters
@@ -121,6 +304,70 @@ export default function UsedRejectedReport({
 
         router.visit(`/admin/inventory/reports/used-rejected?${params.toString()}`);
     };
+
+    // Initialize Top Consumed Items table
+    const consumedTable = useReactTable({
+        data: data.top_consumed_items || [],
+        columns: consumedItemsColumns,
+        onSortingChange: setConsumedSorting,
+        onColumnFiltersChange: setConsumedColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onColumnVisibilityChange: setConsumedColumnVisibility,
+        onRowSelectionChange: setConsumedRowSelection,
+        onGlobalFilterChange: setConsumedGlobalFilter,
+        globalFilterFn: (row, columnId, value) => {
+            const search = value.toLowerCase();
+            const item = row.original;
+            return (
+                item.item_name?.toLowerCase().includes(search) ||
+                item.department?.toLowerCase().includes(search) ||
+                item.unit?.toLowerCase().includes(search) ||
+                item.reason?.toLowerCase().includes(search)
+            );
+        },
+        state: {
+            sorting: consumedSorting,
+            columnFilters: consumedColumnFilters,
+            columnVisibility: consumedColumnVisibility,
+            rowSelection: consumedRowSelection,
+            globalFilter: consumedGlobalFilter,
+        },
+    });
+
+    // Initialize Top Rejected Items table
+    const rejectedTable = useReactTable({
+        data: data.top_rejected_items || [],
+        columns: rejectedItemsColumns,
+        onSortingChange: setRejectedSorting,
+        onColumnFiltersChange: setRejectedColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onColumnVisibilityChange: setRejectedColumnVisibility,
+        onRowSelectionChange: setRejectedRowSelection,
+        onGlobalFilterChange: setRejectedGlobalFilter,
+        globalFilterFn: (row, columnId, value) => {
+            const search = value.toLowerCase();
+            const item = row.original;
+            return (
+                item.item_name?.toLowerCase().includes(search) ||
+                item.department?.toLowerCase().includes(search) ||
+                item.unit?.toLowerCase().includes(search) ||
+                item.reason?.toLowerCase().includes(search)
+            );
+        },
+        state: {
+            sorting: rejectedSorting,
+            columnFilters: rejectedColumnFilters,
+            columnVisibility: rejectedColumnVisibility,
+            rowSelection: rejectedRowSelection,
+            globalFilter: rejectedGlobalFilter,
+        },
+    });
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -338,10 +585,6 @@ export default function UsedRejectedReport({
                                             <span className="text-sm text-gray-600">Low Stock:</span>
                                             <span className="font-semibold text-yellow-600">{data.department_stats.doctor_nurse.low_stock}</span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-sm text-gray-600">Out of Stock:</span>
-                                            <span className="font-semibold text-red-600">{data.department_stats.doctor_nurse.out_of_stock}</span>
-                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -371,10 +614,6 @@ export default function UsedRejectedReport({
                                             <span className="text-sm text-gray-600">Low Stock:</span>
                                             <span className="font-semibold text-yellow-600">{data.department_stats.med_tech.low_stock}</span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-sm text-gray-600">Out of Stock:</span>
-                                            <span className="font-semibold text-red-600">{data.department_stats.med_tech.out_of_stock}</span>
-                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -383,85 +622,351 @@ export default function UsedRejectedReport({
                         {/* Top Consumed Items */}
                         <div className="mb-6">
                             <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Consumed Items</h3>
-                            <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                <Table>
-                                    <TableHeader className="bg-gray-50">
-                                        <TableRow>
-                                            <TableHead className="font-semibold text-black">Item Name</TableHead>
-                                            <TableHead className="font-semibold text-black">Category</TableHead>
-                                            <TableHead className="font-semibold text-black">Department</TableHead>
-                                            <TableHead className="font-semibold text-black">Current Stock</TableHead>
-                                            <TableHead className="font-semibold text-black">Consumed</TableHead>
-                                            <TableHead className="font-semibold text-black">Status</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {data.top_consumed_items.map((item, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell className="font-medium">{item.item_name}</TableCell>
-                                                <TableCell>{item.category}</TableCell>
-                                                <TableCell>{item.assigned_to}</TableCell>
-                                                <TableCell>{item.stock}</TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline" className="text-green-600">
-                                                        {item.consumed}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge 
-                                                        variant={item.status === 'Out of Stock' ? 'destructive' : 'default'}
-                                                        className={item.status === 'Low Stock' ? 'bg-orange-500 text-white hover:bg-orange-600' : ''}
-                                                    >
-                                                        {item.status}
-                                                    </Badge>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
+                            <Card className="bg-white border border-gray-200">
+                                <CardContent className="p-6">
+                                    {/* Table Controls */}
+                                    <div className="flex items-center py-4">
+                                        <Input
+                                            placeholder="Search consumed items..."
+                                            value={consumedGlobalFilter ?? ""}
+                                            onChange={(event) => setConsumedGlobalFilter(event.target.value)}
+                                            className="max-w-sm"
+                                        />
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="outline" className="ml-auto">
+                                                    Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                                                {consumedTable
+                                                    .getAllColumns()
+                                                    .filter((column) => column.getCanHide())
+                                                    .map((column) => {
+                                                        return (
+                                                            <DropdownMenuCheckboxItem
+                                                                key={column.id}
+                                                                className="capitalize"
+                                                                checked={column.getIsVisible()}
+                                                                onCheckedChange={(value) => {
+                                                                    column.toggleVisibility(!!value);
+                                                                }}
+                                                                onSelect={(e) => {
+                                                                    e.preventDefault();
+                                                                }}
+                                                            >
+                                                                {column.id}
+                                                            </DropdownMenuCheckboxItem>
+                                                        )
+                                                    })}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                            
+                                    {/* Table */}
+                                    <div className="rounded-md border">
+                                        <Table>
+                                            <TableHeader>
+                                                {consumedTable.getHeaderGroups().map((headerGroup) => (
+                                                    <TableRow key={headerGroup.id}>
+                                                        {headerGroup.headers.map((header) => {
+                                                            return (
+                                                                <TableHead key={header.id}>
+                                                                    {header.isPlaceholder
+                                                                        ? null
+                                                                        : flexRender(
+                                                                            header.column.columnDef.header,
+                                                                            header.getContext()
+                                                                        )}
+                                                                </TableHead>
+                                                            )
+                                                        })}
+                                                    </TableRow>
+                                                ))}
+                                            </TableHeader>
+                                            <TableBody>
+                                                {consumedTable.getRowModel().rows?.length ? (
+                                                    consumedTable.getRowModel().rows.map((row) => (
+                                                        <TableRow
+                                                            key={row.id}
+                                                            data-state={row.getIsSelected() && "selected"}
+                                                        >
+                                                            {row.getVisibleCells().map((cell) => (
+                                                                <TableCell key={cell.id}>
+                                                                    {flexRender(
+                                                                        cell.column.columnDef.cell,
+                                                                        cell.getContext()
+                                                                    )}
+                                                                </TableCell>
+                                                            ))}
+                                                        </TableRow>
+                                                    ))
+                                                ) : (
+                                                    <TableRow>
+                                                        <TableCell
+                                                            colSpan={consumedItemsColumns.length}
+                                                            className="h-24 text-center"
+                                                        >
+                                                            No results.
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                    
+                                    {/* Pagination */}
+                                    <div className="flex items-center justify-between px-2 py-4">
+                                        <div className="text-muted-foreground flex-1 text-sm">
+                                            {consumedTable.getFilteredSelectedRowModel().rows.length} of{" "}
+                                            {consumedTable.getFilteredRowModel().rows.length} row(s) selected.
+                                        </div>
+                                        <div className="flex items-center space-x-6 lg:space-x-8">
+                                            <div className="flex items-center space-x-2">
+                                                <p className="text-sm font-medium">Rows per page</p>
+                                                <Select
+                                                    value={`${consumedTable.getState().pagination.pageSize}`}
+                                                    onValueChange={(value) => {
+                                                        consumedTable.setPageSize(Number(value))
+                                                    }}
+                                                >
+                                                    <SelectTrigger className="h-8 w-[70px]">
+                                                        <SelectValue placeholder={consumedTable.getState().pagination.pageSize} />
+                                                    </SelectTrigger>
+                                                    <SelectContent side="top">
+                                                        {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                            <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                                {pageSize}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                                Page {consumedTable.getState().pagination.pageIndex + 1} of{" "}
+                                                {consumedTable.getPageCount()}
+                                            </div>
+                                            <div className="flex items-center space-x-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="hidden size-8 lg:flex"
+                                                    onClick={() => consumedTable.setPageIndex(0)}
+                                                    disabled={!consumedTable.getCanPreviousPage()}
+                                                >
+                                                    <span className="sr-only">Go to first page</span>
+                                                    <ChevronsLeft className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="size-8"
+                                                    onClick={() => consumedTable.previousPage()}
+                                                    disabled={!consumedTable.getCanPreviousPage()}
+                                                >
+                                                    <span className="sr-only">Go to previous page</span>
+                                                    <ChevronLeft className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="size-8"
+                                                    onClick={() => consumedTable.nextPage()}
+                                                    disabled={!consumedTable.getCanNextPage()}
+                                                >
+                                                    <span className="sr-only">Go to next page</span>
+                                                    <ChevronRight className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="hidden size-8 lg:flex"
+                                                    onClick={() => consumedTable.setPageIndex(consumedTable.getPageCount() - 1)}
+                                                    disabled={!consumedTable.getCanNextPage()}
+                                                >
+                                                    <span className="sr-only">Go to last page</span>
+                                                    <ChevronsRight className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
 
                         {/* Top Rejected Items */}
                         <div className="mb-6">
                             <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Rejected Items</h3>
-                            <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                <Table>
-                                    <TableHeader className="bg-gray-50">
-                                        <TableRow>
-                                            <TableHead className="font-semibold text-black">Item Name</TableHead>
-                                            <TableHead className="font-semibold text-black">Category</TableHead>
-                                            <TableHead className="font-semibold text-black">Department</TableHead>
-                                            <TableHead className="font-semibold text-black">Current Stock</TableHead>
-                                            <TableHead className="font-semibold text-black">Rejected</TableHead>
-                                            <TableHead className="font-semibold text-black">Status</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {data.top_rejected_items.map((item, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell className="font-medium">{item.item_name}</TableCell>
-                                                <TableCell>{item.category}</TableCell>
-                                                <TableCell>{item.assigned_to}</TableCell>
-                                                <TableCell>{item.stock}</TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline" className="text-red-600">
-                                                        {item.rejected}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge 
-                                                        variant={item.status === 'Out of Stock' ? 'destructive' : 'default'}
-                                                        className={item.status === 'Low Stock' ? 'bg-orange-500 text-white hover:bg-orange-600' : ''}
-                                                    >
-                                                        {item.status}
-                                                    </Badge>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
+                            <Card className="bg-white border border-gray-200">
+                                <CardContent className="p-6">
+                                    {/* Table Controls */}
+                                    <div className="flex items-center py-4">
+                                        <Input
+                                            placeholder="Search rejected items..."
+                                            value={rejectedGlobalFilter ?? ""}
+                                            onChange={(event) => setRejectedGlobalFilter(event.target.value)}
+                                            className="max-w-sm"
+                                        />
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="outline" className="ml-auto">
+                                                    Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                                                {rejectedTable
+                                                    .getAllColumns()
+                                                    .filter((column) => column.getCanHide())
+                                                    .map((column) => {
+                                                        return (
+                                                            <DropdownMenuCheckboxItem
+                                                                key={column.id}
+                                                                className="capitalize"
+                                                                checked={column.getIsVisible()}
+                                                                onCheckedChange={(value) => {
+                                                                    column.toggleVisibility(!!value);
+                                                                }}
+                                                                onSelect={(e) => {
+                                                                    e.preventDefault();
+                                                                }}
+                                                            >
+                                                                {column.id}
+                                                            </DropdownMenuCheckboxItem>
+                                                        )
+                                                    })}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                            
+                                    {/* Table */}
+                                    <div className="rounded-md border">
+                                        <Table>
+                                            <TableHeader>
+                                                {rejectedTable.getHeaderGroups().map((headerGroup) => (
+                                                    <TableRow key={headerGroup.id}>
+                                                        {headerGroup.headers.map((header) => {
+                                                            return (
+                                                                <TableHead key={header.id}>
+                                                                    {header.isPlaceholder
+                                                                        ? null
+                                                                        : flexRender(
+                                                                            header.column.columnDef.header,
+                                                                            header.getContext()
+                                                                        )}
+                                                                </TableHead>
+                                                            )
+                                                        })}
+                                                    </TableRow>
+                                                ))}
+                                            </TableHeader>
+                                            <TableBody>
+                                                {rejectedTable.getRowModel().rows?.length ? (
+                                                    rejectedTable.getRowModel().rows.map((row) => (
+                                                        <TableRow
+                                                            key={row.id}
+                                                            data-state={row.getIsSelected() && "selected"}
+                                                        >
+                                                            {row.getVisibleCells().map((cell) => (
+                                                                <TableCell key={cell.id}>
+                                                                    {flexRender(
+                                                                        cell.column.columnDef.cell,
+                                                                        cell.getContext()
+                                                                    )}
+                                                                </TableCell>
+                                                            ))}
+                                                        </TableRow>
+                                                    ))
+                                                ) : (
+                                                    <TableRow>
+                                                        <TableCell
+                                                            colSpan={rejectedItemsColumns.length}
+                                                            className="h-24 text-center"
+                                                        >
+                                                            No results.
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                    
+                                    {/* Pagination */}
+                                    <div className="flex items-center justify-between px-2 py-4">
+                                        <div className="text-muted-foreground flex-1 text-sm">
+                                            {rejectedTable.getFilteredSelectedRowModel().rows.length} of{" "}
+                                            {rejectedTable.getFilteredRowModel().rows.length} row(s) selected.
+                                        </div>
+                                        <div className="flex items-center space-x-6 lg:space-x-8">
+                                            <div className="flex items-center space-x-2">
+                                                <p className="text-sm font-medium">Rows per page</p>
+                                                <Select
+                                                    value={`${rejectedTable.getState().pagination.pageSize}`}
+                                                    onValueChange={(value) => {
+                                                        rejectedTable.setPageSize(Number(value))
+                                                    }}
+                                                >
+                                                    <SelectTrigger className="h-8 w-[70px]">
+                                                        <SelectValue placeholder={rejectedTable.getState().pagination.pageSize} />
+                                                    </SelectTrigger>
+                                                    <SelectContent side="top">
+                                                        {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                            <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                                {pageSize}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                                Page {rejectedTable.getState().pagination.pageIndex + 1} of{" "}
+                                                {rejectedTable.getPageCount()}
+                                            </div>
+                                            <div className="flex items-center space-x-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="hidden size-8 lg:flex"
+                                                    onClick={() => rejectedTable.setPageIndex(0)}
+                                                    disabled={!rejectedTable.getCanPreviousPage()}
+                                                >
+                                                    <span className="sr-only">Go to first page</span>
+                                                    <ChevronsLeft className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="size-8"
+                                                    onClick={() => rejectedTable.previousPage()}
+                                                    disabled={!rejectedTable.getCanPreviousPage()}
+                                                >
+                                                    <span className="sr-only">Go to previous page</span>
+                                                    <ChevronLeft className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="size-8"
+                                                    onClick={() => rejectedTable.nextPage()}
+                                                    disabled={!rejectedTable.getCanNextPage()}
+                                                >
+                                                    <span className="sr-only">Go to next page</span>
+                                                    <ChevronRight className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="hidden size-8 lg:flex"
+                                                    onClick={() => rejectedTable.setPageIndex(rejectedTable.getPageCount() - 1)}
+                                                    disabled={!rejectedTable.getCanNextPage()}
+                                                >
+                                                    <span className="sr-only">Go to last page</span>
+                                                    <ChevronsRight className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
                     </PatientInfoCard>
                 </div>

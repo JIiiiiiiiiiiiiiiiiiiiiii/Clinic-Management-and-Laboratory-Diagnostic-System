@@ -242,34 +242,21 @@ class VisitController extends Controller
 
     public function edit(Visit $visit)
     {
-        $visit->load(['patient', 'doctor', 'nurse', 'medtech', 'appointment']);
+        $visit->load(['patient', 'attendingStaff', 'appointment']);
 
-        // Transform visit data for frontend compatibility
-        $visit->id = $visit->visit_id;
-        
-        // Map doctor/medtech to staff
-        if ($visit->doctor) {
-            $visit->staff = $visit->doctor;
-        } elseif ($visit->medtech) {
-            $visit->staff = $visit->medtech;
-        } elseif ($visit->nurse) {
-            $visit->staff = $visit->nurse;
-        }
-        
-        // Add visit_type based on purpose (since visit_type column doesn't exist)
-        $visit->visit_type = 'initial'; // Default to initial
-
-        $specialists = \App\Models\Specialist::whereIn('role', ['Doctor', 'MedTech'])
+        // Get staff for dropdown
+        $staff = \App\Models\User::whereIn('role', ['doctor', 'admin', 'nurse'])
             ->orderBy('name')
-            ->get(['specialist_id as id', 'name', 'role']);
+            ->get(['id', 'name', 'role']);
 
         return Inertia::render('admin/visits/edit', [
             'visit' => $visit,
-            'specialists' => $specialists,
+            'staff' => $staff,
             'status_options' => [
-                'Ongoing' => 'Ongoing',
-                'Completed' => 'Completed',
-                'Cancelled' => 'Cancelled',
+                'scheduled' => 'Scheduled',
+                'in_progress' => 'In Progress',
+                'completed' => 'Completed',
+                'cancelled' => 'Cancelled',
             ]
         ]);
     }
@@ -279,10 +266,8 @@ class VisitController extends Controller
         $validator = Validator::make($request->all(), [
             'visit_date' => 'required|date',
             'purpose' => 'required|string|max:255',
-            'doctor_id' => 'nullable|exists:specialists,specialist_id',
-            'medtech_id' => 'nullable|exists:specialists,specialist_id',
-            'nurse_id' => 'nullable|exists:specialists,specialist_id',
-            'status' => 'required|in:Ongoing,Completed,Cancelled',
+            'doctor_id' => 'required|exists:users,id',
+            'status' => 'required|in:scheduled,in_progress,completed,cancelled',
             'notes' => 'nullable|string',
         ]);
 
@@ -291,15 +276,13 @@ class VisitController extends Controller
         }
 
         try {
-            $visit->update($request->only([
-                'visit_date',
-                'purpose',
-                'doctor_id',
-                'medtech_id',
-                'nurse_id',
-                'status',
-                'notes'
-            ]));
+            $visit->update([
+                'visit_date_time_time' => $request->visit_date,
+                'purpose' => $request->purpose,
+                'attending_staff_id' => $request->doctor_id,
+                'status' => $request->status,
+                'notes' => $request->notes,
+            ]);
 
             return redirect()->route('admin.visits.show', $visit)
                 ->with('success', 'Visit updated successfully!');
@@ -312,27 +295,16 @@ class VisitController extends Controller
 
     public function createFollowUp(Visit $visit)
     {
-        $visit->load(['patient', 'doctor', 'nurse', 'medtech']);
+        $visit->load(['patient', 'attendingStaff']);
 
-        // Transform visit data for frontend compatibility
-        $visit->id = $visit->visit_id;
-        
-        // Map doctor/medtech to staff
-        if ($visit->doctor) {
-            $visit->staff = $visit->doctor;
-        } elseif ($visit->medtech) {
-            $visit->staff = $visit->medtech;
-        } elseif ($visit->nurse) {
-            $visit->staff = $visit->nurse;
-        }
-
-        $specialists = \App\Models\Specialist::whereIn('role', ['Doctor', 'MedTech'])
+        // Get staff for dropdown
+        $staff = \App\Models\User::whereIn('role', ['doctor', 'admin', 'nurse'])
             ->orderBy('name')
-            ->get(['specialist_id as id', 'name', 'role']);
+            ->get(['id', 'name', 'role']);
 
         return Inertia::render('admin/visits/create-follow-up', [
             'original_visit' => $visit,
-            'specialists' => $specialists
+            'staff' => $staff
         ]);
     }
 
@@ -341,7 +313,7 @@ class VisitController extends Controller
         $validator = Validator::make($request->all(), [
             'visit_date' => 'required|date|after:now',
             'purpose' => 'required|string|max:255',
-            'doctor_id' => 'required|exists:specialists,specialist_id',
+            'doctor_id' => 'required|exists:users,id',
             'notes' => 'nullable|string',
         ]);
 
@@ -354,14 +326,16 @@ class VisitController extends Controller
             $followUpVisit = Visit::create([
                 'appointment_id' => $visit->appointment_id,
                 'patient_id' => $visit->patient_id,
-                'visit_date' => $request->visit_date,
+                'attending_staff_id' => $request->doctor_id,
+                'follow_up_visit_id' => $visit->id,
+                'visit_date_time_time' => $request->visit_date,
                 'purpose' => $request->purpose,
-                'doctor_id' => $request->doctor_id,
                 'notes' => $request->notes,
-                'status' => 'Ongoing',
+                'status' => 'scheduled',
+                'visit_type' => 'follow_up',
             ]);
 
-            return redirect()->route('admin.visits.show', $followUpVisit->visit_id)
+            return redirect()->route('admin.visits.show', $followUpVisit->id)
                 ->with('success', 'Follow-up visit created successfully!');
         } catch (\Exception $e) {
             return back()

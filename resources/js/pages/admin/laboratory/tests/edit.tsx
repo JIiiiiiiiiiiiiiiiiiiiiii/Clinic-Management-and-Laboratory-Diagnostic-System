@@ -36,6 +36,7 @@ export default function TestEdit({ test }: TestEditProps): React.ReactElement {
     const [processing, setProcessing] = useState(false);
 
     const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Laboratory', href: '/admin/laboratory' },
         { title: 'Test Templates', href: '/admin/laboratory/tests' },
         { title: `Edit ${test.name}`, href: `/admin/laboratory/tests/${test.id}/edit` },
     ];

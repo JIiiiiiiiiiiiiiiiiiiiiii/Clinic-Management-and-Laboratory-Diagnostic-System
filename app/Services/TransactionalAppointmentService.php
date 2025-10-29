@@ -45,8 +45,9 @@ class TransactionalAppointmentService
                 // Create appointment
                 $appointment = $this->createAppointment($appointmentData, $patientId, 'Online', 'Pending');
                 
-                // Send notification to admin
-                $this->notifyAdminPendingAppointment($appointment);
+                // Send notification to admin using centralized service
+                $notificationService = app(\App\Services\NotificationService::class);
+                $notificationService->notifyNewAppointment($appointment);
 
                 Log::info('Online appointment created successfully', [
                     'appointment_id' => $appointment->id,
@@ -105,31 +106,33 @@ class TransactionalAppointmentService
                 // Create appointment (immediately confirmed)
                 $appointment = $this->createAppointment($appointmentData, $patientId, 'Walk-in', 'Confirmed');
                 
-                // Automatically create visit and billing transaction
+                // Set billing status to pending for manual processing
+                $appointment->update(['billing_status' => 'pending']);
+                
+                // Create visit automatically
                 $visit = $this->createVisit($appointment);
-                $billingTransaction = $this->createBillingTransaction($appointment);
+                
+                // Skip auto-generating billing transaction - admin will handle this manually
+                // $billingTransaction = $this->createBillingTransaction($appointment);
 
                 Log::info('Walk-in appointment created successfully', [
                     'appointment_id' => $appointment->id,
                     'appointment_code' => $appointment->appointment_code,
                     'visit_id' => $visit->id,
                     'visit_code' => $visit->visit_code,
-                    'transaction_id' => $billingTransaction->id,
-                    'transaction_code' => $billingTransaction->transaction_code
+                    'note' => 'Billing transaction will be created manually by admin'
                 ]);
 
                 return [
                     'success' => true,
                     'appointment' => $appointment,
                     'visit' => $visit,
-                    'billing_transaction' => $billingTransaction,
+                    'note' => 'Billing transaction will be created manually by admin',
                     'patient' => $patient ?? null,
                     'appointment_id' => $appointment->id,
                     'appointment_code' => $appointment->appointment_code,
                     'visit_id' => $visit->id,
-                    'visit_code' => $visit->visit_code,
-                    'transaction_id' => $billingTransaction->id,
-                    'transaction_code' => $billingTransaction->transaction_code
+                    'visit_code' => $visit->visit_code
                 ];
 
             } catch (Exception $e) {
@@ -171,8 +174,8 @@ class TransactionalAppointmentService
                 // Create visit
                 $visit = $this->createVisit($appointment);
 
-                // Skip auto-generating billing transaction - admin will handle this manually
-                // $billingTransaction = $this->createBillingTransaction($appointment);
+                // Create billing transaction automatically
+                $billingTransaction = $this->createBillingTransaction($appointment);
 
                 // Notify patient
                 $this->notifyPatientAppointmentApproved($appointment);
@@ -182,7 +185,8 @@ class TransactionalAppointmentService
                     'appointment_code' => $appointment->appointment_code,
                     'visit_id' => $visit->id,
                     'visit_code' => $visit->visit_code,
-                    'note' => 'Billing transaction will be created manually by admin'
+                    'billing_transaction_id' => $billingTransaction->id,
+                    'note' => 'Billing transaction created automatically'
                 ]);
 
                 return [
@@ -231,7 +235,7 @@ class TransactionalAppointmentService
             'appointment_date' => $appointmentData['appointment_date'],
             'appointment_time' => $appointmentData['appointment_time'],
             'duration' => $appointmentData['duration'] ?? '30 min',
-            'price' => $appointmentData['price'] ?? 0.00,
+            'price' => $appointmentData['price'] ?? null, // Will be calculated after creation
             'additional_info' => $appointmentData['additional_info'] ?? null,
             'source' => $source,
             'status' => $status,
@@ -240,7 +244,14 @@ class TransactionalAppointmentService
 
         // Generate appointment code after insert
         $appointmentCode = 'A' . str_pad($appointment->id, 4, '0', STR_PAD_LEFT);
-        $appointment->update(['appointment_code' => $appointmentCode]);
+        
+        // Calculate and set price if not provided
+        $calculatedPrice = $appointmentData['price'] ?? $appointment->calculatePrice();
+        
+        $appointment->update([
+            'appointment_code' => $appointmentCode,
+            'price' => $calculatedPrice
+        ]);
 
         return $appointment->fresh();
     }
@@ -291,7 +302,8 @@ class TransactionalAppointmentService
      */
     private function createBillingTransaction(Appointment $appointment): BillingTransaction
     {
-        $transaction = BillingTransaction::create([
+        // Use the system-wide helper to prevent duplicates
+        $transaction = \App\Helpers\SystemWideSpecialistBillingHelper::createBillingTransactionSafely($appointment->id, [
             'appointment_id' => $appointment->id,
             'patient_id' => $appointment->patient_id,
             'specialist_id' => $appointment->specialist_id,
@@ -306,29 +318,6 @@ class TransactionalAppointmentService
         return $transaction->fresh();
     }
 
-    /**
-     * Notify admin about pending appointment
-     */
-    private function notifyAdminPendingAppointment(Appointment $appointment): void
-    {
-        $admins = \App\Models\User::where('role', 'admin')->get();
-        
-        foreach ($admins as $admin) {
-            Notification::create([
-                'user_id' => $admin->id,
-                'type' => 'appointment_pending',
-                'title' => 'New Online Appointment Request',
-                'message' => "Patient {$appointment->patient->first_name} {$appointment->patient->last_name} has requested an appointment for {$appointment->appointment_type} on {$appointment->appointment_date} at {$appointment->appointment_time}",
-                'data' => [
-                    'appointment_id' => $appointment->id,
-                    'appointment_code' => $appointment->appointment_code,
-                    'patient_id' => $appointment->patient_id,
-                    'patient_code' => $appointment->patient->patient_code
-                ],
-                'is_read' => false
-            ]);
-        }
-    }
 
     /**
      * Notify patient about appointment approval
@@ -405,4 +394,3 @@ class TransactionalAppointmentService
         });
     }
 }
-

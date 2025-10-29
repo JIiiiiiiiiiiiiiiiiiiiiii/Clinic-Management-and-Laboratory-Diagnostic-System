@@ -46,7 +46,9 @@ class PatientTestResultController extends Controller
                     return [
                         'id' => $order->id,
                         'created_at' => $order->created_at->format('M d, Y'),
-                        'tests' => $order->labTests->pluck('name'),
+                        'tests' => $order->results->map(function ($result) {
+                            return $result->test?->name;
+                        })->filter(),
                         'status' => $order->status,
                         'notes' => $order->notes,
                     ];
@@ -61,16 +63,18 @@ class PatientTestResultController extends Controller
                     return [
                         'id' => $order->id,
                         'created_at' => $order->created_at->format('M d, Y'),
-                        'tests' => $order->labTests->pluck('name'),
+                        'tests' => $order->results->map(function ($result) {
+                            return $result->test?->name;
+                        })->filter(),
                         'status' => $order->status,
                         'results' => $order->results->map(function ($result) {
                             return [
                                 'id' => $result->id,
-                                'test_name' => $result->test_name,
-                                'result_value' => $result->result_value,
-                                'normal_range' => $result->normal_range,
-                                'unit' => $result->unit,
-                                'status' => $result->status,
+                                'test_name' => $result->test?->name ?? 'Unknown Test',
+                                'result_value' => $result->results['value'] ?? 'N/A',
+                                'normal_range' => $result->results['normal_range'] ?? 'N/A',
+                                'unit' => $result->results['unit'] ?? 'N/A',
+                                'status' => $result->verified_at ? 'verified' : 'pending',
                                 'verified_at' => $result->verified_at ? $result->verified_at->format('M d, Y') : null,
                             ];
                         }),
@@ -84,10 +88,33 @@ class PatientTestResultController extends Controller
             $testResults['statistics']['completed_tests'] = $testResults['completed']->count();
         }
         
+        // Get notifications for the user
+        $notifications = \App\Models\Notification::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get()
+            ->map(function ($notification) {
+                return [
+                    'id' => $notification->id,
+                    'type' => $notification->type,
+                    'title' => $notification->title,
+                    'message' => $notification->message,
+                    'read' => $notification->read,
+                    'created_at' => $notification->created_at->format('M d, Y H:i'),
+                    'data' => $notification->data,
+                ];
+            });
+
+        $unreadCount = \App\Models\Notification::where('user_id', $user->id)
+            ->where('read', false)
+            ->count();
+
         return Inertia::render('patient/test-results', [
             'user' => $user,
             'patient' => $patient,
             'testResults' => $testResults,
+            'notifications' => $notifications,
+            'unreadCount' => $unreadCount,
         ]);
     }
 }

@@ -92,11 +92,19 @@ class OnlineAppointmentService
                     'appointment_date' => $appointmentData['date'],
                     'appointment_time' => $timeFormatted,
                     'duration' => $appointmentData['duration'] ?? '30 min',
-                    'price' => $appointmentData['price'] ?? 0.00,
+                    'price' => $appointmentData['price'] ?? null, // Will be calculated after creation
                     'additional_info' => $appointmentData['additional_info'] ?? null,
                     'source' => 'Online',
                     'status' => 'Pending',
                     'created_by' => auth()->id(),
+                ]);
+
+                // Calculate and set price using the model's calculatePrice method
+                $calculatedPrice = $appointmentData['price'] ?? $appointment->calculatePrice();
+                $appointment->update([
+                    'price' => $calculatedPrice,
+                    'final_total_amount' => $calculatedPrice, // Set final_total_amount to the same as price when no lab tests
+                    'total_lab_amount' => 0 // No lab tests initially
                 ]);
 
                 $appointmentId = $appointment->appointment_id;

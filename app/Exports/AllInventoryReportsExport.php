@@ -71,6 +71,12 @@ class AllInventoryReportsExport implements FromArray, WithHeadings, WithTitle, W
                 return 'Used/Rejected Supplies';
             case 'in_out_supplies':
                 return 'In/Out Supplies';
+            case 'stock_levels':
+                return 'Stock Levels';
+            case 'daily_consumption':
+                return 'Daily Consumption';
+            case 'usage_by_location':
+                return 'Usage by Location';
             default:
                 return 'Unknown Report';
         }

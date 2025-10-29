@@ -48,7 +48,6 @@ class AppointmentApprovalService
                     'status' => 'Confirmed',
                     'notes' => $adminNotes,
                     'specialist_id' => $assignedSpecialistId,
-                    'billing_status' => 'pending', // Set billing status to pending for manual processing
                 ]);
 
                 // Generate visit code before creation
@@ -88,12 +87,15 @@ class AppointmentApprovalService
 
                 $visitId = $visit->id;
 
+                // Set billing status to pending for manual processing
+                $appointment->update(['billing_status' => 'pending']);
+
                 // Skip auto-generating billing transaction - admin will handle this manually
                 // $billingTransaction = BillingTransaction::create([...]);
-                // \App\Models\AppointmentBillingLink::create([...]);
+                // $billingLink = AppointmentBillingLink::create([...]);
 
-                // $transactionId = $billingTransaction->id;
-                // $transactionCode = $billingTransaction->transaction_id;
+                $transactionId = null;
+                $transactionCode = null;
 
                 // Create notification for patient
                 Notification::create([
@@ -103,7 +105,7 @@ class AppointmentApprovalService
                     'data' => [
                         'appointment_id' => $appointment->id,
                         'visit_id' => $visitId,
-                        'note' => 'Billing transaction will be created manually by admin',
+                        'transaction_id' => $transactionId,
                     ],
                     'user_id' => 1, // Default admin user
                     'related_id' => $appointment->id,

@@ -5,7 +5,8 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 import Heading from '@/components/heading';
-import { formatAppointmentTime, formatAppointmentDate, formatAppointmentDateShort } from '@/utils/dateTime';
+import { safeFormatDate, safeFormatTime } from '@/utils/dateTime';
+import { SafeAppointmentDisplay } from '@/components/SafeDateDisplay';
 import { 
     ArrowLeft, 
     Edit,
@@ -43,6 +44,7 @@ type Appointment = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Appointments', href: '/admin/appointments' },
+    { title: 'All Appointments', href: '/admin/appointments' },
     { title: 'Appointment Details', href: '/admin/appointments/show' },
 ];
 
@@ -180,20 +182,27 @@ export default function AppointmentShow({
                                         </div>
                                         <div>
                                             <label className="text-sm font-medium text-gray-500">Price</label>
-                                            <p className="text-lg font-semibold text-gray-900">₱{(appointment.price || 0).toLocaleString()}</p>
+                                            <p className="text-lg font-semibold text-gray-900">
+                                                ₱{(appointment.final_total_amount || appointment.price || 0).toLocaleString()}
+                                                {appointment.total_lab_amount > 0 && (
+                                                    <span className="text-sm text-green-600 ml-2">
+                                                        (+₱{appointment.total_lab_amount.toLocaleString()} lab)
+                                                    </span>
+                                                )}
+                                            </p>
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label className="text-sm font-medium text-gray-500">Date</label>
                                             <p className="text-lg font-semibold text-gray-900">
-                                                {formatAppointmentDate(appointment.appointment_date)}
+                                                {safeFormatDate(appointment.appointment_date)}
                                             </p>
                                         </div>
                                         <div>
                                             <label className="text-sm font-medium text-gray-500">Time</label>
                                             <p className="text-lg font-semibold text-gray-900">
-                                                {formatAppointmentTime(appointment.appointment_time)}
+                                                {safeFormatTime(appointment.appointment_time)}
                                             </p>
                                         </div>
                                     </div>
@@ -301,26 +310,9 @@ export default function AppointmentShow({
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-6">
-                                <div className="space-y-3">
-                                    <div className="flex justify-between">
-                                        <span className="font-medium">Appointment Date:</span>
-                                        <span>{formatAppointmentDateShort(appointment.appointment_date)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="font-medium">Appointment Time:</span>
-                                        <span>
-                                            {formatAppointmentTime(appointment.appointment_time)}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="font-medium">Created:</span>
-                                        <span>{new Date(appointment.created_at).toLocaleDateString()}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="font-medium">Last Updated:</span>
-                                        <span>{new Date(appointment.updated_at).toLocaleDateString()}</span>
-                                    </div>
-                                </div>
+                                <SafeAppointmentDisplay 
+                                    appointment={appointment}
+                                />
                             </CardContent>
                         </Card>
                     </div>

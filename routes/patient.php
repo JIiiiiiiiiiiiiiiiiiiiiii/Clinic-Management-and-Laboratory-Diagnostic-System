@@ -17,7 +17,7 @@ Route::middleware(['auth'])
     ->group(function () {
 
         // Dashboard
-        Route::get('/dashboard', [PatientDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/dashboard', [PatientDashboardController::class, 'home'])->name('dashboard');
 
         // Simple dashboard fallback
         Route::get('/dashboard-simple', [PatientDashboardController::class, 'index'])->name('dashboard.simple');
@@ -69,31 +69,213 @@ Route::middleware(['auth'])
         Route::get('/profile', function () {
             $user = auth()->user();
             $patient = \App\Models\Patient::where('user_id', $user->id)->first();
+            $notifications = \App\Models\Notification::where('user_id', $user->id)
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get();
+            $unreadCount = \App\Models\Notification::where('user_id', $user->id)
+                ->where('read', false)
+                ->count();
 
             return Inertia::render('patient/profile', [
                 'user' => $user,
                 'patient' => $patient,
+                'notifications' => $notifications,
+                'unreadCount' => $unreadCount,
             ]);
         })->name('profile');
 
         Route::put('/profile', function (Request $request) {
             $user = auth()->user();
+            $patient = \App\Models\Patient::where('user_id', $user->id)->first();
 
-            $request->validate([
-                'name' => 'required|string|max:255',
-                'email' => 'required|email|max:255|unique:users,email,' . $user->id,
-                'phone' => 'nullable|string|max:20',
+            // Debug logging
+            \Log::info('Profile update request', [
+                'user_id' => $user->id,
+                'has_patient' => $patient !== null,
+                'request_data' => $request->all()
             ]);
 
-            $user->update($request->only(['name', 'email', 'phone']));
+            // Validate user data
+            $userValidation = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|max:255|unique:users,email,' . $user->id,
+            ]);
+
+            // Update user information
+            $user->update($userValidation);
+
+            // If patient exists, update patient information
+            if ($patient) {
+                $patientValidation = $request->validate([
+                    'phone' => 'nullable|string|max:20',
+                    'address' => 'nullable|string|max:500',
+                    'emergency_contact' => 'nullable|string|max:255',
+                    'emergency_relation' => 'nullable|string|max:255',
+                    'allergies' => 'nullable|string|max:500',
+                    'medical_conditions' => 'nullable|string|max:1000',
+                ]);
+
+                // Map form fields to patient database fields
+                $patientData = [
+                    'telephone_no' => $patientValidation['phone'] ?? $patient->telephone_no,
+                    'present_address' => $patientValidation['address'] ?? $patient->present_address,
+                    'emergency_name' => $patientValidation['emergency_contact'] ?? $patient->emergency_name,
+                    'emergency_relation' => $patientValidation['emergency_relation'] ?? $patient->emergency_relation,
+                    'drug_allergies' => $patientValidation['allergies'] ?? $patient->drug_allergies,
+                    'past_medical_history' => $patientValidation['medical_conditions'] ?? $patient->past_medical_history,
+                ];
+
+                \Log::info('Updating patient data', [
+                    'patient_id' => $patient->id,
+                    'patient_data' => $patientData
+                ]);
+
+                $patient->update($patientData);
+            }
 
             return redirect()->route('patient.profile')->with('success', 'Profile updated successfully!');
         })->name('profile.update');
 
+        // Home - redirect to main home page
+        Route::get('/home', function () {
+            return redirect('/');
+        })->name('home');
+
+        // Services
+        Route::get('/services', function () {
+            $user = auth()->user();
+            $patient = \App\Models\Patient::where('user_id', $user->id)->first();
+            $notifications = \App\Models\Notification::where('user_id', $user->id)
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get();
+            $unreadCount = \App\Models\Notification::where('user_id', $user->id)
+                ->where('read', false)
+                ->count();
+
+            return Inertia::render('patient/services', [
+                'user' => $user,
+                'patient' => $patient,
+                'notifications' => $notifications,
+                'unreadCount' => $unreadCount,
+            ]);
+        })->name('services');
+
         // Contact
         Route::get('/contact', function () {
-            return Inertia::render('patient/contact');
+            $user = auth()->user();
+            $patient = \App\Models\Patient::where('user_id', $user->id)->first();
+            $notifications = \App\Models\Notification::where('user_id', $user->id)
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get();
+            $unreadCount = \App\Models\Notification::where('user_id', $user->id)
+                ->where('read', false)
+                ->count();
+
+            return Inertia::render('patient/contact', [
+                'user' => $user,
+                'patient' => $patient,
+                'notifications' => $notifications,
+                'unreadCount' => $unreadCount,
+            ]);
         })->name('contact');
+
+        Route::post('/contact', function (Request $request) {
+            $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|max:255',
+                'subject' => 'required|string|max:255',
+                'message' => 'required|string|max:1000',
+                'priority' => 'required|in:low,normal,high,emergency'
+            ]);
+
+            // Here you would typically send an email or store the message
+            // For now, we'll just return a success response
+            
+            return redirect()->route('patient.contact')->with('success', 'Your message has been sent successfully!');
+        })->name('contact.store');
+
+        // About
+        Route::get('/about', function () {
+            $user = auth()->user();
+            $patient = \App\Models\Patient::where('user_id', $user->id)->first();
+            $notifications = \App\Models\Notification::where('user_id', $user->id)
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get();
+            $unreadCount = \App\Models\Notification::where('user_id', $user->id)
+                ->where('read', false)
+                ->count();
+
+            return Inertia::render('patient/about', [
+                'user' => $user,
+                'patient' => $patient,
+                'notifications' => $notifications,
+                'unreadCount' => $unreadCount,
+            ]);
+        })->name('about');
+
+        // Testimonials
+        Route::get('/testimonials', function () {
+            $user = auth()->user();
+            $patient = \App\Models\Patient::where('user_id', $user->id)->first();
+            $notifications = \App\Models\Notification::where('user_id', $user->id)
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get();
+            $unreadCount = \App\Models\Notification::where('user_id', $user->id)
+                ->where('read', false)
+                ->count();
+
+            return Inertia::render('patient/testimonials', [
+                'user' => $user,
+                'patient' => $patient,
+                'notifications' => $notifications,
+                'unreadCount' => $unreadCount,
+            ]);
+        })->name('testimonials');
+
+        // Privacy Policy
+        Route::get('/privacy', function () {
+            $user = auth()->user();
+            $patient = \App\Models\Patient::where('user_id', $user->id)->first();
+            $notifications = \App\Models\Notification::where('user_id', $user->id)
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get();
+            $unreadCount = \App\Models\Notification::where('user_id', $user->id)
+                ->where('read', false)
+                ->count();
+
+            return Inertia::render('patient/privacy', [
+                'user' => $user,
+                'patient' => $patient,
+                'notifications' => $notifications,
+                'unreadCount' => $unreadCount,
+            ]);
+        })->name('privacy');
+
+        // Terms of Service
+        Route::get('/terms', function () {
+            $user = auth()->user();
+            $patient = \App\Models\Patient::where('user_id', $user->id)->first();
+            $notifications = \App\Models\Notification::where('user_id', $user->id)
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get();
+            $unreadCount = \App\Models\Notification::where('user_id', $user->id)
+                ->where('read', false)
+                ->count();
+
+            return Inertia::render('patient/terms', [
+                'user' => $user,
+                'patient' => $patient,
+                'notifications' => $notifications,
+                'unreadCount' => $unreadCount,
+            ]);
+        })->name('terms');
 
             // Real-time appointment routes for patients
             Route::prefix('realtime')->name('realtime.')->group(function () {

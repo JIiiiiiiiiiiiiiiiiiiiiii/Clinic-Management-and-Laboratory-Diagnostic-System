@@ -7,7 +7,7 @@ import { PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, Edit, Plus, Search, Trash2, UserCheck, Stethoscope, Eye } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, Search, Trash2, UserCheck, Stethoscope, Eye, Calendar } from 'lucide-react';
 import { useState } from 'react';
 
 type Nurse = {
@@ -159,6 +159,15 @@ export default function NurseIndex({ nurses }: { nurses: Nurse[] }) {
                                                                     className="text-black border-gray-300 hover:bg-gray-50"
                                                                 >
                                                                     <Edit className="h-4 w-4" />
+                                                                </Button>
+                                                            </Link>
+                                                            <Link href={`/admin/specialists/nurses/${nurse.id}/schedule`}>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                                                                >
+                                                                    <Calendar className="h-4 w-4" />
                                                                 </Button>
                                                             </Link>
                                                             <Button

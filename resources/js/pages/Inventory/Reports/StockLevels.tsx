@@ -277,8 +277,14 @@ export default function StockLevelsReport({
                                                     <TableCell>${((item.stock || 0) * (item.unit_cost || 0)).toLocaleString()}</TableCell>
                                                     <TableCell>
                                                         <Badge 
-                                                            variant={item.status === 'Out of Stock' ? 'destructive' : 'default'}
-                                                            className={item.status === 'Low Stock' ? 'bg-orange-500 text-white hover:bg-orange-600' : ''}
+                                                            variant={
+                                                                item.status === 'In Stock' ? 'default' :
+                                                                item.status === 'Low Stock' ? 'secondary' : 'destructive'
+                                                            }
+                                                            className={
+                                                                item.status === 'Low Stock' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                                                                item.status === 'Out of Stock' ? 'bg-red-100 text-red-800 border-red-200' : ''
+                                                            }
                                                         >
                                                             {item.status}
                                                         </Badge>

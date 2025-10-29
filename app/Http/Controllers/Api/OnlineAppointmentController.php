@@ -23,7 +23,9 @@ class OnlineAppointmentController extends Controller
                 'user_id' => auth()->id(),
                 'has_patient_data' => $request->has('patient'),
                 'has_appointment_data' => $request->has('appointment'),
-                'existing_patient_id' => $request->input('existingPatientId')
+                'existing_patient_id' => $request->input('existingPatientId'),
+                'patient_data' => $request->input('patient'),
+                'full_request' => $request->all()
             ]);
 
             // Validate request - support both nested and flat formats
@@ -55,17 +57,56 @@ class OnlineAppointmentController extends Controller
 
             $result = DB::transaction(function () use ($request) {
                 $user = auth()->user();
+                $existingPatientId = $request->input('existingPatientId', 0);
                 
-                // Always create a new patient with the form data to ensure correct information
-                $patientData = $request->input('patient');
-                $patientData['user_id'] = $user->id;
-                
-                Log::info('Creating new patient with form data', [
-                    'first_name' => $patientData['first_name'] ?? 'Not provided',
-                    'last_name' => $patientData['last_name'] ?? 'Not provided',
-                    'mobile_no' => $patientData['mobile_no'] ?? 'Not provided'
-                ]);
+                // Check if we should use existing patient or create new one
+                if ($existingPatientId && $existingPatientId > 0) {
+                    // Use existing patient
+                    $patient = \App\Models\Patient::find($existingPatientId);
+                    if (!$patient) {
+                        throw new \Exception('Existing patient not found');
+                    }
                     
+                    Log::info('Using existing patient for appointment', [
+                        'patient_id' => $patient->id,
+                        'patient_name' => $patient->first_name . ' ' . $patient->last_name
+                    ]);
+                } else {
+                    // Create new patient with form data
+                    $patientData = $request->input('patient', []);
+                    
+                    // Validate that patient data is provided
+                    if (empty($patientData)) {
+                        Log::error('No patient data provided for new patient creation', [
+                            'request_data' => $request->all()
+                        ]);
+                        throw new \Exception('Patient information is required for new appointments');
+                    }
+                    
+                    $patientData['user_id'] = $user->id;
+                    
+                    // Ensure we have the required fields
+                    if (empty($patientData['last_name'])) {
+                        Log::error('Missing last_name in patient data', [
+                            'patient_data' => $patientData,
+                            'request_data' => $request->all()
+                        ]);
+                        throw new \Exception('Last name is required for patient creation');
+                    }
+                    if (empty($patientData['first_name'])) {
+                        Log::error('Missing first_name in patient data', [
+                            'patient_data' => $patientData,
+                            'request_data' => $request->all()
+                        ]);
+                        throw new \Exception('First name is required for patient creation');
+                    }
+                
+                    Log::info('Creating new patient with form data', [
+                        'first_name' => $patientData['first_name'] ?? 'Not provided',
+                        'last_name' => $patientData['last_name'] ?? 'Not provided',
+                        'mobile_no' => $patientData['mobile_no'] ?? 'Not provided'
+                    ]);
+                        
                     // Add required fields with defaults if not provided
                     if (!isset($patientData['arrival_date'])) {
                         $patientData['arrival_date'] = now()->toDateString();
@@ -78,6 +119,11 @@ class OnlineAppointmentController extends Controller
                     }
                     if (!isset($patientData['time_seen'])) {
                         $patientData['time_seen'] = now()->format('H:i:s');
+                    }
+                    
+                    // Ensure present_address is set
+                    if (!isset($patientData['present_address'])) {
+                        $patientData['present_address'] = $patientData['address'] ?? 'To be completed';
                     }
                     
                     // Ensure address is set
@@ -124,22 +170,21 @@ class OnlineAppointmentController extends Controller
                         $patientData['sex'] = strtolower($patientData['sex']);
                     }
                     
-                $patient = $this->createOrFindPatient($patientData);
+                    $patient = $this->createOrFindPatient($patientData);
+                }
                 
-                Log::info('New patient created via API with form data', [
+                Log::info('Patient ready for appointment creation', [
                     'patient_id' => $patient->id,
                     'patient_no' => $patient->patient_no,
-                    'patient_name' => $patient->first_name . ' ' . $patient->last_name
+                    'patient_name' => $patient->first_name . ' ' . $patient->last_name,
+                    'is_existing' => $existingPatientId > 0
                 ]);
 
                 // Create appointment
                 $appointmentInput = $request->input('appointment');
                 
-                // Get specialist for name - try both Staff and Specialist models
-                $specialist = \App\Models\Staff::where('staff_id', $appointmentInput['specialist_id'])->first();
-                if (!$specialist) {
-                    $specialist = \App\Models\Specialist::find($appointmentInput['specialist_id']);
-                }
+                // Get specialist for name - use Specialist model
+                $specialist = \App\Models\Specialist::find($appointmentInput['specialist_id']);
                 
                 // Convert appointment time from 12-hour to 24-hour format (e.g., "3:30 PM" -> "15:30:00")
                 $appointmentTime = $this->formatTimeForDatabase($appointmentInput['time']);
@@ -175,8 +220,9 @@ class OnlineAppointmentController extends Controller
                 
                 Log::info('Pending appointment created in pending_appointments table', $pendingAppointmentData);
 
-                // Send notification to admin
-                $this->notifyAdminPendingAppointment($appointment, $patient);
+                // Send notification to admin using centralized service
+                $notificationService = app(\App\Services\NotificationService::class);
+                $notificationService->notifyNewPendingAppointment($appointment);
 
                 Log::info('Online appointment created successfully', [
                     'pending_appointment_id' => $appointment->id,
@@ -254,6 +300,25 @@ class OnlineAppointmentController extends Controller
         if (!isset($patientData['food_allergies'])) {
             $patientData['food_allergies'] = 'NONE';
         }
+        
+        // Ensure required fields are not empty
+        if (empty($patientData['last_name'])) {
+            $patientData['last_name'] = 'Not provided';
+        }
+        if (empty($patientData['first_name'])) {
+            $patientData['first_name'] = 'Not provided';
+        }
+        
+        // Ensure present_address is set
+        if (!isset($patientData['present_address'])) {
+            $patientData['present_address'] = $patientData['address'] ?? 'To be completed';
+        }
+        if (!isset($patientData['informant_name'])) {
+            $patientData['informant_name'] = $patientData['emergency_name'] ?? 'Not provided';
+        }
+        if (!isset($patientData['relationship'])) {
+            $patientData['relationship'] = $patientData['emergency_relation'] ?? 'Not provided';
+        }
 
         // Create new patient - patient_no will be auto-generated by model boot method
         $newPatient = Patient::create($patientData);
@@ -314,66 +379,4 @@ class OnlineAppointmentController extends Controller
         }
     }
 
-    /**
-     * Notify admin users about pending appointment
-     */
-    private function notifyAdminPendingAppointment($appointment, $patient)
-    {
-        try {
-            // Get all admin users
-            $adminUsers = \App\Models\User::where('role', 'admin')->get();
-
-            Log::info('Notifying admin users about online appointment', [
-                'admin_count' => $adminUsers->count(),
-                'appointment_id' => $appointment->id
-            ]);
-
-            $patientName = $patient->first_name . ' ' . $patient->last_name;
-
-            foreach ($adminUsers as $admin) {
-                // Create notification
-                $notification = \App\Models\Notification::create([
-                    'type' => 'appointment_request',
-                    'title' => 'New Online Appointment Request',
-                    'message' => "Patient {$patientName} has requested an online appointment for {$appointment->appointment_type} on {$appointment->appointment_date->format('M d, Y')} at {$appointment->appointment_time->format('g:i A')}. Please review and approve.",
-                    'data' => [
-                        'appointment_id' => $appointment->id,
-                        'patient_id' => $patient->id,
-                        'patient_no' => $patient->patient_no,
-                        'patient_name' => $patientName,
-                        'appointment_type' => $appointment->appointment_type,
-                        'appointment_date' => $appointment->appointment_date->format('Y-m-d'),
-                        'appointment_time' => $appointment->appointment_time->format('H:i:s'),
-                        'specialist_name' => $appointment->specialist_name,
-                        'status' => $appointment->status,
-                        'price' => $appointment->price,
-                        'source' => $appointment->source,
-                    ],
-                    'user_id' => $admin->id,
-                    'related_id' => $appointment->id,
-                    'related_type' => 'App\\Models\\Appointment',
-                    'read' => false,
-                ]);
-
-                Log::info('Online appointment notification created', [
-                    'notification_id' => $notification->id,
-                    'admin_id' => $admin->id,
-                    'admin_name' => $admin->name,
-                    'appointment_id' => $appointment->id
-                ]);
-            }
-
-            Log::info('All admin notifications created successfully', [
-                'total_notifications' => $adminUsers->count(),
-                'appointment_id' => $appointment->id
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Failed to create admin notifications for online appointment', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'appointment_id' => $appointment->id
-            ]);
-            // Don't throw exception - allow appointment creation to complete even if notifications fail
-        }
-    }
 }

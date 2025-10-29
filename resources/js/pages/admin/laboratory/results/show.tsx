@@ -42,6 +42,7 @@ type Order = {
 
 export default function ResultsShow({ order, patient, results }: { order: Order; patient: Patient | null; results: Result[] }) {
     const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Laboratory', href: '/admin/laboratory' },
         { title: 'Lab Orders', href: '/admin/laboratory/orders' },
         { title: `Order #${order.id}`, href: `/admin/laboratory/orders/${order.id}/results/view` },
     ];

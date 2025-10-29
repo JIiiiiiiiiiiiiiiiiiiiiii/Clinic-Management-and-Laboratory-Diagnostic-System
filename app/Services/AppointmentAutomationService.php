@@ -72,15 +72,21 @@ class AppointmentAutomationService
         $appointmentData['appointment_code'] = $this->generateAppointmentCode();
         $appointmentData['source'] = $source;
         $appointmentData['status'] = $source === 'Online' ? 'Pending' : 'Confirmed';
-        $appointmentData['billing_status'] = 'pending'; // Set billing status to pending for manual processing
 
         $appointment = Appointment::create($appointmentData);
 
-        // If walk-in appointment, create visit but skip auto-billing
+        // Calculate and set price using the model's calculatePrice method
+        $calculatedPrice = $appointment->calculatePrice();
+        $appointment->update([
+            'price' => $calculatedPrice,
+            'final_total_amount' => $calculatedPrice, // Set final_total_amount to the same as price when no lab tests
+            'total_lab_amount' => 0 // No lab tests initially
+        ]);
+
+        // If walk-in appointment, only create visit (billing will be created manually)
         if ($source === 'Walk-in') {
             $this->createVisit($appointment);
-            // Skip auto-generating billing transaction - admin will handle this manually
-            // $this->createBillingTransaction($appointment);
+            // Note: Billing transaction will be created manually through "Create Transaction from Appointments" page
         }
 
         return $appointment;
@@ -93,16 +99,23 @@ class AppointmentAutomationService
     {
         $appointment->update([
             'status' => 'Confirmed',
-            'source' => 'Online',
-            'billing_status' => 'pending' // Set billing status to pending for manual processing
+            'source' => 'Online'
         ]);
 
         // Create visit
         $visit = $this->createVisit($appointment);
         
-        // Skip auto-generating billing transaction - admin will handle this manually
-        // $billingTransaction = $this->createBillingTransaction($appointment);
-        // \App\Models\AppointmentBillingLink::create([...]);
+        // Create billing transaction
+        $billingTransaction = $this->createBillingTransaction($appointment);
+        
+        // Create billing link
+        \App\Models\AppointmentBillingLink::create([
+            'appointment_id' => $appointment->id,
+            'billing_transaction_id' => $billingTransaction->id,
+            'appointment_type' => $appointment->appointment_type,
+            'appointment_price' => $appointment->price,
+            'status' => 'pending',
+        ]);
 
         return $appointment;
     }
@@ -150,12 +163,19 @@ class AppointmentAutomationService
      */
         public function createBillingTransaction(Appointment $appointment): BillingTransaction
     {
+        // Calculate the correct total amount including lab tests and discounts
+        $totalAmount = $appointment->final_total_amount ?? $appointment->price;
+        
         // SYSTEM-WIDE FIX: Use the comprehensive helper
         return \App\Helpers\SystemWideSpecialistBillingHelper::createBillingTransactionSafely($appointment->id, [
+            "appointment_id" => $appointment->id,
             "patient_id" => $appointment->patient_id,
-            "total_amount" => $appointment->price,
+            "total_amount" => $totalAmount,
+            "amount" => $totalAmount, // Set both total_amount and amount
             "status" => "pending",
             "transaction_date" => now(),
+            "transaction_date_only" => now()->toDateString(),
+            "transaction_time_only" => now()->toTimeString(),
             "created_by" => 1,
         ]);
     }

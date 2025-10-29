@@ -39,6 +39,13 @@ type LabTest = {
     price: number;
 };
 
+type HmoProvider = {
+    id: number;
+    name: string;
+    code: string;
+    is_active: boolean;
+};
+
 type BillingItem = {
     id: string;
     item_type: string;
@@ -58,15 +65,48 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function BillingCreate({ 
     patients, 
     doctors, 
-    labTests 
+    labTests,
+    hmoProviders = []
 }: { 
     patients: Patient[];
     doctors: Doctor[];
     labTests: LabTest[];
+    hmoProviders?: HmoProvider[];
 }) {
     const [items, setItems] = useState<BillingItem[]>([]);
     const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
     const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+    const [transactionType, setTransactionType] = useState<string>('');
+
+    // Transaction types with pricing (same as online appointment system)
+    const transactionTypes = {
+        'general_consultation': { name: 'General Consultation', price: 300, type: 'consultation' },
+        'cbc': { name: 'Complete Blood Count (CBC)', price: 500, type: 'laboratory' },
+        'fecalysis_test': { name: 'Fecalysis Test', price: 500, type: 'laboratory' },
+        'urinarysis_test': { name: 'Urinarysis Test', price: 500, type: 'laboratory' },
+    };
+
+    // Calculate price based on transaction type
+    const calculateTransactionPrice = (type: string) => {
+        return transactionTypes[type as keyof typeof transactionTypes]?.price || 0;
+    };
+
+    // Add transaction type item
+    const addTransactionTypeItem = (type: string) => {
+        const transaction = transactionTypes[type as keyof typeof transactionTypes];
+        if (transaction) {
+            const newItem: BillingItem = {
+                id: Date.now().toString(),
+                item_type: transaction.type,
+                item_name: transaction.name,
+                item_description: `Manual transaction: ${transaction.name}`,
+                quantity: 1,
+                unit_price: transaction.price,
+                total_price: transaction.price,
+            };
+            setItems([...items, newItem]);
+        }
+    };
 
     const { data, setData, post, processing, errors } = useForm({
         patient_id: '',
@@ -76,8 +116,12 @@ export default function BillingCreate({
         total_amount: 0,
         discount_amount: 0,
         discount_percentage: 0,
+        is_senior_citizen: false,
+        senior_discount_amount: 0,
+        senior_discount_percentage: 20,
         hmo_provider: '',
         hmo_reference: '',
+        hmo_reference_number: '',
         payment_reference: '',
         description: '',
         notes: '',
@@ -143,8 +187,20 @@ export default function BillingCreate({
         return data.discount_amount;
     };
 
+    const calculateSeniorDiscount = () => {
+        if (!data.is_senior_citizen) return 0;
+        const total = calculateTotal();
+        // Apply 20% senior citizen discount to consultation items only
+        const consultationItems = items.filter(item => item.item_type === 'consultation');
+        const consultationTotal = consultationItems.reduce((sum, item) => sum + item.total_price, 0);
+        return (consultationTotal * data.senior_discount_percentage) / 100;
+    };
+
     const calculateNetAmount = () => {
-        return calculateTotal() - calculateDiscount();
+        const total = calculateTotal();
+        const regularDiscount = calculateDiscount();
+        const seniorDiscount = calculateSeniorDiscount();
+        return total - regularDiscount - seniorDiscount;
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -208,7 +264,7 @@ export default function BillingCreate({
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {patients.map((patient) => (
-                                                    <SelectItem key={patient.patient_id} value={patient.patient_id.toString()}>
+                                                    <SelectItem key={patient.id} value={patient.id.toString()}>
                                                         {patient.last_name}, {patient.first_name} ({patient.patient_no})
                                                     </SelectItem>
                                                 ))}
@@ -291,31 +347,60 @@ export default function BillingCreate({
                                             <Label htmlFor="hmo_provider" className="text-sm font-medium text-gray-700">
                                                 HMO Provider
                                             </Label>
-                                            <Input
-                                                id="hmo_provider"
+                                            <Select
                                                 value={data.hmo_provider}
-                                                onChange={(e) => setData('hmo_provider', e.target.value)}
-                                                placeholder="Enter HMO provider"
-                                                className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl"
-                                            />
+                                                onValueChange={(value) => setData('hmo_provider', value)}
+                                            >
+                                                <SelectTrigger className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl">
+                                                    <SelectValue placeholder="Select HMO provider" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {hmoProviders.map((provider) => (
+                                                        <SelectItem key={provider.id} value={provider.name}>
+                                                            {provider.name} ({provider.code})
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                             {errors.hmo_provider && <p className="text-sm text-red-600">{errors.hmo_provider}</p>}
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label htmlFor="hmo_reference" className="text-sm font-medium text-gray-700">
-                                                HMO Reference
+                                            <Label htmlFor="hmo_reference_number" className="text-sm font-medium text-gray-700">
+                                                HMO Reference Number
                                             </Label>
                                             <Input
-                                                id="hmo_reference"
-                                                value={data.hmo_reference}
-                                                onChange={(e) => setData('hmo_reference', e.target.value)}
-                                                placeholder="Enter HMO reference"
+                                                id="hmo_reference_number"
+                                                value={data.hmo_reference_number}
+                                                onChange={(e) => setData('hmo_reference_number', e.target.value)}
+                                                placeholder="Enter HMO reference number"
                                                 className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl"
                                             />
-                                            {errors.hmo_reference && <p className="text-sm text-red-600">{errors.hmo_reference}</p>}
+                                            {errors.hmo_reference_number && <p className="text-sm text-red-600">{errors.hmo_reference_number}</p>}
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Senior Citizen Discount */}
+                                <div className="space-y-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="checkbox"
+                                            id="is_senior_citizen"
+                                            checked={data.is_senior_citizen}
+                                            onChange={(e) => setData('is_senior_citizen', e.target.checked)}
+                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        />
+                                        <Label htmlFor="is_senior_citizen" className="text-sm font-medium text-gray-700">
+                                            Senior Citizen (20% discount on consultation)
+                                        </Label>
+                                    </div>
+                                    {data.is_senior_citizen && (
+                                        <div className="text-sm text-blue-700 bg-blue-100 p-3 rounded-lg">
+                                            <strong>Senior Citizen Discount Applied:</strong> 20% discount will be applied to consultation items only.
+                                        </div>
+                                    )}
+                                </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
@@ -375,6 +460,38 @@ export default function BillingCreate({
                                         rows={3}
                                     />
                                     {errors.notes && <p className="text-sm text-red-600">{errors.notes}</p>}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Manual Transaction Section */}
+                        <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-3 text-xl font-semibold text-gray-900">
+                                    <Calculator className="h-5 w-5 text-black" />
+                                    Manual Transaction
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    {Object.entries(transactionTypes).map(([key, transaction]) => (
+                                        <Button
+                                            key={key}
+                                            variant="outline"
+                                            className="h-20 flex flex-col items-center justify-center p-4 hover:bg-blue-50 hover:border-blue-300"
+                                            onClick={() => addTransactionTypeItem(key)}
+                                        >
+                                            <div className="text-sm font-medium text-gray-900 mb-1">
+                                                {transaction.name}
+                                            </div>
+                                            <div className="text-lg font-bold text-blue-600">
+                                                ₱{transaction.price}
+                                            </div>
+                                        </Button>
+                                    ))}
+                                </div>
+                                <div className="mt-4 text-sm text-gray-600">
+                                    <p>Click on any service above to automatically add it to your transaction with the correct pricing.</p>
                                 </div>
                             </CardContent>
                         </Card>
@@ -562,9 +679,16 @@ export default function BillingCreate({
                                 </div>
 
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600">Discount:</span>
+                                    <span className="text-gray-600">Regular Discount:</span>
                                     <span className="font-semibold text-red-600">-₱{calculateDiscount().toLocaleString()}</span>
                                 </div>
+
+                                {data.is_senior_citizen && (
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Senior Citizen Discount (20%):</span>
+                                        <span className="font-semibold text-blue-600">-₱{calculateSeniorDiscount().toLocaleString()}</span>
+                                    </div>
+                                )}
 
                                 <div className="border-t pt-4">
                                     <div className="flex justify-between text-lg font-bold">

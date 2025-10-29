@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,7 +12,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import Heading from '@/components/heading';
-import { formatAppointmentTime, formatAppointmentDateShort } from '@/utils/dateTime';
+import { safeFormatDate, safeFormatTime } from '@/utils/dateTime';
 import { 
     AlertCircle, 
     ArrowLeft, 
@@ -30,15 +30,36 @@ import {
     TrendingUp,
     Users,
     Calendar,
-    Edit,
     Filter,
     Printer,
     Trash2,
     MoreHorizontal,
     X,
-    Check
+    Check,
+    Edit,
+    ArrowUpDown,
+    ArrowUp,
+    ArrowDown,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight
 } from 'lucide-react';
 import { useState } from 'react';
+import {
+    ColumnDef,
+    ColumnFiltersState,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+    VisibilityState,
+} from '@tanstack/react-table';
+import * as React from 'react';
 
 type BillingTransaction = {
     id: number;
@@ -55,11 +76,20 @@ type BillingTransaction = {
     } | null;
     payment_type: 'cash' | 'health_card' | 'discount';
     total_amount: number;
+    amount: number;
     discount_amount: number;
+    discount_percentage: number | null;
+    is_senior_citizen: boolean;
+    senior_discount_amount: number;
+    senior_discount_percentage: number;
     hmo_provider: string | null;
+    hmo_reference: string | null;
+    hmo_reference_number: string | null;
     payment_method: 'cash' | 'hmo';
+    payment_reference: string | null;
     status: 'draft' | 'pending' | 'paid' | 'cancelled' | 'refunded';
     description: string | null;
+    notes: string | null;
     transaction_date: string;
     due_date: string | null;
     created_at: string;
@@ -102,6 +132,422 @@ const statusConfig = {
     refunded: { label: 'Refunded', color: 'bg-orange-500', icon: AlertCircle },
 };
 
+const getStatusBadge = (status: keyof typeof statusConfig) => {
+    const config = statusConfig[status];
+    const Icon = config.icon;
+    
+    const variantMap = {
+        draft: 'secondary',
+        pending: 'warning',
+        paid: 'success',
+        cancelled: 'destructive',
+        refunded: 'destructive'
+    };
+    
+    return (
+        <Badge variant={variantMap[status] as any}>
+            <Icon className="mr-1 h-3 w-3" />
+            {config.label}
+        </Badge>
+    );
+};
+
+// Column definitions for the transactions table
+const createTransactionColumns = (): ColumnDef<BillingTransaction>[] => [
+    {
+        accessorKey: "transaction_id",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Transaction ID
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">{row.getValue("transaction_id")}</div>
+        ),
+    },
+    {
+        accessorKey: "patient",
+        header: "Patient",
+        cell: ({ row }) => {
+            const patient = row.getValue("patient") as any;
+            return (
+                <div className="font-medium">
+                    {patient ? `${patient.last_name}, ${patient.first_name}` : 'Loading...'}
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "doctor",
+        header: "Specialist",
+        cell: ({ row }) => {
+            const doctor = row.getValue("doctor") as any;
+            return <div>{doctor ? doctor.name : '—'}</div>;
+        },
+    },
+    {
+        accessorKey: "amount",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Amount
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-semibold text-green-600">
+                ₱{row.getValue("amount")?.toLocaleString()}
+            </div>
+        ),
+    },
+    {
+        accessorKey: "payment_method",
+        header: "Payment Method",
+        cell: ({ row }) => (
+            <Badge variant="outline" className="capitalize">
+                {row.getValue("payment_method")}
+            </Badge>
+        ),
+    },
+    {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => {
+            const status = row.getValue("status") as keyof typeof statusConfig;
+            return getStatusBadge(status);
+        },
+    },
+    {
+        accessorKey: "transaction_date",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Date
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="text-sm">
+                {new Date(row.getValue("transaction_date")).toLocaleDateString()}
+            </div>
+        ),
+    },
+    {
+        id: "actions",
+        enableHiding: false,
+        cell: ({ row }) => {
+            const transaction = row.original;
+
+            return (
+                <div className="flex items-center gap-2">
+                    <Button asChild variant="outline" size="sm">
+                        <Link href={`/admin/billing/${transaction.id}`}>
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                        </Link>
+                    </Button>
+                    <Button asChild variant="outline" size="sm">
+                        <Link href={`/admin/billing/${transaction.id}/edit`}>
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                        </Link>
+                    </Button>
+                </div>
+            )
+        },
+    },
+];
+
+// Column definitions for the pending appointments table
+const createPendingAppointmentsColumns = (): ColumnDef<PendingAppointment>[] => [
+    {
+        accessorKey: "patient_name",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Patient
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">{row.getValue("patient_name")}</div>
+        ),
+    },
+    {
+        accessorKey: "appointment_type",
+        header: "Appointment Type",
+        cell: ({ row }) => (
+            <Badge variant="outline" className="capitalize">
+                {row.getValue("appointment_type")}
+            </Badge>
+        ),
+    },
+    {
+        accessorKey: "specialist_name",
+        header: "Specialist",
+        cell: ({ row }) => (
+            <div>{row.getValue("specialist_name")}</div>
+        ),
+    },
+    {
+        accessorKey: "appointment_date",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Date & Time
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div>
+                <div className="font-medium">
+                    {safeFormatDate(row.getValue("appointment_date"))}
+                </div>
+                <div className="text-sm text-gray-500">
+                    {safeFormatTime(row.original.appointment_time)}
+                </div>
+            </div>
+        ),
+    },
+    {
+        accessorKey: "price",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Price
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-semibold text-green-600">
+                ₱{(row.original.final_total_amount || row.getValue("price") || 0).toLocaleString()}
+            </div>
+        ),
+    },
+    {
+        accessorKey: "billing_status",
+        header: "Status",
+        cell: ({ row }) => (
+            <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+                {row.getValue("billing_status")}
+            </Badge>
+        ),
+    },
+    {
+        id: "actions",
+        enableHiding: false,
+        cell: ({ row }) => {
+            const appointment = row.original;
+
+            return (
+                <div className="flex items-center gap-2">
+                    <Button asChild variant="outline" size="sm">
+                        <Link href={`/admin/appointments/${appointment.id}`}>
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                        </Link>
+                    </Button>
+                    <Button asChild size="sm">
+                        <Link href={`/admin/billing/create-from-appointments?appointment_id=${appointment.id}`}>
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Pay Now
+                        </Link>
+                    </Button>
+                </div>
+            )
+        },
+    },
+];
+
+// Column definitions for the doctor payments table
+const createDoctorPaymentsColumns = (): ColumnDef<any>[] => [
+    {
+        accessorKey: "doctor",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Doctor
+                    </div>
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const doctor = row.getValue("doctor") as any;
+            return (
+                <div className="flex items-center gap-2">
+                    <div className="p-1 bg-gray-100 rounded-full">
+                        <Users className="h-4 w-4 text-black" />
+                    </div>
+                    {doctor ? doctor.name : 'N/A'}
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "incentives",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Incentives
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="text-green-600">
+                +₱{row.getValue("incentives")?.toLocaleString() || '0.00'}
+            </div>
+        ),
+    },
+    {
+        accessorKey: "net_payment",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Net Payment
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-semibold text-lg">
+                ₱{row.getValue("net_payment")?.toLocaleString() || '0.00'}
+            </div>
+        ),
+    },
+    {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => {
+            const status = row.getValue("status") as string;
+            const variantMap = {
+                pending: 'warning',
+                paid: 'success',
+                cancelled: 'destructive'
+            };
+            
+            return (
+                <Badge variant={variantMap[status as keyof typeof variantMap] as any}>
+                    <div className="flex items-center gap-1">
+                        {status === 'pending' && <Clock className="h-3 w-3" />}
+                        {status === 'paid' && <Check className="h-3 w-3" />}
+                        {status === 'cancelled' && <X className="h-3 w-3" />}
+                        {status}
+                    </div>
+                </Badge>
+            );
+        },
+    },
+    {
+        accessorKey: "payment_date",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Payment Date
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="text-sm text-gray-600">
+                {new Date(row.getValue("payment_date")).toLocaleDateString()}
+            </div>
+        ),
+    },
+    {
+        id: "actions",
+        enableHiding: false,
+        cell: ({ row }) => {
+            const payment = row.original;
+
+            return (
+                <div className="flex gap-2">
+                    <Button asChild size="sm" variant="outline">
+                        <Link href={`/admin/billing/doctor-payments/${payment.id}`}>
+                            <Eye className="mr-1 h-3 w-3" />
+                            View
+                        </Link>
+                    </Button>
+                    {payment.status === 'pending' && (
+                        <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="text-green-600 hover:text-green-700"
+                            onClick={() => {
+                                if (confirm('Are you sure you want to mark this payment as paid?')) {
+                                    router.put(`/admin/billing/doctor-payments/${payment.id}/mark-paid`, {}, {
+                                        onSuccess: () => {
+                                            window.location.reload();
+                                        },
+                                        onError: (errors) => {
+                                            console.error('Mark as paid failed:', errors);
+                                            alert('Failed to mark payment as paid. Please try again.');
+                                        },
+                                    });
+                                }
+                            }}
+                        >
+                            <Check className="mr-1 h-3 w-3" />
+                            Mark Paid
+                        </Button>
+                    )}
+                </div>
+            )
+        },
+    },
+];
+
 const paymentMethodConfig = {
     cash: { label: 'Cash', color: 'bg-green-100 text-green-800' },
     hmo: { label: 'HMO', color: 'bg-indigo-100 text-indigo-800' },
@@ -113,10 +559,14 @@ type PendingAppointment = {
     patient_id: string;
     appointment_type: string;
     price: number;
+    total_lab_amount: number;
+    final_total_amount: number;
     appointment_date: string;
     appointment_time: string;
     specialist_name: string;
     billing_status: string;
+    source: string;
+    lab_tests_count: number;
 };
 
 export default function BillingIndex({ 
@@ -152,9 +602,129 @@ export default function BillingIndex({
     const [selectedTransaction, setSelectedTransaction] = useState<BillingTransaction | null>(null);
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [paymentReference, setPaymentReference] = useState('');
+    
+    // TanStack Table state for transactions
+    const [sorting, setSorting] = React.useState<SortingState>([]);
+    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+    const [rowSelection, setRowSelection] = React.useState({});
+    const [globalFilter, setGlobalFilter] = React.useState(filters.search || '');
+
+    // TanStack Table state for pending appointments
+    const [pendingSorting, setPendingSorting] = React.useState<SortingState>([]);
+    const [pendingColumnFilters, setPendingColumnFilters] = React.useState<ColumnFiltersState>([]);
+    const [pendingColumnVisibility, setPendingColumnVisibility] = React.useState<VisibilityState>({});
+    const [pendingRowSelection, setPendingRowSelection] = React.useState({});
+    const [pendingGlobalFilter, setPendingGlobalFilter] = React.useState('');
+
+    // TanStack Table state for doctor payments
+    const [doctorSorting, setDoctorSorting] = React.useState<SortingState>([]);
+    const [doctorColumnFilters, setDoctorColumnFilters] = React.useState<ColumnFiltersState>([]);
+    const [doctorColumnVisibility, setDoctorColumnVisibility] = React.useState<VisibilityState>({});
+    const [doctorRowSelection, setDoctorRowSelection] = React.useState({});
+    const [doctorGlobalFilter, setDoctorGlobalFilter] = React.useState('');
 
     // Ensure we have data to work with
     const transactionsData = transactions?.data || [];
+    const pendingAppointmentsData = pendingAppointments || [];
+    const doctorPaymentsData = doctorPayments?.data || [];
+    
+    // Initialize transactions table
+    const columns = createTransactionColumns();
+    const table = useReactTable({
+        data: transactionsData || [],
+        columns,
+        onSortingChange: setSorting,
+        onColumnFiltersChange: setColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onColumnVisibilityChange: setColumnVisibility,
+        onRowSelectionChange: setRowSelection,
+        onGlobalFilterChange: setGlobalFilter,
+        globalFilterFn: (row, columnId, value) => {
+            const search = value.toLowerCase();
+            const transaction = row.original;
+            return (
+                transaction.transaction_id?.toLowerCase().includes(search) ||
+                transaction.patient?.first_name?.toLowerCase().includes(search) ||
+                transaction.patient?.last_name?.toLowerCase().includes(search) ||
+                transaction.patient?.patient_no?.toLowerCase().includes(search) ||
+                transaction.doctor?.name?.toLowerCase().includes(search)
+            );
+        },
+        state: {
+            sorting,
+            columnFilters,
+            columnVisibility,
+            rowSelection,
+            globalFilter,
+        },
+    });
+
+    // Initialize pending appointments table
+    const pendingColumns = createPendingAppointmentsColumns();
+    const pendingTable = useReactTable({
+        data: pendingAppointmentsData || [],
+        columns: pendingColumns,
+        onSortingChange: setPendingSorting,
+        onColumnFiltersChange: setPendingColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onColumnVisibilityChange: setPendingColumnVisibility,
+        onRowSelectionChange: setPendingRowSelection,
+        onGlobalFilterChange: setPendingGlobalFilter,
+        globalFilterFn: (row, columnId, value) => {
+            const search = value.toLowerCase();
+            const appointment = row.original;
+            return (
+                appointment.patient_name?.toLowerCase().includes(search) ||
+                appointment.appointment_type?.toLowerCase().includes(search) ||
+                appointment.specialist_name?.toLowerCase().includes(search)
+            );
+        },
+        state: {
+            sorting: pendingSorting,
+            columnFilters: pendingColumnFilters,
+            columnVisibility: pendingColumnVisibility,
+            rowSelection: pendingRowSelection,
+            globalFilter: pendingGlobalFilter,
+        },
+    });
+
+    // Initialize doctor payments table
+    const doctorColumns = createDoctorPaymentsColumns();
+    const doctorTable = useReactTable({
+        data: doctorPaymentsData || [],
+        columns: doctorColumns,
+        onSortingChange: setDoctorSorting,
+        onColumnFiltersChange: setDoctorColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onColumnVisibilityChange: setDoctorColumnVisibility,
+        onRowSelectionChange: setDoctorRowSelection,
+        onGlobalFilterChange: setDoctorGlobalFilter,
+        globalFilterFn: (row, columnId, value) => {
+            const search = value.toLowerCase();
+            const payment = row.original;
+            return (
+                payment.doctor?.name?.toLowerCase().includes(search) ||
+                payment.status?.toLowerCase().includes(search)
+            );
+        },
+        state: {
+            sorting: doctorSorting,
+            columnFilters: doctorColumnFilters,
+            columnVisibility: doctorColumnVisibility,
+            rowSelection: doctorRowSelection,
+            globalFilter: doctorGlobalFilter,
+        },
+    });
     
     
     const filteredTransactions = (transactionsData || []).filter((transaction: BillingTransaction) => {
@@ -182,25 +752,6 @@ export default function BillingIndex({
     
 
 
-    const getStatusBadge = (status: keyof typeof statusConfig) => {
-        const config = statusConfig[status];
-        const Icon = config.icon;
-        
-        const variantMap = {
-            draft: 'secondary',
-            pending: 'warning',
-            paid: 'success',
-            cancelled: 'destructive',
-            refunded: 'destructive'
-        };
-        
-        return (
-            <Badge variant={variantMap[status] as any}>
-                <Icon className="mr-1 h-3 w-3" />
-                {config.label}
-            </Badge>
-        );
-    };
 
     const getPaymentMethodBadge = (method: keyof typeof paymentMethodConfig) => {
         const config = paymentMethodConfig[method];
@@ -211,6 +762,26 @@ export default function BillingIndex({
         );
     };
 
+    // Handle sorting
+    const handleSort = (field: string) => {
+        const newSortDir = sortBy === field && sortDir === 'asc' ? 'desc' : 'asc';
+        setSortBy(field);
+        setSortDir(newSortDir);
+        router.get('/admin/billing', {
+            search: searchTerm,
+            status: statusFilter,
+            payment_method: paymentMethodFilter,
+            doctor_id: doctorFilter,
+            date_from: dateFrom,
+            date_to: dateTo,
+            sort_by: field,
+            sort_dir: newSortDir,
+        }, {
+            preserveState: true,
+            replace: true,
+        });
+    };
+
     const handleFilter = () => {
         router.get('/admin/billing', {
             search: searchTerm,
@@ -219,6 +790,8 @@ export default function BillingIndex({
             doctor_id: doctorFilter,
             date_from: dateFrom,
             date_to: dateTo,
+            sort_by: sortBy,
+            sort_dir: sortDir,
         }, {
             preserveState: true,
             replace: true,
@@ -302,7 +875,7 @@ export default function BillingIndex({
         const reportDateTo = dateTo || new Date().toISOString().split('T')[0];
         
         // Navigate to doctor summary report
-        router.get('/admin/billing/billing-reports/doctor-summary', {
+        router.get('/admin/billing/doctor-summary', {
             date_from: reportDateFrom,
             date_to: reportDateTo,
             doctor_id: doctorFilter,
@@ -477,138 +1050,180 @@ export default function BillingIndex({
                                     </div>
                                 </div>
 
+                                {/* Table Controls */}
+                                <div className="flex items-center py-4">
+                                    <Input
+                                        placeholder="Search transactions..."
+                                        value={globalFilter ?? ""}
+                                        onChange={(event) => setGlobalFilter(event.target.value)}
+                                        className="max-w-sm"
+                                    />
+                                    <Button
+                                        asChild
+                                        className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                                    >
+                                        <Link href="/admin/billing/create">
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            New Transaction
+                                        </Link>
+                                    </Button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="outline" className="ml-auto">
+                                                Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                                            {table
+                                                .getAllColumns()
+                                                .filter((column) => column.getCanHide())
+                                                .map((column) => {
+                                                    return (
+                                                        <DropdownMenuCheckboxItem
+                                                            key={column.id}
+                                                            className="capitalize"
+                                                            checked={column.getIsVisible()}
+                                                            onCheckedChange={(value) => {
+                                                                column.toggleVisibility(!!value);
+                                                            }}
+                                                            onSelect={(e) => {
+                                                                e.preventDefault();
+                                                            }}
+                                                        >
+                                                            {column.id}
+                                                        </DropdownMenuCheckboxItem>
+                                                    )
+                                                })}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+
                                 {/* Transactions Table */}
-                                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                <div className="rounded-md border">
                                     <Table>
-                                        <TableHeader className="bg-gray-50">
-                                            <TableRow className="hover:bg-gray-50">
-                                                <TableHead className="font-semibold text-gray-700">
-                                                    <div className="flex items-center gap-2">
-                                                        <Receipt className="h-4 w-4" />
-                                                        Transaction ID
-                                                    </div>
-                                                </TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Patient</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Specialist</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Amount</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Payment Method</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Date</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Actions</TableHead>
-                                            </TableRow>
+                                        <TableHeader>
+                                            {table.getHeaderGroups().map((headerGroup) => (
+                                                <TableRow key={headerGroup.id}>
+                                                    {headerGroup.headers.map((header) => {
+                                                        return (
+                                                            <TableHead key={header.id}>
+                                                                {header.isPlaceholder
+                                                                    ? null
+                                                                    : flexRender(
+                                                                        header.column.columnDef.header,
+                                                                        header.getContext()
+                                                                )}
+                                                            </TableHead>
+                                                        )
+                                                    })}
+                                                </TableRow>
+                                            ))}
                                         </TableHeader>
                                         <TableBody>
-                                            {!filteredTransactions || filteredTransactions.length === 0 ? (
+                                            {table.getRowModel().rows?.length ? (
+                                                table.getRowModel().rows.map((row) => (
+                                                    <TableRow
+                                                        key={row.id}
+                                                        data-state={row.getIsSelected() && "selected"}
+                                                    >
+                                                        {row.getVisibleCells().map((cell) => (
+                                                            <TableCell key={cell.id}>
+                                                                {flexRender(
+                                                                    cell.column.columnDef.cell,
+                                                                    cell.getContext()
+                                                                )}
+                                                            </TableCell>
+                                                        ))}
+                                                    </TableRow>
+                                                ))
+                                            ) : (
                                                 <TableRow>
-                                                    <TableCell colSpan={8} className="text-center py-8">
-                                                        <div className="flex flex-col items-center">
-                                                            <CreditCard className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                                                            <h3 className="mb-2 text-lg font-semibold text-gray-600">{searchTerm ? 'No transactions found' : 'No billing transactions yet'}</h3>
-                                                            <p className="text-gray-500">
-                                                                {searchTerm ? 'Try adjusting your search terms' : 'Create your first transaction to get started'}
-                                                            </p>
-                                                        </div>
+                                                    <TableCell
+                                                        colSpan={columns.length}
+                                                        className="h-24 text-center"
+                                                    >
+                                                        No results.
                                                     </TableCell>
                                                 </TableRow>
-                                            ) : (
-                                                filteredTransactions.map((transaction: BillingTransaction) => {
-                                                    return (
-                                                    <TableRow key={transaction.id} className="hover:bg-gray-50">
-                                                        <TableCell className="font-medium">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="p-1 bg-gray-100 rounded-full">
-                                                                    <Receipt className="h-4 w-4 text-black" />
-                                                                </div>
-                                                                {transaction.transaction_id}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div>
-                                                                <div className="font-medium">
-                                                                    {transaction.patient ? 
-                                                                        `${transaction.patient.last_name}, ${transaction.patient.first_name}` : 
-                                                                        'Loading...'
-                                                                    }
-                                                                </div>
-                                                                <div className="text-sm text-gray-500">
-                                                                    {transaction.patient?.patient_no || 'Loading...'}
-                                                                </div>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {transaction.doctor ? (
-                                                                <div className="font-medium">{transaction.doctor.name}</div>
-                                                            ) : (
-                                                                <span className="text-gray-400">—</span>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="font-semibold">
-                                                            ₱{(transaction.total_amount || 0).toLocaleString()}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {getPaymentMethodBadge(transaction.payment_method)}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {getStatusBadge(transaction.status)}
-                                                        </TableCell>
-                                                        <TableCell className="text-sm text-gray-600">
-                                                            {new Date(transaction.transaction_date).toLocaleDateString()}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="flex gap-2">
-                                                                <Button asChild size="sm">
-                                                                    <Link 
-                                                                        href={`/admin/billing/${transaction.id}`}
-                                                                    >
-                                                                        <Eye className="mr-1 h-3 w-3" />
-                                                                        View
-                                                                    </Link>
-                                                                </Button>
-                                                                {transaction.status === 'pending' && (
-                                                                    <Button
-                                                                        size="sm"
-                                                                        onClick={() => handleMarkPaidClick(transaction)}
-                                                                    >
-                                                                        <CheckCircle className="mr-1 h-3 w-3" />
-                                                                        Mark Paid
-                                                                    </Button>
-                                                                )}
-                                                                <DropdownMenu>
-                                                                    <DropdownMenuTrigger asChild>
-                                                                        <Button size="sm" variant="outline">
-                                                                            <MoreHorizontal className="h-3 w-3" />
-                                                                        </Button>
-                                                                    </DropdownMenuTrigger>
-                                                                    <DropdownMenuContent align="end">
-                                                                        <DropdownMenuItem asChild>
-                                                                            <Link href={`/admin/billing/${transaction.id}/edit`}>
-                                                                                <Edit className="mr-2 h-4 w-4" />
-                                                                                Edit
-                                                                            </Link>
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuItem asChild>
-                                                                            <Link href={`/admin/billing/${transaction.id}/receipt`}>
-                                                                                <Printer className="mr-2 h-4 w-4" />
-                                                                                Print Receipt
-                                                                            </Link>
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuItem 
-                                                                            onClick={() => handleDelete(transaction.id)}
-                                                                            className="text-red-600"
-                                                                        >
-                                                                            <Trash2 className="mr-2 h-4 w-4" />
-                                                                            Delete
-                                                                        </DropdownMenuItem>
-                                                                    </DropdownMenuContent>
-                                                                </DropdownMenu>
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                    );
-                                                })
                                             )}
                                         </TableBody>
                                     </Table>
+                                </div>
+                                
+                                {/* Pagination */}
+                                <div className="flex items-center justify-between px-2 py-4">
+                                    <div className="text-muted-foreground flex-1 text-sm">
+                                        {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                                        {table.getFilteredRowModel().rows.length} row(s) selected.
+                                    </div>
+                                    <div className="flex items-center space-x-6 lg:space-x-8">
+                                        <div className="flex items-center space-x-2">
+                                            <p className="text-sm font-medium">Rows per page</p>
+                                            <Select
+                                                value={`${table.getState().pagination.pageSize}`}
+                                                onValueChange={(value) => {
+                                                    table.setPageSize(Number(value))
+                                                }}
+                                            >
+                                                <SelectTrigger className="h-8 w-[70px]">
+                                                    <SelectValue placeholder={table.getState().pagination.pageSize} />
+                                                </SelectTrigger>
+                                                <SelectContent side="top">
+                                                    {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                        <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                            {pageSize}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                            Page {table.getState().pagination.pageIndex + 1} of{" "}
+                                            {table.getPageCount()}
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="hidden size-8 lg:flex"
+                                                onClick={() => table.setPageIndex(0)}
+                                                disabled={!table.getCanPreviousPage()}
+                                            >
+                                                <span className="sr-only">Go to first page</span>
+                                                <ChevronsLeft className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="size-8"
+                                                onClick={() => table.previousPage()}
+                                                disabled={!table.getCanPreviousPage()}
+                                            >
+                                                <span className="sr-only">Go to previous page</span>
+                                                <ChevronLeft className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="size-8"
+                                                onClick={() => table.nextPage()}
+                                                disabled={!table.getCanNextPage()}
+                                            >
+                                                <span className="sr-only">Go to next page</span>
+                                                <ChevronRight className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="hidden size-8 lg:flex"
+                                                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                                                disabled={!table.getCanNextPage()}
+                                            >
+                                                <span className="sr-only">Go to last page</span>
+                                                <ChevronsRight className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -637,91 +1252,180 @@ export default function BillingIndex({
                                 </div>
                             </CardHeader>
                             <CardContent className="p-6">
+                                {/* Table Controls */}
+                                <div className="flex items-center py-4">
+                                    <Input
+                                        placeholder="Search appointments..."
+                                        value={pendingGlobalFilter ?? ""}
+                                        onChange={(event) => setPendingGlobalFilter(event.target.value)}
+                                        className="max-w-sm"
+                                    />
+                                    <Button
+                                        asChild
+                                        className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                                    >
+                                        <Link href="/admin/billing/create-from-appointments">
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            Create Transaction
+                                        </Link>
+                                    </Button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="outline" className="ml-auto">
+                                                Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                                            {pendingTable
+                                                .getAllColumns()
+                                                .filter((column) => column.getCanHide())
+                                                .map((column) => {
+                                                    return (
+                                                        <DropdownMenuCheckboxItem
+                                                            key={column.id}
+                                                            className="capitalize"
+                                                            checked={column.getIsVisible()}
+                                                            onCheckedChange={(value) => {
+                                                                column.toggleVisibility(!!value);
+                                                            }}
+                                                            onSelect={(e) => {
+                                                                e.preventDefault();
+                                                            }}
+                                                        >
+                                                            {column.id}
+                                                        </DropdownMenuCheckboxItem>
+                                                    )
+                                                })}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+
                                 {/* Pending Appointments Table */}
-                                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                <div className="rounded-md border">
                                     <Table>
-                                        <TableHeader className="bg-gray-50">
-                                            <TableRow className="hover:bg-gray-50">
-                                                <TableHead className="font-semibold text-gray-700">
-                                                    <div className="flex items-center gap-2">
-                                                        <Calendar className="h-4 w-4" />
-                                                        Patient
-                                                    </div>
-                                                </TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Appointment Type</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Specialist</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Date & Time</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Price</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Actions</TableHead>
-                                            </TableRow>
+                                        <TableHeader>
+                                            {pendingTable.getHeaderGroups().map((headerGroup) => (
+                                                <TableRow key={headerGroup.id}>
+                                                    {headerGroup.headers.map((header) => {
+                                                        return (
+                                                            <TableHead key={header.id}>
+                                                                {header.isPlaceholder
+                                                                    ? null
+                                                                    : flexRender(
+                                                                        header.column.columnDef.header,
+                                                                        header.getContext()
+                                                                )}
+                                                            </TableHead>
+                                                        )
+                                                    })}
+                                                </TableRow>
+                                            ))}
                                         </TableHeader>
                                         <TableBody>
-                                            {!pendingAppointments || pendingAppointments.length === 0 ? (
-                                                <TableRow>
-                                                    <TableCell colSpan={7} className="text-center py-8">
-                                                        <div className="flex flex-col items-center">
-                                                            <Calendar className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                                                            <h3 className="mb-2 text-lg font-semibold text-gray-600">No pending appointments</h3>
-                                                            <p className="text-gray-500">All appointments have been processed for billing</p>
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ) : (
-                                                pendingAppointments.map((appointment: PendingAppointment) => (
-                                                    <TableRow key={appointment.id} className="hover:bg-gray-50">
-                                                        <TableCell className="font-medium">
-                                                            <div>
-                                                                <div className="font-medium">{appointment.patient_name}</div>
-                                                                <div className="text-sm text-gray-500">{appointment.patient_id}</div>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge variant="outline" className="capitalize">
-                                                                {appointment.appointment_type}
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="font-medium">{appointment.specialist_name}</div>
-                                                        </TableCell>
-                                                        <TableCell className="text-sm text-gray-600">
-                                                            <div>
-                                                                <div>{formatAppointmentDateShort(appointment.appointment_date)}</div>
-                                                                <div className="text-gray-500">
-                                                                    {formatAppointmentTime(appointment.appointment_time)}
-                                                                </div>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="font-semibold">
-                                                            ₱{(appointment.price || 0).toLocaleString()}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge variant="secondary">
-                                                                <Clock className="mr-1 h-3 w-3" />
-                                                                Pending Payment
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="flex gap-2">
-                                                                <Button asChild size="sm" variant="outline">
-                                                                    <Link href={`/admin/appointments/${appointment.id}`}>
-                                                                        <Eye className="mr-1 h-3 w-3" />
-                                                                        View
-                                                                    </Link>
-                                                                </Button>
-                                                                <Button asChild size="sm">
-                                                                    <Link href={`/admin/billing/create-from-appointments?appointment_id=${appointment.id}`}>
-                                                                        <CreditCard className="mr-1 h-3 w-3" />
-                                                                        Pay Now
-                                                                    </Link>
-                                                                </Button>
-                                                            </div>
-                                                        </TableCell>
+                                            {pendingTable.getRowModel().rows?.length ? (
+                                                pendingTable.getRowModel().rows.map((row) => (
+                                                    <TableRow
+                                                        key={row.id}
+                                                        data-state={row.getIsSelected() && "selected"}
+                                                    >
+                                                        {row.getVisibleCells().map((cell) => (
+                                                            <TableCell key={cell.id}>
+                                                                {flexRender(
+                                                                    cell.column.columnDef.cell,
+                                                                    cell.getContext()
+                                                                )}
+                                                            </TableCell>
+                                                        ))}
                                                     </TableRow>
                                                 ))
+                                            ) : (
+                                                <TableRow>
+                                                    <TableCell
+                                                        colSpan={pendingColumns.length}
+                                                        className="h-24 text-center"
+                                                    >
+                                                        No pending appointments
+                                                    </TableCell>
+                                                </TableRow>
                                             )}
                                         </TableBody>
                                     </Table>
+                                </div>
+                                
+                                {/* Pagination */}
+                                <div className="flex items-center justify-between px-2 py-4">
+                                    <div className="text-muted-foreground flex-1 text-sm">
+                                        {pendingTable.getFilteredSelectedRowModel().rows.length} of{" "}
+                                        {pendingTable.getFilteredRowModel().rows.length} row(s) selected.
+                                    </div>
+                                    <div className="flex items-center space-x-6 lg:space-x-8">
+                                        <div className="flex items-center space-x-2">
+                                            <p className="text-sm font-medium">Rows per page</p>
+                                            <Select
+                                                value={`${pendingTable.getState().pagination.pageSize}`}
+                                                onValueChange={(value) => {
+                                                    pendingTable.setPageSize(Number(value))
+                                                }}
+                                            >
+                                                <SelectTrigger className="h-8 w-[70px]">
+                                                    <SelectValue placeholder={pendingTable.getState().pagination.pageSize} />
+                                                </SelectTrigger>
+                                                <SelectContent side="top">
+                                                    {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                        <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                            {pageSize}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                            Page {pendingTable.getState().pagination.pageIndex + 1} of{" "}
+                                            {pendingTable.getPageCount()}
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="hidden size-8 lg:flex"
+                                                onClick={() => pendingTable.setPageIndex(0)}
+                                                disabled={!pendingTable.getCanPreviousPage()}
+                                            >
+                                                <span className="sr-only">Go to first page</span>
+                                                <ChevronsLeft className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="size-8"
+                                                onClick={() => pendingTable.previousPage()}
+                                                disabled={!pendingTable.getCanPreviousPage()}
+                                            >
+                                                <span className="sr-only">Go to previous page</span>
+                                                <ChevronLeft className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="size-8"
+                                                onClick={() => pendingTable.nextPage()}
+                                                disabled={!pendingTable.getCanNextPage()}
+                                            >
+                                                <span className="sr-only">Go to next page</span>
+                                                <ChevronRight className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="hidden size-8 lg:flex"
+                                                onClick={() => pendingTable.setPageIndex(pendingTable.getPageCount() - 1)}
+                                                disabled={!pendingTable.getCanNextPage()}
+                                            >
+                                                <span className="sr-only">Go to last page</span>
+                                                <ChevronsRight className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -756,66 +1460,98 @@ export default function BillingIndex({
                                 </div>
                             </CardHeader>
                             <CardContent className="p-6">
-                                {/* Search and Filters */}
-                                <div className="mb-6 flex flex-col sm:flex-row gap-4">
-                                    <div className="flex-1">
-                                        <Input 
-                                            placeholder="Search payments..." 
-                                            className="w-full"
-                                        />
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <Select defaultValue="all">
-                                            <SelectTrigger className="w-[140px]">
-                                                <SelectValue placeholder="All Status" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">All Status</SelectItem>
-                                                <SelectItem value="pending">Pending</SelectItem>
-                                                <SelectItem value="paid">Paid</SelectItem>
-                                                <SelectItem value="cancelled">Cancelled</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <Select defaultValue="all">
-                                            <SelectTrigger className="w-[140px]">
-                                                <SelectValue placeholder="All Doctors" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">All Doctors</SelectItem>
-                                                {doctors?.map((doctor: any) => (
-                                                    <SelectItem key={doctor.id} value={doctor.id.toString()}>
-                                                        {doctor.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <Button variant="outline">
-                                            <Filter className="mr-2 h-4 w-4" />
-                                            Apply Filters
-                                        </Button>
-                                    </div>
+                                {/* Table Controls */}
+                                <div className="flex items-center py-4">
+                                    <Input
+                                        placeholder="Search payments..."
+                                        value={doctorGlobalFilter ?? ""}
+                                        onChange={(event) => setDoctorGlobalFilter(event.target.value)}
+                                        className="max-w-sm"
+                                    />
+                                    <Button
+                                        asChild
+                                        className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                                    >
+                                        <Link href="/admin/billing/doctor-payments/create">
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            New Payment
+                                        </Link>
+                                    </Button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="outline" className="ml-auto">
+                                                Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                                            {doctorTable
+                                                .getAllColumns()
+                                                .filter((column) => column.getCanHide())
+                                                .map((column) => {
+                                                    return (
+                                                        <DropdownMenuCheckboxItem
+                                                            key={column.id}
+                                                            className="capitalize"
+                                                            checked={column.getIsVisible()}
+                                                            onCheckedChange={(value) => {
+                                                                column.toggleVisibility(!!value);
+                                                            }}
+                                                            onSelect={(e) => {
+                                                                e.preventDefault();
+                                                            }}
+                                                        >
+                                                            {column.id}
+                                                        </DropdownMenuCheckboxItem>
+                                                    )
+                                                })}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </div>
-                                
+
                                 {/* Doctor Payments Table */}
-                                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                <div className="rounded-md border">
                                     <Table>
-                                        <TableHeader className="bg-gray-50">
-                                            <TableRow className="hover:bg-gray-50">
-                                                <TableHead className="font-semibold text-gray-700">Doctor</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Basic Salary</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Deductions</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Holiday Pay</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Incentives</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Net Payment</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Payment Date</TableHead>
-                                                <TableHead className="font-semibold text-gray-700">Actions</TableHead>
-                                            </TableRow>
+                                        <TableHeader>
+                                            {doctorTable.getHeaderGroups().map((headerGroup) => (
+                                                <TableRow key={headerGroup.id}>
+                                                    {headerGroup.headers.map((header) => {
+                                                        return (
+                                                            <TableHead key={header.id}>
+                                                                {header.isPlaceholder
+                                                                    ? null
+                                                                    : flexRender(
+                                                                        header.column.columnDef.header,
+                                                                        header.getContext()
+                                                                )}
+                                                            </TableHead>
+                                                        )
+                                                    })}
+                                                </TableRow>
+                                            ))}
                                         </TableHeader>
                                         <TableBody>
-                                            {!doctorPayments?.data || doctorPayments.data.length === 0 ? (
+                                            {doctorTable.getRowModel().rows?.length ? (
+                                                doctorTable.getRowModel().rows.map((row) => (
+                                                    <TableRow
+                                                        key={row.id}
+                                                        data-state={row.getIsSelected() && "selected"}
+                                                    >
+                                                        {row.getVisibleCells().map((cell) => (
+                                                            <TableCell key={cell.id}>
+                                                                {flexRender(
+                                                                    cell.column.columnDef.cell,
+                                                                    cell.getContext()
+                                                                )}
+                                                            </TableCell>
+                                                        ))}
+                                                    </TableRow>
+                                                ))
+                                            ) : (
                                                 <TableRow>
-                                                    <TableCell colSpan={9} className="text-center py-8">
+                                                    <TableCell
+                                                        colSpan={doctorColumns.length}
+                                                        className="h-24 text-center"
+                                                    >
                                                         <div className="flex flex-col items-center">
                                                             <Users className="mx-auto mb-4 h-12 w-12 text-gray-400" />
                                                             <h3 className="mb-2 text-lg font-semibold text-gray-600">No doctor payments</h3>
@@ -823,70 +1559,85 @@ export default function BillingIndex({
                                                         </div>
                                                     </TableCell>
                                                 </TableRow>
-                                            ) : (
-                                                doctorPayments?.data?.map((payment: any) => (
-                                                    <TableRow key={payment.id} className="hover:bg-gray-50">
-                                                        <TableCell className="font-medium">
-                                                            <div className="flex items-center gap-2">
-                                                                <Users className="h-4 w-4 text-gray-500" />
-                                                                {payment.doctor?.name || 'N/A'}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="font-semibold">
-                                                            ₱{payment.basic_salary?.toLocaleString() || '0.00'}
-                                                        </TableCell>
-                                                        <TableCell className="text-red-600">
-                                                            -₱{payment.deductions?.toLocaleString() || '0.00'}
-                                                        </TableCell>
-                                                        <TableCell className="text-green-600">
-                                                            +₱{payment.holiday_pay?.toLocaleString() || '0.00'}
-                                                        </TableCell>
-                                                        <TableCell className="text-green-600">
-                                                            +₱{payment.incentives?.toLocaleString() || '0.00'}
-                                                        </TableCell>
-                                                        <TableCell className="font-semibold">
-                                                            ₱{payment.net_payment?.toLocaleString() || '0.00'}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge variant={payment.status === 'paid' ? 'default' : payment.status === 'pending' ? 'secondary' : 'destructive'}>
-                                                                <div className="flex items-center gap-1">
-                                                                    {payment.status === 'pending' && <Clock className="h-3 w-3" />}
-                                                                    {payment.status === 'paid' && <Check className="h-3 w-3" />}
-                                                                    {payment.status === 'cancelled' && <X className="h-3 w-3" />}
-                                                                    {payment.status}
-                                                                </div>
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {new Date(payment.payment_date).toLocaleDateString()}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="flex gap-2">
-                                                                <Button asChild size="sm" variant="outline">
-                                                                    <Link href={`/admin/billing/doctor-payments/${payment.id}`}>
-                                                                        <Eye className="mr-1 h-3 w-3" />
-                                                                        View
-                                                                    </Link>
-                                                                </Button>
-                                                                <Button asChild size="sm" variant="outline">
-                                                                    <Link href={`/admin/billing/doctor-payments/${payment.id}/edit`}>
-                                                                        <Edit className="mr-1 h-3 w-3" />
-                                                                        Edit
-                                                                    </Link>
-                                                                </Button>
-                                                                {payment.status === 'pending' && (
-                                                                    <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700">
-                                                                        <Check className="mr-1 h-3 w-3" />
-                                                                        Mark Paid
-                                                                    </Button>
-                                                                )}
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))
                                             )}
                                         </TableBody>
                                     </Table>
+                                </div>
+                                
+                                {/* Pagination */}
+                                <div className="flex items-center justify-between px-2 py-4">
+                                    <div className="text-muted-foreground flex-1 text-sm">
+                                        {doctorTable.getFilteredSelectedRowModel().rows.length} of{" "}
+                                        {doctorTable.getFilteredRowModel().rows.length} row(s) selected.
+                                    </div>
+                                    <div className="flex items-center space-x-6 lg:space-x-8">
+                                        <div className="flex items-center space-x-2">
+                                            <p className="text-sm font-medium">Rows per page</p>
+                                            <Select
+                                                value={`${doctorTable.getState().pagination.pageSize}`}
+                                                onValueChange={(value) => {
+                                                    doctorTable.setPageSize(Number(value))
+                                                }}
+                                            >
+                                                <SelectTrigger className="h-8 w-[70px]">
+                                                    <SelectValue placeholder={doctorTable.getState().pagination.pageSize} />
+                                                </SelectTrigger>
+                                                <SelectContent side="top">
+                                                    {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                        <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                            {pageSize}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                            Page {doctorTable.getState().pagination.pageIndex + 1} of{" "}
+                                            {doctorTable.getPageCount()}
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="hidden size-8 lg:flex"
+                                                onClick={() => doctorTable.setPageIndex(0)}
+                                                disabled={!doctorTable.getCanPreviousPage()}
+                                            >
+                                                <span className="sr-only">Go to first page</span>
+                                                <ChevronsLeft className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="size-8"
+                                                onClick={() => doctorTable.previousPage()}
+                                                disabled={!doctorTable.getCanPreviousPage()}
+                                            >
+                                                <span className="sr-only">Go to previous page</span>
+                                                <ChevronLeft className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="size-8"
+                                                onClick={() => doctorTable.nextPage()}
+                                                disabled={!doctorTable.getCanNextPage()}
+                                            >
+                                                <span className="sr-only">Go to next page</span>
+                                                <ChevronRight className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="hidden size-8 lg:flex"
+                                                onClick={() => doctorTable.setPageIndex(doctorTable.getPageCount() - 1)}
+                                                disabled={!doctorTable.getCanNextPage()}
+                                            >
+                                                <span className="sr-only">Go to last page</span>
+                                                <ChevronsRight className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -1019,7 +1770,7 @@ export default function BillingIndex({
                                             Transaction: <span className="font-medium">{selectedTransaction.transaction_id}</span>
                                         </p>
                                         <p className="text-sm text-gray-600 mb-4">
-                                            Amount: <span className="font-medium">₱{(selectedTransaction.total_amount || 0).toLocaleString()}</span>
+                                            Amount: <span className="font-medium">₱{(selectedTransaction.amount || 0).toLocaleString()}</span>
                                         </p>
                                     </div>
                                     

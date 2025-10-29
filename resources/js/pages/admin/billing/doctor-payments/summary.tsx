@@ -36,9 +36,6 @@ interface DoctorSummaryReport {
         id: number;
         payment_date: string;
     };
-    basic_salary: number;
-    deductions: number;
-    holiday_pay: number;
     incentives: number;
     total_paid: number;
     payment_date: string;
@@ -209,9 +206,6 @@ export default function DoctorSummaryReport({ reports, summary, doctors, filters
                                                 Doctor
                                             </div>
                                         </TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Basic Salary</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Deductions</TableHead>
-                                        <TableHead className="font-semibold text-gray-700">Holiday Pay</TableHead>
                                         <TableHead className="font-semibold text-gray-700">Incentives</TableHead>
                                         <TableHead className="font-semibold text-gray-700">Total Paid</TableHead>
                                         <TableHead className="font-semibold text-gray-700">Payment Date</TableHead>
@@ -243,15 +237,6 @@ export default function DoctorSummaryReport({ reports, summary, doctors, filters
                                                         </div>
                                                         {report.doctor.name}
                                                     </div>
-                                                </TableCell>
-                                                <TableCell className="font-semibold">
-                                                    ₱{report.basic_salary.toLocaleString()}
-                                                </TableCell>
-                                                <TableCell className="text-red-600">
-                                                    -₱{report.deductions.toLocaleString()}
-                                                </TableCell>
-                                                <TableCell className="text-green-600">
-                                                    +₱{report.holiday_pay.toLocaleString()}
                                                 </TableCell>
                                                 <TableCell className="text-green-600">
                                                     +₱{report.incentives.toLocaleString()}

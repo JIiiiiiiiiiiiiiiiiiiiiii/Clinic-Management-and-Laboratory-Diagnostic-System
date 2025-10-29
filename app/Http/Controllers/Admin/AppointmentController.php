@@ -66,11 +66,32 @@ class AppointmentController extends Controller
             $query->where('specialist_id', $request->specialist);
         }
 
+        // Apply sorting
+        $sortBy = $request->get('sort_by', 'appointment_date');
+        $sortDir = $request->get('sort_dir', 'asc');
+        
+        // Validate sort column to prevent SQL injection
+        $allowedSortColumns = ['id', 'appointment_date', 'appointment_time', 'status', 'price', 'final_total_amount', 'total_lab_amount', 'created_at', 'patient_name', 'specialist_name', 'patient_id'];
+        if (!in_array($sortBy, $allowedSortColumns)) {
+            $sortBy = 'appointment_date';
+        }
+        
+        // Validate sort direction
+        $sortDir = in_array(strtolower($sortDir), ['asc', 'desc']) ? strtolower($sortDir) : 'asc';
+
         // Get all appointments from single source (appointments table only)
-        $appointments = $query->with(['patient', 'specialist'])
-                            ->orderBy('appointment_date', 'asc')
-                            ->orderBy('appointment_time', 'asc')
-                            ->get();
+        if ($sortBy === 'patient_id') {
+            // For patient_id sorting, we need to join with patients table to sort by sequence_number
+            $appointments = $query->with(['patient', 'specialist', 'billingTransactions'])
+                                ->leftJoin('patients', 'appointments.patient_id', '=', 'patients.id')
+                                ->orderBy('patients.sequence_number', $sortDir)
+                                ->select('appointments.*')
+                                ->get();
+        } else {
+            $appointments = $query->with(['patient', 'specialist', 'billingTransactions'])
+                                ->orderBy($sortBy, $sortDir)
+                                ->get();
+        }
         
         // Transform appointments to include proper field names for frontend
         $transformedAppointments = $appointments->map(function($appointment) {
@@ -90,10 +111,21 @@ class AppointmentController extends Controller
                 'appointment_time' => $appointment->appointment_time,
                 'duration' => $appointment->duration,
                 'price' => $appointment->price,
+                'total_lab_amount' => $appointment->total_lab_amount ?? 0,
+                'final_total_amount' => $appointment->final_total_amount ?? $appointment->price,
                 'additional_info' => $appointment->additional_info,
                 'source' => $appointment->source,
                 'status' => $appointment->status,
                 'admin_notes' => $appointment->admin_notes,
+                'billing_transactions' => $appointment->billingTransactions ? $appointment->billingTransactions->map(function($transaction) {
+                    return [
+                        'id' => $transaction->id,
+                        'transaction_id' => $transaction->transaction_id,
+                        'total_amount' => $transaction->total_amount,
+                        'status' => $transaction->status,
+                        'created_at' => $transaction->created_at,
+                    ];
+                }) : [],
                 'created_at' => $appointment->created_at,
                 'updated_at' => $appointment->updated_at,
             ];
@@ -110,12 +142,12 @@ class AppointmentController extends Controller
         $nextPatientId = $this->getNextAvailablePatientId();
 
         // Get doctors and medtechs for the component
-        $doctors = \App\Models\Staff::where('role', 'Doctor')
-            ->select('staff_id as id', 'name', 'specialization', 'staff_code as employee_id')
+        $doctors = \App\Models\Specialist::where('role', 'Doctor')
+            ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id')
             ->get();
 
-        $medtechs = \App\Models\Staff::where('role', 'MedTech')
-            ->select('staff_id as id', 'name', 'specialization', 'staff_code as employee_id')
+        $medtechs = \App\Models\Specialist::where('role', 'MedTech')
+            ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id')
             ->get();
 
         return Inertia::render('admin/appointments/index', [
@@ -142,9 +174,97 @@ class AppointmentController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Store a newly created appointment from modal
      */
-    public function store(Request $request, AppointmentAutomationService $automationService)
+    public function store(Request $request)
+    {
+        \Log::info('Appointment store from modal called', $request->all());
+        
+        $validator = Validator::make($request->all(), [
+            'patient_name' => 'required|string|max:255',
+            'patient_id' => 'required|string|max:50',
+            'appointment_type' => 'required|string',
+            'specialist_name' => 'required|string|max:255',
+            'specialist_id' => 'required|string|max:50',
+            'appointment_date' => 'required|date',
+            'appointment_time' => 'required|string',
+            'price' => 'nullable|numeric|min:0',
+            'billing_status' => 'nullable|string|in:pending,approved,cancelled,completed',
+            'source' => 'nullable|string|in:online,walk_in,phone',
+            'notes' => 'nullable|string',
+            'special_requirements' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            \Log::error('Appointment store validation failed:', $validator->errors()->toArray());
+            
+            // Return JSON for API requests (modals)
+            if (request()->wantsJson() || request()->ajax()) {
+                return response()->json([
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+            
+            return back()->withErrors($validator)->withInput();
+        }
+
+        try {
+            // Create appointment data
+            $appointmentData = $request->all();
+            
+            // Format the time properly for time field
+            $time = $request->appointment_time;
+            if (strpos($time, ':') === false) {
+                // If time doesn't have colon, assume it's in HHMM format
+                $time = substr($time, 0, 2) . ':' . substr($time, 2, 2);
+            }
+            
+            // Ensure time is in HH:MM:SS format for database storage
+            if (strlen($time) === 5) {
+                $time .= ':00'; // Add seconds if not present
+            }
+            $appointmentData['appointment_time'] = $time;
+            
+            // Set default values
+            $appointmentData['status'] = 'Pending';
+            $appointmentData['specialist_type'] = 'Doctor';
+            $appointmentData['duration'] = '30 minutes';
+            
+            // Create the appointment
+            $appointment = Appointment::create($appointmentData);
+            
+            \Log::info('Appointment created successfully:', ['id' => $appointment->id]);
+
+            // Return JSON for API requests (modals)
+            if (request()->wantsJson() || request()->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Appointment created successfully!',
+                    'appointment' => $appointment->fresh(['patient', 'specialist'])
+                ]);
+            }
+
+            return redirect()->route('admin.appointments.index')
+                            ->with('success', 'Appointment created successfully!');
+        } catch (\Exception $e) {
+            \Log::error('Failed to create appointment:', ['error' => $e->getMessage()]);
+            
+            // Return JSON for API requests (modals)
+            if (request()->wantsJson() || request()->ajax()) {
+                return response()->json([
+                    'error' => 'Failed to create appointment. Please try again.',
+                    'message' => $e->getMessage()
+                ], 500);
+            }
+            
+            return back()->withErrors(['error' => 'Failed to create appointment. Please try again.']);
+        }
+    }
+
+    /**
+     * Store a newly created resource in storage (original method for complex appointments).
+     */
+    public function storeComplex(Request $request, AppointmentAutomationService $automationService)
     {
         \Log::info('Admin\AppointmentController@store called', [
             'user_id' => auth()->id(),
@@ -341,6 +461,17 @@ class AppointmentController extends Controller
      */
     public function show(Appointment $appointment)
     {
+        \Log::info('AppointmentController@show called', [
+            'appointment_id' => $appointment->id,
+            'appointment_data' => $appointment->toArray(),
+            'request_url' => request()->url(),
+            'request_method' => request()->method(),
+            'request_headers' => request()->headers->all()
+        ]);
+        
+        // Load relationships
+        $appointment->load(['patient', 'specialist', 'labTests.labTest', 'visits', 'billingTransactions']);
+        
         // Format the appointment data for frontend display
         $formattedAppointment = [
             'id' => $appointment->id,
@@ -349,6 +480,8 @@ class AppointmentController extends Controller
             'contact_number' => $appointment->contact_number,
             'appointment_type' => $appointment->appointment_type,
             'price' => $appointment->price,
+            'total_lab_amount' => $appointment->total_lab_amount ?? 0,
+            'final_total_amount' => $appointment->final_total_amount ?? $appointment->price,
             'specialist_type' => $appointment->specialist_type,
             'specialist_name' => $appointment->specialist_name,
             'specialist_id' => $appointment->specialist_id,
@@ -357,6 +490,7 @@ class AppointmentController extends Controller
             'duration' => $appointment->duration,
             'status' => $appointment->status,
             'billing_status' => $appointment->billing_status,
+            'source' => $appointment->source ?? 'online',
             'notes' => $appointment->notes,
             'special_requirements' => $appointment->special_requirements,
             'created_at' => $appointment->created_at,
@@ -364,8 +498,27 @@ class AppointmentController extends Controller
             'patient' => $appointment->patient,
             'specialist' => $appointment->specialist,
             'visits' => $appointment->visits,
-            'billingTransactions' => $appointment->billingTransactions
+            'billingTransactions' => $appointment->billingTransactions,
+            'labTests' => $appointment->labTests->map(function ($labTest) {
+                return [
+                    'id' => $labTest->id,
+                    'lab_test_name' => $labTest->labTest->name ?? 'Unknown Test',
+                    'price' => $labTest->price ?? 0,
+                    'status' => $labTest->status ?? 'pending',
+                ];
+            }),
         ];
+
+        // Return JSON for API requests (modals)
+        if (request()->wantsJson() || request()->ajax()) {
+            \Log::info('Returning JSON response for appointment', [
+                'appointment_id' => $appointment->id,
+                'formatted_data' => $formattedAppointment
+            ]);
+            return response()->json([
+                'appointment' => $formattedAppointment
+            ]);
+        }
 
         return Inertia::render('admin/appointments/show', [
             'appointment' => $formattedAppointment
@@ -395,14 +548,17 @@ class AppointmentController extends Controller
             'patient_name' => 'required|string|max:255',
             'patient_id' => 'required|string|max:50',
             'contact_number' => 'nullable|string|max:20',
-            'appointment_type' => 'required|string|in:consultation,checkup,fecalysis,cbc,urinalysis,Follow-up',
-            'specialist_type' => 'required|string|in:doctor,medtech',
+            'appointment_type' => 'required|string',
+            'specialist_type' => 'nullable|string|in:doctor,medtech',
             'specialist_name' => 'required|string|max:255',
             'specialist_id' => 'required|string|max:50',
             'appointment_date' => 'required|date',
             'appointment_time' => 'required|string',
             'duration' => 'nullable|string|max:20',
-            'status' => 'nullable|string|in:Pending,Confirmed,Completed,Cancelled',
+            'status' => 'nullable|string',
+            'billing_status' => 'nullable|string|in:pending,approved,cancelled,completed',
+            'source' => 'nullable|string|in:online,walk_in,phone',
+            'price' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
             'special_requirements' => 'nullable|string',
         ]);
@@ -410,6 +566,14 @@ class AppointmentController extends Controller
         if ($validator->fails()) {
             \Log::error('Appointment update validation failed:', $validator->errors()->toArray());
             \Log::error('Request data:', $request->all());
+            
+            // Return JSON for API requests (modals)
+            if (request()->wantsJson() || request()->ajax()) {
+                return response()->json([
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+            
             return back()->withErrors($validator)->withInput();
         }
 
@@ -454,10 +618,28 @@ class AppointmentController extends Controller
             
             \Log::info('Appointment updated successfully:', ['id' => $appointment->id]);
 
+            // Return JSON for API requests (modals)
+            if (request()->wantsJson() || request()->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Appointment updated successfully!',
+                    'appointment' => $appointment->fresh(['patient', 'specialist', 'labTests.labTest'])
+                ]);
+            }
+
             return redirect()->route('admin.appointments.index')
                             ->with('success', 'Appointment updated successfully!');
         } catch (\Exception $e) {
             \Log::error('Failed to update appointment:', ['error' => $e->getMessage()]);
+            
+            // Return JSON for API requests (modals)
+            if (request()->wantsJson() || request()->ajax()) {
+                return response()->json([
+                    'error' => 'Failed to update appointment. Please try again.',
+                    'message' => $e->getMessage()
+                ], 500);
+            }
+            
             return back()->withErrors(['error' => 'Failed to update appointment. Please try again.']);
         }
     }
@@ -635,7 +817,7 @@ class AppointmentController extends Controller
                 'appointment_date' => $request->appointment_date,
                 'appointment_time' => $timeFormatted,
                 'duration' => '30 min',
-                'price' => $this->calculatePrice($request->appointment_type),
+                'price' => null, // Will be calculated using Appointment model's calculatePrice method
                 'additional_info' => $request->notes,
                 'admin_notes' => $request->special_requirements,
                 'source' => 'Walk-in',
@@ -644,6 +826,10 @@ class AppointmentController extends Controller
 
             // Create appointment
             $appointment = \App\Models\Appointment::create($appointmentData);
+
+            // Calculate and set price using the model's calculatePrice method
+            $calculatedPrice = $appointment->calculatePrice();
+            $appointment->update(['price' => $calculatedPrice]);
 
             // Generate visit code before creation
             $nextId = \App\Models\Visit::max('id') + 1;
@@ -680,27 +866,19 @@ class AppointmentController extends Controller
                 'visit_code' => $visitCode,
             ]);
 
-            // Create billing transaction for walk-in appointments
-            $billingTransaction = \App\Models\BillingTransaction::create([
-                'appointment_id' => $appointment->id,
-                'patient_id' => $appointment->patient_id,
-                'doctor_id' => $appointment->specialist_type === 'doctor' ? $appointment->specialist_id : null,
-                'medtech_id' => $appointment->specialist_type === 'medtech' ? $appointment->specialist_id : null,
-                'amount' => $appointment->price,
-                'status' => 'Pending',
-            ]);
+            // Billing transaction will be created by AppointmentAutomationService
+            // to prevent duplicates and ensure proper specialist mapping
 
             DB::commit();
 
             \Log::info('Walk-in appointment created successfully', [
                 'appointment_id' => $appointment->id,
                 'patient_id' => $patient->patient_id,
-                'visit_id' => $visit->visit_id,
-                'transaction_id' => $billingTransaction->transaction_id
+                'visit_id' => $visit->visit_id
             ]);
 
             return redirect()->route('admin.appointments.index')
-                ->with('success', 'Walk-in appointment created successfully for ' . $patient->first_name . ' ' . $patient->last_name . '. Visit and billing transaction have been created.');
+                ->with('success', 'Walk-in appointment created successfully for ' . $patient->first_name . ' ' . $patient->last_name . '. Visit has been created. Billing transaction can be created from the billing section.');
 
         } catch (\Exception $e) {
             DB::rollback();
@@ -723,6 +901,43 @@ class AppointmentController extends Controller
         ];
 
         return $prices[$appointmentType] ?? 300.00;
+    }
+
+    /**
+     * Update appointment billing status
+     */
+    public function updateBillingStatus(Request $request, Appointment $appointment)
+    {
+        $request->validate([
+            'billing_status' => 'required|string|in:pending,paid,cancelled,in_transaction'
+        ]);
+
+        try {
+            \Log::info('Updating appointment billing status', [
+                'appointment_id' => $appointment->id,
+                'current_billing_status' => $appointment->billing_status,
+                'new_billing_status' => $request->billing_status
+            ]);
+
+            $appointment->update([
+                'billing_status' => $request->billing_status
+            ]);
+
+            \Log::info('Appointment billing status updated successfully', [
+                'appointment_id' => $appointment->id,
+                'new_billing_status' => $appointment->fresh()->billing_status
+            ]);
+
+            // Return a simple redirect response instead of JSON
+            return redirect()->back();
+        } catch (\Exception $e) {
+            \Log::error('Failed to update appointment billing status', [
+                'appointment_id' => $appointment->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return redirect()->back()->with('error', 'Failed to update appointment billing status: ' . $e->getMessage());
+        }
     }
 
 }

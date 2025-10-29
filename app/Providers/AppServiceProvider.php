@@ -3,8 +3,6 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use App\Models\BillingTransaction;
-use App\Observers\BillingTransactionObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -21,7 +19,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Register observers
-        BillingTransaction::observe(BillingTransactionObserver::class);
+        // Configure route model binding for specialists
+        \Illuminate\Support\Facades\Route::model('doctor', \App\Models\Specialist::class);
+        \Illuminate\Support\Facades\Route::model('nurse', \App\Models\Specialist::class);
+        \Illuminate\Support\Facades\Route::model('medtech', \App\Models\Specialist::class);
     }
 }

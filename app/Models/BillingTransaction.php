@@ -9,11 +9,8 @@ class BillingTransaction extends Model
 {
     use HasFactory;
     
-    protected $primaryKey = 'id';
-
     protected $fillable = [
         'transaction_id',
-        'transaction_code',
         'appointment_id',
         'patient_id',
         'doctor_id',
@@ -22,11 +19,16 @@ class BillingTransaction extends Model
         'amount',
         'discount_amount',
         'discount_percentage',
+        'is_senior_citizen',
+        'senior_discount_amount',
+        'senior_discount_percentage',
         'hmo_provider',
         'hmo_reference',
+        'hmo_reference_number',
         'payment_method',
         'payment_reference',
         'status',
+        'is_itemized',
         'description',
         'notes',
         'transaction_date',
@@ -42,6 +44,10 @@ class BillingTransaction extends Model
         'amount' => 'decimal:2',
         'discount_amount' => 'decimal:2',
         'discount_percentage' => 'decimal:2',
+        'is_senior_citizen' => 'boolean',
+        'senior_discount_amount' => 'decimal:2',
+        'senior_discount_percentage' => 'decimal:2',
+        'is_itemized' => 'boolean',
         'transaction_date' => 'datetime',
         'transaction_date_only' => 'date',
         'transaction_time_only' => 'datetime:H:i:s',
@@ -76,6 +82,18 @@ class BillingTransaction extends Model
         );
     }
 
+    public function appointment()
+    {
+        return $this->hasOneThrough(
+            \App\Models\Appointment::class,
+            \App\Models\AppointmentBillingLink::class,
+            'billing_transaction_id',
+            'id',
+            'id',
+            'appointment_id'
+        );
+    }
+
     public function items()
     {
         return $this->hasMany(\App\Models\BillingTransactionItem::class, 'billing_transaction_id', 'id');
@@ -100,6 +118,11 @@ class BillingTransaction extends Model
     public function scopeByPaymentMethod($query, $method)
     {
         return $query->where('payment_method', $method);
+    }
+
+    public function scopeByDateRange($query, $startDate, $endDate)
+    {
+        return $query->whereBetween('transaction_date', [$startDate, $endDate]);
     }
 
     // Business logic methods
@@ -149,35 +172,31 @@ class BillingTransaction extends Model
         return null;
     }
 
-    public function scopeByDateRange($query, $startDate, $endDate)
-    {
-        return $query->whereBetween('transaction_date', [$startDate, $endDate]);
-    }
-
     // Methods
-    public function markAsPaid($paymentMethod = 'Cash', $referenceNo = null)
+    public function markAsPaid($paymentMethod = 'cash', $referenceNo = null)
     {
         $this->update([
-            'status' => 'Paid',
+            'status' => 'paid',
             'payment_method' => $paymentMethod,
-            'reference_no' => $referenceNo,
+            'payment_reference' => $referenceNo,
         ]);
 
-        // Mark appointment and visit as completed
-        if ($this->appointment) {
-            $this->appointment->update(['status' => 'Completed']);
-            if ($this->appointment->visit) {
-                $this->appointment->visit->update(['status' => 'Completed']);
-            }
-        }
+        // Mark appointment links as paid
+        $this->appointmentLinks()->update(['status' => 'paid']);
+        
+        // Update appointments billing status
+        $this->appointments()->update(['billing_status' => 'paid']);
     }
 
     public function markAsCancelled()
     {
-        $this->update(['status' => 'Cancelled']);
+        $this->update(['status' => 'cancelled']);
+        
+        // Mark appointment links as cancelled
+        $this->appointmentLinks()->update(['status' => 'cancelled']);
     }
 
-    // Boot method to generate transaction code
+    // Boot method to generate transaction ID
     protected static function boot()
     {
         parent::boot();

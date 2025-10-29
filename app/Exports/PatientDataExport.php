@@ -100,6 +100,7 @@ class PatientDataExport implements FromCollection, WithHeadings, WithMapping, Wi
         try {
             switch ($this->type) {
                 case 'summary':
+                    $visits = $patient->visits ?? collect();
                     return [
                         $patient->patient_no ?? 'N/A',
                         $patient->full_name ?? 'N/A',
@@ -111,10 +112,11 @@ class PatientDataExport implements FromCollection, WithHeadings, WithMapping, Wi
                         $patient->occupation ?? 'N/A',
                         ucfirst($patient->civil_status ?? 'N/A'),
                         $patient->created_at ? $patient->created_at->format('Y-m-d H:i:s') : 'N/A',
-                        $patient->visits ? $patient->visits->count() : 0,
-                        $patient->visits && $patient->visits->first() && $patient->visits->first()->visit_date_time ? $patient->visits->first()->visit_date_time->format('Y-m-d') : 'N/A'
+                        $visits->count(),
+                        $visits->first() && $visits->first()->visit_date_time_time ? $visits->first()->visit_date_time_time->format('Y-m-d') : 'N/A'
                     ];
             case 'detailed':
+                $visits = $patient->visits ?? collect();
                 return [
                     $patient->patient_no ?? 'N/A',
                     $patient->full_name ?? 'N/A',
@@ -130,17 +132,18 @@ class PatientDataExport implements FromCollection, WithHeadings, WithMapping, Wi
                     $patient->nationality ?? 'N/A',
                     $patient->informant_name ?? 'N/A',
                     $patient->relationship ?? 'N/A',
-                    $patient->company_name ?? 'N/A',
+                    $patient->insurance_company ?? 'N/A',
                     $patient->hmo_name ?? 'N/A',
-                    $patient->hmo_company_id_no ?? 'N/A',
+                    $patient->hmo_id_no ?? 'N/A',
                     $patient->drug_allergies ?? 'N/A',
                     $patient->food_allergies ?? 'N/A',
                     $patient->past_medical_history ?? 'N/A',
                     $patient->family_history ?? 'N/A',
                     $patient->created_at ? $patient->created_at->format('Y-m-d H:i:s') : 'N/A',
-                    $patient->visits ? $patient->visits->count() : 0
+                    $visits->count()
                 ];
             case 'medical_history':
+                $visits = $patient->visits ?? collect();
                 return [
                     $patient->patient_no ?? 'N/A',
                     $patient->full_name ?? 'N/A',
@@ -150,10 +153,10 @@ class PatientDataExport implements FromCollection, WithHeadings, WithMapping, Wi
                     $patient->food_allergies ?? 'N/A',
                     $patient->past_medical_history ?? 'N/A',
                     $patient->family_history ?? 'N/A',
-                    $patient->social_personal_history ?? 'N/A',
-                    $patient->obstetrics_gynecology_history ?? 'N/A',
-                    $patient->visits ? $patient->visits->count() : 0,
-                    $patient->visits && $patient->visits->first() && $patient->visits->first()->arrival_date ? $patient->visits->first()->arrival_date->format('Y-m-d') : 'N/A'
+                    $patient->social_history ?? 'N/A',
+                    $patient->obgyn_history ?? 'N/A',
+                    $visits->count(),
+                    $visits->first() && $visits->first()->visit_date_time_time ? $visits->first()->visit_date_time_time->format('Y-m-d') : 'N/A'
                 ];
             default:
                 return [];

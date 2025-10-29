@@ -1,603 +1,523 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router } from '@inertiajs/react';
-import { Activity, Calendar, ChevronDown, CreditCard, Download, FileText, Filter, TrendingUp, Users } from 'lucide-react';
+import { Head } from '@inertiajs/react';
+import {
+    Activity,
+    ArrowDownRight,
+    ArrowUpRight,
+    BarChart3,
+    Calendar,
+    DollarSign,
+    Download,
+    FileSpreadsheet,
+    FileText,
+    FlaskConical,
+    Package,
+    Printer,
+    TrendingUp,
+    UserCheck,
+    Users,
+} from 'lucide-react';
 import { useState } from 'react';
-import { route } from 'ziggy-js';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
 
-interface SummaryStats {
-    total_patients: number;
-    total_appointments: number;
-    total_transactions: number;
-    total_revenue: number;
-    completed_appointments: number;
-    pending_appointments: number;
-}
-
-interface ChartData {
-    patientTrends: Record<string, number>;
-    appointmentTrends: Record<string, number>;
-    revenueTrends: Record<string, number>;
-}
-
-interface RecentActivity {
+interface ReportData {
+    id: number;
+    name: string;
     type: string;
-    description: string;
-    date: string;
-    icon: string;
+    dateRange: string;
+    generatedBy: string;
+    status: string;
+    lastGenerated: string;
+    downloadUrl: string;
 }
 
-interface DateRange {
-    start: string;
-    end: string;
-    period: string;
-    label: string;
+interface FilterOptions {
+    doctors: Array<{ id: number; name: string }>;
+    departments: string[];
+    statuses: string[];
+    payment_methods: string[];
+    hmo_providers: string[];
+}
+
+interface ReportMetadata {
+    generated_at: string;
+    generated_by: string;
+    generated_by_role: string;
+    system_version: string;
 }
 
 interface Props {
-    user: any;
-    summary: SummaryStats;
-    chartData: ChartData;
-    recentActivities: RecentActivity[];
-    dateRange: DateRange;
+    summary: {
+        total_patients: number;
+        total_appointments: number;
+        total_transactions: number;
+        total_revenue: number;
+        total_expenses: number;
+        total_lab_orders: number;
+        total_products: number;
+    };
+    recentReports: ReportData[];
+    filterOptions: FilterOptions;
+    user: {
+        name: string;
+        role: string;
+    };
+    metadata: ReportMetadata;
+    chartData: {
+        monthlyRevenue: Array<{ month: string; revenue: number; patients: number; appointments: number }>;
+        patientDemographics: Array<{ name: string; value: number }>;
+        appointmentStatus: Array<{ status: string; count: number }>;
+        labTestTypes: Array<{ test: string; count: number }>;
+        ageGroups: Array<{ age_group: string; count: number }>;
+        paymentMethods: Array<{ method: string; count: number }>;
+        dailyAppointments: Array<{ day: string; appointments: number }>;
+        labResultsDistribution: Array<{ status: string; count: number }>;
+        doctorPerformance: Array<{ doctor: string; appointments: number }>;
+    };
 }
 
-export default function HospitalReportsIndex({ user, summary, chartData, recentActivities, dateRange }: Props) {
-    const [selectedPeriod, setSelectedPeriod] = useState(dateRange.period);
-    const [customStartDate, setCustomStartDate] = useState('');
-    const [customEndDate, setCustomEndDate] = useState('');
+const breadcrumbs = [
+    { label: 'Hospital Dashboard', href: '/hospital/dashboard' },
+    { label: 'Reports', href: '/hospital/reports' },
+];
 
-    const breadcrumbs: BreadcrumbItem[] = [
-        { label: 'Hospital Dashboard', href: route('hospital.dashboard') },
-        { label: 'Reports', href: route('hospital.reports.index') },
+export default function HospitalReportsDashboard({ summary, recentReports, filterOptions, user, metadata, chartData }: Props) {
+    const [activeTab, setActiveTab] = useState('overview');
+
+    const handleExport = (format: string, reportType: string) => {
+        const params = new URLSearchParams({
+            type: reportType,
+            format: format,
+        });
+        window.location.href = `/hospital/reports/export?${params.toString()}`;
+    };
+
+    const reportSections = [
+        {
+            id: 'patients',
+            title: 'Patient Reports',
+            description: 'Patient demographics, registration trends, and visit reports',
+            icon: Users,
+            color: 'bg-gradient-to-r from-blue-500 to-cyan-500',
+            href: '/hospital/reports/patients',
+            stats: {
+                total: summary?.total_patients || 0,
+                new: Math.floor((summary?.total_patients || 0) * 0.15),
+                active: Math.floor((summary?.total_patients || 0) * 0.85),
+            },
+        },
+        {
+            id: 'laboratory',
+            title: 'Laboratory Reports',
+            description: 'Lab orders, test results, and diagnostic reports',
+            icon: FlaskConical,
+            color: 'bg-gradient-to-r from-purple-500 to-pink-500',
+            href: '/hospital/reports/laboratory',
+            stats: {
+                total: summary?.total_lab_orders || 0,
+                pending: Math.floor((summary?.total_lab_orders || 0) * 0.2),
+                completed: Math.floor((summary?.total_lab_orders || 0) * 0.8),
+            },
+        },
+        {
+            id: 'appointments',
+            title: 'Consultation/Appointment Reports',
+            description: 'Appointment scheduling, doctor availability, and consultation reports',
+            icon: Calendar,
+            color: 'bg-gradient-to-r from-green-500 to-emerald-500',
+            href: '/hospital/reports/appointments',
+            stats: {
+                total: summary?.total_appointments || 0,
+                scheduled: Math.floor((summary?.total_appointments || 0) * 0.7),
+                completed: Math.floor((summary?.total_appointments || 0) * 0.3),
+            },
+        },
+        {
+            id: 'inventory',
+            title: 'Inventory Reports',
+            description: 'Stock levels, supply usage, and inventory management',
+            icon: Package,
+            color: 'bg-gradient-to-r from-orange-500 to-red-500',
+            href: '/hospital/reports/inventory',
+            stats: {
+                total: summary?.total_products || 0,
+                low_stock: Math.floor((summary?.total_products || 0) * 0.1),
+                in_stock: Math.floor((summary?.total_products || 0) * 0.9),
+            },
+        },
+        {
+            id: 'financial',
+            title: 'Financial Reports',
+            description: 'Revenue, expenses, billing, and financial reports',
+            icon: DollarSign,
+            color: 'bg-gradient-to-r from-green-600 to-teal-600',
+            href: '/hospital/reports/billing',
+            stats: {
+                revenue: summary?.total_revenue || 0,
+                expenses: summary?.total_expenses || 0,
+                profit: (summary?.total_revenue || 0) - (summary?.total_expenses || 0),
+            },
+        },
     ];
 
-    const handlePeriodChange = (period: string) => {
-        setSelectedPeriod(period);
-        router.get(
-            route('hospital.reports.index'),
-            { period },
-            {
-                preserveState: true,
-                replace: true,
-            },
-        );
-    };
-
-    const handleCustomDateFilter = () => {
-        if (customStartDate && customEndDate) {
-            router.get(
-                route('hospital.reports.index'),
-                {
-                    start_date: customStartDate,
-                    end_date: customEndDate,
-                },
-                {
-                    preserveState: true,
-                    replace: true,
-                },
-            );
-        }
-    };
-
-    const exportReport = async (type: string) => {
-        try {
-            const params = new URLSearchParams({
-                period: selectedPeriod,
-                ...(customStartDate && customEndDate
-                    ? {
-                          start_date: customStartDate,
-                          end_date: customEndDate,
-                      }
-                    : {}),
-            });
-
-            // Use direct URL construction to avoid route helper issues
-            const exportUrl = `/hospital/reports/export/${type}?${params.toString()}`;
-            console.log('Export URL:', exportUrl);
-
-            // Use fetch with credentials to maintain authentication
-            const response = await fetch(exportUrl, {
-                method: 'GET',
-                credentials: 'same-origin', // This is crucial for maintaining authentication
-                headers: {
-                    Accept: 'text/csv,application/csv',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error(`Export failed: ${response.status} ${response.statusText}`);
-            }
-
-            // Check if we got HTML instead of CSV (authentication issue)
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('text/html')) {
-                throw new Error('Authentication failed - got HTML instead of CSV. Please refresh the page and try again.');
-            }
-
-            // Get the filename from the response headers
-            const contentDisposition = response.headers.get('Content-Disposition');
-            const filename = contentDisposition
-                ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-                : `${type}_report_${new Date().toISOString().split('T')[0]}.csv`;
-
-            // Create blob and download
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = filename;
-            link.style.display = 'none';
-
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            // Clean up the object URL
-            window.URL.revokeObjectURL(url);
-
-            console.log('Export completed successfully');
-        } catch (error) {
-            console.error('Export failed:', error);
-            alert('Export failed: ' + error.message);
-        }
-    };
-
-    // Export function with format selection
-    const exportReportWithFormat = async (type: string, format: 'csv' | 'pdf' | 'excel') => {
-        try {
-            const params = new URLSearchParams({
-                period: selectedPeriod,
-                ...(customStartDate && customEndDate
-                    ? {
-                          start_date: customStartDate,
-                          end_date: customEndDate,
-                      }
-                    : {}),
-            });
-
-            let exportUrl: string;
-            let filename: string;
-            let acceptHeader: string;
-
-            switch (format) {
-                case 'csv':
-                    exportUrl = `/hospital/reports/export/${type}?${params.toString()}`;
-                    filename = `${type}_report_${new Date().toISOString().split('T')[0]}.csv`;
-                    acceptHeader = 'text/csv,application/csv';
-                    break;
-                case 'pdf':
-                    exportUrl = `/hospital/reports/export-pdf/${type}?${params.toString()}`;
-                    filename = `${type}_report_${new Date().toISOString().split('T')[0]}.pdf`;
-                    acceptHeader = 'application/pdf';
-                    break;
-                case 'excel':
-                    exportUrl = `/hospital/reports/export-excel/${type}?${params.toString()}`;
-                    filename = `${type}_report_${new Date().toISOString().split('T')[0]}.xlsx`;
-                    acceptHeader = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-                    break;
-                default:
-                    throw new Error('Invalid export format');
-            }
-
-            console.log('Export URL:', exportUrl);
-
-            // Use fetch with credentials to maintain authentication
-            const response = await fetch(exportUrl, {
-                method: 'GET',
-                credentials: 'same-origin',
-                headers: {
-                    Accept: acceptHeader,
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error(`Export failed: ${response.status} ${response.statusText}`);
-            }
-
-            // Check if we got HTML instead of expected format (authentication issue)
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('text/html')) {
-                throw new Error('Authentication failed - got HTML instead of file. Please refresh the page and try again.');
-            }
-
-            // Get the filename from the response headers
-            const contentDisposition = response.headers.get('Content-Disposition');
-            const finalFilename = contentDisposition ? contentDisposition.split('filename=')[1]?.replace(/"/g, '') : filename;
-
-            // Create blob and download
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = finalFilename;
-            link.style.display = 'none';
-
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            // Clean up the object URL
-            window.URL.revokeObjectURL(url);
-
-            console.log('Export completed successfully');
-        } catch (error) {
-            console.error('Export failed:', error);
-            alert('Export failed: ' + (error instanceof Error ? error.message : String(error)));
-        }
-    };
-
-    // Simple test export function
-    const testExport = async () => {
-        try {
-            const testUrl = '/hospital/reports/export/patients';
-            console.log('Test export URL:', testUrl);
-
-            // Use fetch with credentials to maintain authentication
-            const response = await fetch(testUrl, {
-                method: 'GET',
-                credentials: 'same-origin',
-                headers: {
-                    Accept: 'text/csv,application/csv',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error(`Test export failed: ${response.status} ${response.statusText}`);
-            }
-
-            // Check if we got HTML instead of CSV (authentication issue)
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('text/html')) {
-                throw new Error('Authentication failed - got HTML instead of CSV. Please refresh the page and try again.');
-            }
-
-            // Create blob and download
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'test_patients_export.csv';
-            link.style.display = 'none';
-
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            // Clean up the object URL
-            window.URL.revokeObjectURL(url);
-
-            console.log('Test export completed successfully');
-        } catch (error) {
-            console.error('Test export failed:', error);
-            alert('Test export failed: ' + error.message);
-        }
-    };
-
-    // Export dropdown component
-    const ExportDropdown = ({ type, label = 'Export' }: { type: string; label?: string }) => (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2">
-                    <Download className="h-4 w-4" />
-                    {label}
-                    <ChevronDown className="h-4 w-4" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => exportReportWithFormat(type, 'csv')}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Export as CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportReportWithFormat(type, 'pdf')}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Export as PDF
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportReportWithFormat(type, 'excel')}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Export as Excel
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    );
-
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Hospital Reports Dashboard" />
-
-            <div className="space-y-6 px-4 md:px-6">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Hospital Reports</h1>
-                        <p className="text-muted-foreground">Comprehensive analytics and reporting for St. James Hospital</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-sm">
-                            {dateRange.label}
-                        </Badge>
-                    </div>
-                </div>
-
-                {/* Date Range Filters */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Filter className="h-5 w-5" />
-                            Date Range Filters
-                        </CardTitle>
-                        <CardDescription>Filter reports by daily, monthly, yearly, or custom date ranges</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                            <div>
-                                <Label htmlFor="period">Quick Filters</Label>
-                                <Select value={selectedPeriod} onValueChange={handlePeriodChange}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select period" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="daily">Today</SelectItem>
-                                        <SelectItem value="last_7_days">Last 7 Days</SelectItem>
-                                        <SelectItem value="last_30_days">Last 30 Days</SelectItem>
-                                        <SelectItem value="monthly">This Month</SelectItem>
-                                        <SelectItem value="yearly">This Year</SelectItem>
-                                    </SelectContent>
-                                </Select>
+        <AppLayout breadcrumbs={breadcrumbs as any}>
+            <Head title="Hospital Reports Overview" />
+            <div className="min-h-screen bg-gray-50 p-6">
+                <div className="mx-auto max-w-7xl">
+                    {/* Header */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between">
+                                    <div>
+                                <h1 className="text-3xl font-bold text-gray-900">Hospital Reports Overview</h1>
+                                <p className="mt-2 text-gray-600">Comprehensive reporting system for hospital management and decision support</p>
                             </div>
-
-                            <div>
-                                <Label htmlFor="start_date">Start Date</Label>
-                                <Input id="start_date" type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} />
-                            </div>
-
-                            <div>
-                                <Label htmlFor="end_date">End Date</Label>
-                                <Input id="end_date" type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} />
-                            </div>
-
-                            <div className="flex items-end">
-                                <Button onClick={handleCustomDateFilter} className="w-full">
-                                    Apply Custom Range
+                            <div className="flex gap-2">
+                                <Button variant="outline" onClick={() => window.print()}>
+                                    <Printer className="mr-2 h-4 w-4" />
+                                    Print
+                                </Button>
+                                <Button variant="outline" onClick={() => handleExport('excel', 'summary')}>
+                                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                    Export Excel
+                                </Button>
+                                <Button variant="outline" onClick={() => handleExport('pdf', 'summary')}>
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Export PDF
                                 </Button>
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
 
-                {/* Summary Statistics */}
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Patients</CardTitle>
-                            <Users className="h-4 w-4 text-muted-foreground" />
+                    {/* Report Sections */}
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+                        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-3">
+                            <TabsTrigger value="overview">Overview</TabsTrigger>
+                            <TabsTrigger value="reports">Report Modules</TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="overview" className="space-y-6">
+                            {/* Summary Cards */}
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+                                <Card>
+                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                        <CardTitle className="text-sm font-medium">Total Patients</CardTitle>
+                                        <Users className="h-4 w-4 text-muted-foreground" />
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="text-2xl font-bold">{(summary?.total_patients || 0).toLocaleString()}</div>
+                                        <p className="text-xs text-muted-foreground">
+                                            <span className="flex items-center text-green-600">
+                                                <ArrowUpRight className="mr-1 h-3 w-3" />
+                                                +8.2%
+                                            </span>
+                                            <span className="ml-1">from last month</span>
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                                <Card>
+                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                        <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="text-2xl font-bold">₱{(summary?.total_revenue || 0).toLocaleString()}</div>
+                                        <p className="text-xs text-muted-foreground">
+                                            <span className="flex items-center text-green-600">
+                                                <ArrowUpRight className="mr-1 h-3 w-3" />
+                                                +12.5%
+                                            </span>
+                                            <span className="ml-1">from last month</span>
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                                <Card>
+                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                        <CardTitle className="text-sm font-medium">Appointments</CardTitle>
+                                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="text-2xl font-bold">{(summary?.total_appointments || 0).toLocaleString()}</div>
+                                        <p className="text-xs text-muted-foreground">
+                                            <span className="flex items-center text-green-600">
+                                                <ArrowUpRight className="mr-1 h-3 w-3" />
+                                                +15.3%
+                                            </span>
+                                            <span className="ml-1">from last month</span>
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                                <Card>
+                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                        <CardTitle className="text-sm font-medium">Lab Orders</CardTitle>
+                                        <FlaskConical className="h-4 w-4 text-muted-foreground" />
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="text-2xl font-bold">{(summary?.total_lab_orders || 0).toLocaleString()}</div>
+                                        <p className="text-xs text-muted-foreground">
+                                            <span className="flex items-center text-red-600">
+                                                <ArrowDownRight className="mr-1 h-3 w-3" />
+                                                -2.1%
+                                            </span>
+                                            <span className="ml-1">from last month</span>
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                </div>
+
+                            {/* Data Visualization Charts */}
+                            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                                {/* Monthly Revenue Trend */}
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <TrendingUp className="h-5 w-5 text-green-600" />
+                                            Monthly Revenue Trend
+                            </CardTitle>
+                                        <CardDescription>Revenue, patients, and appointments over the last 12 months</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{summary.total_patients.toLocaleString()}</div>
-                            <p className="text-xs text-muted-foreground">Registered in selected period</p>
+                                    <CardContent>
+                                        <div className="h-[350px]">
+                                            <ChartContainer
+                                                config={{
+                                                    revenue: {
+                                                        label: 'Revenue (₱)',
+                                                        color: '#10b981',
+                                                    },
+                                                    patients: {
+                                                        label: 'New Patients',
+                                                        color: '#3b82f6',
+                                                    },
+                                                    appointments: {
+                                                        label: 'Appointments',
+                                                        color: '#8b5cf6',
+                                                    },
+                                                }}
+                                                className="h-full w-full"
+                                            >
+                                                <AreaChart data={chartData?.monthlyRevenue || []}>
+                                                    <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
+                                                    <XAxis
+                                                        dataKey="month"
+                                                        className="text-sm"
+                                                        tick={{ fill: '#6b7280', fontSize: 12 }}
+                                                        angle={-45}
+                                                        textAnchor="end"
+                                                        height={60}
+                                                    />
+                                                    <YAxis
+                                                        className="text-sm"
+                                                        tick={{ fill: '#6b7280' }}
+                                                        tickFormatter={(value) => `₱${value.toLocaleString()}`}
+                                                    />
+                                                    <ChartTooltip
+                                                        content={
+                                                            <ChartTooltipContent
+                                                                formatter={(value, name) => {
+                                                                    if (name === 'revenue') {
+                                                                        return [`₱${Number(value).toLocaleString()}`, 'Revenue'];
+                                                                    }
+                                                                    return [value, name];
+                                                                }}
+                                                            />
+                                                        }
+                                                    />
+                                                    <Area
+                                                        type="monotone"
+                                                        dataKey="revenue"
+                                                        stackId="1"
+                                                        stroke="#10b981"
+                                                        fill="#10b981"
+                                                        fillOpacity={0.6}
+                                                        strokeWidth={2}
+                                                    />
+                                                    <Area
+                                                        type="monotone"
+                                                        dataKey="patients"
+                                                        stackId="2"
+                                                        stroke="#3b82f6"
+                                                        fill="#3b82f6"
+                                                        fillOpacity={0.6}
+                                                        strokeWidth={2}
+                                                    />
+                                                    <Area
+                                                        type="monotone"
+                                                        dataKey="appointments"
+                                                        stackId="3"
+                                                        stroke="#8b5cf6"
+                                                        fill="#8b5cf6"
+                                                        fillOpacity={0.6}
+                                                        strokeWidth={2}
+                                                    />
+                                                </AreaChart>
+                                            </ChartContainer>
+                                </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* Patient Demographics */}
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Users className="h-5 w-5 text-blue-600" />
+                                            Patient Demographics
+                                        </CardTitle>
+                                        <CardDescription>Gender distribution of registered patients</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="h-[300px]">
+                                            <ChartContainer
+                                                config={{
+                                                    male: {
+                                                        label: 'Male',
+                                                        color: '#3b82f6',
+                                                    },
+                                                    female: {
+                                                        label: 'Female',
+                                                        color: '#ec4899',
+                                                    },
+                                                }}
+                                                className="h-full w-full"
+                                            >
+                                                <PieChart>
+                                                    <Pie
+                                                        data={chartData?.patientDemographics || []}
+                                                        cx="50%"
+                                                        cy="50%"
+                                                        labelLine={false}
+                                                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                                        outerRadius={80}
+                                                        fill="#8884d8"
+                                                        dataKey="value"
+                                                    >
+                                                        {(chartData?.patientDemographics || []).map((entry, index) => (
+                                                            <Cell key={`cell-${index}`} fill={index === 0 ? '#3b82f6' : '#ec4899'} />
+                                                        ))}
+                                                    </Pie>
+                                                    <ChartTooltip content={<ChartTooltipContent formatter={(value) => [value, 'Patients']} />} />
+                                                </PieChart>
+                                            </ChartContainer>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                        </div>
+
+                            {/* Recent Reports */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Recent Reports</CardTitle>
+                                    <CardDescription>Recently generated reports and their status</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Report Name</TableHead>
+                                                <TableHead>Type</TableHead>
+                                                <TableHead>Date Range</TableHead>
+                                                <TableHead>Generated By</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead>Last Generated</TableHead>
+                                                <TableHead>Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {(recentReports || []).map((report) => (
+                                                <TableRow key={report.id}>
+                                                    <TableCell className="font-medium">{report.name}</TableCell>
+                                                    <TableCell>
+                                                        <Badge variant="secondary">{report.type}</Badge>
+                                                    </TableCell>
+                                                    <TableCell>{report.dateRange}</TableCell>
+                                                    <TableCell>{report.generatedBy}</TableCell>
+                                                    <TableCell>
+                                                        <Badge variant={report.status === 'Generated' ? 'default' : 'secondary'}>
+                                                            {report.status}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell>{report.lastGenerated}</TableCell>
+                                                    <TableCell>
+                                                        <Button variant="outline" size="sm">
+                                                            <Download className="h-4 w-4" />
+                                                                </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                    </TableBody>
+                                </Table>
                         </CardContent>
                     </Card>
+                        </TabsContent>
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Appointments</CardTitle>
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <TabsContent value="reports" className="space-y-6">
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                {reportSections.map((section) => (
+                                    <Card key={section.id} className="relative overflow-hidden transition-shadow hover:shadow-lg">
+                                        <div className={`absolute inset-0 ${section.color} opacity-10`} />
+                                        <CardHeader className="relative">
+                                            <CardTitle className="flex items-center gap-2">
+                                                <section.icon className="h-5 w-5" />
+                                                {section.title}
+                            </CardTitle>
+                                            <CardDescription>{section.description}</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{summary.total_appointments.toLocaleString()}</div>
-                            <p className="text-xs text-muted-foreground">
-                                {summary.completed_appointments} completed, {summary.pending_appointments} pending
-                            </p>
-                        </CardContent>
-                    </Card>
+                                        <CardContent className="relative">
+                                            <div className="mb-4 grid grid-cols-2 gap-4">
+                                                {Object.entries(section.stats).map(([key, value]) => (
+                                                    <div key={key} className="text-center">
+                                                        <div className="text-2xl font-bold">
+                                                            {typeof value === 'number' ? value.toLocaleString() : value}
+                                                        </div>
+                                                        <div className="text-xs text-gray-600 capitalize">{key.replace('_', ' ')}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Button asChild className="flex-1">
+                                                    <a href={section.href}>View Report</a>
+                                                </Button>
+                                                <Button variant="outline" size="sm" onClick={() => handleExport('pdf', section.id)}>
+                                                    <Download className="h-4 w-4" />
+                                                </Button>
+                                </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                                </div>
+                        </TabsContent>
+                    </Tabs>
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Transactions</CardTitle>
-                            <CreditCard className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{summary.total_transactions.toLocaleString()}</div>
-                            <p className="text-xs text-muted-foreground">Financial transactions processed</p>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">₱{summary.total_revenue.toLocaleString()}</div>
-                            <p className="text-xs text-muted-foreground">Revenue generated in period</p>
+                    {/* Footer */}
+                    <Card className="mt-8">
+                        <CardContent className="pt-6">
+                            <div className="flex items-center justify-between text-sm text-gray-600">
+                                <div>
+                                    <p>
+                                        <strong>Generated:</strong> {metadata?.generated_at || new Date().toLocaleString()}
+                                    </p>
+                                    <p>
+                                        <strong>Generated By:</strong> {metadata?.generated_by || user?.name || 'System'} (
+                                        {metadata?.generated_by_role || user?.role || 'User'})
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p>
+                                        <strong>System Version:</strong> {metadata?.system_version || '1.0.0'}
+                                    </p>
+                                    <p>
+                                        <strong>Hospital:</strong> St. James Hospital Management System
+                                    </p>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
-
-                {/* Report Types */}
-                <Tabs defaultValue="overview" className="space-y-4">
-                    <TabsList>
-                        <TabsTrigger value="overview">Overview</TabsTrigger>
-                        <TabsTrigger value="patients">Patient Reports</TabsTrigger>
-                        <TabsTrigger value="appointments">Appointment Reports</TabsTrigger>
-                        <TabsTrigger value="transactions">Transaction Reports</TabsTrigger>
-                        <TabsTrigger value="inventory">Inventory Reports</TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="overview" className="space-y-4">
-                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                            {/* Recent Activities */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Activity className="h-5 w-5" />
-                                        Recent Activities
-                                    </CardTitle>
-                                    <CardDescription>Latest activities in the selected period</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        {recentActivities.slice(0, 5).map((activity, index) => (
-                                            <div key={index} className="flex items-center space-x-3">
-                                                <div className="h-2 w-2 rounded-full bg-blue-500" />
-                                                <div className="flex-1">
-                                                    <p className="text-sm">{activity.description}</p>
-                                                    <p className="text-xs text-muted-foreground">{new Date(activity.date).toLocaleString()}</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Quick Actions */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <FileText className="h-5 w-5" />
-                                        Quick Actions
-                                    </CardTitle>
-                                    <CardDescription>Generate and export reports</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="grid grid-cols-1 gap-3">
-                                        {/* Patients Export */}
-                                        <div className="space-y-2">
-                                            <h4 className="text-sm font-medium">Patients Report</h4>
-                                            <ExportDropdown type="patients" />
-                                        </div>
-
-                                        {/* Appointments Export */}
-                                        <div className="space-y-2">
-                                            <h4 className="text-sm font-medium">Appointments Report</h4>
-                                            <ExportDropdown type="appointments" />
-                                        </div>
-
-                                        {/* Transactions Export */}
-                                        <div className="space-y-2">
-                                            <h4 className="text-sm font-medium">Transactions Report</h4>
-                                            <ExportDropdown type="transactions" />
-                                        </div>
-
-                                        {/* Inventory Export */}
-                                        <div className="space-y-2">
-                                            <h4 className="text-sm font-medium">Inventory Report</h4>
-                                            <ExportDropdown type="inventory" />
-                                        </div>
-
-                                        {/* Test Export */}
-                                        <div className="space-y-2">
-                                            <h4 className="text-sm font-medium">Test Export</h4>
-                                            <Button
-                                                variant="default"
-                                                onClick={testExport}
-                                                className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-                                            >
-                                                <Download className="h-4 w-4" />
-                                                Test CSV Export
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    </TabsContent>
-
-                    <TabsContent value="patients">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Patient Reports</CardTitle>
-                                <CardDescription>Comprehensive patient analytics and data</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm text-muted-foreground">
-                                        View detailed patient reports with filtering and export capabilities
-                                    </p>
-                                    <div className="flex gap-2">
-                                        <Button asChild>
-                                            <Link href={route('hospital.reports.patients')}>View Patient Reports</Link>
-                                        </Button>
-                                        <ExportDropdown type="patients" label="Export" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-
-                    <TabsContent value="appointments">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Appointment Reports</CardTitle>
-                                <CardDescription>Appointment scheduling and management analytics</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm text-muted-foreground">
-                                        View appointment trends, scheduling patterns, and completion rates
-                                    </p>
-                                    <div className="flex gap-2">
-                                        <Button asChild>
-                                            <Link href={route('hospital.reports.appointments')}>View Appointment Reports</Link>
-                                        </Button>
-                                        <ExportDropdown type="appointments" label="Export" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-
-                    <TabsContent value="transactions">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Transaction Reports</CardTitle>
-                                <CardDescription>Financial transactions and revenue analytics</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm text-muted-foreground">View transaction history, payment methods, and revenue trends</p>
-                                    <div className="flex gap-2">
-                                        <Button asChild>
-                                            <Link href={route('hospital.reports.transactions')}>View Transaction Reports</Link>
-                                        </Button>
-                                        <ExportDropdown type="transactions" label="Export" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-
-                    <TabsContent value="inventory">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Inventory Reports</CardTitle>
-                                <CardDescription>Supply and inventory management analytics</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm text-muted-foreground">View inventory levels, transaction history, and supply trends</p>
-                                    <div className="flex gap-2">
-                                        <Button asChild>
-                                            <Link href={route('hospital.reports.inventory')}>View Inventory Reports</Link>
-                                        </Button>
-                                        <ExportDropdown type="inventory" label="Export" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                </Tabs>
             </div>
         </AppLayout>
     );

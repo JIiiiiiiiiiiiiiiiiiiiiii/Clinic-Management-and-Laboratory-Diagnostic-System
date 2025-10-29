@@ -113,7 +113,7 @@ export default function AdminReportsIndex({ user, summary, chartData, recentActi
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Reports & Analytics</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Reports Dashboard</h1>
             <p className="text-gray-600">Comprehensive reports for all clinic operations</p>
           </div>
         </div>

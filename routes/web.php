@@ -5,28 +5,44 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia as InertiaResponse;
 use App\Models\User;
+use App\Models\Patient;
+use App\Models\Notification;
 
 Route::get('/', function () {
-    if (Auth::check()) {
-        // User is logged in, redirect to appropriate dashboard
-        $user = Auth::user();
-        $mappedRole = $user->getMappedRole();
-
-        if ($mappedRole === 'patient') {
-            return redirect()->route('patient.dashboard.simple');
-        } elseif (in_array($mappedRole, ['hospital_admin', 'hospital_staff'])) {
-            return redirect()->route('hospital.dashboard');
-        } else {
-            return redirect()->route('admin.dashboard');
-        }
-    } else {
-        // User is not logged in, redirect to login
-        return redirect()->route('login');
+    $user = auth()->user();
+    $patient = null;
+    $notifications = [];
+    $unreadCount = 0;
+    
+    // If user is logged in, get their data
+    if ($user) {
+        $patient = Patient::where('user_id', $user->id)->first();
+        $notifications = Notification::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+        $unreadCount = Notification::where('user_id', $user->id)
+            ->where('read', false)
+            ->count();
     }
+    
+    return Inertia::render('patient/home', [
+        'user' => $user,
+        'patient' => $patient,
+        'notifications' => $notifications,
+        'unreadCount' => $unreadCount,
+    ]);
 })->name('home');
+
+// Redirect /patient/home to / for consistency
+Route::get('/patient/home', function () {
+    return redirect('/');
+})->name('patient.home');
 
 // API endpoints (using web routes for proper session handling)
 Route::middleware(['auth:session'])->post('/api/appointments/online', [App\Http\Controllers\Api\OnlineAppointmentController::class, 'store']);
+// Use admin auth for walk-in (admin-initiated) bookings
+Route::middleware(['simple.auth'])->post('/api/appointments/walk-in', [App\Http\Controllers\Api\WalkInAppointmentController::class, 'store']);
 
 // Admin Appointment Management API
 Route::middleware(['auth:session'])->prefix('api/admin/appointments')->group(function () {
@@ -44,7 +60,6 @@ Route::middleware(['auth:session'])->prefix('api/billing')->group(function () {
 // Load split route files
 require __DIR__ . '/admin.php';
 require __DIR__ . '/patient.php';
-require __DIR__ . '/hospital.php';
 require __DIR__.'/settings.php';
 
 // Load complete API routes
@@ -63,11 +78,9 @@ Route::get('/dashboard', function () {
     // Get user role and redirect accordingly
     $user = Auth::user();
     $mappedRole = $user->getMappedRole();
-
+    
     if ($mappedRole === 'patient') {
-        return redirect()->route('patient.dashboard.simple');
-    } elseif (in_array($mappedRole, ['hospital_admin', 'hospital_staff'])) {
-        return redirect()->route('hospital.dashboard');
+        return redirect()->route('home');
     } else {
         return redirect()->route('admin.dashboard');
     }
@@ -79,14 +92,7 @@ Route::get('/patients', function () {
         return redirect('/login');
     }
 
-    // Get user role and redirect accordingly
-    $user = Auth::user();
-    $mappedRole = $user->getMappedRole();
-
-    if ($mappedRole === 'hospital_admin') {
-        return redirect()->route('hospital.patients.index');
-    } else {
-        return redirect()->route('admin.patient.index');
-    }
+    // All staff (including hospital) use admin routes
+    return redirect()->route('admin.patient.index');
 })->name('patients');
 

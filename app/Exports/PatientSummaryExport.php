@@ -27,88 +27,110 @@ class PatientSummaryExport implements FromArray, WithHeadings, WithStyles, WithC
     {
         $data = [];
 
-        // Patient Information Section
-        $data[] = ['PATIENT INFORMATION'];
-        $data[] = ['Patient No', $this->patient->patient_no];
-        $data[] = ['Full Name', $this->patient->full_name];
-        $data[] = ['Birthdate', $this->patient->birthdate ? $this->patient->birthdate->format('Y-m-d') : 'N/A'];
-        $data[] = ['Age', $this->patient->age];
-        $data[] = ['Sex', ucfirst($this->patient->sex)];
-        $data[] = ['Mobile No', $this->patient->mobile_no];
-        $data[] = ['Telephone No', $this->patient->telephone_no];
-        $data[] = ['Address', $this->patient->present_address];
-        $data[] = ['Occupation', $this->patient->occupation];
-        $data[] = ['Religion', $this->patient->religion];
-        $data[] = ['Civil Status', ucfirst($this->patient->civil_status)];
-        $data[] = ['Nationality', $this->patient->nationality];
-        $data[] = ['Registration Date', $this->patient->created_at->format('Y-m-d H:i:s')];
+        try {
+            // Patient Information Section
+            $data[] = ['PATIENT INFORMATION'];
+            $data[] = ['Patient No', $this->patient->patient_no ?? 'N/A'];
+            $data[] = ['Full Name', $this->patient->full_name ?? 'N/A'];
+            $data[] = ['Birthdate', $this->patient->birthdate ? $this->patient->birthdate->format('Y-m-d') : 'N/A'];
+            $data[] = ['Age', $this->patient->age ?? 'N/A'];
+            $data[] = ['Sex', ucfirst($this->patient->sex ?? 'N/A')];
+            $data[] = ['Mobile No', $this->patient->mobile_no ?? 'N/A'];
+            $data[] = ['Telephone No', $this->patient->telephone_no ?? 'N/A'];
+            $data[] = ['Address', $this->patient->present_address ?? 'N/A'];
+            $data[] = ['Occupation', $this->patient->occupation ?? 'N/A'];
+            $data[] = ['Religion', $this->patient->religion ?? 'N/A'];
+            $data[] = ['Civil Status', ucfirst($this->patient->civil_status ?? 'N/A')];
+            $data[] = ['Nationality', $this->patient->nationality ?? 'N/A'];
+            $data[] = ['Registration Date', $this->patient->created_at ? $this->patient->created_at->format('Y-m-d H:i:s') : 'N/A'];
 
-        $data[] = []; // Empty row
-
-        // Emergency Contact Section
-        $data[] = ['EMERGENCY CONTACT'];
-        $data[] = ['Contact Name', $this->patient->informant_name];
-        $data[] = ['Relationship', $this->patient->relationship];
-
-        $data[] = []; // Empty row
-
-        // Insurance Information Section
-        $data[] = ['INSURANCE INFORMATION'];
-        $data[] = ['Company', $this->patient->company_name];
-        $data[] = ['HMO', $this->patient->hmo_name];
-        $data[] = ['HMO ID', $this->patient->hmo_company_id_no];
-        $data[] = ['Validation Code', $this->patient->validation_approval_code];
-        $data[] = ['Validity', $this->patient->validity];
-
-        $data[] = []; // Empty row
-
-        // Medical History Section
-        $data[] = ['MEDICAL HISTORY'];
-        $data[] = ['Drug Allergies', $this->patient->drug_allergies];
-        $data[] = ['Food Allergies', $this->patient->food_allergies];
-        $data[] = ['Past Medical History', $this->patient->past_medical_history];
-        $data[] = ['Family History', $this->patient->family_history];
-        $data[] = ['Social History', $this->patient->social_personal_history];
-        $data[] = ['Obstetrics History', $this->patient->obstetrics_gynecology_history];
-
-        $data[] = []; // Empty row
-
-        // Visit History Section
-        $data[] = ['VISIT HISTORY'];
-        $data[] = ['Total Visits', $this->patient->visits->count()];
-
-        if ($this->patient->visits->count() > 0) {
             $data[] = []; // Empty row
-            $data[] = ['Visit Date', 'Chief Complaint', 'Attending Physician', 'Status'];
 
-            foreach ($this->patient->visits as $visit) {
-                $data[] = [
-                    $visit->visit_date_time ? $visit->visit_date_time->format('Y-m-d') : 'N/A',
-                    $visit->reason_for_consult,
-                    $visit->attending_physician,
-                    $visit->status
-                ];
-            }
-        }
+            // Emergency Contact Section
+            $data[] = ['EMERGENCY CONTACT'];
+            $data[] = ['Contact Name', $this->patient->informant_name ?? 'N/A'];
+            $data[] = ['Relationship', $this->patient->relationship ?? 'N/A'];
 
-        $data[] = []; // Empty row
-
-        // Laboratory Orders Section
-        $data[] = ['LABORATORY ORDERS'];
-        $data[] = ['Total Lab Orders', $this->patient->labOrders->count()];
-
-        if ($this->patient->labOrders->count() > 0) {
             $data[] = []; // Empty row
-            $data[] = ['Order Date', 'Test Type', 'Status', 'Results Available'];
 
-            foreach ($this->patient->labOrders as $order) {
-                $data[] = [
-                    $order->created_at->format('Y-m-d'),
-                    $order->labTests->pluck('name')->join(', '),
-                    $order->status,
-                    $order->results->count() > 0 ? 'Yes' : 'No'
-                ];
+            // Insurance Information Section
+            $data[] = ['INSURANCE INFORMATION'];
+            $data[] = ['Company', $this->patient->insurance_company ?? 'N/A'];
+            $data[] = ['HMO', $this->patient->hmo_name ?? 'N/A'];
+            $data[] = ['HMO ID', $this->patient->hmo_id_no ?? 'N/A'];
+            $data[] = ['Validation Code', $this->patient->approval_code ?? 'N/A'];
+            $data[] = ['Validity', $this->patient->validity ?? 'N/A'];
+
+            $data[] = []; // Empty row
+
+            // Medical History Section
+            $data[] = ['MEDICAL HISTORY'];
+            $data[] = ['Drug Allergies', $this->patient->drug_allergies ?? 'N/A'];
+            $data[] = ['Food Allergies', $this->patient->food_allergies ?? 'N/A'];
+            $data[] = ['Past Medical History', $this->patient->past_medical_history ?? 'N/A'];
+            $data[] = ['Family History', $this->patient->family_history ?? 'N/A'];
+            $data[] = ['Social History', $this->patient->social_history ?? 'N/A'];
+            $data[] = ['Obstetrics History', $this->patient->obgyn_history ?? 'N/A'];
+
+            $data[] = []; // Empty row
+
+            // Visit History Section
+            $data[] = ['VISIT HISTORY'];
+            $visits = $this->patient->visits ?? collect();
+            $data[] = ['Total Visits', $visits->count()];
+
+            if ($visits->count() > 0) {
+                $data[] = []; // Empty row
+                $data[] = ['Visit Date', 'Chief Complaint', 'Attending Physician', 'Status'];
+
+                foreach ($visits as $visit) {
+                    $data[] = [
+                        $visit->visit_date_time_time ? $visit->visit_date_time_time->format('Y-m-d') : 'N/A',
+                        $visit->purpose ?? 'N/A',
+                        $visit->attending_staff_id ?? 'N/A',
+                        $visit->status ?? 'N/A'
+                    ];
+                }
             }
+
+            $data[] = []; // Empty row
+
+            // Laboratory Orders Section
+            $data[] = ['LABORATORY ORDERS'];
+            $labOrders = $this->patient->labOrders ?? collect();
+            $data[] = ['Total Lab Orders', $labOrders->count()];
+
+            if ($labOrders->count() > 0) {
+                $data[] = []; // Empty row
+                $data[] = ['Order Date', 'Test Type', 'Status', 'Results Available'];
+
+                foreach ($labOrders as $order) {
+                    $results = $order->results ?? collect();
+                    $data[] = [
+                        $order->created_at ? $order->created_at->format('Y-m-d') : 'N/A',
+                        $results->map(function ($result) {
+                            return $result->test?->name ?? 'Unknown Test';
+                        })->filter()->join(', ') ?: 'N/A',
+                        $order->status ?? 'N/A',
+                        $results->count() > 0 ? 'Yes' : 'No'
+                    ];
+                }
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Error in PatientSummaryExport::array()', [
+                'patient_id' => $this->patient->id ?? 'unknown',
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Return basic patient info if there's an error
+            $data = [
+                ['PATIENT INFORMATION'],
+                ['Patient No', $this->patient->patient_no ?? 'N/A'],
+                ['Full Name', $this->patient->full_name ?? 'N/A'],
+                ['Error', 'Unable to load complete patient data: ' . $e->getMessage()]
+            ];
         }
 
         return $data;
@@ -158,8 +180,8 @@ class PatientSummaryExport implements FromArray, WithHeadings, WithStyles, WithC
     public function columnWidths(): array
     {
         return [
-            'A' => 25, // Field
-            'B' => 50, // Value
+            'A' => 40, // Field
+            'B' => 60, // Value
         ];
     }
 

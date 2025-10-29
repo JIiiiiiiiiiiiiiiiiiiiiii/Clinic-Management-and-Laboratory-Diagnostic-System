@@ -48,9 +48,6 @@ interface BillingLink {
 interface DoctorPayment {
     id: number;
     doctor: Doctor;
-    basic_salary: number;
-    deductions: number;
-    holiday_pay: number;
     incentives: number;
     net_payment: number;
     payment_date: string;
@@ -177,39 +174,6 @@ export default function ShowDoctorPayment({ payment }: ShowDoctorPaymentProps) {
                                 {/* Payment Breakdown */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label className="text-sm font-medium text-gray-600">Basic Salary</Label>
-                                        <div className="p-3 bg-gray-50 rounded-lg">
-                                            <div className="flex items-center gap-2">
-                                                <DollarSign className="h-4 w-4 text-green-600" />
-                                                <span className="text-lg font-semibold text-green-600">
-                                                    ₱{payment.basic_salary.toLocaleString()}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-sm font-medium text-gray-600">Deductions</Label>
-                                        <div className="p-3 bg-gray-50 rounded-lg">
-                                            <div className="flex items-center gap-2">
-                                                <Minus className="h-4 w-4 text-red-600" />
-                                                <span className="text-lg font-semibold text-red-600">
-                                                    -₱{payment.deductions.toLocaleString()}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-sm font-medium text-gray-600">Holiday Pay</Label>
-                                        <div className="p-3 bg-gray-50 rounded-lg">
-                                            <div className="flex items-center gap-2">
-                                                <Plus className="h-4 w-4 text-green-600" />
-                                                <span className="text-lg font-semibold text-green-600">
-                                                    +₱{payment.holiday_pay.toLocaleString()}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
                                         <Label className="text-sm font-medium text-gray-600">Incentives</Label>
                                         <div className="p-3 bg-gray-50 rounded-lg">
                                             <div className="flex items-center gap-2">
@@ -292,7 +256,7 @@ export default function ShowDoctorPayment({ payment }: ShowDoctorPaymentProps) {
                                                             Amount: ₱{link.payment_amount.toLocaleString()}
                                                         </p>
                                                     </div>
-                                                    <Badge variant={link.status === 'paid' ? 'success' : 'warning'}>
+                                                    <Badge variant={link.status === 'paid' ? 'default' : 'secondary'}>
                                                         {link.status}
                                                     </Badge>
                                                 </div>
@@ -312,24 +276,20 @@ export default function ShowDoctorPayment({ payment }: ShowDoctorPaymentProps) {
                                 <CardTitle>Actions</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3">
-                                {payment.status === 'pending' && (
-                                    <Button asChild className="w-full">
-                                        <Link href={`/admin/billing/doctor-payments/${payment.id}/edit`}>
-                                            <Edit className="mr-2 h-4 w-4" />
-                                            Edit Payment
-                                        </Link>
-                                    </Button>
-                                )}
-                                {payment.status === 'pending' && (
-                                    <Button
-                                        onClick={handleDelete}
-                                        variant="destructive"
-                                        className="w-full"
-                                    >
-                                        <Trash2 className="mr-2 h-4 w-4" />
-                                        Delete Payment
-                                    </Button>
-                                )}
+                                <Button asChild className="w-full">
+                                    <Link href={`/admin/billing/doctor-payments/${payment.id}/edit`}>
+                                        <Edit className="mr-2 h-4 w-4" />
+                                        Edit Payment
+                                    </Link>
+                                </Button>
+                                <Button
+                                    onClick={handleDelete}
+                                    variant="destructive"
+                                    className="w-full"
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete Payment
+                                </Button>
                             </CardContent>
                         </Card>
 
