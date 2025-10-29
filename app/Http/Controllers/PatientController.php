@@ -7,9 +7,13 @@ use App\Http\Requests\Patient\UpdatePatientRequest;
 use App\Models\Patient;
 use App\Services\PatientService;
 use App\Services\AppointmentCreationService;
+use App\Exports\PatientDataExport;
+use App\Exports\PatientSummaryExport;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class PatientController extends Controller
 {
@@ -292,10 +296,17 @@ class PatientController extends Controller
 
             // Get patient data
             if ($patientId) {
-                $patient = Patient::findOrFail($patientId);
-                $patients = collect([$patient]);
+                try {
+                    $patient = Patient::findOrFail($patientId);
+                    $patient->load(['visits', 'labOrders.labTests']);
+                } catch (\Exception $e) {
+                    return response()->json(['error' => 'Patient not found: ' . $e->getMessage()], 404);
+                }
+                
+                $filename = "patient_{$patient->patient_no}_export_" . date('Y-m-d_H-i-s');
+                $export = new PatientSummaryExport($patient);
             } else {
-                $query = Patient::query();
+                $query = Patient::with(['visits', 'labOrders.labTests']);
                 
                 if ($dateFrom) {
                     $query->whereDate('created_at', '>=', $dateFrom);
@@ -305,120 +316,236 @@ class PatientController extends Controller
                 }
                 
                 $patients = $query->get();
-            }
-
-            // Prepare export data
-            $exportData = [];
-            foreach ($patients as $patient) {
-                $data = [
-                    'Patient No' => $patient->patient_no,
-                    'First Name' => $patient->first_name,
-                    'Last Name' => $patient->last_name,
-                    'Middle Name' => $patient->middle_name,
-                    'Sex' => $patient->sex,
-                    'Age' => $patient->age,
-                    'Birthdate' => $patient->birthdate,
-                    'Mobile No' => $patient->mobile_no,
-                    'Present Address' => $patient->address,
-                    'Created At' => $patient->created_at->format('Y-m-d H:i:s'),
-                ];
-
-                if ($includeVisits && $patient->visits) {
-                    $data['Total Visits'] = $patient->visits->count();
+                $filename = "patients_export_" . date('Y-m-d_H-i-s');
+                
+                $exportType = 'summary';
+                if ($includeMedicalHistory) {
+                    $exportType = 'medical_history';
+                } elseif ($includeVisits || $includeLabOrders) {
+                    $exportType = 'detailed';
                 }
-
-                if ($includeLabOrders && $patient->labOrders) {
-                    $data['Total Lab Orders'] = $patient->labOrders->count();
-                }
-
-                $exportData[] = $data;
+                
+                $export = new PatientDataExport($patients, $exportType);
             }
-
-            // Generate filename
-            $filename = $patientId 
-                ? "patient_{$patient->patient_no}_export_" . date('Y-m-d_H-i-s')
-                : "patients_export_" . date('Y-m-d_H-i-s');
 
             // Export based on format
             if ($format === 'csv') {
-                return $this->exportToCsv($exportData, $filename);
+                return Excel::download($export, $filename . '.csv', \Maatwebsite\Excel\Excel::CSV, [
+                    'Content-Type' => 'text/csv',
+                ]);
             } elseif ($format === 'pdf') {
-                return $this->exportToPdf($exportData, $filename);
+                return $this->exportToPdf($export, $filename);
             } else {
-                return $this->exportToExcel($exportData, $filename);
+                return Excel::download($export, $filename . '.xlsx', \Maatwebsite\Excel\Excel::XLSX, [
+                    'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                ]);
             }
 
         } catch (\Exception $e) {
+            \Log::error('Patient export failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'patient_id' => $patientId,
+                'request' => $request->all()
+            ]);
             return response()->json(['error' => 'Export failed: ' . $e->getMessage()], 500);
         }
     }
 
-    private function exportToCsv($data, $filename)
+    private function exportToPdf($export, $filename)
     {
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => "attachment; filename=\"{$filename}.csv\"",
-        ];
-
-        $callback = function() use ($data) {
-            $file = fopen('php://output', 'w');
+        try {
+            \Log::info('Starting PDF export', ['filename' => $filename]);
             
-            if (!empty($data)) {
-                fputcsv($file, array_keys($data[0]));
-                foreach ($data as $row) {
-                    fputcsv($file, $row);
+            // For PDF export, we'll create a simple HTML view and convert to PDF
+            $data = [];
+            
+            if ($export instanceof PatientSummaryExport) {
+                \Log::info('Using PatientSummaryExport');
+                $data = $export->array();
+            } elseif ($export instanceof PatientDataExport) {
+                \Log::info('Using PatientDataExport');
+                // Convert PatientDataExport to array format for PDF
+                $patients = $export->collection();
+                $headings = $export->headings();
+                
+                $data[] = $headings; // Add headers
+                foreach ($patients as $patient) {
+                    $data[] = $export->map($patient);
                 }
             }
             
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
+            \Log::info('PDF data prepared', ['data_count' => count($data)]);
+            
+            // Build HTML directly like lab order export
+            $html = $this->buildPatientExportHtml($data, $filename);
+            
+            $pdf = Pdf::loadHTML($html)
+                ->setPaper('a4', 'portrait')
+                ->setOptions([
+                    'isHtml5ParserEnabled' => true,
+                    'isRemoteEnabled' => true,
+                    'defaultFont' => 'Arial'
+                ]);
+            
+            \Log::info('PDF generated successfully');
+            $response = $pdf->download($filename . '.pdf');
+            $response->headers->set('Content-Type', 'application/pdf');
+            return $response;
+        } catch (\Exception $e) {
+            \Log::error('PDF export failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => 'PDF export failed: ' . $e->getMessage()], 500);
+        }
     }
 
-    private function exportToExcel($data, $filename)
+    private function buildPatientExportHtml($data, $filename)
     {
-        // For now, return CSV format with Excel extension
-        // In a real implementation, you'd use Laravel Excel package
-        $headers = [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Content-Disposition' => "attachment; filename=\"{$filename}.xlsx\"",
-        ];
-
-        $callback = function() use ($data) {
-            $file = fopen('php://output', 'w');
-            
-            if (!empty($data)) {
-                fputcsv($file, array_keys($data[0]));
-                foreach ($data as $row) {
-                    fputcsv($file, $row);
-                }
-            }
-            
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
-    }
-
-    private function exportToPdf($data, $filename)
-    {
-        // For now, return a simple text response
-        // In a real implementation, you'd use a PDF library like DomPDF
-        $content = "Patient Export Report\n\n";
-        foreach ($data as $patient) {
-            $content .= "Patient: {$patient['First Name']} {$patient['Last Name']}\n";
-            $content .= "Patient No: {$patient['Patient No']}\n";
-            $content .= "Age: {$patient['Age']}\n";
-            $content .= "Mobile: {$patient['Mobile No']}\n\n";
+        // Convert logo to base64
+        $logoPath = public_path('st-james-logo.png');
+        $logoBase64 = '';
+        if (file_exists($logoPath)) {
+            $logoData = file_get_contents($logoPath);
+            $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
         }
 
-        $headers = [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => "attachment; filename=\"{$filename}.pdf\"",
-        ];
+        $hospitalHeader = '
+        <div style="text-align: center; margin-bottom: 10px; padding: 5px 0; position: relative;">
+            <div style="position: absolute; left: 0; top: 0;">
+                <img src="' . $logoBase64 . '" alt="St. James Hospital Logo" style="width: 80px; height: 80px;">
+            </div>
+            <div style="text-align: center; width: 100%;">
+                <div style="font-size: 24px; font-weight: bold; color: #2d5a27; margin: 0 0 5px 0;">St. James Hospital Clinic, Inc.</div>
+                <div style="font-size: 12px; color: #333; margin: 0 0 3px 0;">San Isidro City of Cabuyao Laguna</div>
+                <div style="font-size: 14px; font-style: italic; color: #1e40af; margin: 0 0 5px 0;">Santa Rosa\'s First in Quality Healthcare Service</div>
+                <div style="font-size: 16px; font-weight: bold; color: #2d5a27; margin: 0 0 5px 0;">PASYENTE MUNA</div>
+                <div style="font-size: 10px; color: #666; margin: 0;">Tel. Nos. 02.85844533; 049.5341254; 049.5020058; Fax No.: local 307<br>email add: info@stjameshospital.com.ph</div>
+            </div>
+        </div>';
 
-        return response($content, 200, $headers);
+        $reportTitle = '<h2 style="font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;margin:0 0 16px 0;color:#333;text-align:center">Patient Details Report</h2>';
+        $reportMeta = '<p style="font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;font-size:12px;color:#666;text-align:center;margin:0 0 20px 0">Generated on: ' . now()->format('Y-m-d H:i:s') . '</p>';
+
+        $tableContent = '';
+        if (!empty($data)) {
+            // Card-based layout like the screenshot
+            $tableContent .= '<div style="display:flex;flex-wrap:wrap;gap:20px;margin:20px 0;font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;font-size:12px;line-height:1.6;background-color:#f5f5f5;padding:20px;border-radius:8px;">';
+            
+            // Organize data into sections
+            $patientInfo = [];
+            $contactInfo = [];
+            $demographics = [];
+            $emergencyContact = [];
+            $medicalHistory = [];
+            
+            foreach ($data as $row) {
+                if (isset($row[0]) && isset($row[1])) {
+                    $field = $row[0];
+                    $value = $row[1] ?: 'N/A';
+                    
+                    if(strpos($field, 'INFORMATION') !== false) {
+                        // Skip section headers
+                    } elseif(in_array($field, ['Patient No', 'Full Name', 'Birthdate', 'Age', 'Sex', 'Civil Status', 'Nationality', 'Registration Date'])) {
+                        $patientInfo[] = ['label' => $field, 'value' => $value];
+                    } elseif(in_array($field, ['Mobile No', 'Telephone No', 'Address'])) {
+                        $contactInfo[] = ['label' => $field, 'value' => $value];
+                    } elseif(in_array($field, ['Occupation', 'Religion'])) {
+                        $demographics[] = ['label' => $field, 'value' => $value];
+                    } elseif(in_array($field, ['Contact Name', 'Relationship'])) {
+                        $emergencyContact[] = ['label' => $field, 'value' => $value];
+                    } elseif(in_array($field, ['Drug Allergies', 'Food Allergies', 'Past Medical History', 'Family History', 'Social History', 'Obstetrics History'])) {
+                        $medicalHistory[] = ['label' => $field, 'value' => $value];
+                    }
+                }
+            }
+            
+            // Patient Identification Card
+            $tableContent .= '<div style="background-color:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;flex:1;min-width:300px;margin-bottom:20px;"><div style="background-color:#f8f9fa;padding:12px 16px;border-bottom:1px solid #e9ecef;"><h3 style="font-weight:bold;font-size:14px;color:#495057;margin:0;">Patient Identification</h3></div><div style="padding:16px;">';
+            foreach($patientInfo as $field) {
+                $tableContent .= '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #f1f3f4;"><span style="font-weight:600;color:#495057;flex:1;margin-right:16px;">' . e($field['label']) . '</span><span style="color:#212529;flex:1;text-align:right;word-break:break-word;">' . e($field['value']) . '</span></div>';
+            }
+            $tableContent .= '</div></div>';
+            
+            // Contact Information Card
+            $tableContent .= '<div style="background-color:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;flex:1;min-width:300px;margin-bottom:20px;"><div style="background-color:#f8f9fa;padding:12px 16px;border-bottom:1px solid #e9ecef;"><h3 style="font-weight:bold;font-size:14px;color:#495057;margin:0;">Contact Information</h3></div><div style="padding:16px;">';
+            foreach($contactInfo as $field) {
+                $tableContent .= '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #f1f3f4;"><span style="font-weight:600;color:#495057;flex:1;margin-right:16px;">' . e($field['label']) . '</span><span style="color:#212529;flex:1;text-align:right;word-break:break-word;">' . e($field['value']) . '</span></div>';
+            }
+            $tableContent .= '</div></div>';
+            
+            // Demographics Card
+            $tableContent .= '<div style="background-color:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;flex:1;min-width:300px;margin-bottom:20px;"><div style="background-color:#f8f9fa;padding:12px 16px;border-bottom:1px solid #e9ecef;"><h3 style="font-weight:bold;font-size:14px;color:#495057;margin:0;">Demographics</h3></div><div style="padding:16px;">';
+            foreach($demographics as $field) {
+                $tableContent .= '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #f1f3f4;"><span style="font-weight:600;color:#495057;flex:1;margin-right:16px;">' . e($field['label']) . '</span><span style="color:#212529;flex:1;text-align:right;word-break:break-word;">' . e($field['value']) . '</span></div>';
+            }
+            $tableContent .= '</div></div>';
+            
+            // Emergency Contact Card
+            $tableContent .= '<div style="background-color:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;flex:1;min-width:300px;margin-bottom:20px;"><div style="background-color:#f8f9fa;padding:12px 16px;border-bottom:1px solid #e9ecef;"><h3 style="font-weight:bold;font-size:14px;color:#495057;margin:0;">Emergency Contact</h3></div><div style="padding:16px;">';
+            foreach($emergencyContact as $field) {
+                $tableContent .= '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #f1f3f4;"><span style="font-weight:600;color:#495057;flex:1;margin-right:16px;">' . e($field['label']) . '</span><span style="color:#212529;flex:1;text-align:right;word-break:break-word;">' . e($field['value']) . '</span></div>';
+            }
+            $tableContent .= '</div></div>';
+            
+            // Medical History & Allergies Card (Full Width)
+            $tableContent .= '<div style="background-color:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;width:100%;margin-bottom:20px;"><div style="background-color:#f8f9fa;padding:12px 16px;border-bottom:1px solid #e9ecef;"><h3 style="font-weight:bold;font-size:14px;color:#495057;margin:0;">Medical History & Allergies</h3></div><div style="padding:16px;">';
+            foreach($medicalHistory as $field) {
+                $tableContent .= '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #f1f3f4;"><span style="font-weight:600;color:#495057;flex:1;margin-right:16px;">' . e($field['label']) . '</span><span style="color:#212529;flex:1;text-align:right;word-break:break-word;">' . e($field['value']) . '</span></div>';
+            }
+            $tableContent .= '</div></div>';
+            
+            $tableContent .= '</div>';
+        } else {
+            $tableContent = '<div style="display:flex;flex-wrap:wrap;gap:20px;margin:20px 0;font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;font-size:12px;line-height:1.6;background-color:#f5f5f5;padding:20px;border-radius:8px;"><div style="background-color:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;flex:1;min-width:300px;"><div style="background-color:#f8f9fa;padding:12px 16px;border-bottom:1px solid #e9ecef;"><h3 style="font-weight:bold;font-size:14px;color:#495057;margin:0;">No Data Available</h3></div><div style="padding:16px;"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #f1f3f4;"><span style="font-weight:600;color:#495057;flex:1;margin-right:16px;">Status</span><span style="color:#212529;flex:1;text-align:right;word-break:break-word;">No data available for export</span></div></div></div></div>';
+        }
+
+        $footer = '<p style="font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;font-size:10px;color:#666;margin-top:20px;text-align:center">This report was generated automatically by the Clinic Management System.</p>';
+
+        return '<!doctype html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>Patient Details Report</title><meta name="ProgId" content="Word.Document"><meta name="Generator" content="Microsoft Word 15"><meta name="Originator" content="Microsoft Word 15"><style>body{font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;}</style></head><body>' .
+            $hospitalHeader .
+            $reportTitle .
+            $reportMeta .
+            $tableContent .
+            $footer .
+            '</body></html>';
+    }
+
+    private function simpleCsvExport($patient, $filename)
+    {
+        try {
+            \Log::info('Using simple CSV export fallback');
+            
+            $data = [
+                ['Patient No', $patient->patient_no ?? 'N/A'],
+                ['Full Name', $patient->full_name ?? 'N/A'],
+                ['Birthdate', $patient->birthdate ? $patient->birthdate->format('Y-m-d') : 'N/A'],
+                ['Age', $patient->age ?? 'N/A'],
+                ['Sex', ucfirst($patient->sex ?? 'N/A')],
+                ['Mobile No', $patient->mobile_no ?? 'N/A'],
+                ['Address', $patient->present_address ?? 'N/A'],
+                ['Created At', $patient->created_at ? $patient->created_at->format('Y-m-d H:i:s') : 'N/A'],
+            ];
+
+            $headers = [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => "attachment; filename=\"{$filename}.csv\"",
+            ];
+
+            $callback = function() use ($data) {
+                $file = fopen('php://output', 'w');
+                foreach ($data as $row) {
+                    fputcsv($file, $row);
+                }
+                fclose($file);
+            };
+
+            return response()->stream($callback, 200, $headers);
+        } catch (\Exception $e) {
+            \Log::error('Simple CSV export failed', ['error' => $e->getMessage()]);
+            return response()->json(['error' => 'Export failed: ' . $e->getMessage()], 500);
+        }
     }
 
     /**

@@ -283,7 +283,6 @@ const createExpenseColumns = (): ColumnDef<Expense>[] => [
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Billing', href: '/admin/billing' },
-    { title: 'Transaction Report', href: '/admin/billing/transaction-report' },
     { title: 'Yearly Report', href: '/admin/billing/billing-reports/yearly' },
 ];
 
@@ -397,164 +396,75 @@ export default function YearlyReport({
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Yearly Report" />
-            <div className="min-h-screen bg-white p-6">
-                {/* Header Section */}
-                <div className="mb-8">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-6">
-                            <Button asChild variant="outline" className="h-12 w-12">
-                                <Link href="/admin/billing/transaction-report">
-                                    <ArrowLeft className="h-5 w-5" />
-                                </Link>
-                            </Button>
-                            <Heading title="Yearly Report" description={`Financial report for ${year}`} icon={Calendar} />
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <Button 
-                                variant="outline"
-                                onClick={() => handleExport('excel')}
-                            >
-                                <Download className="mr-2 h-5 w-5" />
-                                Export Excel
-                            </Button>
-                            <Button 
-                                variant="outline"
-                                onClick={() => handleExport('pdf')}
-                            >
-                                <Download className="mr-2 h-5 w-5" />
-                                Export PDF
-                            </Button>
-                            <Button 
-                                variant="outline"
-                                onClick={() => handleExport('word')}
-                            >
-                                <Download className="mr-2 h-5 w-5" />
-                                Export Word
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Year Filter */}
-                <Card className="mb-6 rounded-xl border border-gray-200 bg-white shadow-sm">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-3 text-lg font-semibold text-gray-900">
-                            <Calendar className="h-5 w-5 text-black" />
-                            Select Year
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="space-y-2">
-                                <Label className="text-sm font-medium text-gray-700">Report Year</Label>
-                                <Select value={selectedYear} onValueChange={setSelectedYear}>
-                                    <SelectTrigger className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {Array.from({ length: 10 }, (_, i) => {
-                                            const year = new Date().getFullYear() - i;
-                                            return (
-                                                <SelectItem key={year} value={year.toString()}>
-                                                    {year}
-                                                </SelectItem>
-                                            );
-                                        })}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <Button onClick={handleYearChange} className="h-12 px-6">
-                                <Calendar className="mr-2 h-4 w-4" />
-                                Generate Report
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                        <CardContent className="p-6">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-green-100 rounded-lg">
-                                    <DollarSign className="h-6 w-6 text-green-600" />
-                                </div>
-                                <div>
-                                    <div className="text-2xl font-bold text-gray-900">₱{summary.total_revenue.toLocaleString()}</div>
-                                    <div className="text-sm text-gray-600">Total Revenue</div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                        <CardContent className="p-6">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-red-100 rounded-lg">
-                                    <FileText className="h-6 w-6 text-red-600" />
-                                </div>
-                                <div>
-                                    <div className="text-2xl font-bold text-gray-900">₱{summary.total_expenses.toLocaleString()}</div>
-                                    <div className="text-sm text-gray-600">Total Expenses</div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                        <CardContent className="p-6">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <Receipt className="h-6 w-6 text-blue-600" />
-                                </div>
-                                <div>
-                                    <div className="text-2xl font-bold text-gray-900">₱{summary.total_doctor_payments.toLocaleString()}</div>
-                                    <div className="text-sm text-gray-600">Doctor Payments</div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                        <CardContent className="p-6">
-                            <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-lg ${summary.net_profit >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
-                                    <TrendingUp className={`h-6 w-6 ${summary.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`} />
-                                </div>
-                                <div>
-                                    <div className={`text-2xl font-bold ${summary.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                        ₱{summary.net_profit.toLocaleString()}
+            <div className="min-h-screen bg-gray-50">
+                <div className="p-6">
+                    {/* Statistics Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                                        <p className="text-3xl font-bold text-gray-900">₱{(summary.total_revenue || 0).toLocaleString()}</p>
+                                        <p className="text-sm text-gray-500">Yearly revenue</p>
                                     </div>
-                                    <div className="text-sm text-gray-600">Net Profit</div>
+                                    <div className="p-3 bg-green-100 rounded-full">
+                                        <DollarSign className="h-6 w-6 text-green-600" />
+                                    </div>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
 
-                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                        <CardContent className="p-6">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-purple-100 rounded-lg">
-                                    <CreditCard className="h-6 w-6 text-purple-600" />
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Total Expenses</p>
+                                        <p className="text-3xl font-bold text-gray-900">₱{(summary.total_expenses || 0).toLocaleString()}</p>
+                                        <p className="text-sm text-gray-500">Yearly expenses</p>
+                                    </div>
+                                    <div className="p-3 bg-red-100 rounded-full">
+                                        <FileText className="h-6 w-6 text-red-600" />
+                                    </div>
                                 </div>
-                                <div>
-                                    <div className="text-2xl font-bold text-gray-900">{summary.transaction_count}</div>
-                                    <div className="text-sm text-gray-600">Transactions</div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                            </CardContent>
+                        </Card>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Transactions Table */}
-                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-3 text-lg font-semibold text-gray-900">
-                                <CreditCard className="h-5 w-5 text-black" />
-                                Yearly Transactions
-                            </CardTitle>
-                        </CardHeader>
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Net Profit</p>
+                                        <p className={`text-3xl font-bold ${(summary.net_profit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                            ₱{(summary.net_profit || 0).toLocaleString()}
+                                        </p>
+                                        <p className="text-sm text-gray-500">Yearly profit</p>
+                                    </div>
+                                    <div className={`p-3 rounded-full ${(summary.net_profit || 0) >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                                        <TrendingUp className={`h-6 w-6 ${(summary.net_profit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="bg-white border border-gray-200">
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Transactions</p>
+                                        <p className="text-3xl font-bold text-gray-900">{summary.transaction_count || 0}</p>
+                                        <p className="text-sm text-gray-500">Yearly transactions</p>
+                                    </div>
+                                    <div className="p-3 bg-blue-100 rounded-full">
+                                        <Receipt className="h-6 w-6 text-blue-600" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Data Table */}
+                    <Card className="bg-white border border-gray-200">
                         <CardContent className="p-6">
                             {/* Table Controls */}
                             <div className="flex items-center py-4">
@@ -564,6 +474,21 @@ export default function YearlyReport({
                                     onChange={(event) => setTransactionGlobalFilter(event.target.value)}
                                     className="max-w-sm"
                                 />
+                                <Button
+                                    onClick={() => handleExport('excel')}
+                                    className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                                >
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Export Excel
+                                </Button>
+                                <Button
+                                    onClick={() => handleExport('pdf')}
+                                    variant="outline"
+                                    className="ml-2"
+                                >
+                                    <FileText className="h-4 w-4 mr-2" />
+                                    Export PDF
+                                </Button>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <Button variant="outline" className="ml-auto">
@@ -594,8 +519,8 @@ export default function YearlyReport({
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
-
-                            {/* Transactions Table */}
+                                    
+                            {/* Table */}
                             <div className="rounded-md border">
                                 <Table>
                                     <TableHeader>
@@ -640,7 +565,7 @@ export default function YearlyReport({
                                                     className="h-24 text-center"
                                                 >
                                                     <div className="flex flex-col items-center">
-                                                        <CreditCard className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                                                        <Receipt className="mx-auto mb-4 h-12 w-12 text-gray-400" />
                                                         <h3 className="mb-2 text-lg font-semibold text-gray-600">No transactions found</h3>
                                                         <p className="text-gray-500">No transactions for this year</p>
                                                     </div>
@@ -719,188 +644,6 @@ export default function YearlyReport({
                                             className="hidden size-8 lg:flex"
                                             onClick={() => transactionTable.setPageIndex(transactionTable.getPageCount() - 1)}
                                             disabled={!transactionTable.getCanNextPage()}
-                                        >
-                                            <span className="sr-only">Go to last page</span>
-                                            <ChevronsRight className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Expenses Table */}
-                    <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-3 text-lg font-semibold text-gray-900">
-                                <FileText className="h-5 w-5 text-black" />
-                                Yearly Expenses
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-6">
-                            {/* Table Controls */}
-                            <div className="flex items-center py-4">
-                                <Input
-                                    placeholder="Search expenses..."
-                                    value={expenseGlobalFilter ?? ""}
-                                    onChange={(event) => setExpenseGlobalFilter(event.target.value)}
-                                    className="max-w-sm"
-                                />
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="ml-auto">
-                                            Columns <ChevronDown className="ml-2 h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
-                                        {expenseTable
-                                            .getAllColumns()
-                                            .filter((column) => column.getCanHide())
-                                            .map((column) => {
-                                                return (
-                                                    <DropdownMenuCheckboxItem
-                                                        key={column.id}
-                                                        className="capitalize"
-                                                        checked={column.getIsVisible()}
-                                                        onCheckedChange={(value) => {
-                                                            column.toggleVisibility(!!value);
-                                                        }}
-                                                        onSelect={(e) => {
-                                                            e.preventDefault();
-                                                        }}
-                                                    >
-                                                        {column.id}
-                                                    </DropdownMenuCheckboxItem>
-                                                )
-                                            })}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-
-                            {/* Expenses Table */}
-                            <div className="rounded-md border">
-                                <Table>
-                                    <TableHeader>
-                                        {expenseTable.getHeaderGroups().map((headerGroup) => (
-                                            <TableRow key={headerGroup.id}>
-                                                {headerGroup.headers.map((header) => {
-                                                    return (
-                                                        <TableHead key={header.id}>
-                                                            {header.isPlaceholder
-                                                                ? null
-                                                                : flexRender(
-                                                                    header.column.columnDef.header,
-                                                                    header.getContext()
-                                                            )}
-                                                        </TableHead>
-                                                    )
-                                                })}
-                                            </TableRow>
-                                        ))}
-                                    </TableHeader>
-                                    <TableBody>
-                                        {expenseTable.getRowModel().rows?.length ? (
-                                            expenseTable.getRowModel().rows.map((row) => (
-                                                <TableRow
-                                                    key={row.id}
-                                                    data-state={row.getIsSelected() && "selected"}
-                                                >
-                                                    {row.getVisibleCells().map((cell) => (
-                                                        <TableCell key={cell.id}>
-                                                            {flexRender(
-                                                                cell.column.columnDef.cell,
-                                                                cell.getContext()
-                                                            )}
-                                                        </TableCell>
-                                                    ))}
-                                                </TableRow>
-                                            ))
-                                        ) : (
-                                            <TableRow>
-                                                <TableCell
-                                                    colSpan={expenseColumns.length}
-                                                    className="h-24 text-center"
-                                                >
-                                                    <div className="flex flex-col items-center">
-                                                        <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                                                        <h3 className="mb-2 text-lg font-semibold text-gray-600">No expenses found</h3>
-                                                        <p className="text-gray-500">No expenses for this year</p>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                            
-                            {/* Pagination */}
-                            <div className="flex items-center justify-between px-2 py-4">
-                                <div className="text-muted-foreground flex-1 text-sm">
-                                    {expenseTable.getFilteredSelectedRowModel().rows.length} of{" "}
-                                    {expenseTable.getFilteredRowModel().rows.length} row(s) selected.
-                                </div>
-                                <div className="flex items-center space-x-6 lg:space-x-8">
-                                    <div className="flex items-center space-x-2">
-                                        <p className="text-sm font-medium">Rows per page</p>
-                                        <Select
-                                            value={`${expenseTable.getState().pagination.pageSize}`}
-                                            onValueChange={(value) => {
-                                                expenseTable.setPageSize(Number(value))
-                                            }}
-                                        >
-                                            <SelectTrigger className="h-8 w-[70px]">
-                                                <SelectValue placeholder={expenseTable.getState().pagination.pageSize} />
-                                            </SelectTrigger>
-                                            <SelectContent side="top">
-                                                {[10, 20, 30, 40, 50].map((pageSize) => (
-                                                    <SelectItem key={pageSize} value={`${pageSize}`}>
-                                                        {pageSize}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-                                        Page {expenseTable.getState().pagination.pageIndex + 1} of{" "}
-                                        {expenseTable.getPageCount()}
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                        <Button
-                                            variant="outline"
-                                            size="icon"
-                                            className="hidden size-8 lg:flex"
-                                            onClick={() => expenseTable.setPageIndex(0)}
-                                            disabled={!expenseTable.getCanPreviousPage()}
-                                        >
-                                            <span className="sr-only">Go to first page</span>
-                                            <ChevronsLeft className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="icon"
-                                            className="size-8"
-                                            onClick={() => expenseTable.previousPage()}
-                                            disabled={!expenseTable.getCanPreviousPage()}
-                                        >
-                                            <span className="sr-only">Go to previous page</span>
-                                            <ChevronLeft className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="icon"
-                                            className="size-8"
-                                            onClick={() => expenseTable.nextPage()}
-                                            disabled={!expenseTable.getCanNextPage()}
-                                        >
-                                            <span className="sr-only">Go to next page</span>
-                                            <ChevronRight className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="icon"
-                                            className="hidden size-8 lg:flex"
-                                            onClick={() => expenseTable.setPageIndex(expenseTable.getPageCount() - 1)}
-                                            disabled={!expenseTable.getCanNextPage()}
                                         >
                                             <span className="sr-only">Go to last page</span>
                                             <ChevronsRight className="h-4 w-4" />

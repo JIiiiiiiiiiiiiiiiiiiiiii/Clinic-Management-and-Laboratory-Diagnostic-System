@@ -217,8 +217,8 @@
                             <td class="text-right">₱{{ number_format($item['total_basic_salary'], 2) }}</td>
                             <td class="text-right">₱{{ number_format($item['total_deductions'], 2) }}</td>
                             <td class="text-right">₱{{ number_format($item['total_holiday_pay'], 2) }}</td>
-                            <td class="text-right">₱{{ number_format($item['total_incentives'], 2) }}</td>
-                            <td class="text-right">₱{{ number_format($item['total_net_payment'], 2) }}</td>
+                            <td class="text-right">₱{{ number_format($item['incentives'], 2) }}</td>
+                            <td class="text-right">₱{{ number_format($item['net_payment'], 2) }}</td>
                             <td class="text-right">₱{{ number_format($item['average_payment'], 2) }}</td>
                         </tr>
                     @endforeach

@@ -566,8 +566,8 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
     };
 
     const handleNewAppointment = () => {
-        // Redirect to the shared appointment booking page
-        router.visit(route('admin.appointments.walk-in'));
+        // Redirect to the shared appointment booking page (explicit path to avoid relative routing issues)
+        router.visit('/admin/appointments/walk-in');
     };
 
     const handleAddLabTests = useCallback((appointment: any) => {

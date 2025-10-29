@@ -33,6 +33,7 @@ use App\Models\Patient;
 use App\Models\LabOrder;
 use App\Models\Supply\Supply as Product;
 use Illuminate\Support\Facades\DB;
+use App\Helpers\ScheduleHelper;
 
 // Admin routes for all clinic staff roles
 Route::prefix('admin')
@@ -59,6 +60,10 @@ Route::prefix('admin')
                 'update' => 'patient.update',
                 'destroy' => 'patient.destroy',
             ]);
+            
+            // Patient export routes
+            Route::get('/patient/{patientId}/export', [PatientController::class, 'export'])->name('patient.export');
+            Route::get('/patient/export', [PatientController::class, 'export'])->name('patient.export.all');
         });
 
         // Patient Transfer routes - All staff with transfer permission can access
@@ -180,16 +185,28 @@ Route::prefix('admin')
 
         // Billing Routes - Cashier and admin only
         Route::prefix('billing')->name('billing.')->middleware(['module.access:billing'])->group(function () {
+            // Main billing index route
+            Route::get('/', [App\Http\Controllers\Admin\BillingController::class, 'transactions'])->name('index');
+            
             // Main billing routes
-            Route::get('/', [App\Http\Controllers\Admin\BillingController::class, 'index'])->name('index');
             Route::get('/transactions', [App\Http\Controllers\Admin\BillingController::class, 'transactions'])->name('transactions');
             Route::post('/transactions', [App\Http\Controllers\Admin\BillingController::class, 'storeTransaction'])->name('store-transaction');
             Route::get('/pending-appointments', [App\Http\Controllers\Admin\BillingController::class, 'pendingAppointments'])->name('pending-appointments');
             Route::post('/pending-appointments', [App\Http\Controllers\Admin\BillingController::class, 'storePendingAppointment'])->name('store-pending-appointment');
             Route::put('/pending-appointments/{appointment}', [App\Http\Controllers\Admin\BillingController::class, 'updatePendingAppointment'])->name('update-pending-appointment');
             Route::delete('/pending-appointments/{appointment}', [App\Http\Controllers\Admin\BillingController::class, 'destroyPendingAppointment'])->name('destroy-pending-appointment');
-            Route::get('/doctor-payments', [App\Http\Controllers\Admin\BillingController::class, 'doctorPayments'])->name('doctor-payments');
             Route::get('/reports', [App\Http\Controllers\Admin\BillingController::class, 'reports'])->name('reports');
+            
+            // Billing Reports Routes
+            Route::prefix('reports')->name('reports.')->group(function () {
+                Route::get('/transactions', function () {
+                    return Inertia::render('admin/billing/transaction-report');
+                })->name('transactions');
+                Route::get('/doctor-summary', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'doctorSummary'])->name('doctor-summary');
+                Route::get('/hmo', [App\Http\Controllers\Admin\BillingReportController::class, 'hmoReport'])->name('hmo');
+                Route::get('/export-all', [App\Http\Controllers\Admin\BillingReportController::class, 'exportAll'])->name('export-all');
+            });
+            
             Route::post('/', [App\Http\Controllers\Admin\BillingController::class, 'store'])->name('store');
             Route::get('/export', [App\Http\Controllers\Admin\BillingController::class, 'export'])->name('export');
             
@@ -229,7 +246,15 @@ Route::prefix('admin')
             Route::get('/enhanced-hmo-report/generate', [EnhancedHmoReportController::class, 'generateReport'])->name('enhanced-hmo-report.generate');
             Route::post('/enhanced-hmo-report/generate', [EnhancedHmoReportController::class, 'generateReport'])->name('enhanced-hmo-report.generate.post');
             Route::get('/enhanced-hmo-report/export-data', [EnhancedHmoReportController::class, 'exportData'])->name('enhanced-hmo-report.export-data');
+            Route::get('/hmo-daily-report', [EnhancedHmoReportController::class, 'dailyReport'])->name('hmo-daily-report');
+            Route::get('/hmo-monthly-report', [EnhancedHmoReportController::class, 'monthlyReport'])->name('hmo-monthly-report');
+            Route::get('/hmo-yearly-report', [EnhancedHmoReportController::class, 'yearlyReport'])->name('hmo-yearly-report');
             Route::get('/enhanced-hmo-report/provider-performance', [EnhancedHmoReportController::class, 'providerPerformance'])->name('enhanced-hmo-report.provider-performance');
+            
+            // Doctor Report Routes
+            Route::get('/doctor-daily-report', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'dailyReport'])->name('doctor-daily-report');
+            Route::get('/doctor-monthly-report', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'monthlyReport'])->name('doctor-monthly-report');
+            Route::get('/doctor-yearly-report', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'yearlyReport'])->name('doctor-yearly-report');
             Route::get('/enhanced-hmo-report/patient-coverage', [EnhancedHmoReportController::class, 'patientCoverage'])->name('enhanced-hmo-report.patient-coverage');
             Route::get('/enhanced-hmo-report/{report}', [EnhancedHmoReportController::class, 'show'])->name('enhanced-hmo-report.show');
             Route::get('/enhanced-hmo-report/{report}/export', [EnhancedHmoReportController::class, 'export'])->name('enhanced-hmo-report.export');
@@ -237,6 +262,7 @@ Route::prefix('admin')
 
             // Doctor Payments
             Route::prefix('doctor-payments')->name('doctor-payments.')->group(function () {
+                Route::get('/', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'index'])->name('index');
                 Route::get('/create', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'create'])->name('create');
                 Route::post('/', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'store'])->name('store');
                 Route::post('/simple', [App\Http\Controllers\Admin\DoctorPaymentController::class, 'storeSimple'])->name('store-simple');
@@ -269,18 +295,6 @@ Route::prefix('admin')
                 Route::put('/{manualTransaction}/status', [App\Http\Controllers\Admin\ManualTransactionController::class, 'updateStatus'])->name('status.update');
             });
 
-            // Parameterized routes (MUST come after all specific routes)
-            Route::get('/{transaction}', [App\Http\Controllers\Admin\BillingController::class, 'show'])->name('show');
-            Route::get('/{transaction}/edit', [App\Http\Controllers\Admin\BillingController::class, 'edit'])->name('edit');
-            Route::put('/{transaction}', [App\Http\Controllers\Admin\BillingController::class, 'update'])->name('update');
-            Route::delete('/{transaction}', [App\Http\Controllers\Admin\BillingController::class, 'destroy'])->name('destroy');
-            Route::put('/{transaction}/status', [App\Http\Controllers\Admin\BillingController::class, 'updateStatus'])->name('status.update');
-            Route::get('/{transaction}/receipt', [App\Http\Controllers\Admin\BillingController::class, 'printReceipt'])->name('receipt');
-            Route::put('/{transaction}/mark-paid', [App\Http\Controllers\Admin\BillingController::class, 'markAsPaid'])->name('mark-paid');
-
-
-
-
             // HMO Provider Management
             Route::prefix('hmo-providers')->name('hmo-providers.')->group(function () {
                 Route::get('/', [App\Http\Controllers\Admin\HmoProviderController::class, 'index'])->name('index');
@@ -292,6 +306,15 @@ Route::prefix('admin')
                 Route::delete('/{hmoProvider}', [App\Http\Controllers\Admin\HmoProviderController::class, 'destroy'])->name('destroy');
                 Route::put('/{hmoProvider}/toggle-status', [App\Http\Controllers\Admin\HmoProviderController::class, 'toggleStatus'])->name('toggle-status');
             });
+
+            // Parameterized routes (MUST come after all specific routes)
+            Route::get('/{transaction}', [App\Http\Controllers\Admin\BillingController::class, 'show'])->name('show');
+            Route::get('/{transaction}/edit', [App\Http\Controllers\Admin\BillingController::class, 'edit'])->name('edit');
+            Route::put('/{transaction}', [App\Http\Controllers\Admin\BillingController::class, 'update'])->name('update');
+            Route::delete('/{transaction}', [App\Http\Controllers\Admin\BillingController::class, 'destroy'])->name('destroy');
+            Route::put('/{transaction}/status', [App\Http\Controllers\Admin\BillingController::class, 'updateStatus'])->name('status.update');
+            Route::get('/{transaction}/receipt', [App\Http\Controllers\Admin\BillingController::class, 'printReceipt'])->name('receipt');
+            Route::put('/{transaction}/mark-paid', [App\Http\Controllers\Admin\BillingController::class, 'markAsPaid'])->name('mark-paid');
 
             // Debug route for senior citizen discounts
             Route::get('/debug-senior-discounts', function() {
@@ -330,6 +353,177 @@ Route::prefix('admin')
             Route::get('/', [AppointmentController::class, 'index'])->name('index');
             Route::get('/create', [AppointmentController::class, 'create'])->name('create');
             Route::post('/', [AppointmentController::class, 'store'])->name('store');
+            Route::patch('/{appointment}/update-billing-status', [AppointmentController::class, 'updateBillingStatus'])->name('update-billing-status');
+
+            // Doctor availability management - Admin only (must be before dynamic routes)
+            Route::get('/availability', function () {
+                // Get all doctors from specialists table
+                $doctors = \App\Models\Specialist::where('role', 'Doctor')
+                    ->get()
+                    ->map(function($specialist) {
+                        // Get schedule data from database
+                        $scheduleData = $specialist->schedule_data ?? [];
+                        
+                        // Log the actual schedule data for debugging
+                        \Log::info('Doctor schedule data:', [
+                            'doctor_id' => $specialist->specialist_id,
+                            'doctor_name' => $specialist->name,
+                            'schedule_data' => $scheduleData,
+                            'has_schedule' => !empty($scheduleData)
+                        ]);
+                        
+                        // Calculate availability metrics
+                        $totalSlots = 0;
+                        $bookedSlots = 0;
+                        
+                        // Count total available slots from schedule
+                        foreach ($scheduleData as $day => $slots) {
+                            if (is_array($slots)) {
+                                $totalSlots += count($slots);
+                            }
+                        }
+                        
+                        // Get appointments for this specialist to calculate booked slots
+                        $appointments = \App\Models\Appointment::where('specialist_id', $specialist->specialist_id)
+                            ->where('status', '!=', 'Cancelled')
+                            ->count();
+                        $bookedSlots = $appointments;
+                        
+                        return [
+                            'id' => $specialist->specialist_id,
+                            'name' => $specialist->name,
+                            'specialization' => $specialist->specialization ?? 'General Practice',
+                            'employee_id' => $specialist->specialist_code ?? '',
+                            'status' => $specialist->status ?? 'Active',
+                            'availableSlots' => max(0, $totalSlots - $bookedSlots),
+                            'bookedSlots' => $bookedSlots,
+                            'totalSlots' => max($totalSlots, 1), // Ensure at least 1 to avoid division by zero
+                            'schedule' => ScheduleHelper::formatScheduleData($scheduleData),
+                            'raw_schedule_data' => $scheduleData // Include raw data for debugging
+                        ];
+                    });
+
+                // Get appointments for the current week and next week
+                $startOfWeek = now()->startOfWeek();
+                $endOfWeek = now()->endOfWeek()->addWeek(); // Include next week
+                
+                $appointments = \App\Models\Appointment::whereBetween('appointment_date', [$startOfWeek, $endOfWeek])
+                    ->whereNotNull('specialist_id')
+                    ->where('status', '!=', 'Cancelled')
+                    ->with(['specialist'])
+                    ->get()
+                    ->map(function($appointment) {
+                        return [
+                            'id' => $appointment->id,
+                            'patient_name' => $appointment->patient_name ?? ($appointment->patient->name ?? 'Unknown Patient'),
+                            'patient' => $appointment->patient_name ?? ($appointment->patient->name ?? 'Unknown Patient'),
+                            'appointment_type' => $appointment->appointment_type ?? 'Consultation',
+                            'type' => $appointment->appointment_type ?? 'Consultation',
+                            'status' => $appointment->status,
+                            'appointment_time' => $appointment->appointment_time ? $appointment->appointment_time->format('H:i') : null,
+                            'startTime' => $appointment->appointment_time ? $appointment->appointment_time->format('H:i') : null,
+                            'appointment_date' => $appointment->appointment_date ? $appointment->appointment_date->format('Y-m-d') : null,
+                            'date' => $appointment->appointment_date ? $appointment->appointment_date->format('Y-m-d') : null,
+                            'notes' => $appointment->notes ?? $appointment->additional_info,
+                            'specialist_id' => $appointment->specialist_id,
+                            'specialist_name' => $appointment->specialist_name ?? ($appointment->specialist->name ?? 'Unknown Specialist'),
+                            'contact_number' => $appointment->contact_number ?? null,
+                            'duration' => $appointment->duration ?? '30 min'
+                        ];
+                    });
+
+                // Add a route to create sample schedule data for testing
+                if (request()->has('create_sample_schedules')) {
+                    $doctors = \App\Models\Specialist::where('role', 'Doctor')->get();
+                    foreach ($doctors as $doctor) {
+                        if (empty($doctor->schedule_data)) {
+                            $sampleSchedule = [
+                                'monday' => ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
+                                'tuesday' => ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
+                                'wednesday' => ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
+                                'thursday' => ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
+                                'friday' => ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
+                                'saturday' => [],
+                                'sunday' => []
+                            ];
+                            
+                            $doctor->update(['schedule_data' => $sampleSchedule]);
+                            \Log::info("Created sample schedule for doctor: {$doctor->name}");
+                        }
+                    }
+                }
+
+                return Inertia::render('admin/appointments/availability', [
+                    'doctorSchedules' => $doctors,
+                    'appointments' => $appointments,
+                    'doctors' => $doctors
+                ]);
+            })->name('availability')->middleware(['role:admin,doctor,nurse']);
+
+            // Walk-in routes MUST be before parameterized routes to avoid collision
+            Route::get('/walk-in', function () {
+                // Get available doctors and medtechs with schedule data (matching online appointment)
+                $doctors = \App\Models\Specialist::where('role', 'Doctor')
+                    ->when(\Schema::hasColumn('specialists', 'status'), function($query) {
+                        return $query->where('status', 'Active');
+                    })
+                    ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id', 'schedule_data')
+                    ->get()
+                    ->map(function ($doctor) {
+                        return [
+                            'id' => $doctor->id,
+                            'name' => $doctor->name,
+                            'specialization' => $doctor->specialization ?? 'General Medicine',
+                            'employee_id' => $doctor->employee_id,
+                            'availability' => 'Mon-Fri 9AM-5PM',
+                            'rating' => 4.8,
+                            'experience' => '10+ years',
+                            'nextAvailable' => now()->addDays(1)->format('M d, Y g:i A'),
+                            'schedule_data' => $doctor->schedule_data,
+                        ];
+                    });
+
+                $medtechs = \App\Models\Specialist::where('role', 'MedTech')
+                    ->when(\Schema::hasColumn('specialists', 'status'), function($query) {
+                        return $query->where('status', 'Active');
+                    })
+                    ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id', 'schedule_data')
+                    ->get()
+                    ->map(function ($medtech) {
+                        return [
+                            'id' => $medtech->id,
+                            'name' => $medtech->name,
+                            'specialization' => $medtech->specialization ?? 'Medical Technology',
+                            'employee_id' => $medtech->employee_id,
+                            'availability' => 'Mon-Fri 9AM-5PM',
+                            'rating' => 4.5,
+                            'experience' => '5+ years',
+                            'nextAvailable' => now()->addDays(1)->format('M d, Y g:i A'),
+                            'schedule_data' => $medtech->schedule_data,
+                        ];
+                    });
+                
+                $appointmentTypes = [
+                    'general_consultation' => 'General Consultation',
+                    'cbc' => 'Complete Blood Count (CBC)',
+                    'fecalysis_test' => 'Fecalysis Test',
+                    'urinarysis_test' => 'Urinalysis Test',
+                ];
+                
+                return Inertia::render('shared/appointment-booking', [
+                    'user' => auth()->user(),
+                    'patient' => null,
+                    'doctors' => $doctors,
+                    'medtechs' => $medtechs,
+                    'appointmentTypes' => $appointmentTypes,
+                    'isExistingPatient' => false,
+                    'isAdmin' => true,
+                    'backUrl' => route('admin.appointments.index'),
+                    'nextPatientId' => 'P001'
+                ]);
+            })->name('walk-in');
+            Route::post('/walk-in', [AppointmentController::class, 'storeWalkIn'])->name('walk-in.store');
+
             Route::get('/{appointment}', [AppointmentController::class, 'show'])->name('show');
             Route::put('/{appointment}', [AppointmentController::class, 'update'])->name('update');
             Route::delete('/{appointment}', [AppointmentController::class, 'destroy'])->name('destroy');
@@ -405,169 +599,8 @@ Route::prefix('admin')
             })->name('walk-in');
             Route::post('/walk-in', [AppointmentController::class, 'storeWalkIn'])->name('walk-in.store');
             
-            // Helper function to format schedule data
-            function formatScheduleData($scheduleData) {
-                $defaultSchedule = [
-                    'Monday' => ['start' => '8:00 AM', 'end' => '5:00 PM'],
-                    'Tuesday' => ['start' => '8:00 AM', 'end' => '5:00 PM'],
-                    'Wednesday' => ['start' => '8:00 AM', 'end' => '5:00 PM'],
-                    'Thursday' => ['start' => '8:00 AM', 'end' => '5:00 PM'],
-                    'Friday' => ['start' => '8:00 AM', 'end' => '5:00 PM']
-                ];
-                
-                // Log the raw schedule data for debugging
-                \Log::info('Formatting schedule data:', [
-                    'raw_data' => $scheduleData,
-                    'is_empty' => empty($scheduleData),
-                    'type' => gettype($scheduleData)
-                ]);
-                
-                if (empty($scheduleData)) {
-                    \Log::info('Using default schedule - no data found');
-                    return $defaultSchedule;
-                }
-                
-                $formattedSchedule = [];
-                $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-                
-                foreach ($days as $day) {
-                    $dayKey = strtolower($day);
-                    if (isset($scheduleData[$dayKey]) && is_array($scheduleData[$dayKey]) && !empty($scheduleData[$dayKey])) {
-                        // If we have time slots, format them as start/end times
-                        $slots = $scheduleData[$dayKey];
-                        \Log::info("Processing day: $day", [
-                            'day_key' => $dayKey,
-                            'slots' => $slots,
-                            'count' => count($slots)
-                        ]);
-                        
-                        if (count($slots) >= 2) {
-                            $formattedSchedule[$day] = [
-                                'start' => $slots[0],
-                                'end' => end($slots)
-                            ];
-                        } else {
-                            $formattedSchedule[$day] = [
-                                'start' => $slots[0] ?? '8:00 AM',
-                                'end' => $slots[0] ?? '5:00 PM'
-                            ];
-                        }
-                    } else {
-                        $formattedSchedule[$day] = [
-                            'start' => 'Not Available',
-                            'end' => 'Not Available'
-                        ];
-                    }
-                }
-                
-                \Log::info('Formatted schedule result:', $formattedSchedule);
-                return $formattedSchedule;
-            }
 
-            // Doctor availability management - Admin only (must be before dynamic routes)
-            Route::get('/availability', function () {
-                // Get all doctors from specialists table
-                $doctors = \App\Models\Specialist::where('role', 'Doctor')
-                    ->get()
-                    ->map(function($specialist) {
-                        // Get schedule data from database
-                        $scheduleData = $specialist->schedule_data ?? [];
-                        
-                        // Log the actual schedule data for debugging
-                        \Log::info('Doctor schedule data:', [
-                            'doctor_id' => $specialist->specialist_id,
-                            'doctor_name' => $specialist->name,
-                            'schedule_data' => $scheduleData,
-                            'has_schedule' => !empty($scheduleData)
-                        ]);
-                        
-                        // Calculate availability metrics
-                        $totalSlots = 0;
-                        $bookedSlots = 0;
-                        
-                        // Count total available slots from schedule
-                        foreach ($scheduleData as $day => $slots) {
-                            if (is_array($slots)) {
-                                $totalSlots += count($slots);
-                            }
-                        }
-                        
-                        // Get appointments for this specialist to calculate booked slots
-                        $appointments = \App\Models\Appointment::where('specialist_id', $specialist->specialist_id)
-                            ->where('status', '!=', 'Cancelled')
-                            ->count();
-                        $bookedSlots = $appointments;
-                        
-                        return [
-                            'id' => $specialist->specialist_id,
-                            'name' => $specialist->name,
-                            'specialization' => $specialist->specialization ?? 'General Practice',
-                            'employee_id' => $specialist->specialist_code ?? '',
-                            'status' => $specialist->status ?? 'Active',
-                            'availableSlots' => max(0, $totalSlots - $bookedSlots),
-                            'bookedSlots' => $bookedSlots,
-                            'totalSlots' => max($totalSlots, 1), // Ensure at least 1 to avoid division by zero
-                            'schedule' => formatScheduleData($scheduleData),
-                            'raw_schedule_data' => $scheduleData // Include raw data for debugging
-                        ];
-                    });
-
-                // Get appointments for the current week and next week
-                $startOfWeek = now()->startOfWeek();
-                $endOfWeek = now()->endOfWeek()->addWeek(); // Include next week
-                
-                $appointments = \App\Models\Appointment::whereBetween('appointment_date', [$startOfWeek, $endOfWeek])
-                    ->whereNotNull('specialist_id')
-                    ->where('status', '!=', 'Cancelled')
-                    ->with(['specialist'])
-                    ->get()
-                    ->map(function($appointment) {
-                        return [
-                            'id' => $appointment->id,
-                            'patient_name' => $appointment->patient_name ?? ($appointment->patient->name ?? 'Unknown Patient'),
-                            'patient' => $appointment->patient_name ?? ($appointment->patient->name ?? 'Unknown Patient'),
-                            'appointment_type' => $appointment->appointment_type ?? 'Consultation',
-                            'type' => $appointment->appointment_type ?? 'Consultation',
-                            'status' => $appointment->status,
-                            'appointment_time' => $appointment->appointment_time ? $appointment->appointment_time->format('H:i') : null,
-                            'startTime' => $appointment->appointment_time ? $appointment->appointment_time->format('H:i') : null,
-                            'appointment_date' => $appointment->appointment_date ? $appointment->appointment_date->format('Y-m-d') : null,
-                            'date' => $appointment->appointment_date ? $appointment->appointment_date->format('Y-m-d') : null,
-                            'notes' => $appointment->notes ?? $appointment->additional_info,
-                            'specialist_id' => $appointment->specialist_id,
-                            'specialist_name' => $appointment->specialist_name ?? ($appointment->specialist->name ?? 'Unknown Specialist'),
-                            'contact_number' => $appointment->contact_number ?? null,
-                            'duration' => $appointment->duration ?? '30 min'
-                        ];
-                    });
-
-                // Add a route to create sample schedule data for testing
-                if (request()->has('create_sample_schedules')) {
-                    $doctors = \App\Models\Specialist::where('role', 'Doctor')->get();
-                    foreach ($doctors as $doctor) {
-                        if (empty($doctor->schedule_data)) {
-                            $sampleSchedule = [
-                                'monday' => ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
-                                'tuesday' => ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
-                                'wednesday' => ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
-                                'thursday' => ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
-                                'friday' => ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
-                                'saturday' => [],
-                                'sunday' => []
-                            ];
-                            
-                            $doctor->update(['schedule_data' => $sampleSchedule]);
-                            \Log::info("Created sample schedule for doctor: {$doctor->name}");
-                        }
-                    }
-                }
-
-                return Inertia::render('admin/appointments/availability', [
-                    'doctorSchedules' => $doctors,
-                    'appointments' => $appointments,
-                    'doctors' => $doctors
-                ]);
-            })->name('availability')->middleware(['role:admin']);
+            
             
             Route::post('/', [AppointmentController::class, 'store'])->name('store');
             Route::get('/{appointment}', [AppointmentController::class, 'show'])->name('show');
@@ -580,8 +613,8 @@ Route::prefix('admin')
             Route::get('/api/stats', [AppointmentController::class, 'getStats'])->name('api.stats');
         });
 
-        // Visits Routes - Doctor and admin only
-        Route::prefix('visits')->name('visits.')->middleware(['role:doctor,admin'])->group(function () {
+        // Visits Routes - Doctor, nurse, medtech and admin only
+        Route::prefix('visits')->name('visits.')->middleware(['role:doctor,nurse,medtech,admin'])->group(function () {
             Route::get('/', [\App\Http\Controllers\Admin\VisitController::class, 'index'])->name('index');
             Route::get('/{visit}', [\App\Http\Controllers\Admin\VisitController::class, 'show'])->name('show');
             Route::get('/{visit}/edit', [\App\Http\Controllers\Admin\VisitController::class, 'edit'])->name('edit');
@@ -639,6 +672,10 @@ Route::prefix('admin')
             
             // Export functionality
             Route::get('/export', [App\Http\Controllers\Admin\ReportsController::class, 'export'])->name('export');
+            
+            // Financial Reports Export
+            Route::get('/financial/export/excel', [App\Http\Controllers\Admin\ReportsController::class, 'exportFinancialExcel'])->name('financial.export.excel');
+            Route::get('/financial/export/pdf', [App\Http\Controllers\Admin\ReportsController::class, 'exportFinancialPdf'])->name('financial.export.pdf');
             
             // Laboratory Reports Export
             Route::get('/laboratory/export/excel', [App\Http\Controllers\LaboratoryReportController::class, 'exportExcel'])->name('laboratory.export.excel');

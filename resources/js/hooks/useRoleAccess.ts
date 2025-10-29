@@ -6,6 +6,7 @@ export interface RolePermissions {
     canAccessLaboratory: boolean;
     canAccessBilling: boolean;
     canAccessAppointments: boolean;
+    canAccessVisits: boolean;
     canAccessInventory: boolean;
     canAccessReports: boolean;
     canAccessSettings: boolean;
@@ -83,6 +84,9 @@ export function useRoleAccess() {
                 if (module === 'appointments') {
                     return ['create', 'read', 'update', 'delete'].includes(action);
                 }
+                if (module === 'visits') {
+                    return ['create', 'read', 'update', 'delete'].includes(action);
+                }
                 if (module === 'inventory') {
                     return ['create', 'read', 'update', 'delete'].includes(action);
                 }
@@ -102,6 +106,9 @@ export function useRoleAccess() {
                 }
                 if (module === 'patients') {
                     return ['read'].includes(action); // Read-only access for medtech
+                }
+                if (module === 'visits') {
+                    return ['create', 'read', 'update', 'delete'].includes(action);
                 }
                 return false;
             case 'cashier':
@@ -144,6 +151,7 @@ export function useRoleAccess() {
         canAccessLaboratory: checkPermission('laboratory.read') || checkPermission('laboratory.create') || checkPermission('laboratory.update'),
         canAccessBilling: checkPermission('billing.read') || checkPermission('billing.create') || checkPermission('billing.update'),
         canAccessAppointments: checkPermission('appointments.read') || checkPermission('appointments.create') || checkPermission('appointments.update'),
+        canAccessVisits: checkPermission('visits.read') || checkPermission('visits.create') || checkPermission('visits.update'),
         canAccessInventory: checkPermission('inventory.read') || checkPermission('inventory.create') || checkPermission('inventory.update'),
         canAccessReports: checkPermission('reports.read') || checkPermission('reports.export'),
         canAccessSettings: checkPermission('settings.read') || checkPermission('settings.update'),
@@ -185,6 +193,8 @@ export function useRoleAccess() {
                 return permissions.canAccessBilling;
             case 'appointments':
                 return permissions.canAccessAppointments;
+            case 'visits':
+                return permissions.canAccessVisits;
             case 'inventory':
                 return permissions.canAccessInventory;
             case 'reports':

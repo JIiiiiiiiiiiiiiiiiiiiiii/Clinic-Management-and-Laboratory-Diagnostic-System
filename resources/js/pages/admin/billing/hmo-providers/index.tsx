@@ -293,27 +293,6 @@ export default function HmoProvidersIndex({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="HMO Providers" />
             <div className="min-h-screen bg-white p-6">
-                {/* Header Section */}
-                <div className="mb-8">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-6">
-                            <Heading 
-                                title="HMO Providers" 
-                                description="Manage health maintenance organization providers"
-                                icon={Building2} 
-                            />
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <Button asChild>
-                                <Link href="/admin/billing/hmo-providers/create">
-                                    <Plus className="mr-2 h-5 w-5" />
-                                    Add Provider
-                                </Link>
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-
                 {/* Main Content */}
                 <Card className="shadow-lg">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">

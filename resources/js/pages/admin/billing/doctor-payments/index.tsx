@@ -30,7 +30,9 @@ import {
     ChevronLeft,
     ChevronRight,
     ChevronsLeft,
-    ChevronsRight
+    ChevronsRight,
+    Calendar,
+    CalendarDays
 } from 'lucide-react';
 import {
     ColumnDef,
@@ -81,6 +83,7 @@ interface Filters {
     search?: string;
     status?: string;
     doctor_id?: string;
+    date?: string;
     date_from?: string;
     date_to?: string;
 }
@@ -272,11 +275,26 @@ export default function DoctorPaymentsIndex({ payments, summary, doctors, filter
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = React.useState({});
     const [globalFilter, setGlobalFilter] = React.useState(filters.search || '');
+    
+    // Date filtering state
+    const [selectedDate, setSelectedDate] = React.useState(filters.date || new Date().toISOString().split('T')[0]);
+    const [showDateFilter, setShowDateFilter] = React.useState(false);
+
+    // Auto-load today's payments on initial load if no date filter is set
+    React.useEffect(() => {
+        if (!filters.date && !filters.date_from && !filters.date_to) {
+            const today = new Date().toISOString().split('T')[0];
+            setSelectedDate(today);
+            // Don't auto-navigate on initial load to avoid infinite loops
+        }
+    }, []);
 
     // Debug: Log the data being received
     console.log('=== DOCTOR PAYMENTS INDEX DEBUG ===');
     console.log('Payments data:', payments);
     console.log('Doctors data:', doctors);
+    console.log('Filters:', filters);
+    console.log('Selected date:', selectedDate);
     console.log('First payment:', payments?.data?.[0]);
     if (payments?.data?.[0]) {
         console.log('First payment doctor:', payments.data[0].doctor);
@@ -302,13 +320,37 @@ export default function DoctorPaymentsIndex({ payments, summary, doctors, filter
         );
     };
 
-    const handleFilter = () => {
+    const handleDateFilter = () => {
         router.get('/admin/billing/doctor-payments', {
-            search: searchTerm,
-            status: statusFilter,
-            doctor_id: doctorFilter,
-            date_from: dateFrom,
-            date_to: dateTo,
+            date: selectedDate,
+            search: globalFilter,
+            status: filters.status || 'all',
+            doctor_id: filters.doctor_id || 'all',
+        }, {
+            preserveState: true,
+            replace: true,
+        });
+    };
+
+    const handleTodayFilter = () => {
+        const today = new Date().toISOString().split('T')[0];
+        setSelectedDate(today);
+        router.get('/admin/billing/doctor-payments', {
+            date: today,
+            search: globalFilter,
+            status: filters.status || 'all',
+            doctor_id: filters.doctor_id || 'all',
+        }, {
+            preserveState: true,
+            replace: true,
+        });
+    };
+
+    const handleAllTimeFilter = () => {
+        router.get('/admin/billing/doctor-payments', {
+            search: globalFilter,
+            status: filters.status || 'all',
+            doctor_id: filters.doctor_id || 'all',
         }, {
             preserveState: true,
             replace: true,
@@ -405,8 +447,76 @@ export default function DoctorPaymentsIndex({ payments, summary, doctors, filter
                                 </div>
                             </div>
                         </div>
-                    </div>
                 </div>
+
+                {/* Date Filter Section */}
+                <Card className="mb-6 shadow-lg">
+                    <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2">
+                                    <Calendar className="h-5 w-5 text-gray-600" />
+                                    <h3 className="text-lg font-semibold text-gray-900">Filter by Date</h3>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <Button
+                                        onClick={handleTodayFilter}
+                                        variant={!filters.date ? "default" : "outline"}
+                                        className="flex items-center gap-2"
+                                    >
+                                        <CalendarDays className="h-4 w-4" />
+                                        Today
+                                    </Button>
+                                    <Button
+                                        onClick={handleAllTimeFilter}
+                                        variant={filters.date ? "default" : "outline"}
+                                        className="flex items-center gap-2"
+                                    >
+                                        <FileText className="h-4 w-4" />
+                                        All Time
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        type="date"
+                                        value={selectedDate}
+                                        onChange={(e) => setSelectedDate(e.target.value)}
+                                        className="h-10 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-lg"
+                                    />
+                                    <Button
+                                        onClick={handleDateFilter}
+                                        className="h-10 px-4"
+                                    >
+                                        <Search className="h-4 w-4 mr-2" />
+                                        Filter
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                            <p className="text-sm text-blue-700">
+                                <Calendar className="h-4 w-4 inline mr-1" />
+                                {filters.date ? (
+                                    <>Showing payments for: <strong>{new Date(filters.date).toLocaleDateString('en-US', { 
+                                        weekday: 'long', 
+                                        year: 'numeric', 
+                                        month: 'long', 
+                                        day: 'numeric' 
+                                    })}</strong></>
+                                ) : (
+                                    <>Showing today's payments: <strong>{new Date().toLocaleDateString('en-US', { 
+                                        weekday: 'long', 
+                                        year: 'numeric', 
+                                        month: 'long', 
+                                        day: 'numeric' 
+                                    })}</strong></>
+                                )}
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
 
                 {/* Doctor Payments Section */}
                 <Card className="shadow-lg">
@@ -416,72 +526,86 @@ export default function DoctorPaymentsIndex({ payments, summary, doctors, filter
                                 <Users className="h-6 w-6 text-black" />
                             </div>
                             <div>
-                                <CardTitle className="text-lg font-semibold text-gray-900">Doctor Payments</CardTitle>
-                                <CardDescription>Manage doctor salary payments and commission tracking</CardDescription>
+                                <CardTitle className="text-lg font-semibold text-gray-900">
+                                    Doctor Payments
+                                    {filters.date && (
+                                        <span className="ml-2 text-sm font-normal text-gray-600">
+                                            - {new Date(filters.date).toLocaleDateString('en-US', { 
+                                                weekday: 'short', 
+                                                month: 'short', 
+                                                day: 'numeric' 
+                                            })}
+                                        </span>
+                                    )}
+                                </CardTitle>
+                                <CardDescription>
+                                    {filters.date 
+                                        ? `Payments for ${new Date(filters.date).toLocaleDateString('en-US', { 
+                                            weekday: 'long', 
+                                            year: 'numeric', 
+                                            month: 'long', 
+                                            day: 'numeric' 
+                                        })}`
+                                        : 'Manage doctor salary payments and commission tracking'
+                                    }
+                                </CardDescription>
                             </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <Button asChild>
-                                <Link href="/admin/billing/doctor-payments/create">
-                                    <Plus className="mr-2 h-5 w-5" />
-                                    New Payment
-                                </Link>
-                            </Button>
-                            <Button asChild variant="outline">
-                                <Link href="/admin/billing/doctor-payments/summary">
-                                    <FileText className="mr-2 h-5 w-5" />
-                                    Summary Report
-                                </Link>
-                            </Button>
                         </div>
                     </CardHeader>
                     <CardContent className="p-6">
                         {/* Table Controls */}
-                        <div className="flex items-center py-4">
-                            <Input
-                                placeholder="Search payments..."
-                                value={globalFilter ?? ""}
-                                onChange={(event) => setGlobalFilter(event.target.value)}
-                                className="max-w-sm"
-                            />
-                            <Button
-                                asChild
-                                className="bg-green-600 hover:bg-green-700 text-white ml-4"
-                            >
-                                <Link href="/admin/billing/doctor-payments/create">
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    New Payment
-                                </Link>
-                            </Button>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" className="ml-auto">
-                                        Columns <ChevronDown className="ml-2 h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
-                                    {table
-                                        .getAllColumns()
-                                        .filter((column) => column.getCanHide())
-                                        .map((column) => {
-                                            return (
-                                                <DropdownMenuCheckboxItem
-                                                    key={column.id}
-                                                    className="capitalize"
-                                                    checked={column.getIsVisible()}
-                                                    onCheckedChange={(value) => {
-                                                        column.toggleVisibility(!!value);
-                                                    }}
-                                                    onSelect={(e) => {
-                                                        e.preventDefault();
-                                                    }}
-                                                >
-                                                    {column.id}
-                                                </DropdownMenuCheckboxItem>
-                                            )
-                                        })}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                        <div className="flex items-center justify-between py-4">
+                            <div className="flex items-center gap-4">
+                                <Input
+                                    placeholder="Search payments..."
+                                    value={globalFilter ?? ""}
+                                    onChange={(event) => setGlobalFilter(event.target.value)}
+                                    className="max-w-sm"
+                                />
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline">
+                                            Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                                        {table
+                                            .getAllColumns()
+                                            .filter((column) => column.getCanHide())
+                                            .map((column) => {
+                                                return (
+                                                    <DropdownMenuCheckboxItem
+                                                        key={column.id}
+                                                        className="capitalize"
+                                                        checked={column.getIsVisible()}
+                                                        onCheckedChange={(value) => {
+                                                            column.toggleVisibility(!!value);
+                                                        }}
+                                                        onSelect={(e) => {
+                                                            e.preventDefault();
+                                                        }}
+                                                    >
+                                                        {column.id}
+                                                    </DropdownMenuCheckboxItem>
+                                                )
+                                            })}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <Button asChild>
+                                    <Link href="/admin/billing/doctor-payments/create">
+                                        <Plus className="mr-2 h-4 w-4" />
+                                        New Payment
+                                    </Link>
+                                </Button>
+                                <Button asChild variant="outline">
+                                    <Link href="/admin/billing/doctor-payments/summary">
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        Summary Report
+                                    </Link>
+                                </Button>
+                            </div>
                         </div>
 
                         {/* Payments Table */}
@@ -531,11 +655,40 @@ export default function DoctorPaymentsIndex({ payments, summary, doctors, filter
                                                 <div className="flex flex-col items-center">
                                                     <Users className="mx-auto mb-4 h-12 w-12 text-gray-400" />
                                                     <h3 className="mb-2 text-lg font-semibold text-gray-600">
-                                                        {globalFilter ? 'No payments found' : 'No doctor payments yet'}
+                                                        {globalFilter ? 'No payments found' : filters.date ? 'No payments for this date' : 'No doctor payments yet'}
                                                     </h3>
                                                     <p className="text-gray-500">
-                                                        {globalFilter ? 'Try adjusting your search terms' : 'Create your first doctor payment to get started'}
+                                                        {globalFilter 
+                                                            ? 'Try adjusting your search terms' 
+                                                            : filters.date 
+                                                                ? `No doctor payments found for ${new Date(filters.date).toLocaleDateString('en-US', { 
+                                                                    weekday: 'long', 
+                                                                    year: 'numeric', 
+                                                                    month: 'long', 
+                                                                    day: 'numeric' 
+                                                                })}.`
+                                                                : 'Create your first doctor payment to get started'
+                                                        }
                                                     </p>
+                                                    {filters.date && (
+                                                        <div className="mt-4">
+                                                            <Button
+                                                                onClick={handleAllTimeFilter}
+                                                                variant="outline"
+                                                                className="mr-2"
+                                                            >
+                                                                <FileText className="h-4 w-4 mr-2" />
+                                                                View All Payments
+                                                            </Button>
+                                                            <Button
+                                                                onClick={handleTodayFilter}
+                                                                variant="outline"
+                                                            >
+                                                                <CalendarDays className="h-4 w-4 mr-2" />
+                                                                View Today's Payments
+                                                            </Button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -622,6 +775,7 @@ export default function DoctorPaymentsIndex({ payments, summary, doctors, filter
 
                     </CardContent>
                 </Card>
+            </div>
             </div>
         </AppLayout>
     );

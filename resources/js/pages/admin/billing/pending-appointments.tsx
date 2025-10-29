@@ -394,6 +394,7 @@ export default function PendingAppointments({
     };
 
     const handleModalSuccess = () => {
+        console.log('Modal success callback triggered, refreshing pending appointments...');
         // Refresh the appointments data
         router.reload({ only: ['pendingAppointments'] });
     };
@@ -462,7 +463,13 @@ export default function PendingAppointments({
         return aptDate.toDateString() === today.toDateString();
     }).length;
     const uniquePatients = new Set(appointmentsData.map(apt => apt.patient_id)).size;
-    const totalRevenue = appointmentsData.reduce((sum, apt) => sum + (apt.final_total_amount || apt.price), 0);
+    const totalRevenue = appointmentsData.reduce((sum, apt) => {
+        const amount = Number(apt.final_total_amount) || Number(apt.price) || 0;
+        return sum + amount;
+    }, 0);
+    
+    // Calculate pending amount (same as total revenue for pending appointments)
+    const pendingAmount = totalRevenue;
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Pending Appointments" />
@@ -519,12 +526,12 @@ export default function PendingAppointments({
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                                        <p className="text-3xl font-bold text-gray-900">₱{totalRevenue.toLocaleString()}</p>
-                                        <p className="text-sm text-gray-500">Pending amount</p>
+                                        <p className="text-sm font-medium text-gray-600">Pending Amount</p>
+                                        <p className="text-3xl font-bold text-gray-900">₱{pendingAmount.toLocaleString()}</p>
+                                        <p className="text-sm text-gray-500">Awaiting payment</p>
                                     </div>
-                                    <div className="p-3 bg-green-100 rounded-full">
-                                        <DollarSign className="h-6 w-6 text-green-600" />
+                                    <div className="p-3 bg-yellow-100 rounded-full">
+                                        <Clock className="h-6 w-6 text-yellow-600" />
                                     </div>
                                 </div>
                             </CardContent>

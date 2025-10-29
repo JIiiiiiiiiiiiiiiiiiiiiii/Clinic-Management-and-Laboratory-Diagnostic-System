@@ -303,6 +303,205 @@ class EnhancedHmoReportController extends Controller
     }
 
     /**
+     * Display the HMO daily report page
+     */
+    public function dailyReport(Request $request)
+    {
+        $date = $request->get('date', now()->format('Y-m-d'));
+        $hmoProvider = $request->get('hmo_provider');
+        
+        // Get HMO transactions for the specific date
+        $query = BillingTransaction::where('payment_method', 'hmo')
+            ->whereDate('created_at', $date);
+            
+        if ($hmoProvider && $hmoProvider !== 'all') {
+            $query->where('hmo_provider', $hmoProvider);
+        }
+        
+        $hmoTransactions = $query->with(['patient', 'doctor'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($transaction) {
+                return [
+                    'id' => $transaction->id,
+                    'transaction_id' => $transaction->transaction_id,
+                    'patient_name' => $transaction->patient?->first_name . ' ' . $transaction->patient?->last_name,
+                    'doctor_name' => $transaction->doctor?->first_name . ' ' . $transaction->doctor?->last_name,
+                    'amount' => $transaction->amount,
+                    'total_amount' => $transaction->total_amount,
+                    'final_amount' => $transaction->final_amount,
+                    'discount_amount' => $transaction->discount_amount,
+                    'senior_discount_amount' => $transaction->senior_discount_amount,
+                    'is_senior_citizen' => $transaction->is_senior_citizen,
+                    'hmo_provider' => $transaction->hmo_provider, // This is a string field, not a relationship
+                    'payment_method' => $transaction->payment_method,
+                    'status' => $transaction->status,
+                    'transaction_date' => $transaction->created_at,
+                    'description' => $transaction->description,
+                ];
+            });
+        
+        // Calculate summary statistics
+        $summary = [
+            'total_hmo_revenue' => $hmoTransactions->sum('amount'),
+            'total_hmo_transactions' => $hmoTransactions->count(),
+            'total_approved_amount' => $hmoTransactions->where('status', 'paid')->sum('amount'),
+            'pending_claims_count' => $hmoTransactions->where('status', 'pending')->count(),
+            'approval_rate' => $hmoTransactions->count() > 0 ? 
+                ($hmoTransactions->where('status', 'paid')->count() / $hmoTransactions->count()) * 100 : 0,
+        ];
+        
+        return Inertia::render('admin/billing/hmo-daily-report', [
+            'hmoTransactions' => $hmoTransactions,
+            'summary' => $summary,
+            'date' => $date,
+            'hmoProvider' => $hmoProvider,
+        ]);
+    }
+
+    /**
+     * Display the HMO monthly report page
+     */
+    public function monthlyReport(Request $request)
+    {
+        $month = $request->get('month', now()->format('Y-m'));
+        $hmoProvider = $request->get('hmo_provider');
+        
+        // Get HMO transactions for the specific month
+        $query = BillingTransaction::where('payment_method', 'hmo')
+            ->whereYear('created_at', substr($month, 0, 4))
+            ->whereMonth('created_at', substr($month, 5, 2));
+            
+        if ($hmoProvider && $hmoProvider !== 'all') {
+            $query->where('hmo_provider', $hmoProvider);
+        }
+        
+        $hmoTransactions = $query->with(['patient', 'doctor'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($transaction) {
+                return [
+                    'id' => $transaction->id,
+                    'transaction_id' => $transaction->transaction_id,
+                    'patient_name' => $transaction->patient?->first_name . ' ' . $transaction->patient?->last_name,
+                    'doctor_name' => $transaction->doctor?->first_name . ' ' . $transaction->doctor?->last_name,
+                    'amount' => $transaction->amount,
+                    'total_amount' => $transaction->total_amount,
+                    'final_amount' => $transaction->final_amount,
+                    'discount_amount' => $transaction->discount_amount,
+                    'senior_discount_amount' => $transaction->senior_discount_amount,
+                    'is_senior_citizen' => $transaction->is_senior_citizen,
+                    'hmo_provider' => $transaction->hmo_provider,
+                    'payment_method' => $transaction->payment_method,
+                    'status' => $transaction->status,
+                    'transaction_date' => $transaction->created_at,
+                    'description' => $transaction->description,
+                ];
+            });
+        
+        // Calculate summary statistics
+        $totalRevenue = $hmoTransactions->sum('amount');
+        $totalTransactions = $hmoTransactions->count();
+        $approvedAmount = $hmoTransactions->where('status', 'paid')->sum('amount');
+        $pendingClaims = $hmoTransactions->where('status', 'pending')->count();
+        $approvalRate = $totalTransactions > 0 ? ($hmoTransactions->where('status', 'paid')->count() / $totalTransactions) * 100 : 0;
+        
+        // Calculate days in month for average daily revenue
+        $daysInMonth = date('t', strtotime($month . '-01'));
+        $averageDailyRevenue = $daysInMonth > 0 ? $totalRevenue / $daysInMonth : 0;
+        
+        $summary = [
+            'total_hmo_revenue' => $totalRevenue,
+            'total_hmo_transactions' => $totalTransactions,
+            'total_approved_amount' => $approvedAmount,
+            'pending_claims_count' => $pendingClaims,
+            'approval_rate' => $approvalRate,
+            'average_daily_revenue' => $averageDailyRevenue,
+            'highest_revenue_day' => 'N/A', // Could be calculated if needed
+            'lowest_revenue_day' => 'N/A', // Could be calculated if needed
+        ];
+        
+        return Inertia::render('admin/billing/hmo-monthly-report', [
+            'hmoTransactions' => $hmoTransactions,
+            'summary' => $summary,
+            'month' => $month,
+            'hmoProvider' => $hmoProvider,
+        ]);
+    }
+
+    /**
+     * Display the HMO yearly report page
+     */
+    public function yearlyReport(Request $request)
+    {
+        $year = $request->get('year', now()->format('Y'));
+        $hmoProvider = $request->get('hmo_provider');
+        
+        // Get HMO transactions for the specific year
+        $query = BillingTransaction::where('payment_method', 'hmo')
+            ->whereYear('created_at', $year);
+            
+        if ($hmoProvider && $hmoProvider !== 'all') {
+            $query->where('hmo_provider', $hmoProvider);
+        }
+        
+        $hmoTransactions = $query->with(['patient', 'doctor'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($transaction) {
+                return [
+                    'id' => $transaction->id,
+                    'transaction_id' => $transaction->transaction_id,
+                    'patient_name' => $transaction->patient?->first_name . ' ' . $transaction->patient?->last_name,
+                    'doctor_name' => $transaction->doctor?->first_name . ' ' . $transaction->doctor?->last_name,
+                    'amount' => $transaction->amount,
+                    'total_amount' => $transaction->total_amount,
+                    'final_amount' => $transaction->final_amount,
+                    'discount_amount' => $transaction->discount_amount,
+                    'senior_discount_amount' => $transaction->senior_discount_amount,
+                    'is_senior_citizen' => $transaction->is_senior_citizen,
+                    'hmo_provider' => $transaction->hmo_provider,
+                    'payment_method' => $transaction->payment_method,
+                    'status' => $transaction->status,
+                    'transaction_date' => $transaction->created_at,
+                    'description' => $transaction->description,
+                ];
+            });
+        
+        // Calculate summary statistics
+        $totalRevenue = $hmoTransactions->sum('amount');
+        $totalTransactions = $hmoTransactions->count();
+        $approvedAmount = $hmoTransactions->where('status', 'paid')->sum('amount');
+        $pendingClaims = $hmoTransactions->where('status', 'pending')->count();
+        $approvalRate = $totalTransactions > 0 ? ($hmoTransactions->where('status', 'paid')->count() / $totalTransactions) * 100 : 0;
+        
+        // Calculate average monthly revenue
+        $averageMonthlyRevenue = $totalRevenue / 12;
+        
+        // Calculate year-over-year growth (simplified - would need previous year data)
+        $yearOverYearGrowth = 0; // This would need to be calculated with previous year data
+        
+        $summary = [
+            'total_hmo_revenue' => $totalRevenue,
+            'total_hmo_transactions' => $totalTransactions,
+            'total_approved_amount' => $approvedAmount,
+            'pending_claims_count' => $pendingClaims,
+            'approval_rate' => $approvalRate,
+            'average_monthly_revenue' => $averageMonthlyRevenue,
+            'highest_revenue_month' => 'N/A', // Could be calculated if needed
+            'lowest_revenue_month' => 'N/A', // Could be calculated if needed
+            'year_over_year_growth' => $yearOverYearGrowth,
+        ];
+        
+        return Inertia::render('admin/billing/hmo-yearly-report', [
+            'hmoTransactions' => $hmoTransactions,
+            'summary' => $summary,
+            'year' => $year,
+            'hmoProvider' => $hmoProvider,
+        ]);
+    }
+
+    /**
      * Export HMO report data
      */
     public function exportData(Request $request)
@@ -414,6 +613,7 @@ class EnhancedHmoReportController extends Controller
                 'patient_name' => $patient ? $patient->first_name . ' ' . $patient->last_name : 'N/A',
                 'doctor_name' => $doctor ? $doctor->name : 'N/A',
                 'total_amount' => $transaction->total_amount,
+                'amount' => $transaction->amount, // Final amount after discounts
                 'hmo_provider' => $transaction->hmo_provider ?: 'Unknown Provider',
                 'payment_method' => $transaction->payment_method,
                 'status' => $transaction->status,
@@ -476,7 +676,7 @@ class EnhancedHmoReportController extends Controller
         $patientCoverages = $coveragesQuery->get();
 
         return [
-            'total_hmo_revenue' => $hmoTransactions->sum('total_amount'),
+            'total_hmo_revenue' => $hmoTransactions->sum('amount'),
             'total_hmo_transactions' => $hmoTransactions->count(),
             'total_claims_amount' => $claims->sum('claim_amount'),
             'total_approved_amount' => $claims->where('status', 'approved')->sum('approved_amount'),
@@ -521,7 +721,7 @@ class EnhancedHmoReportController extends Controller
         $patientCoverages = HmoPatientCoverage::where('status', 'active')->get();
 
         return [
-            'total_hmo_revenue' => $hmoTransactions->sum('total_amount'),
+            'total_hmo_revenue' => $hmoTransactions->sum('amount'),
             'total_hmo_transactions' => $hmoTransactions->count(),
             'total_claims_amount' => $claims->sum('amount'),
             'total_approved_amount' => $claims->where('status', 'approved')->sum('amount'),

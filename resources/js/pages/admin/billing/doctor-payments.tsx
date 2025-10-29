@@ -22,7 +22,8 @@ import {
     ChevronsLeft,
     ChevronsRight,
     DollarSign,
-    X
+    X,
+    Calendar
 } from 'lucide-react';
 import {
     ColumnDef,
@@ -223,13 +224,34 @@ const createDoctorPaymentsColumns = (): ColumnDef<DoctorPayment>[] => [
     },
 ];
 
-export default function DoctorPayments({ doctorPayments }: { doctorPayments: any }) {
+export default function DoctorPayments({ doctorPayments, filters = {} }: { doctorPayments: any, filters?: any }) {
     // TanStack Table state for doctor payments
     const [doctorSorting, setDoctorSorting] = React.useState<SortingState>([]);
     const [doctorColumnFilters, setDoctorColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [doctorColumnVisibility, setDoctorColumnVisibility] = React.useState<VisibilityState>({});
     const [doctorRowSelection, setDoctorRowSelection] = React.useState({});
     const [doctorGlobalFilter, setDoctorGlobalFilter] = React.useState('');
+    
+    // Date filtering state
+    const getTodayDate = () => {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const dateString = `${year}-${month}-${day}`;
+        return dateString;
+    };
+    
+    const [selectedDate, setSelectedDate] = React.useState(filters.date || getTodayDate());
+
+    // Update selectedDate to today if no filter is set
+    React.useEffect(() => {
+        if (!filters.date) {
+            const today = getTodayDate();
+            setSelectedDate(today);
+        }
+    }, [filters.date]);
+
 
     // Ensure we have data to work with
     const doctorPaymentsData = doctorPayments?.data || [];
@@ -268,7 +290,10 @@ export default function DoctorPayments({ doctorPayments }: { doctorPayments: any
     // Calculate statistics
     const totalPayments = doctorPaymentsData.length;
     const activeDoctors = new Set(doctorPaymentsData.map((payment: DoctorPayment) => payment.doctor_id)).size;
-    const totalAmount = doctorPaymentsData.reduce((sum: number, payment: DoctorPayment) => sum + payment.net_payment, 0);
+    const totalAmount = doctorPaymentsData.reduce((sum: number, payment: DoctorPayment) => {
+        const amount = Number(payment.net_payment) || 0;
+        return sum + amount;
+    }, 0);
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Doctor Payments" />
@@ -322,62 +347,88 @@ export default function DoctorPayments({ doctorPayments }: { doctorPayments: any
                         </Card>
                     </div>
 
+
                     {/* Data Table */}
                     <Card className="bg-white border border-gray-200">
                         <CardContent className="p-6">
                             {/* Table Controls */}
-                            <div className="flex items-center py-4">
-                                <Input
-                                    placeholder="Search payments..."
-                                    value={doctorGlobalFilter ?? ""}
-                                    onChange={(event) => setDoctorGlobalFilter(event.target.value)}
-                                    className="max-w-sm"
-                                />
-                                <Button
-                                    asChild
-                                    className="bg-green-600 hover:bg-green-700 text-white ml-4"
-                                >
-                                    <Link href="/admin/billing/doctor-payments/create">
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        New Payment
-                                    </Link>
-                                </Button>
-                                <Button asChild variant="outline" className="ml-4">
-                                    <Link href="/admin/billing/doctor-summary">
-                                        <TrendingUp className="mr-2 h-4 w-4" />
-                                        Summary Report
-                                    </Link>
-                                </Button>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="ml-auto">
-                                            Columns <ChevronDown className="ml-2 h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
-                                        {doctorTable
-                                            .getAllColumns()
-                                            .filter((column) => column.getCanHide())
-                                            .map((column) => {
-                                                return (
-                                                    <DropdownMenuCheckboxItem
-                                                        key={column.id}
-                                                        className="capitalize"
-                                                        checked={column.getIsVisible()}
-                                                        onCheckedChange={(value) => {
-                                                            column.toggleVisibility(!!value);
-                                                        }}
-                                                        onSelect={(e) => {
-                                                            e.preventDefault();
-                                                        }}
-                                                    >
-                                                        {column.id}
-                                                    </DropdownMenuCheckboxItem>
-                                                )
-                                            })}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                            <div className="flex items-center justify-between py-4">
+                                <div className="flex items-center gap-4">
+                                    <Input
+                                        placeholder="Search payments..."
+                                        value={doctorGlobalFilter ?? ""}
+                                        onChange={(event) => setDoctorGlobalFilter(event.target.value)}
+                                        className="max-w-sm"
+                                    />
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="outline">
+                                                Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                                            {doctorTable
+                                                .getAllColumns()
+                                                .filter((column) => column.getCanHide())
+                                                .map((column) => {
+                                                    return (
+                                                        <DropdownMenuCheckboxItem
+                                                            key={column.id}
+                                                            className="capitalize"
+                                                            checked={column.getIsVisible()}
+                                                            onCheckedChange={(value) => {
+                                                                column.toggleVisibility(!!value);
+                                                            }}
+                                                            onSelect={(e) => {
+                                                                e.preventDefault();
+                                                            }}
+                                                        >
+                                                            {column.id}
+                                                        </DropdownMenuCheckboxItem>
+                                                    )
+                                                })}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {/* Date Filter Controls */}
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            type="date"
+                                            value={selectedDate}
+                                            onChange={(e) => {
+                                                setSelectedDate(e.target.value);
+                                                // Automatically filter when date changes
+                                                router.get('/admin/billing/doctor-payments', {
+                                                    date: e.target.value,
+                                                    search: doctorGlobalFilter,
+                                                }, {
+                                                    preserveState: true,
+                                                    replace: true,
+                                                });
+                                            }}
+                                            className="h-10 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-lg"
+                                        />
+                                    </div>
+                                    {/* Action Buttons */}
+                                    <Button
+                                        asChild
+                                        className="bg-green-600 hover:bg-green-700 text-white"
+                                    >
+                                        <Link href="/admin/billing/doctor-payments/create">
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            New Payment
+                                        </Link>
+                                    </Button>
+                                    <Button asChild variant="outline">
+                                        <Link href="/admin/billing/doctor-summary">
+                                            <TrendingUp className="mr-2 h-4 w-4" />
+                                            Summary Report
+                                        </Link>
+                                    </Button>
+                                </div>
                             </div>
+
 
                             {/* Doctor Payments Table */}
                             <div className="rounded-md border">

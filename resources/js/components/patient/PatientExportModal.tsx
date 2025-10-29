@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Calendar, CheckCircle, Database, Download, FileImage, FileSpreadsheet, FileText, Settings } from 'lucide-react';
+import { toast } from 'sonner';
 import React, { useState } from 'react';
 
 interface PatientExportModalProps {
@@ -52,30 +53,6 @@ export default function PatientExportModal({ patientId, patientName, trigger }: 
 
             const url = patientId ? `/admin/patient/${patientId}/export?${params.toString()}` : `/admin/patient/export?${params.toString()}`;
 
-            // Test the simple route first
-            const testUrl = '/admin/patient/export';
-            console.log('Testing simple route:', testUrl);
-
-            // Test if the route is accessible
-            try {
-                const testResponse = await fetch(testUrl, {
-                    method: 'GET',
-                    headers: {
-                        Accept: 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                });
-                console.log('Test route response:', testResponse.status, testResponse.statusText);
-                if (testResponse.ok) {
-                    const testData = await testResponse.json();
-                    console.log('Test route data:', testData);
-                } else {
-                    console.error('Test route failed with status:', testResponse.status);
-                }
-            } catch (testError) {
-                console.error('Test route failed:', testError);
-            }
-
             console.log('Export URL:', url);
             console.log('Export parameters:', {
                 format: filters.format,
@@ -93,6 +70,11 @@ export default function PatientExportModal({ patientId, patientName, trigger }: 
                 },
             });
 
+            // Check if the response is actually a file download
+            const contentType = response.headers.get('content-type');
+            console.log('Response content type:', contentType);
+            
+            // If response is not ok, handle error
             if (!response.ok) {
                 let errorMessage = `Export failed: ${response.status} ${response.statusText}`;
                 try {
@@ -104,16 +86,29 @@ export default function PatientExportModal({ patientId, patientName, trigger }: 
                     // If we can't parse JSON, just use the status text
                     console.error('Export failed:', response.status, response.statusText);
                 }
+                toast.error(errorMessage);
                 throw new Error(errorMessage);
             }
-
-            // Check if the response is actually a file download
-            const contentType = response.headers.get('content-type');
+            
+            // Check if the response is a file download (not an error response)
             if (!contentType || (!contentType.includes('application/') && !contentType.includes('text/csv'))) {
                 console.error('Unexpected content type:', contentType);
                 const responseText = await response.text();
                 console.error('Response content:', responseText);
-                throw new Error('Server returned unexpected content type');
+                
+                // Try to parse as JSON to get error message
+                try {
+                    const errorData = JSON.parse(responseText);
+                    if (errorData.error) {
+                        toast.error(errorData.error);
+                        throw new Error(errorData.error);
+                    }
+                } catch (parseError) {
+                    // If not JSON, show the raw response
+                    const errorMsg = `Server returned unexpected content type: ${contentType}. Response: ${responseText.substring(0, 200)}...`;
+                    toast.error(errorMsg);
+                    throw new Error(errorMsg);
+                }
             }
 
             // Get the filename from the response headers or create a default one
@@ -160,11 +155,13 @@ export default function PatientExportModal({ patientId, patientName, trigger }: 
             window.URL.revokeObjectURL(downloadUrl);
             console.log('Download completed successfully');
 
+            // Show success toast
+            toast.success(`Patient data exported successfully as ${filename}`);
             setIsOpen(false);
         } catch (error) {
             console.error('Export failed:', error);
             const errorMessage = error instanceof Error ? error.message : 'Export failed. Please try again.';
-            alert(`Export failed: ${errorMessage}`);
+            toast.error(`Export failed: ${errorMessage}`);
         } finally {
             setIsExporting(false);
         }

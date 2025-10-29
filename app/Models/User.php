@@ -214,7 +214,7 @@ class User extends Authenticatable
                     return in_array($action, ['create', 'read', 'update', 'delete']);
                 }
                 if ($module === 'reports') {
-                    return in_array($action, ['read', 'export']);
+                    return in_array($action, ['read', 'export']); // Full access to all reports including financial
                 }
                 if ($module === 'appointments') {
                     return in_array($action, ['create', 'read', 'update', 'delete']);
@@ -230,11 +230,14 @@ class User extends Authenticatable
                 if ($module === 'appointments') {
                     return in_array($action, ['create', 'read', 'update', 'delete']); // Full access to all appointment modules
                 }
+                if ($module === 'visits') {
+                    return in_array($action, ['create', 'read', 'update', 'delete']); // Grant access to visits
+                }
                 if ($module === 'inventory') {
                     return in_array($action, ['create', 'read', 'update', 'delete']);
                 }
                 if ($module === 'reports') {
-                    return in_array($action, ['read', 'export']);
+                    return in_array($action, ['read', 'export']); // Full access to all reports
                 }
                 return false;
             case 'medtech':
@@ -245,10 +248,13 @@ class User extends Authenticatable
                     return in_array($action, ['create', 'read', 'update', 'delete']);
                 }
                 if ($module === 'reports') {
-                    return in_array($action, ['read', 'export']);
+                    return in_array($action, ['read', 'export']); // Full access to all reports including financial
                 }
                 if ($module === 'patients') {
                     return in_array($action, ['read']); // Read-only access for medtech
+                }
+                if ($module === 'visits') {
+                    return in_array($action, ['create', 'read', 'update', 'delete']); // Grant access to visits
                 }
                 return false;
             case 'cashier':
@@ -292,11 +298,11 @@ class User extends Authenticatable
         // Define role-based module access
         switch ($userRole) {
             case 'doctor':
-                return in_array($module, ['patients', 'laboratory', 'reports', 'appointments', 'inventory']);
+                return in_array($module, ['patients', 'laboratory', 'reports', 'appointments', 'inventory', 'visits']);
             case 'nurse':
-                return in_array($module, ['patients', 'appointments', 'inventory', 'reports']); // Full access to all appointment modules
+                return in_array($module, ['patients', 'appointments', 'inventory', 'reports', 'visits']); // Full access to all appointment modules
             case 'medtech':
-                return in_array($module, ['laboratory', 'inventory', 'reports', 'patients']);
+                return in_array($module, ['laboratory', 'inventory', 'reports', 'patients', 'visits']);
             case 'cashier':
                 return in_array($module, ['billing', 'reports']);
             case 'hospital_staff':
@@ -346,11 +352,14 @@ class User extends Authenticatable
                 if ($module === 'appointments') {
                     return ['create', 'read', 'update', 'delete']; // Full access to all appointment modules
                 }
+                if ($module === 'visits') {
+                    return ['create', 'read', 'update', 'delete']; // Grant access to visits
+                }
                 if ($module === 'inventory') {
                     return ['create', 'read', 'update', 'delete'];
                 }
                 if ($module === 'reports') {
-                    return ['read', 'export'];
+                    return ['read', 'export']; // Full access to all reports
                 }
                 return [];
             case 'medtech':
@@ -361,10 +370,13 @@ class User extends Authenticatable
                     return ['create', 'read', 'update', 'delete'];
                 }
                 if ($module === 'reports') {
-                    return ['read', 'export'];
+                    return ['read', 'export']; // Full access to all reports including financial
                 }
                 if ($module === 'patients') {
                     return ['read']; // Read-only access for medtech
+                }
+                if ($module === 'visits') {
+                    return ['create', 'read', 'update', 'delete']; // Grant access to visits
                 }
                 return [];
             case 'cashier':

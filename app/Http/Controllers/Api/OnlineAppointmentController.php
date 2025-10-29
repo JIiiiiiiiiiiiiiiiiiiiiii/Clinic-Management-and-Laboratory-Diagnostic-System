@@ -23,7 +23,9 @@ class OnlineAppointmentController extends Controller
                 'user_id' => auth()->id(),
                 'has_patient_data' => $request->has('patient'),
                 'has_appointment_data' => $request->has('appointment'),
-                'existing_patient_id' => $request->input('existingPatientId')
+                'existing_patient_id' => $request->input('existingPatientId'),
+                'patient_data' => $request->input('patient'),
+                'full_request' => $request->all()
             ]);
 
             // Validate request - support both nested and flat formats
@@ -55,17 +57,56 @@ class OnlineAppointmentController extends Controller
 
             $result = DB::transaction(function () use ($request) {
                 $user = auth()->user();
+                $existingPatientId = $request->input('existingPatientId', 0);
                 
-                // Always create a new patient with the form data to ensure correct information
-                $patientData = $request->input('patient');
-                $patientData['user_id'] = $user->id;
-                
-                Log::info('Creating new patient with form data', [
-                    'first_name' => $patientData['first_name'] ?? 'Not provided',
-                    'last_name' => $patientData['last_name'] ?? 'Not provided',
-                    'mobile_no' => $patientData['mobile_no'] ?? 'Not provided'
-                ]);
+                // Check if we should use existing patient or create new one
+                if ($existingPatientId && $existingPatientId > 0) {
+                    // Use existing patient
+                    $patient = \App\Models\Patient::find($existingPatientId);
+                    if (!$patient) {
+                        throw new \Exception('Existing patient not found');
+                    }
                     
+                    Log::info('Using existing patient for appointment', [
+                        'patient_id' => $patient->id,
+                        'patient_name' => $patient->first_name . ' ' . $patient->last_name
+                    ]);
+                } else {
+                    // Create new patient with form data
+                    $patientData = $request->input('patient', []);
+                    
+                    // Validate that patient data is provided
+                    if (empty($patientData)) {
+                        Log::error('No patient data provided for new patient creation', [
+                            'request_data' => $request->all()
+                        ]);
+                        throw new \Exception('Patient information is required for new appointments');
+                    }
+                    
+                    $patientData['user_id'] = $user->id;
+                    
+                    // Ensure we have the required fields
+                    if (empty($patientData['last_name'])) {
+                        Log::error('Missing last_name in patient data', [
+                            'patient_data' => $patientData,
+                            'request_data' => $request->all()
+                        ]);
+                        throw new \Exception('Last name is required for patient creation');
+                    }
+                    if (empty($patientData['first_name'])) {
+                        Log::error('Missing first_name in patient data', [
+                            'patient_data' => $patientData,
+                            'request_data' => $request->all()
+                        ]);
+                        throw new \Exception('First name is required for patient creation');
+                    }
+                
+                    Log::info('Creating new patient with form data', [
+                        'first_name' => $patientData['first_name'] ?? 'Not provided',
+                        'last_name' => $patientData['last_name'] ?? 'Not provided',
+                        'mobile_no' => $patientData['mobile_no'] ?? 'Not provided'
+                    ]);
+                        
                     // Add required fields with defaults if not provided
                     if (!isset($patientData['arrival_date'])) {
                         $patientData['arrival_date'] = now()->toDateString();
@@ -129,12 +170,14 @@ class OnlineAppointmentController extends Controller
                         $patientData['sex'] = strtolower($patientData['sex']);
                     }
                     
-                $patient = $this->createOrFindPatient($patientData);
+                    $patient = $this->createOrFindPatient($patientData);
+                }
                 
-                Log::info('New patient created via API with form data', [
+                Log::info('Patient ready for appointment creation', [
                     'patient_id' => $patient->id,
                     'patient_no' => $patient->patient_no,
-                    'patient_name' => $patient->first_name . ' ' . $patient->last_name
+                    'patient_name' => $patient->first_name . ' ' . $patient->last_name,
+                    'is_existing' => $existingPatientId > 0
                 ]);
 
                 // Create appointment
@@ -256,6 +299,14 @@ class OnlineAppointmentController extends Controller
         }
         if (!isset($patientData['food_allergies'])) {
             $patientData['food_allergies'] = 'NONE';
+        }
+        
+        // Ensure required fields are not empty
+        if (empty($patientData['last_name'])) {
+            $patientData['last_name'] = 'Not provided';
+        }
+        if (empty($patientData['first_name'])) {
+            $patientData['first_name'] = 'Not provided';
         }
         
         // Ensure present_address is set

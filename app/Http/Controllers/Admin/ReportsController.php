@@ -19,6 +19,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Exports\FinancialReportExport;
 
 class ReportsController extends Controller
 {
@@ -2792,6 +2793,133 @@ class ReportsController extends Controller
         } catch (\Exception $e) {
             Log::error('Format data for export error: ' . $e->getMessage());
             return [];
+        }
+    }
+
+    /**
+     * Export financial report to Excel
+     */
+    public function exportFinancialExcel(Request $request)
+    {
+        try {
+            $filter = $request->get('filter', 'daily');
+            $date = $request->get('date', now()->format('Y-m-d'));
+            $reportType = $request->get('report_type', 'all');
+            
+            $data = $this->getFinancialReportData($filter, $date, $reportType);
+            
+            // Get transactions for export
+            $query = BillingTransaction::query();
+            $this->applyDateRangeFilter($query, $filter, $date, 'transaction_date');
+            
+            // Apply report type filtering
+            if ($reportType === 'cash') {
+                $query->where('payment_method', 'Cash');
+            } elseif ($reportType === 'hmo') {
+                $query->where('payment_method', 'HMO');
+            }
+            
+            $transactions = $query->with(['patient', 'doctor', 'appointment.specialist'])
+                ->orderBy('transaction_date', 'desc')
+                ->get();
+            
+            $filename = 'financial_report_' . $filter . '_' . $date . '_' . $reportType . '_' . now()->format('Ymd_His');
+            
+            return $this->exportFinancialToExcel($data, $transactions, $filename, $filter, $date, $reportType);
+            
+        } catch (\Exception $e) {
+            Log::error('Financial Excel export failed: ' . $e->getMessage());
+            return response()->json(['error' => 'Export failed: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Export financial report to PDF
+     */
+    public function exportFinancialPdf(Request $request)
+    {
+        try {
+            $filter = $request->get('filter', 'daily');
+            $date = $request->get('date', now()->format('Y-m-d'));
+            $reportType = $request->get('report_type', 'all');
+            
+            $data = $this->getFinancialReportData($filter, $date, $reportType);
+            
+            // Get transactions for export
+            $query = BillingTransaction::query();
+            $this->applyDateRangeFilter($query, $filter, $date, 'transaction_date');
+            
+            // Apply report type filtering
+            if ($reportType === 'cash') {
+                $query->where('payment_method', 'Cash');
+            } elseif ($reportType === 'hmo') {
+                $query->where('payment_method', 'HMO');
+            }
+            
+            $transactions = $query->with(['patient', 'doctor', 'appointment.specialist'])
+                ->orderBy('transaction_date', 'desc')
+                ->get();
+            
+            $filename = 'financial_report_' . $filter . '_' . $date . '_' . $reportType . '_' . now()->format('Ymd_His');
+            
+            return $this->exportFinancialToPdf($data, $transactions, $filename, $filter, $date, $reportType);
+            
+        } catch (\Exception $e) {
+            Log::error('Financial PDF export failed: ' . $e->getMessage());
+            return response()->json(['error' => 'Export failed: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Export financial data to Excel
+     */
+    private function exportFinancialToExcel($data, $transactions, $filename, $filter, $date, $reportType)
+    {
+        try {
+            $export = new FinancialReportExport($data, $transactions, $filter, $date, $reportType);
+            return Excel::download($export, "{$filename}.xlsx");
+        } catch (\Exception $e) {
+            Log::error('Excel generation failed: ' . $e->getMessage());
+            return response()->json(['error' => 'Excel generation failed: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Export financial data to PDF
+     */
+    private function exportFinancialToPdf($data, $transactions, $filename, $filter, $date, $reportType)
+    {
+        try {
+            // Convert logo to base64 for PDF
+            $logoPath = public_path('st-james-logo.png');
+            $logoBase64 = '';
+            if (file_exists($logoPath)) {
+                $logoData = file_get_contents($logoPath);
+                $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+            }
+
+            $pdf = PDF::loadView('exports.financial-report-pdf', [
+                'data' => $data,
+                'transactions' => $transactions,
+                'filter' => $filter,
+                'date' => $date,
+                'reportType' => $reportType,
+                'title' => 'Financial Report - ' . ucfirst($filter) . ' - ' . $date,
+                'dateRange' => $this->getDateRangeString($request ?? new Request()),
+                'logoBase64' => $logoBase64,
+            ]);
+
+            $pdf->setPaper('A4', 'portrait');
+            $pdf->setOptions([
+                'isHtml5ParserEnabled' => true,
+                'isRemoteEnabled' => true,
+                'defaultFont' => 'Arial',
+            ]);
+
+            return $pdf->download("{$filename}.pdf");
+        } catch (\Exception $e) {
+            Log::error('PDF generation failed: ' . $e->getMessage());
+            return response()->json(['error' => 'PDF generation failed: ' . $e->getMessage()], 500);
         }
     }
 }

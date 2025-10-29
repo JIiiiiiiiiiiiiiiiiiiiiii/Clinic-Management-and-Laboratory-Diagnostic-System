@@ -874,12 +874,11 @@ class AppointmentController extends Controller
             \Log::info('Walk-in appointment created successfully', [
                 'appointment_id' => $appointment->id,
                 'patient_id' => $patient->patient_id,
-                'visit_id' => $visit->visit_id,
-                'transaction_id' => $billingTransaction->transaction_id
+                'visit_id' => $visit->visit_id
             ]);
 
             return redirect()->route('admin.appointments.index')
-                ->with('success', 'Walk-in appointment created successfully for ' . $patient->first_name . ' ' . $patient->last_name . '. Visit and billing transaction have been created.');
+                ->with('success', 'Walk-in appointment created successfully for ' . $patient->first_name . ' ' . $patient->last_name . '. Visit has been created. Billing transaction can be created from the billing section.');
 
         } catch (\Exception $e) {
             DB::rollback();
@@ -902,6 +901,43 @@ class AppointmentController extends Controller
         ];
 
         return $prices[$appointmentType] ?? 300.00;
+    }
+
+    /**
+     * Update appointment billing status
+     */
+    public function updateBillingStatus(Request $request, Appointment $appointment)
+    {
+        $request->validate([
+            'billing_status' => 'required|string|in:pending,paid,cancelled,in_transaction'
+        ]);
+
+        try {
+            \Log::info('Updating appointment billing status', [
+                'appointment_id' => $appointment->id,
+                'current_billing_status' => $appointment->billing_status,
+                'new_billing_status' => $request->billing_status
+            ]);
+
+            $appointment->update([
+                'billing_status' => $request->billing_status
+            ]);
+
+            \Log::info('Appointment billing status updated successfully', [
+                'appointment_id' => $appointment->id,
+                'new_billing_status' => $appointment->fresh()->billing_status
+            ]);
+
+            // Return a simple redirect response instead of JSON
+            return redirect()->back();
+        } catch (\Exception $e) {
+            \Log::error('Failed to update appointment billing status', [
+                'appointment_id' => $appointment->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return redirect()->back()->with('error', 'Failed to update appointment billing status: ' . $e->getMessage());
+        }
     }
 
 }

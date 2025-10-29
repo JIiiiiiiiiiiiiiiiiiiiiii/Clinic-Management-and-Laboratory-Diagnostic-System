@@ -133,7 +133,11 @@ class OnlineAppointmentController extends Controller
     {
         \Log::info('OnlineAppointmentController@store called', [
             'user_id' => auth()->id(),
-            'request_data' => $request->all()
+            'request_data' => $request->all(),
+            'last_name' => $request->last_name,
+            'first_name' => $request->first_name,
+            'has_last_name' => !empty($request->last_name),
+            'has_first_name' => !empty($request->first_name)
         ]);
         
         $user = auth()->user();
@@ -157,6 +161,16 @@ class OnlineAppointmentController extends Controller
             'appointment_time' => 'required|string',
             'notes' => 'nullable|string|max:500',
             'special_requirements' => 'nullable|string|max:500',
+            // Patient data validation
+            'last_name' => 'required|string|max:255',
+            'first_name' => 'required|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
+            'birthdate' => 'required|date|before:today',
+            'age' => 'required|integer|min:0|max:150',
+            'sex' => 'required|in:male,female',
+            'civil_status' => 'required|in:single,married,widowed,divorced,separated',
+            'nationality' => 'nullable|string|max:255',
+            'mobile_no' => 'required|string|max:20',
         ]);
 
         if ($appointmentValidator->fails()) {
@@ -205,30 +219,40 @@ class OnlineAppointmentController extends Controller
             // Always create a new patient with the form data to ensure correct information
             $patientData = [
                 'user_id' => $user->id,
-                'first_name' => $request->first_name,
-                'last_name' => $request->last_name,
-                'middle_name' => $request->middle_name,
+                'first_name' => $request->first_name ?? 'Not provided',
+                'last_name' => $request->last_name ?? 'Not provided',
+                'middle_name' => $request->middle_name ?? '',
                 'birthdate' => $request->birthdate,
-                'age' => $request->age,
-                'sex' => $request->sex,
-                'civil_status' => $request->civil_status,
-                'nationality' => $request->nationality,
-                'present_address' => $request->present_address ?? $request->address,
-                'telephone_no' => $request->telephone_no,
-                'mobile_no' => $request->mobile_no,
-                'informant_name' => $request->informant_name ?? $request->emergency_name,
-                'relationship' => $request->relationship ?? $request->emergency_relation,
-                'company_name' => $request->company_name ?? $request->insurance_company,
-                'hmo_name' => $request->hmo_name,
-                'hmo_company_id_no' => $request->hmo_company_id_no ?? $request->hmo_id_no,
-                'validation_approval_code' => $request->validation_approval_code ?? $request->approval_code,
-                'validity' => $request->validity,
-                'drug_allergies' => $request->drug_allergies,
-                'past_medical_history' => $request->past_medical_history,
-                'family_history' => $request->family_history,
-                'social_personal_history' => $request->social_personal_history ?? $request->social_history,
-                'obstetrics_gynecology_history' => $request->obstetrics_gynecology_history ?? $request->obgyn_history,
+                'age' => $request->age ?? 0,
+                'sex' => $request->sex ?? 'male',
+                'civil_status' => $request->civil_status ?? 'single',
+                'nationality' => $request->nationality ?? 'Filipino',
+                'present_address' => $request->present_address ?? $request->address ?? 'To be completed',
+                'address' => $request->present_address ?? $request->address ?? 'To be completed',
+                'telephone_no' => $request->telephone_no ?? '',
+                'mobile_no' => $request->mobile_no ?? '',
+                'informant_name' => $request->informant_name ?? $request->emergency_name ?? 'Not provided',
+                'relationship' => $request->relationship ?? $request->emergency_relation ?? 'Not provided',
+                'company_name' => $request->company_name ?? $request->insurance_company ?? '',
+                'hmo_name' => $request->hmo_name ?? '',
+                'hmo_company_id_no' => $request->hmo_company_id_no ?? $request->hmo_id_no ?? '',
+                'validation_approval_code' => $request->validation_approval_code ?? $request->approval_code ?? '',
+                'validity' => $request->validity ?? '',
+                'drug_allergies' => $request->drug_allergies ?? 'NONE',
+                'food_allergies' => $request->food_allergies ?? 'NONE',
+                'past_medical_history' => $request->past_medical_history ?? '',
+                'family_history' => $request->family_history ?? '',
+                'social_personal_history' => $request->social_personal_history ?? $request->social_history ?? '',
+                'obstetrics_gynecology_history' => $request->obstetrics_gynecology_history ?? $request->obgyn_history ?? '',
             ];
+
+            // Ensure required fields are not empty
+            if (empty($patientData['last_name']) || $patientData['last_name'] === 'Not provided') {
+                return back()->withErrors(['last_name' => 'Last name is required.'])->withInput();
+            }
+            if (empty($patientData['first_name']) || $patientData['first_name'] === 'Not provided') {
+                return back()->withErrors(['first_name' => 'First name is required.'])->withInput();
+            }
 
             // Create new patient with form data
             $appointmentService = app(\App\Services\AppointmentCreationService::class);

@@ -92,9 +92,14 @@ class BillingController extends Controller
             $specialistId = $request->get('specialist_id');
             $source = $request->get('source');
 
-            // Build the query - get all appointments for now to debug
+            // Build the query - only get appointments that are pending billing
             $query = \App\Models\Appointment::query()
-                ->with(['patient', 'specialist']);
+                ->with(['patient', 'specialist'])
+                ->where(function($q) {
+                    $q->whereNull('billing_status')
+                      ->orWhere('billing_status', 'pending')
+                      ->orWhere('billing_status', 'not_billed');
+                });
 
             // Apply filters
             if ($search) {
@@ -189,6 +194,7 @@ class BillingController extends Controller
                 'doctors_count' => $doctors->count(),
                 'patients_count' => $patients->count(),
                 'all_appointment_ids' => $pendingAppointments->pluck('id')->toArray(),
+                'billing_statuses' => $pendingAppointments->pluck('billing_status')->unique()->toArray(),
             ]);
 
             return Inertia::render('admin/billing/pending-appointments', [
@@ -322,6 +328,12 @@ class BillingController extends Controller
     {
         \Log::info('Billing transaction creation from modal called', $request->all());
         
+        // Check if this is a request from the pending appointment payment modal
+        if ($request->has('items') && is_array($request->items)) {
+            // This is from the pending appointment payment modal, use the store method logic
+            return $this->store($request);
+        }
+        
         $validator = Validator::make($request->all(), [
             'appointment_id' => 'required|integer|exists:appointments,id',
             'patient_name' => 'required|string|max:255',
@@ -444,178 +456,6 @@ class BillingController extends Controller
                     'total_revenue' => 0,
                     'total_doctor_payments' => 0,
                     'net_profit' => 0,
-                ],
-            ]);
-        }
-    }
-
-    public function index(Request $request)
-    {
-        try {
-            
-            // Load necessary relationships for the frontend
-            $query = BillingTransaction::with(['patient', 'doctor', 'appointments']);
-
-            // Apply filters
-            if ($request->filled('search')) {
-                $search = $request->search;
-                $query->where(function ($q) use ($search) {
-                    $q->where('transaction_code', 'like', "%{$search}%")
-                      ->orWhere('reference_no', 'like', "%{$search}%")
-                      ->orWhereHas('patient', function ($patientQuery) use ($search) {
-                          $patientQuery->where('first_name', 'like', "%{$search}%")
-                                      ->orWhere('last_name', 'like', "%{$search}%");
-                      });
-                });
-            }
-
-            if ($request->filled('status') && $request->status !== 'all') {
-                $query->where('status', $request->status);
-            }
-
-            if ($request->filled('payment_method') && $request->payment_method !== 'all') {
-                $query->where('payment_method', $request->payment_method);
-            }
-
-            if ($request->filled('doctor_id') && $request->doctor_id !== 'all') {
-                $query->where('doctor_id', $request->doctor_id);
-            }
-
-            if ($request->filled('date_from')) {
-                $query->whereDate('created_at', '>=', $request->date_from);
-            }
-
-            if ($request->filled('date_to')) {
-                $query->whereDate('created_at', '<=', $request->date_to);
-            }
-
-            $transactions = $query->orderBy('created_at', 'desc')->paginate(15);
-            
-
-            // Transform transactions to match frontend expectations
-            $transactions->getCollection()->transform(function ($transaction) {
-                // Ensure patient data is properly formatted
-                if ($transaction->patient) {
-                    $transaction->patient->patient_no = $transaction->patient->patient_no ?? 'N/A';
-                }
-                
-                // Ensure doctor data is properly formatted
-                if ($transaction->doctor) {
-                    $transaction->doctor_name = $transaction->doctor->name;
-                }
-                
-                return $transaction;
-            });
-
-            // Get pending appointments for billing
-            $pendingAppointments = Appointment::where('billing_status', 'pending')
-                ->with(['patient', 'specialist', 'labTests.labTest'])
-                ->orderBy('appointment_date', 'asc')
-                ->get()
-                ->map(function ($appointment) {
-                    return [
-                        'id' => $appointment->id,
-                        'patient_name' => $appointment->patient_name,
-                        'patient_id' => $appointment->patient_id,
-                        'appointment_type' => $appointment->appointment_type,
-                        'specialist_name' => $appointment->specialist_name,
-                        'appointment_date' => $appointment->appointment_date,
-                        'appointment_time' => $appointment->appointment_time,
-                        'price' => $appointment->price,
-                        'total_lab_amount' => $appointment->total_lab_amount ?? 0,
-                        'final_total_amount' => $appointment->final_total_amount ?? $appointment->price,
-                        'billing_status' => $appointment->billing_status,
-                        'source' => $appointment->source,
-                        'lab_tests_count' => $appointment->labTests->count(),
-                    ];
-                });
-                
-
-        // Get summary statistics
-        $summary = [
-                'total_revenue' => BillingTransaction::where('status', 'paid')->sum('total_amount') ?? 0,
-                'pending_amount' => BillingTransaction::where('status', 'pending')->sum('total_amount') ?? 0,
-                'total_transactions' => BillingTransaction::count(),
-                'paid_transactions' => BillingTransaction::where('status', 'paid')->count(),
-        ];
-
-        // Get specialists for filter
-        $doctors = \App\Models\Specialist::where('role', 'Doctor')
-            ->when(\Schema::hasColumn('specialists', 'status'), function($query) {
-                return $query->where('status', 'Active');
-            })
-            ->select('specialist_id as id', 'name', 'specialization')
-            ->orderBy('name')
-            ->get();
-
-            \Log::info('Billing data being sent to frontend:', [
-                'transactions_count' => $transactions->count(),
-                'pending_appointments_count' => $pendingAppointments->count(),
-                'summary' => $summary,
-                'doctors_count' => $doctors->count(),
-            ]);
-
-
-            // Load doctor payments data
-            $doctorPayments = \App\Models\DoctorPayment::with('doctor')->orderBy('created_at', 'desc')
-                ->paginate(15);
-
-
-            // Load reports data
-            $dateFrom = $request->get('date_from', now()->startOfMonth()->format('Y-m-d'));
-            $dateTo = $request->get('date_to', now()->endOfMonth()->format('Y-m-d'));
-            
-            $revenueData = BillingTransaction::where('status', 'paid')
-                ->whereBetween('transaction_date', [$dateFrom, $dateTo])
-                ->selectRaw('DATE(transaction_date) as date, SUM(total_amount) as amount')
-                ->groupBy('date')
-                ->orderBy('date')
-                ->get();
-
-
-            $doctorPaymentData = \App\Models\DoctorPayment::where('status', 'paid')
-                ->whereBetween('payment_date', [$dateFrom, $dateTo])
-                ->selectRaw('DATE(payment_date) as date, SUM(net_payment) as amount')
-                ->groupBy('date')
-                ->orderBy('date')
-                ->get();
-
-            // Enhanced summary with all data
-            $enhancedSummary = [
-                'total_revenue' => BillingTransaction::where('status', 'paid')->sum('total_amount') ?? 0,
-                'pending_amount' => BillingTransaction::where('status', 'pending')->sum('total_amount') ?? 0,
-                'total_transactions' => BillingTransaction::count(),
-                'paid_transactions' => BillingTransaction::where('status', 'paid')->count(),
-                'total_doctor_payments' => \App\Models\DoctorPayment::where('status', 'paid')->sum('net_payment') ?? 0,
-                'net_profit' => (BillingTransaction::where('status', 'paid')->sum('total_amount') ?? 0) - 
-                               (\App\Models\DoctorPayment::where('status', 'paid')->sum('net_payment') ?? 0),
-            ];
-
-
-        return Inertia::render('admin/billing/overview', [
-            'summary' => [
-                'totalTransactions' => $transactions->count(),
-                'paidTransactions' => $transactions->where('status', 'paid')->count(),
-                'pendingTransactions' => $transactions->where('status', 'pending')->count(),
-                'totalRevenue' => $transactions->where('status', 'paid')->sum('amount'),
-                'pendingAppointments' => $pendingAppointments->count(),
-                'doctorPayments' => $doctorPayments->count(),
-            ],
-        ]);
-        } catch (\Exception $e) {
-            \Log::error('Billing index error: ' . $e->getMessage());
-            \Log::error('Stack trace: ' . $e->getTraceAsString());
-            \Log::error('Error details: ' . $e->getFile() . ':' . $e->getLine());
-            
-            // Return a comprehensive fallback with all required data
-            return Inertia::render('admin/billing/overview', [
-                'summary' => [
-                    'totalTransactions' => 0,
-                    'paidTransactions' => 0,
-                    'pendingTransactions' => 0,
-                    'totalRevenue' => 0,
-                    'pendingAppointments' => 0,
-                    'doctorPayments' => 0,
                 ],
             ]);
         }
@@ -1011,7 +851,8 @@ class BillingController extends Controller
                 'transaction_date' => $request->transaction_date,
             ]);
             
-            $request->validate([
+            // Custom validation rules
+            $rules = [
                 'patient_id' => 'required|exists:patients,id',
                 'doctor_id' => 'nullable|exists:specialists,specialist_id',
                 'payment_type' => 'required|in:cash,health_card,discount',
@@ -1038,7 +879,14 @@ class BillingController extends Controller
                 'items.*.unit_price' => 'required|numeric|min:0',
                 'items.*.total_price' => 'required|numeric|min:0',
                 'items.*.lab_test_id' => 'nullable|exists:lab_tests,id',
-            ]);
+            ];
+
+            // Add conditional validation for HMO provider
+            if ($request->payment_type === 'health_card' || $request->payment_method === 'hmo') {
+                $rules['hmo_provider'] = 'required|string|max:255';
+            }
+
+            $request->validate($rules);
             
             \Log::info('Validation passed successfully');
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -1058,12 +906,17 @@ class BillingController extends Controller
             $transactionDate = \Carbon\Carbon::parse($request->transaction_date);
             \Log::info('Creating billing transaction...');
             
-            // Set payment_method based on payment_type
-            $paymentMethod = match($request->payment_type) {
+            // Set payment_method based on payment_type or use the provided payment_method
+            $paymentMethod = $request->payment_method ?? match($request->payment_type) {
                 'health_card' => 'hmo',
                 'discount' => 'cash',
                 default => 'cash'
             };
+            
+            // Ensure payment_type is set correctly based on payment_method
+            if ($paymentMethod === 'hmo' && $request->payment_type !== 'health_card') {
+                $request->merge(['payment_type' => 'health_card']);
+            }
             
             // Create a dummy appointment for manual transactions since appointment_id is required
             $patient = \App\Models\Patient::find($request->patient_id);

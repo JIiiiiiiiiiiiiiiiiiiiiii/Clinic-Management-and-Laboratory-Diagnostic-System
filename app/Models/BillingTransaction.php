@@ -82,6 +82,18 @@ class BillingTransaction extends Model
         );
     }
 
+    public function appointment()
+    {
+        return $this->hasOneThrough(
+            \App\Models\Appointment::class,
+            \App\Models\AppointmentBillingLink::class,
+            'billing_transaction_id',
+            'id',
+            'id',
+            'appointment_id'
+        );
+    }
+
     public function items()
     {
         return $this->hasMany(\App\Models\BillingTransactionItem::class, 'billing_transaction_id', 'id');

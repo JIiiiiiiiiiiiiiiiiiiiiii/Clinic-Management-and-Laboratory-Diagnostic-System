@@ -406,33 +406,37 @@ export default function OnlineAppointment({
             return;
         }
 
-        // For new patients, also validate required patient fields
-        if (!isExistingPatient) {
-            const patientRequiredChecks = [
-                { key: 'last_name', label: 'Last Name', isValid: (v: any) => Boolean(v) },
-                { key: 'first_name', label: 'First Name', isValid: (v: any) => Boolean(v) },
-                { key: 'birthdate', label: 'Birthdate', isValid: (v: any) => Boolean(v) },
-                { key: 'age', label: 'Age', isValid: (v: any) => Number(v) > 0 },
-                { key: 'sex', label: 'Sex', isValid: (v: any) => Boolean(v) },
-                { key: 'civil_status', label: 'Civil Status', isValid: (v: any) => Boolean(v) },
-                { key: 'present_address', label: 'Present Address', isValid: (v: any) => Boolean(v) },
-                { key: 'mobile_no', label: 'Mobile No.', isValid: (v: any) => Boolean(v) },
-                { key: 'informant_name', label: 'Informant Name', isValid: (v: any) => Boolean(v) },
-                { key: 'relationship', label: 'Relationship', isValid: (v: any) => Boolean(v) },
-            ];
+        // Always validate required patient fields
+        const patientRequiredChecks = [
+            { key: 'last_name', label: 'Last Name', isValid: (v: any) => Boolean(v) },
+            { key: 'first_name', label: 'First Name', isValid: (v: any) => Boolean(v) },
+            { key: 'birthdate', label: 'Birthdate', isValid: (v: any) => Boolean(v) },
+            { key: 'age', label: 'Age', isValid: (v: any) => Number(v) > 0 },
+            { key: 'sex', label: 'Sex', isValid: (v: any) => Boolean(v) },
+            { key: 'civil_status', label: 'Civil Status', isValid: (v: any) => Boolean(v) },
+            { key: 'present_address', label: 'Present Address', isValid: (v: any) => Boolean(v) },
+            { key: 'mobile_no', label: 'Mobile No.', isValid: (v: any) => Boolean(v) },
+            { key: 'informant_name', label: 'Informant Name', isValid: (v: any) => Boolean(v) },
+            { key: 'relationship', label: 'Relationship', isValid: (v: any) => Boolean(v) },
+        ];
 
-            const patientMissing = patientRequiredChecks.filter((c) => !c.isValid((data as any)[c.key]));
-            if (patientMissing.length > 0) {
-                setMissingFields(patientMissing.map((m) => m.label));
-                setShowMissingModal(true);
-                return;
-            }
+        const patientMissing = patientRequiredChecks.filter((c) => !c.isValid((data as any)[c.key]));
+        if (patientMissing.length > 0) {
+            console.log('Missing patient fields:', patientMissing);
+            console.log('Current form data:', data);
+            setMissingFields(patientMissing.map((m) => m.label));
+            setShowMissingModal(true);
+            return;
         }
 
+        // Debug: Log the isExistingPatient value
+        console.log('isExistingPatient:', isExistingPatient);
+        console.log('patient:', patient);
+        
         // Prepare request body for new API
         const requestBody = {
             existingPatientId: isExistingPatient && patient ? patient.id : 0,
-            patient: !isExistingPatient ? {
+            patient: {
                 last_name: data.last_name,
                 first_name: data.first_name,
                 middle_name: data.middle_name,
@@ -457,7 +461,7 @@ export default function OnlineAppointment({
                 family_history: data.family_history,
                 social_history: data.social_history,
                 obgyn_history: data.obgyn_history,
-            } : undefined,
+            },
             appointment: {
                 appointment_type: data.appointment_type,
                 specialist_type: data.specialist_type === 'doctor' ? 'Doctor' : 'MedTech',
@@ -472,6 +476,13 @@ export default function OnlineAppointment({
 
         try {
             setIsProcessing(true);
+            
+            // Debug: Log the data being sent
+            console.log('Sending appointment data:', {
+                patient: requestBody.patient,
+                appointment: requestBody.appointment,
+                formData: data
+            });
             
             const response = await fetch('/api/appointments/online', {
                 method: 'POST',

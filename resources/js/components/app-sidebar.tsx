@@ -273,11 +273,6 @@ const getPermissionBasedNavigation = (permissions: any, userRole: string) => {
       show: getModuleAccess('billing'),
       items: [
         {
-          title: "Overview",
-          url: "/admin/billing",
-          show: getSubItemAccess('billing', 'Overview'),
-        },
-        {
           title: "Transactions",
           url: "/admin/billing/transactions",
           show: getSubItemAccess('billing', 'Transactions'),

@@ -84,12 +84,14 @@ const statusConfig = {
     approved: { label: 'Approved', color: 'bg-green-100 text-green-800', icon: CheckCircle },
     cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-800', icon: XCircle },
     completed: { label: 'Completed', color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
+    default: { label: 'Unknown', color: 'bg-gray-100 text-gray-800', icon: AlertCircle },
 };
 
 const sourceConfig = {
     online: { label: 'Online', color: 'bg-blue-100 text-blue-800' },
     walk_in: { label: 'Walk-in', color: 'bg-green-100 text-green-800' },
     phone: { label: 'Phone', color: 'bg-purple-100 text-purple-800' },
+    default: { label: 'Unknown', color: 'bg-gray-100 text-gray-800' },
 };
 
 export default function PendingAppointmentViewModal({
@@ -110,8 +112,8 @@ export default function PendingAppointmentViewModal({
         router.visit(`/admin/billing/create-from-appointments?appointment_id=${appointmentId}`);
     };
 
-    const getStatusBadge = (status: keyof typeof statusConfig) => {
-        const config = statusConfig[status];
+    const getStatusBadge = (status: string) => {
+        const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.default;
         const Icon = config.icon;
         
         return (
@@ -122,8 +124,8 @@ export default function PendingAppointmentViewModal({
         );
     };
 
-    const getSourceBadge = (source: keyof typeof sourceConfig) => {
-        const config = sourceConfig[source];
+    const getSourceBadge = (source: string) => {
+        const config = sourceConfig[source as keyof typeof sourceConfig] || sourceConfig.default;
         return (
             <Badge className={config.color}>
                 {config.label}
@@ -259,13 +261,13 @@ export default function PendingAppointmentViewModal({
                                                 <div>
                                                     <label className="text-sm font-medium text-gray-500">Source</label>
                                                     <div className="mt-1">
-                                                        {getSourceBadge(appointment.source as keyof typeof sourceConfig)}
+                                                        {getSourceBadge(appointment.source || 'default')}
                                                     </div>
                                                 </div>
                                                 <div>
                                                     <label className="text-sm font-medium text-gray-500">Status</label>
                                                     <div className="mt-1">
-                                                        {getStatusBadge(appointment.billing_status as keyof typeof statusConfig)}
+                                                        {getStatusBadge(appointment.billing_status || 'default')}
                                                     </div>
                                                 </div>
                                             </div>

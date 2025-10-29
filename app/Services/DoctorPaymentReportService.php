@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\DoctorPayment;
+use App\Models\BillingTransaction;
 use App\Models\Specialist;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -47,8 +48,9 @@ class DoctorPaymentReportService
      */
     public function getDailyReport($filters)
     {
-        $query = DoctorPayment::with(['doctor'])
-            ->whereBetween('payment_date', [$filters['date_from'], $filters['date_to']]);
+        $query = BillingTransaction::with(['doctor'])
+            ->whereBetween('transaction_date', [$filters['date_from'] . ' 00:00:00', $filters['date_to'] . ' 23:59:59'])
+            ->whereNotNull('doctor_id');
 
         if ($filters['doctor_id'] !== 'all') {
             $query->where('doctor_id', $filters['doctor_id']);
@@ -66,8 +68,9 @@ class DoctorPaymentReportService
      */
     public function getMonthlyReport($filters)
     {
-        $query = DoctorPayment::with(['doctor'])
-            ->whereBetween('payment_date', [$filters['date_from'], $filters['date_to']]);
+        $query = BillingTransaction::with(['doctor'])
+            ->whereBetween('transaction_date', [$filters['date_from'] . ' 00:00:00', $filters['date_to'] . ' 23:59:59'])
+            ->whereNotNull('doctor_id');
 
         if ($filters['doctor_id'] !== 'all') {
             $query->where('doctor_id', $filters['doctor_id']);
@@ -85,8 +88,9 @@ class DoctorPaymentReportService
      */
     public function getYearlyReport($filters)
     {
-        $query = DoctorPayment::with(['doctor'])
-            ->whereBetween('payment_date', [$filters['date_from'], $filters['date_to']]);
+        $query = BillingTransaction::with(['doctor'])
+            ->whereBetween('transaction_date', [$filters['date_from'] . ' 00:00:00', $filters['date_to'] . ' 23:59:59'])
+            ->whereNotNull('doctor_id');
 
         if ($filters['doctor_id'] !== 'all') {
             $query->where('doctor_id', $filters['doctor_id']);
@@ -100,99 +104,82 @@ class DoctorPaymentReportService
     }
 
     /**
-     * Get daily grouped data
+     * Get daily data - individual payment records
      */
     private function getDailyData($query, $filters)
     {
-        return $query->selectRaw('
-                DATE(payment_date) as date,
-                doctor_id,
-                COUNT(*) as payment_count,
-                SUM(incentives) as total_incentives,
-                SUM(net_payment) as total_net_payment,
-                AVG(net_payment) as average_payment
-            ')
-            ->groupBy('date', 'doctor_id')
-            ->orderBy('date', 'desc')
+        return $query->orderBy('payment_date', 'desc')
             ->get()
-            ->map(function ($item) {
-                $doctor = Specialist::find($item->doctor_id);
+            ->map(function ($payment) {
+                $doctor = $payment->doctor;
                 return [
-                    'date' => $item->date,
-                    'doctor_id' => $item->doctor_id,
+                    'id' => $payment->id,
+                    'date' => $payment->payment_date,
+                    'payment_date' => $payment->payment_date,
+                    'doctor_id' => $payment->doctor_id,
                     'doctor_name' => $doctor ? $doctor->name : 'Unknown Doctor',
                     'doctor_specialization' => $doctor ? $doctor->specialization : 'N/A',
-                    'payment_count' => $item->payment_count,
-                    'total_incentives' => $item->total_incentives,
-                    'total_net_payment' => $item->total_net_payment,
-                    'average_payment' => $item->average_payment,
+                    'incentives' => $payment->incentives,
+                    'net_payment' => $payment->net_payment,
+                    'status' => $payment->status,
+                    'notes' => $payment->notes,
+                    'created_at' => $payment->created_at,
                 ];
             });
     }
 
     /**
-     * Get monthly grouped data
+     * Get monthly data - individual payment records
      */
     private function getMonthlyData($query, $filters)
     {
-        return $query->selectRaw('
-                YEAR(payment_date) as year,
-                MONTH(payment_date) as month,
-                doctor_id,
-                COUNT(*) as payment_count,
-                SUM(incentives) as total_incentives,
-                SUM(net_payment) as total_net_payment,
-                AVG(net_payment) as average_payment
-            ')
-            ->groupBy('year', 'month', 'doctor_id')
-            ->orderBy('year', 'desc')
-            ->orderBy('month', 'desc')
+        return $query->orderBy('payment_date', 'desc')
             ->get()
-            ->map(function ($item) {
-                $doctor = Specialist::find($item->doctor_id);
-                $date = Carbon::create($item->year, $item->month, 1);
+            ->map(function ($payment) {
+                $doctor = $payment->doctor;
+                $date = Carbon::parse($payment->payment_date);
                 return [
-                    'year' => $item->year,
-                    'month' => $item->month,
+                    'id' => $payment->id,
+                    'year' => $date->year,
+                    'month' => $date->month,
                     'month_name' => $date->format('F Y'),
-                    'doctor_id' => $item->doctor_id,
+                    'date' => $payment->payment_date,
+                    'payment_date' => $payment->payment_date,
+                    'doctor_id' => $payment->doctor_id,
                     'doctor_name' => $doctor ? $doctor->name : 'Unknown Doctor',
                     'doctor_specialization' => $doctor ? $doctor->specialization : 'N/A',
-                    'payment_count' => $item->payment_count,
-                    'total_incentives' => $item->total_incentives,
-                    'total_net_payment' => $item->total_net_payment,
-                    'average_payment' => $item->average_payment,
+                    'incentives' => $payment->incentives,
+                    'net_payment' => $payment->net_payment,
+                    'status' => $payment->status,
+                    'notes' => $payment->notes,
+                    'created_at' => $payment->created_at,
                 ];
             });
     }
 
     /**
-     * Get yearly grouped data
+     * Get yearly data - individual payment records
      */
     private function getYearlyData($query, $filters)
     {
-        return $query->selectRaw('
-                YEAR(payment_date) as year,
-                doctor_id,
-                COUNT(*) as payment_count,
-                SUM(incentives) as total_incentives,
-                SUM(net_payment) as total_net_payment,
-                AVG(net_payment) as average_payment
-            ')
-            ->groupBy('year', 'doctor_id')
-            ->orderBy('year', 'desc')
+        return $query->orderBy('payment_date', 'desc')
             ->get()
-            ->map(function ($item) {
-                $doctor = Specialist::find($item->doctor_id);
+            ->map(function ($payment) {
+                $doctor = $payment->doctor;
+                $date = Carbon::parse($payment->payment_date);
                 return [
-                    'year' => $item->year,
-                    'doctor_id' => $item->doctor_id,
+                    'id' => $payment->id,
+                    'year' => $date->year,
+                    'date' => $payment->payment_date,
+                    'payment_date' => $payment->payment_date,
+                    'doctor_id' => $payment->doctor_id,
                     'doctor_name' => $doctor ? $doctor->name : 'Unknown Doctor',
                     'doctor_specialization' => $doctor ? $doctor->specialization : 'N/A',
-                    'payment_count' => $item->payment_count,
-                    'total_incentives' => $item->total_incentives,
-                    'total_net_payment' => $item->total_net_payment,
-                    'average_payment' => $item->average_payment,
+                    'incentives' => $payment->incentives,
+                    'net_payment' => $payment->net_payment,
+                    'status' => $payment->status,
+                    'notes' => $payment->notes,
+                    'created_at' => $payment->created_at,
                 ];
             });
     }
@@ -235,15 +222,15 @@ class DoctorPaymentReportService
      */
     public function getDoctorDetails($filters)
     {
-        $query = DoctorPayment::with(['doctor'])
+        $query = BillingTransaction::with(['doctor'])
             ->where('doctor_id', $filters['doctor_id'])
-            ->whereBetween('payment_date', [$filters['date_from'], $filters['date_to']]);
+            ->whereBetween('transaction_date', [$filters['date_from'] . ' 00:00:00', $filters['date_to'] . ' 23:59:59']);
 
         if ($filters['status'] !== 'all') {
             $query->where('status', $filters['status']);
         }
 
-        return $query->orderBy('payment_date', 'desc')->get();
+        return $query->orderBy('transaction_date', 'desc')->get();
     }
 
     /**
@@ -251,8 +238,8 @@ class DoctorPaymentReportService
      */
     public function getDoctorSummary($doctorId, $filters)
     {
-        $query = DoctorPayment::where('doctor_id', $doctorId)
-            ->whereBetween('payment_date', [$filters['date_from'], $filters['date_to']]);
+        $query = BillingTransaction::where('doctor_id', $doctorId)
+            ->whereBetween('transaction_date', [$filters['date_from'] . ' 00:00:00', $filters['date_to'] . ' 23:59:59']);
 
         if ($filters['status'] !== 'all') {
             $query->where('status', $filters['status']);
@@ -260,11 +247,11 @@ class DoctorPaymentReportService
 
         $stats = $query->selectRaw('
                 COUNT(*) as total_payments,
-                SUM(net_payment) as total_amount,
-                SUM(CASE WHEN status = "paid" THEN net_payment ELSE 0 END) as paid_amount,
-                SUM(CASE WHEN status = "pending" THEN net_payment ELSE 0 END) as pending_amount,
-                AVG(net_payment) as average_payment,
-                SUM(incentives) as total_incentives
+                SUM(total_amount) as total_amount,
+                SUM(CASE WHEN status = "paid" THEN total_amount ELSE 0 END) as paid_amount,
+                SUM(CASE WHEN status = "pending" THEN total_amount ELSE 0 END) as pending_amount,
+                AVG(total_amount) as average_payment,
+                SUM(total_amount) as total_incentives
             ')
             ->first();
 

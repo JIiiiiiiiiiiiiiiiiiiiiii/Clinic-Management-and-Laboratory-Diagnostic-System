@@ -22,7 +22,7 @@ import {
     Receipt
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { useForm } from '@inertiajs/react';
+import { useForm, router } from '@inertiajs/react';
 
 type PendingAppointment = {
     id: number;
@@ -131,6 +131,7 @@ export default function PendingAppointmentPaymentModal({
         patient_id: '',
         doctor_id: '',
         payment_type: 'cash',
+        payment_method: 'cash',
         total_amount: 0,
         amount: 0,
         discount_amount: 0,
@@ -147,20 +148,48 @@ export default function PendingAppointmentPaymentModal({
         transaction_date: new Date().toISOString().split('T')[0],
         due_date: '',
         status: 'pending',
+        items: [],
     });
 
     // Update form data when appointment changes
     useEffect(() => {
         if (appointment) {
             const totalAmount = appointment.final_total_amount || appointment.price || 0;
-            setData({
-                patient_id: appointment.patient?.id?.toString() || appointment.patient_id || '',
-                doctor_id: appointment.specialist?.id?.toString() || appointment.specialist_id?.toString() || '',
-                total_amount: totalAmount,
-                amount: totalAmount,
-                description: `Payment for appointment #${appointment.id} - ${appointment.appointment_type}`,
-                notes: appointment.notes || '',
-            });
+            
+            // Create items array for the billing transaction
+            const items = [
+                {
+                    item_type: 'consultation',
+                    item_name: `${appointment.appointment_type.replace(/_/g, ' ').toUpperCase()} Appointment`,
+                    item_description: `Appointment for ${appointment.patient_name} on ${appointment.appointment_date} at ${appointment.appointment_time}`,
+                    quantity: 1,
+                    unit_price: totalAmount,
+                    total_price: totalAmount,
+                }
+            ];
+
+            // Add lab test items if they exist
+            if (appointment.labTests && appointment.labTests.length > 0) {
+                appointment.labTests.forEach((labTest: any) => {
+                    items.push({
+                        item_type: 'laboratory',
+                        item_name: labTest.lab_test_name,
+                        item_description: `Laboratory test for ${appointment.patient_name}`,
+                        quantity: 1,
+                        unit_price: labTest.price,
+                        total_price: labTest.price,
+                        lab_test_id: labTest.id,
+                    } as any);
+                });
+            }
+
+            setData('patient_id', appointment.patient?.id?.toString() || appointment.patient_id || '');
+            setData('doctor_id', appointment.specialist?.id?.toString() || appointment.specialist_id?.toString() || '');
+            setData('total_amount', totalAmount);
+            setData('amount', totalAmount);
+            setData('description', `Payment for appointment #${appointment.id} - ${appointment.appointment_type}`);
+            setData('notes', appointment.notes || '');
+            setData('items', items as any);
             setDiscountAmount(0);
             setSeniorDiscountAmount(0);
         }
@@ -189,15 +218,60 @@ export default function PendingAppointmentPaymentModal({
             return;
         }
 
-        post('/admin/billing/transactions', {
+        // Validate HMO provider when payment method is HMO
+        if (data.payment_method === 'hmo' && !data.hmo_provider) {
+            setValidationErrors(['HMO Provider is required when payment method is HMO']);
+            return;
+        }
+
+        // Ensure required fields are set before submission
+        const formData = {
+            ...data,
+            payment_type: data.payment_type || 'cash',
+            transaction_date: data.transaction_date || new Date().toISOString().split('T')[0],
+            // Ensure the backend receives the final payable amount after discounts
+            amount: Math.max(0, (data.total_amount || 0) - (discountAmount || 0) - (seniorDiscountAmount || 0)),
+        };
+
+        router.post('/admin/billing/transactions', formData, {
             onSuccess: () => {
-                onSuccess();
-                onClose();
+                console.log('Transaction created successfully, updating appointment status...');
+                // Update the appointment billing status to remove it from pending list
+                if (appointment) {
+                    console.log('Updating appointment billing status for appointment:', appointment.id);
+                    
+                    // Call onSuccess immediately to refresh the list and remove the appointment
+                    onSuccess();
+                    onClose();
+                    
+                    // Update the appointment status in the background (don't wait for response)
+                    router.patch(`/admin/appointments/${appointment.id}/update-billing-status`, {
+                        billing_status: 'paid'
+                    }, {
+                        onSuccess: () => {
+                            console.log('Appointment billing status updated successfully');
+                        },
+                        onError: (errors: any) => {
+                            console.error('Failed to update appointment billing status:', errors);
+                        },
+                        preserveState: true,
+                        preserveScroll: true
+                    });
+                    
+                    // Redirect to transactions table to reflect the new entry
+                    router.get('/admin/billing/transactions');
+                } else {
+                    console.log('No appointment data, refreshing list...');
+                    onSuccess();
+                    onClose();
+                    // Redirect to transactions table to reflect the new entry
+                    router.get('/admin/billing/transactions');
+                }
             },
             onError: (errors: any) => {
                 console.error('Payment processing failed:', errors);
                 if (errors.errors) {
-                    setValidationErrors(Object.values(errors.errors).flat());
+                    setValidationErrors(Object.values(errors.errors).flat() as string[]);
                 } else {
                     setValidationErrors([errors.message || 'Payment processing failed']);
                 }
@@ -325,7 +399,15 @@ export default function PendingAppointmentPaymentModal({
                                         </div>
                                         <div>
                                             <Label htmlFor="payment_method">Payment Method</Label>
-                                            <Select value={data.payment_method || 'cash'} onValueChange={(value) => setData('payment_method', value)}>
+                                            <Select value={data.payment_method || 'cash'} onValueChange={(value) => {
+                                                setData('payment_method', value);
+                                                // Set payment_type based on payment_method
+                                                if (value === 'hmo') {
+                                                    setData('payment_type', 'health_card');
+                                                } else {
+                                                    setData('payment_type', 'cash');
+                                                }
+                                            }}>
                                                 <SelectTrigger className="mt-1">
                                                     <SelectValue placeholder="Select payment method" />
                                                 </SelectTrigger>
@@ -405,14 +487,14 @@ export default function PendingAppointmentPaymentModal({
                                     </CardHeader>
                                     <CardContent className="space-y-4">
                                         <div>
-                                            <Label htmlFor="hmo_provider">HMO Provider</Label>
+                                            <Label htmlFor="hmo_provider">HMO Provider *</Label>
                                             <Select value={data.hmo_provider} onValueChange={(value) => setData('hmo_provider', value)}>
                                                 <SelectTrigger className="mt-1">
                                                     <SelectValue placeholder="Select HMO provider" />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     {hmoProviders.map((provider) => (
-                                                        <SelectItem key={provider.id} value={provider.id.toString()}>
+                                                        <SelectItem key={provider.id} value={provider.name}>
                                                             {provider.name} ({provider.code})
                                                         </SelectItem>
                                                     ))}

@@ -20,7 +20,6 @@ import {
     CalendarDays, 
     Bell, 
     UserCheck, 
-    Settings,
     ChevronLeft,
     ChevronRight,
     Filter,
@@ -42,8 +41,10 @@ const breadcrumbs: BreadcrumbItem[] = [
 // Interface for props
 interface DoctorSchedule {
     id: number;
+    name: string;
     doctor: string;
     specialization: string;
+    employee_id: string;
     status: string;
     availableSlots: number;
     bookedSlots: number;
@@ -57,12 +58,21 @@ interface DoctorSchedule {
 interface Appointment {
     id: number;
     patient: string;
+    patient_name: string;
     type: string;
-    status: 'completed' | 'canceled' | 'scheduled' | 'waiting';
+    appointment_type: string;
+    date: string;
+    appointment_date: string;
+    time: string;
+    appointment_time: string;
     startTime: string;
     endTime: string;
-    date: string;
+    status: 'completed' | 'canceled' | 'scheduled' | 'waiting';
+    specialist_id: number;
+    specialist_name: string;
     notes?: string;
+    contact_number?: string;
+    duration?: string;
 }
 
 interface DoctorAvailabilityProps {
@@ -102,11 +112,7 @@ export default function DoctorAvailability({
     const { props } = usePage();
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
-    const [showScheduleForm, setShowScheduleForm] = useState(false);
     const [selectedDoctor, setSelectedDoctor] = useState(doctors.length > 0 ? doctors[0].id.toString() : '');
-    const [selectedDay, setSelectedDay] = useState('');
-    const [startTime, setStartTime] = useState('');
-    const [endTime, setEndTime] = useState('');
     const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
     const [currentDate, setCurrentDate] = useState(new Date());
     const [showSchedule, setShowSchedule] = useState(true);
@@ -165,15 +171,6 @@ export default function DoctorAvailability({
         return 'text-black';
     };
 
-    const handleSaveSchedule = () => {
-        // In a real app, this would save the schedule
-        alert('Schedule updated successfully!');
-        setShowScheduleForm(false);
-        setSelectedDoctor('');
-        setSelectedDay('');
-        setStartTime('');
-        setEndTime('');
-    };
 
     const getAppointmentStatusColor = (status: string) => {
         switch (status) {
@@ -480,93 +477,6 @@ export default function DoctorAvailability({
                     </Card>
                 </div>
 
-                {/* Schedule Management Form */}
-                {showScheduleForm && (
-                    <Card className="shadow-lg border-0 rounded-xl bg-white mb-8">
-                        <CardHeader className="bg-white border-b border-gray-200">
-                            <CardTitle className="flex items-center gap-3 text-xl font-semibold text-black">
-                                <Settings className="h-5 w-5 text-black" />
-                                Update Doctor Schedule
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-black mb-2">Select Doctor</label>
-                                    <select 
-                                        value={selectedDoctor}
-                                        onChange={(e) => setSelectedDoctor(e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
-                                    >
-                                        <option value="">Choose a doctor...</option>
-                                        {doctorSchedules.map(doctor => (
-                                            <option key={doctor.id} value={doctor.id}>{doctor.name} - {doctor.specialization}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-black mb-2">Select Day</label>
-                                    <select 
-                                        value={selectedDay}
-                                        onChange={(e) => setSelectedDay(e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
-                                    >
-                                        <option value="">Choose a day...</option>
-                                        <option value="monday">Monday</option>
-                                        <option value="tuesday">Tuesday</option>
-                                        <option value="wednesday">Wednesday</option>
-                                        <option value="thursday">Thursday</option>
-                                        <option value="friday">Friday</option>
-                                        <option value="saturday">Saturday</option>
-                                        <option value="sunday">Sunday</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-black mb-2">Start Time</label>
-                                    <select 
-                                        value={startTime}
-                                        onChange={(e) => setStartTime(e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
-                                    >
-                                        <option value="">Select start time...</option>
-                                        {timeSlots.map(time => (
-                                            <option key={time} value={time}>{time}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-black mb-2">End Time</label>
-                                    <select 
-                                        value={endTime}
-                                        onChange={(e) => setEndTime(e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
-                                    >
-                                        <option value="">Select end time...</option>
-                                        {timeSlots.map(time => (
-                                            <option key={time} value={time}>{time}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="flex justify-end gap-3 mt-6">
-                                <Button 
-                                    onClick={() => setShowScheduleForm(false)}
-                                    variant="outline"
-                                    className="px-6 py-2"
-                                >
-                                    Cancel
-                                </Button>
-                                <Button 
-                                    onClick={handleSaveSchedule}
-                                    disabled={!selectedDoctor || !selectedDay || !startTime || !endTime}
-                                    className="bg-black hover:bg-gray-800 text-white px-6 py-2"
-                                >
-                                    Update Schedule
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
 
                 {/* Controls Section - Always Visible */}
                 <Card className="shadow-lg border-0 rounded-xl bg-white mb-6">
@@ -575,6 +485,9 @@ export default function DoctorAvailability({
                             <Calendar className="h-5 w-5 text-black" />
                             Doctor Schedules ({filteredSchedules.length})
                         </CardTitle>
+                        <p className="text-sm text-gray-600 mt-2">
+                            Doctor schedules are managed in the <Link href="/admin/specialists/doctors" className="text-blue-600 hover:text-blue-800 underline">Specialists Management</Link> page.
+                        </p>
                     </CardHeader>
                     <CardContent className="p-6">
                         {/* Controls */}
@@ -587,13 +500,6 @@ export default function DoctorAvailability({
                                     className="max-w-sm"
                                 />
                                 
-                                <Button
-                                    onClick={() => setShowScheduleForm(!showScheduleForm)}
-                                    className="bg-green-600 hover:bg-green-700 text-white"
-                                >
-                                    <Settings className="h-4 w-4 mr-2" />
-                                    Manage Schedules
-                                </Button>
                             </div>
                             
                             <div className="flex items-center gap-2">

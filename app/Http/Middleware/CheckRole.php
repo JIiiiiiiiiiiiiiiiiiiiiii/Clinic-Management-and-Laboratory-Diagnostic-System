@@ -21,8 +21,8 @@ class CheckRole
             return redirect()->route('login');
         }
 
-        // Check if user has the required role using the role attribute
-        $userRole = $user->role;
+        // Check if user has the required role using the mapped role
+        $userRole = $user->getMappedRole();
         $requiredRoles = array_merge([$role], $roles);
         
         if (in_array($userRole, $requiredRoles)) {

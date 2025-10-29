@@ -305,7 +305,6 @@ const createExpenseColumns = (): ColumnDef<Expense>[] => [
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Billing', href: '/admin/billing' },
-    { title: 'Reports', href: '/admin/billing/billing-reports' },
     { title: 'Daily Report', href: '/admin/billing/daily-report' },
 ];
 

@@ -23,6 +23,19 @@ class DoctorPaymentController extends Controller
             $query = DoctorPayment::with(['doctor', 'createdBy', 'updatedBy'])
                 ->orderBy('created_at', 'desc');
 
+            // Default to today's payments if no date filter is specified
+            if (!$request->filled('date') && !$request->filled('date_from') && !$request->filled('date_to')) {
+                // Use Asia/Manila timezone for Philippines
+                $today = now('Asia/Manila')->toDateString();
+                \Log::info('Defaulting to today\'s payments:', [
+                    'today' => $today,
+                    'now()' => now()->toString(),
+                    'now(Asia/Manila)' => now('Asia/Manila')->toString(),
+                    'timezone' => config('app.timezone')
+                ]);
+                $query->whereDate('payment_date', $today);
+            }
+
             // Apply filters
             if ($request->filled('search')) {
                 $search = $request->search;
@@ -37,6 +50,17 @@ class DoctorPaymentController extends Controller
 
             if ($request->filled('doctor_id')) {
                 $query->where('doctor_id', $request->doctor_id);
+            }
+
+            // Handle single date filter (for today's payments)
+            if ($request->filled('date')) {
+                \Log::info('Filtering by date:', [
+                    'requested_date' => $request->date,
+                    'now()' => now()->toDateString(),
+                    'now(Asia/Manila)' => now('Asia/Manila')->toDateString(),
+                    'timezone' => config('app.timezone')
+                ]);
+                $query->whereDate('payment_date', $request->date);
             }
 
             if ($request->filled('date_from')) {
@@ -59,12 +83,20 @@ class DoctorPaymentController extends Controller
                 ]);
             }
 
-            // Get summary statistics
+            // Get summary statistics (respecting date filter)
+            $summaryQuery = DoctorPayment::query();
+            if ($request->filled('date')) {
+                $summaryQuery->whereDate('payment_date', $request->date);
+            } elseif (!$request->filled('date_from') && !$request->filled('date_to')) {
+                // Default to today's data if no date filters are specified
+                $summaryQuery->whereDate('payment_date', now()->toDateString());
+            }
+            
             $summary = [
-                'total_paid' => DoctorPayment::where('status', 'paid')->sum('net_payment'),
-                'pending_amount' => DoctorPayment::where('status', 'pending')->sum('net_payment'),
-                'total_payments' => DoctorPayment::count(),
-                'paid_payments' => DoctorPayment::where('status', 'paid')->count(),
+                'total_paid' => (clone $summaryQuery)->where('status', 'paid')->sum('net_payment'),
+                'pending_amount' => (clone $summaryQuery)->where('status', 'pending')->sum('net_payment'),
+                'total_payments' => $summaryQuery->count(),
+                'paid_payments' => (clone $summaryQuery)->where('status', 'paid')->count(),
             ];
 
             // Get doctors for filter dropdown
@@ -99,16 +131,220 @@ class DoctorPaymentController extends Controller
                 ]);
             }
 
-            return Inertia::render('admin/billing/doctor-payments/index', [
-                'payments' => $payments,
+            return Inertia::render('admin/billing/doctor-payments', [
+                'doctorPayments' => $payments,
                 'summary' => $summary,
                 'doctors' => $doctors,
-                'filters' => $request->only(['search', 'status', 'doctor_id', 'date_from', 'date_to']),
+                'filters' => $request->only(['search', 'status', 'doctor_id', 'date', 'date_from', 'date_to']),
             ]);
         } catch (\Exception $e) {
             \Log::error('DoctorPaymentController::index error: ' . $e->getMessage());
             return back()->withErrors(['error' => 'Failed to load doctor payments: ' . $e->getMessage()]);
         }
+    }
+
+    /**
+     * Display the doctor daily report page
+     */
+    public function dailyReport(Request $request)
+    {
+        $date = $request->get('date', now()->format('Y-m-d'));
+        $doctorId = $request->get('doctor_id');
+        $status = $request->get('status');
+        
+        // Get doctor payments for the specific date
+        $query = DoctorPayment::with(['doctor'])
+            ->whereDate('payment_date', $date);
+            
+        if ($doctorId && $doctorId !== 'all') {
+            $query->where('doctor_id', $doctorId);
+        }
+        
+        if ($status && $status !== 'all') {
+            $query->where('status', $status);
+        }
+        
+        $doctorPayments = $query->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($payment) {
+                return [
+                    'id' => $payment->id,
+                    'doctor_id' => $payment->doctor_id,
+                    'doctor_name' => $payment->doctor?->name,
+                    'doctor_specialization' => $payment->doctor?->specialization ?? 'N/A',
+                    'payment_date' => $payment->payment_date,
+                    'total_incentives' => $payment->incentives,
+                    'total_net_payment' => $payment->net_payment,
+                    'payment_count' => 1, // Individual payment
+                    'average_payment' => $payment->net_payment,
+                    'status' => $payment->status,
+                    'description' => $payment->notes,
+                ];
+            });
+        
+        // Calculate summary statistics
+        $summary = [
+            'total_payments' => $doctorPayments->count(),
+            'total_amount' => $doctorPayments->sum('total_net_payment'),
+            'paid_amount' => $doctorPayments->where('status', 'paid')->sum('total_net_payment'),
+            'pending_amount' => $doctorPayments->where('status', 'pending')->sum('total_net_payment'),
+            'average_payment' => $doctorPayments->count() > 0 ? $doctorPayments->avg('total_net_payment') : 0,
+            'total_doctors' => $doctorPayments->unique('doctor_id')->count(),
+            'highest_paid_doctor' => $doctorPayments->sortByDesc('total_net_payment')->first()?->doctor_name ?? 'N/A',
+            'lowest_paid_doctor' => $doctorPayments->sortBy('total_net_payment')->first()?->doctor_name ?? 'N/A',
+        ];
+        
+        return Inertia::render('admin/billing/doctor-daily-report', [
+            'doctorPayments' => $doctorPayments,
+            'summary' => $summary,
+            'date' => $date,
+            'doctorId' => $doctorId,
+            'status' => $status,
+        ]);
+    }
+
+    /**
+     * Display the doctor monthly report page
+     */
+    public function monthlyReport(Request $request)
+    {
+        $month = $request->get('month', now()->format('Y-m'));
+        $doctorId = $request->get('doctor_id');
+        $status = $request->get('status');
+        
+        // Get doctor payments for the specific month
+        $query = DoctorPayment::with(['doctor'])
+            ->whereYear('payment_date', substr($month, 0, 4))
+            ->whereMonth('payment_date', substr($month, 5, 2));
+            
+        if ($doctorId && $doctorId !== 'all') {
+            $query->where('doctor_id', $doctorId);
+        }
+        
+        if ($status && $status !== 'all') {
+            $query->where('status', $status);
+        }
+        
+        $doctorPayments = $query->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($payment) {
+                return [
+                    'id' => $payment->id,
+                    'doctor_id' => $payment->doctor_id,
+                    'doctor_name' => $payment->doctor?->name,
+                    'doctor_specialization' => $payment->doctor?->specialization ?? 'N/A',
+                    'payment_date' => $payment->payment_date,
+                    'total_incentives' => $payment->incentives,
+                    'total_net_payment' => $payment->net_payment,
+                    'payment_count' => 1,
+                    'average_payment' => $payment->net_payment,
+                    'status' => $payment->status,
+                    'description' => $payment->notes,
+                ];
+            });
+        
+        // Calculate summary statistics
+        $totalPayments = $doctorPayments->count();
+        $totalAmount = $doctorPayments->sum('total_net_payment');
+        $paidAmount = $doctorPayments->where('status', 'paid')->sum('total_net_payment');
+        $pendingAmount = $doctorPayments->where('status', 'pending')->sum('total_net_payment');
+        
+        // Calculate days in month for average daily payments
+        $daysInMonth = date('t', strtotime($month . '-01'));
+        $averageDailyPayments = $daysInMonth > 0 ? $totalPayments / $daysInMonth : 0;
+        
+        $summary = [
+            'total_payments' => $totalPayments,
+            'total_amount' => $totalAmount,
+            'paid_amount' => $paidAmount,
+            'pending_amount' => $pendingAmount,
+            'average_payment' => $totalPayments > 0 ? $totalAmount / $totalPayments : 0,
+            'total_doctors' => $doctorPayments->unique('doctor_id')->count(),
+            'average_daily_payments' => round($averageDailyPayments, 1),
+            'highest_paid_doctor' => $doctorPayments->sortByDesc('total_net_payment')->first()?->doctor_name ?? 'N/A',
+            'lowest_paid_doctor' => $doctorPayments->sortBy('total_net_payment')->first()?->doctor_name ?? 'N/A',
+        ];
+        
+        return Inertia::render('admin/billing/doctor-monthly-report', [
+            'doctorPayments' => $doctorPayments,
+            'summary' => $summary,
+            'month' => $month,
+            'doctorId' => $doctorId,
+            'status' => $status,
+        ]);
+    }
+
+    /**
+     * Display the doctor yearly report page
+     */
+    public function yearlyReport(Request $request)
+    {
+        $year = $request->get('year', now()->format('Y'));
+        $doctorId = $request->get('doctor_id');
+        $status = $request->get('status');
+        
+        // Get doctor payments for the specific year
+        $query = DoctorPayment::with(['doctor'])
+            ->whereYear('payment_date', $year);
+            
+        if ($doctorId && $doctorId !== 'all') {
+            $query->where('doctor_id', $doctorId);
+        }
+        
+        if ($status && $status !== 'all') {
+            $query->where('status', $status);
+        }
+        
+        $doctorPayments = $query->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($payment) {
+                return [
+                    'id' => $payment->id,
+                    'doctor_id' => $payment->doctor_id,
+                    'doctor_name' => $payment->doctor?->name,
+                    'doctor_specialization' => $payment->doctor?->specialization ?? 'N/A',
+                    'payment_date' => $payment->payment_date,
+                    'total_incentives' => $payment->incentives,
+                    'total_net_payment' => $payment->net_payment,
+                    'payment_count' => 1,
+                    'average_payment' => $payment->net_payment,
+                    'status' => $payment->status,
+                    'description' => $payment->notes,
+                ];
+            });
+        
+        // Calculate summary statistics
+        $totalPayments = $doctorPayments->count();
+        $totalAmount = $doctorPayments->sum('total_net_payment');
+        $paidAmount = $doctorPayments->where('status', 'paid')->sum('total_net_payment');
+        $pendingAmount = $doctorPayments->where('status', 'pending')->sum('total_net_payment');
+        
+        // Calculate average monthly payments
+        $averageMonthlyPayments = $totalPayments / 12;
+        
+        // Calculate year-over-year growth (simplified - would need previous year data)
+        $yearOverYearGrowth = 0; // This would need to be calculated with previous year data
+        
+        $summary = [
+            'total_payments' => $totalPayments,
+            'total_amount' => $totalAmount,
+            'paid_amount' => $paidAmount,
+            'pending_amount' => $pendingAmount,
+            'average_payment' => $totalPayments > 0 ? $totalAmount / $totalPayments : 0,
+            'total_doctors' => $doctorPayments->unique('doctor_id')->count(),
+            'average_monthly_payments' => round($averageMonthlyPayments, 1),
+            'highest_paid_doctor' => $doctorPayments->sortByDesc('total_net_payment')->first()?->doctor_name ?? 'N/A',
+            'lowest_paid_doctor' => $doctorPayments->sortBy('total_net_payment')->first()?->doctor_name ?? 'N/A',
+            'year_over_year_growth' => $yearOverYearGrowth,
+        ];
+        
+        return Inertia::render('admin/billing/doctor-yearly-report', [
+            'doctorPayments' => $doctorPayments,
+            'summary' => $summary,
+            'year' => $year,
+            'doctorId' => $doctorId,
+            'status' => $status,
+        ]);
     }
 
     /**

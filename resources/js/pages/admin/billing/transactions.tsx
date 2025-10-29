@@ -198,7 +198,15 @@ export default function BillingTransactions({
         },
         cell: ({ row }) => (
             <div className="font-semibold text-green-600">
-                ₱{row.getValue("amount")?.toLocaleString()}
+                {(() => {
+                    const t = row.original as any;
+                    const amount = Number(t?.amount ?? 0);
+                    const total = Number(t?.total_amount ?? 0);
+                    const discount = Number(t?.discount_amount ?? 0);
+                    const seniorDiscount = Number(t?.senior_discount_amount ?? 0);
+                    const net = amount > 0 ? amount : Math.max(0, total - discount - seniorDiscount);
+                    return `₱${net.toLocaleString()}`;
+                })()}
             </div>
         ),
     },
@@ -405,7 +413,10 @@ export default function BillingTransactions({
     const pendingTransactions = transactionsData.filter((t: BillingTransaction) => t.status === 'pending').length;
     const totalRevenue = transactionsData
         .filter((t: BillingTransaction) => t.status === 'paid')
-        .reduce((sum: number, t: BillingTransaction) => sum + t.amount, 0);
+        .reduce((sum: number, t: BillingTransaction) => {
+            const amount = Number(t.amount) || 0;
+            return sum + amount;
+        }, 0);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>

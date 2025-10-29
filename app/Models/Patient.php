@@ -114,7 +114,11 @@ class Patient extends Model
     // Accessors
     public function getFullNameAttribute()
     {
-        return $this->first_name . ' ' . $this->last_name;
+        $name = trim($this->first_name . ' ' . $this->last_name);
+        if ($this->middle_name) {
+            $name = trim($this->first_name . ' ' . $this->middle_name . ' ' . $this->last_name);
+        }
+        return $name;
     }
 
     public function getFormattedBirthdateAttribute()

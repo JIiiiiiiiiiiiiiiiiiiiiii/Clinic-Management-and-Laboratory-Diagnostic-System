@@ -59,8 +59,8 @@ class DoctorPaymentReportExport implements FromCollection, WithHeadings, WithMap
             $item['doctor_name'],
             $item['doctor_specialization'],
             $item['payment_count'],
-            number_format($item['total_incentives'], 2),
-            number_format($item['total_net_payment'], 2),
+            number_format($item['incentives'], 2),
+            number_format($item['net_payment'], 2),
             number_format($item['average_payment'], 2),
         ];
 
