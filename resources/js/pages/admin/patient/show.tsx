@@ -81,7 +81,7 @@ export default function ShowPatient({ patient, labOrders = [] }: ShowPatientProp
                         </div>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+                            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
@@ -269,7 +269,7 @@ export default function ShowPatient({ patient, labOrders = [] }: ShowPatientProp
                                         </div>
                                         <h4 className="text-lg font-semibold text-gray-900">Laboratory Orders</h4>
                                     </div>
-                                    <Button onClick={() => router.visit(`/admin/laboratory/patients/${patient.id}/orders`)}>
+                                    <Button onClick={() => router.visit(`/admin/laboratory/patients/${patient.id}/orders`)} className="bg-green-600 hover:bg-green-700 text-white">
                                         <TestTube className="mr-2 h-4 w-4" />
                                         Manage Lab Orders
                                     </Button>
@@ -297,13 +297,14 @@ export default function ShowPatient({ patient, labOrders = [] }: ShowPatientProp
                                                                 {order.status}
                                                             </Badge>
                                                             <div className="flex gap-2">
-                                                                <Button onClick={() => router.visit(`/admin/laboratory/orders/${order.id}/results`)}>
+                                                                <Button onClick={() => router.visit(`/admin/laboratory/orders/${order.id}/results`)} className="bg-green-600 hover:bg-green-700 text-white">
                                                                     Enter Results
                                                                 </Button>
                                                                 <Button
                                                                     onClick={() =>
                                                                         window.open(`/admin/laboratory/orders/${order.id}/report`, '_blank')
                                                                     }
+                                                                    className="bg-green-600 hover:bg-green-700 text-white"
                                                                 >
                                                                     Generate Report
                                                                 </Button>
@@ -320,7 +321,7 @@ export default function ShowPatient({ patient, labOrders = [] }: ShowPatientProp
                                             <p className="mb-4 text-gray-600">
                                                 Create laboratory orders for this patient to track diagnostic tests and results.
                                             </p>
-                                            <Button onClick={() => router.visit(`/admin/laboratory/patients/${patient.id}/orders`)}>
+                                            <Button onClick={() => router.visit(`/admin/laboratory/patients/${patient.id}/orders`)} className="bg-green-600 hover:bg-green-700 text-white">
                                                 <TestTube className="mr-2 h-4 w-4" />
                                                 Create Lab Order
                                             </Button>

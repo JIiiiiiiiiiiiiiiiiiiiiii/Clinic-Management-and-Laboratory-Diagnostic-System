@@ -355,7 +355,7 @@ export default function BillingTransactionModal({
 
                 <div className="flex flex-col h-full">
                     <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                        <form id="billing-transaction-form" onSubmit={handleSubmit} className="space-y-4">
                     {/* Validation Errors */}
                     {validationErrors.length > 0 && (
                         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -819,6 +819,7 @@ export default function BillingTransactionModal({
                             </Button>
                             <Button
                                 type="submit"
+                                form="billing-transaction-form"
                                 disabled={processing || items.length === 0}
                                 className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2"
                             >

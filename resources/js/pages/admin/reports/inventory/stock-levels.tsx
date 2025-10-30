@@ -21,7 +21,6 @@ interface Product {
     code: string;
     category?: string;
     unit_of_measure?: string;
-    unit_cost: number;
     minimum_stock_level: number;
     maximum_stock_level: number;
     current_stock: number;
@@ -32,8 +31,6 @@ interface Product {
         expiry_date?: string;
         current_stock: number;
         available_stock: number;
-        average_cost: number;
-        total_value: number;
         is_expired: boolean;
         is_near_expiry: boolean;
     }>;
@@ -234,7 +231,6 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                                             <TableHead className="font-semibold text-gray-700">Available Stock</TableHead>
                                             <TableHead className="font-semibold text-gray-700">Min/Max Levels</TableHead>
                                             <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                                            <TableHead className="font-semibold text-gray-700">Total Value</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -264,11 +260,6 @@ export default function StockLevelsReport({ products, lowStockProducts, expiring
                                                     </TableCell>
                                                     <TableCell>
                                                         <Badge variant={stockStatus.color as any} className="px-3 py-1">{stockStatus.text}</Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="font-medium text-gray-900">
-                                                            ₱{Number((product.current_stock || 0) * Number(product.unit_cost || 0)).toFixed(2)}
-                                                        </div>
                                                     </TableCell>
                                                 </TableRow>
                                             );

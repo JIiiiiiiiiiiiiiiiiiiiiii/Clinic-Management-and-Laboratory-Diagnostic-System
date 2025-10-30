@@ -90,14 +90,14 @@ export default function PatientLabOrders({
 
     const getStatusBadge = (status: string) => {
         const statusConfig = {
-            ordered: { label: 'Ordered', color: 'bg-gray-500' },
-            processing: { label: 'Processing', color: 'bg-gray-500' },
-            completed: { label: 'Completed', color: 'bg-gray-500' },
-            cancelled: { label: 'Cancelled', color: 'bg-gray-500' },
+            ordered: { label: 'Ordered', color: 'bg-green-100 text-green-800 border-green-200' },
+            processing: { label: 'Processing', color: 'bg-green-100 text-green-800 border-green-200' },
+            completed: { label: 'Completed', color: 'bg-green-100 text-green-800 border-green-200' },
+            cancelled: { label: 'Cancelled', color: 'bg-green-100 text-green-800 border-green-200' },
         };
-        const config = statusConfig[status as keyof typeof statusConfig] || { label: status, color: 'bg-gray-500' };
+        const config = statusConfig[status as keyof typeof statusConfig] || { label: status, color: 'bg-green-100 text-green-800 border-green-200' };
         return (
-            <Badge variant="secondary" className={`${config.color} text-white`}>
+            <Badge variant="secondary" className={`${config.color}`}>
                 {config.label}
             </Badge>
         );
@@ -120,7 +120,7 @@ export default function PatientLabOrders({
                                 </p>
                             </div>
                         </div>
-                        <Button onClick={() => setShowCreateForm(!showCreateForm)}>
+                        <Button onClick={() => setShowCreateForm(!showCreateForm)} className="bg-green-600 hover:bg-green-700 text-white">
                             <Plus className="mr-2 h-4 w-4" />
                             {showCreateForm ? 'Cancel' : 'Create New Order'}
                         </Button>
@@ -180,10 +180,10 @@ export default function PatientLabOrders({
                                             )}
                                         </div>
                                         <div className="flex gap-2">
-                                            <Button type="button" variant="secondary" onClick={() => setShowCreateForm(false)} className="bg-white text-gray-700 hover:bg-gray-50">
+                                            <Button type="button" variant="secondary" onClick={() => setShowCreateForm(false)} className="bg-green-600 hover:bg-green-700 text-white">
                                                 Cancel
                                             </Button>
-                                            <Button type="submit" disabled={processing || selectedTests.length === 0} className="bg-white text-black hover:bg-gray-50">
+                                            <Button type="submit" disabled={processing || selectedTests.length === 0} className="bg-green-600 hover:bg-green-700 text-white">
                                                 <TestTube className="mr-2 h-4 w-4" />
                                                 Create Order
                                             </Button>
@@ -218,7 +218,7 @@ export default function PatientLabOrders({
                                                         <span className="text-sm text-muted-foreground">Tests Ordered:</span>
                                                         <div className="mt-1 flex flex-wrap gap-1">
                                                             {(order.lab_tests || []).map((test) => (
-                                                                <Badge key={test.id} variant="outline" className="text-xs">
+                                                                <Badge key={test.id} variant="outline" className="text-xs bg-green-100 text-green-800 border-green-200">
                                                                     {test.name}
                                                                 </Badge>
                                                             ))}
@@ -237,7 +237,7 @@ export default function PatientLabOrders({
                                                     <Button
                                                         onClick={() => router.visit(`/admin/laboratory/orders/${order.id}/results`)}
                                                         disabled={order.status === 'cancelled'}
-                                                        className="bg-white text-black hover:bg-gray-50"
+                                                        className="bg-green-600 hover:bg-green-700 text-white"
                                                     >
                                                         <FileText className="mr-2 h-4 w-4" />
                                                         Enter Results

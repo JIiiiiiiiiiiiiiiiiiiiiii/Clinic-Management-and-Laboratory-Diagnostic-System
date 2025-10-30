@@ -88,6 +88,7 @@
             flex-wrap: wrap;
             gap: 20px;
             margin: 20px 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
         .card {
@@ -123,6 +124,7 @@
             margin-bottom: 12px;
             padding-bottom: 8px;
             border-bottom: 1px solid #f1f3f4;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
         .field-row:last-child {
@@ -136,6 +138,7 @@
             color: #495057;
             flex: 1;
             margin-right: 16px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
         .field-value {
@@ -143,6 +146,7 @@
             flex: 1;
             text-align: right;
             word-break: break-word;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
         .full-width-card {

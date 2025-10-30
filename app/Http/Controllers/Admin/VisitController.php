@@ -15,10 +15,10 @@ class VisitController extends Controller
     public function index(Request $request)
     {
         try {
-            // Get all visits
-            $initialQuery = Visit::with(['patient', 'appointment']);
+            // Get all visits with proper eager loading
+            $initialQuery = Visit::with(['patient', 'appointment', 'attendingStaff']);
             // Get follow-up visits (if any exist)
-            $followUpQuery = Visit::with(['patient', 'appointment'])->where('visit_type', 'follow_up');
+            $followUpQuery = Visit::with(['patient', 'appointment', 'attendingStaff'])->where('visit_type', 'follow_up');
 
             // Apply common filters to both queries
             $applyFilters = function ($query) use ($request) {
@@ -69,18 +69,13 @@ class VisitController extends Controller
             $applyFilters($initialQuery);
             $applyFilters($followUpQuery);
 
-            // Get paginated results
-            $initialVisits = $initialQuery->paginate(15, ['*'], 'initial_page');
-            $followUpVisits = $followUpQuery->paginate(15, ['*'], 'followup_page');
+            // Get paginated results - combine queries for proper pagination
+            $combinedQuery = $initialQuery->union($followUpQuery);
+            $perPage = $request->get('per_page', 15);
+            $allVisits = $combinedQuery->paginate($perPage);
             
             // Transform visits to match frontend expectations
-            $initialVisits->getCollection()->transform(function ($visit) {
-                // Get staff information
-                $staff = null;
-                if ($visit->attending_staff_id) {
-                    $staff = \App\Models\User::find($visit->attending_staff_id);
-                }
-                
+            $allVisits->getCollection()->transform(function ($visit) {
                 return [
                     'id' => $visit->id,
                     'appointment_id' => $visit->appointment_id,
@@ -92,42 +87,10 @@ class VisitController extends Controller
                         'last_name' => $visit->patient->last_name,
                     ] : null,
                     'staff_id' => $visit->attending_staff_id,
-                    'staff' => $staff ? [
-                        'id' => $staff->id,
-                        'name' => $staff->name,
-                        'role' => $staff->role,
-                    ] : null,
-                    'visit_date' => $visit->visit_date_time_time ? $visit->visit_date_time_time : ($visit->visit_date_time ? $visit->visit_date_time : null),
-                    'purpose' => $visit->purpose,
-                    'status' => $visit->status,
-                    'visit_type' => $visit->visit_type,
-                    'notes' => $visit->notes,
-                    'created_at' => $visit->created_at->format('Y-m-d H:i:s'),
-                ];
-            });
-            
-            $followUpVisits->getCollection()->transform(function ($visit) {
-                // Get staff information
-                $staff = null;
-                if ($visit->attending_staff_id) {
-                    $staff = \App\Models\User::find($visit->attending_staff_id);
-                }
-                
-                return [
-                    'id' => $visit->id,
-                    'appointment_id' => $visit->appointment_id,
-                    'patient_id' => $visit->patient_id,
-                    'patient' => $visit->patient ? [
-                        'id' => $visit->patient->id,
-                        'patient_no' => $visit->patient->patient_no,
-                        'first_name' => $visit->patient->first_name,
-                        'last_name' => $visit->patient->last_name,
-                    ] : null,
-                    'staff_id' => $visit->attending_staff_id,
-                    'staff' => $staff ? [
-                        'id' => $staff->id,
-                        'name' => $staff->name,
-                        'role' => $staff->role,
+                    'staff' => $visit->attendingStaff ? [
+                        'id' => $visit->attendingStaff->id,
+                        'name' => $visit->attendingStaff->name,
+                        'role' => $visit->attendingStaff->role,
                     ] : null,
                     'visit_date' => $visit->visit_date_time_time ? $visit->visit_date_time_time : ($visit->visit_date_time ? $visit->visit_date_time : null),
                     'purpose' => $visit->purpose,
@@ -145,19 +108,29 @@ class VisitController extends Controller
                 ->get(['id', 'name', 'role']);
 
             return Inertia::render('admin/visits/index', [
-                'initial_visits' => $initialVisits->items(),
-                'follow_up_visits' => $followUpVisits->items(),
+                'visits' => $allVisits->items(),
+                'pagination' => [
+                    'current_page' => $allVisits->currentPage(),
+                    'last_page' => $allVisits->lastPage(),
+                    'per_page' => $allVisits->perPage(),
+                    'total' => $allVisits->total(),
+                    'from' => $allVisits->firstItem(),
+                    'to' => $allVisits->lastItem(),
+                ],
+                // Keep these for backward compatibility
+                'initial_visits' => $allVisits->items(),
+                'follow_up_visits' => [],
                 'initial_visits_pagination' => [
-                    'current_page' => $initialVisits->currentPage(),
-                    'last_page' => $initialVisits->lastPage(),
-                    'per_page' => $initialVisits->perPage(),
-                    'total' => $initialVisits->total()
+                    'current_page' => $allVisits->currentPage(),
+                    'last_page' => $allVisits->lastPage(),
+                    'per_page' => $allVisits->perPage(),
+                    'total' => $allVisits->total()
                 ],
                 'follow_up_visits_pagination' => [
-                    'current_page' => $followUpVisits->currentPage(),
-                    'last_page' => $followUpVisits->lastPage(),
-                    'per_page' => $followUpVisits->perPage(),
-                    'total' => $followUpVisits->total()
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'per_page' => 15,
+                    'total' => 0
                 ],
                 'filters' => [
                     'search' => $request->get('search', ''),

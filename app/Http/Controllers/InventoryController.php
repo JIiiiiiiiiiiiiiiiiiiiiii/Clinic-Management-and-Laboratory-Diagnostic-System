@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\InventoryItem;
 use App\Models\InventoryMovement;
+use App\Models\InventoryUsedRejectedItem;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -12,6 +13,28 @@ class InventoryController extends Controller
 {
     public function index()
     {
+        // Update all inventory item statuses to ensure they're in sync
+        $this->updateAllInventoryStatuses();
+        
+        // Calculate consumed and rejected items for today
+        // Get movements from today that represent consumption and rejection
+        $consumedToday = InventoryMovement::whereDate('created_at', today())
+            ->where('movement_type', 'OUT')
+            ->where(function($query) {
+                $query->where('remarks', 'like', '%Consumed%')
+                      ->orWhere('remarks', 'like', '%Used%')
+                      ->orWhere('remarks', 'like', '%Consume%');
+            })
+            ->sum('quantity');
+            
+        $rejectedToday = InventoryMovement::whereDate('created_at', today())
+            ->where('movement_type', 'OUT')
+            ->where(function($query) {
+                $query->where('remarks', 'like', '%Rejected%')
+                      ->orWhere('remarks', 'like', '%Reject%');
+            })
+            ->sum('quantity');
+
         // Enhanced inventory dashboard with clickable cards
         $stats = [
             'total_items' => InventoryItem::count(),
@@ -19,7 +42,41 @@ class InventoryController extends Controller
             'out_of_stock_items' => InventoryItem::where('stock', 0)->count(),
             'total_suppliers' => 0, // Set to 0 if no suppliers table
             'total_movements_today' => InventoryMovement::whereDate('created_at', today())->count(),
+            'consumed_today' => $consumedToday,
+            'rejected_today' => $rejectedToday,
         ];
+        
+        // Additional debugging for low stock calculation
+        $allItems = InventoryItem::all();
+        $lowStockItemsDebug = $allItems->filter(function($item) {
+            return $item->stock <= $item->low_stock_alert && $item->stock > 0;
+        });
+        
+        \Log::info('Low Stock Debug Details:', [
+            'low_stock_scope_count' => InventoryItem::lowStock()->count(),
+            'manual_filter_count' => $lowStockItemsDebug->count(),
+            'low_stock_items_manual' => $lowStockItemsDebug->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'name' => $item->item_name,
+                    'code' => $item->item_code,
+                    'stock' => $item->stock,
+                    'low_stock_alert' => $item->low_stock_alert,
+                    'assigned_to' => $item->assigned_to,
+                ];
+            })->toArray(),
+            'all_items_with_alerts' => $allItems->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'name' => $item->item_name,
+                    'code' => $item->item_code,
+                    'stock' => $item->stock,
+                    'low_stock_alert' => $item->low_stock_alert,
+                    'is_low_stock' => $item->stock <= $item->low_stock_alert && $item->stock > 0,
+                    'assigned_to' => $item->assigned_to,
+                ];
+            })->toArray()
+        ]);
 
         $recentMovements = InventoryMovement::with(['inventoryItem'])
             ->orderBy('created_at', 'desc')
@@ -36,12 +93,37 @@ class InventoryController extends Controller
             'total_items' => $stats['total_items'],
             'low_stock_items' => $stats['low_stock_items'],
             'out_of_stock_items' => $stats['out_of_stock_items'],
+            'consumed_today' => $stats['consumed_today'],
+            'rejected_today' => $stats['rejected_today'],
             'lowStockItems_count' => $lowStockItems->count(),
         ]);
+        
+        // Debug logging for low stock items details
+        if ($lowStockItems->count() > 0) {
+            \Log::info('Low Stock Items Details:', $lowStockItems->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'item_name' => $item->item_name,
+                    'item_code' => $item->item_code,
+                    'stock' => $item->stock,
+                    'low_stock_alert' => $item->low_stock_alert,
+                    'status' => $item->status,
+                    'assigned_to' => $item->assigned_to,
+                ];
+            })->toArray());
+        }
 
         // Get Doctor & Nurse Items
         $doctorNurseItems = InventoryItem::byAssignedTo('Doctor & Nurse')->get();
         $transformedDoctorNurseItems = $doctorNurseItems->map(function($item) {
+            // Calculate status dynamically based on current stock and low stock alert
+            $status = 'in_stock';
+            if ($item->stock <= 0) {
+                $status = 'out_of_stock';
+            } elseif ($item->stock <= $item->low_stock_alert) {
+                $status = 'low_stock';
+            }
+            
             return [
                 'id' => $item->id,
                 'item_name' => $item->item_name,
@@ -49,11 +131,9 @@ class InventoryController extends Controller
                 'category' => $item->category,
                 'stock' => $item->stock,
                 'low_stock_alert' => $item->low_stock_alert,
-                'unit_price' => $item->unit_cost ?? 0,
-                'total_value' => $item->stock * ($item->unit_cost ?? 0),
                 'location' => $item->location ?? 'Main Storage',
                 'assigned_to' => $item->assigned_to,
-                'status' => strtolower(str_replace(' ', '_', $item->status)),
+                'status' => $status,
                 'last_updated' => $item->updated_at->toISOString(),
             ];
         });
@@ -61,6 +141,14 @@ class InventoryController extends Controller
         // Get Med Tech Items
         $medTechItems = InventoryItem::byAssignedTo('Med Tech')->get();
         $transformedMedTechItems = $medTechItems->map(function($item) {
+            // Calculate status dynamically based on current stock and low stock alert
+            $status = 'in_stock';
+            if ($item->stock <= 0) {
+                $status = 'out_of_stock';
+            } elseif ($item->stock <= $item->low_stock_alert) {
+                $status = 'low_stock';
+            }
+            
             return [
                 'id' => $item->id,
                 'item_name' => $item->item_name,
@@ -68,11 +156,9 @@ class InventoryController extends Controller
                 'category' => $item->category,
                 'stock' => $item->stock,
                 'low_stock_alert' => $item->low_stock_alert,
-                'unit_price' => $item->unit_cost ?? 0,
-                'total_value' => $item->stock * ($item->unit_cost ?? 0),
                 'location' => $item->location ?? 'Main Storage',
                 'assigned_to' => $item->assigned_to,
-                'status' => strtolower(str_replace(' ', '_', $item->status)),
+                'status' => $status,
                 'last_updated' => $item->updated_at->toISOString(),
             ];
         });
@@ -179,6 +265,14 @@ class InventoryController extends Controller
     {
         // Get Doctor & Nurse Items with proper data transformation
         $doctorNurseItems = InventoryItem::byAssignedTo('Doctor & Nurse')->get()->map(function($item) {
+            // Calculate status dynamically based on current stock and low stock alert
+            $status = 'In Stock';
+            if ($item->stock <= 0) {
+                $status = 'Out of Stock';
+            } elseif ($item->stock <= $item->low_stock_alert) {
+                $status = 'Low Stock';
+            }
+            
             return [
                 'id' => $item->id,
                 'item_name' => $item->item_name,
@@ -189,10 +283,8 @@ class InventoryController extends Controller
                 'stock' => $item->stock,
                 'consumed' => $item->consumed ?? 0,
                 'rejected' => $item->rejected ?? 0,
-                'status' => $item->status,
+                'status' => $status,
                 'low_stock_alert' => $item->low_stock_alert,
-                'unit_price' => $item->unit_cost ?? 0,
-                'total_value' => $item->stock * ($item->unit_cost ?? 0),
                 'location' => $item->location ?? 'Main Storage',
                 'last_updated' => $item->updated_at->toISOString(),
             ];
@@ -200,6 +292,14 @@ class InventoryController extends Controller
 
         // Get Med Tech Items with proper data transformation
         $medTechItems = InventoryItem::byAssignedTo('Med Tech')->get()->map(function($item) {
+            // Calculate status dynamically based on current stock and low stock alert
+            $status = 'In Stock';
+            if ($item->stock <= 0) {
+                $status = 'Out of Stock';
+            } elseif ($item->stock <= $item->low_stock_alert) {
+                $status = 'Low Stock';
+            }
+            
             return [
                 'id' => $item->id,
                 'item_name' => $item->item_name,
@@ -210,10 +310,8 @@ class InventoryController extends Controller
                 'stock' => $item->stock,
                 'consumed' => $item->consumed ?? 0,
                 'rejected' => $item->rejected ?? 0,
-                'status' => $item->status,
+                'status' => $status,
                 'low_stock_alert' => $item->low_stock_alert,
-                'unit_price' => $item->unit_cost ?? 0,
-                'total_value' => $item->stock * ($item->unit_cost ?? 0),
                 'location' => $item->location ?? 'Main Storage',
                 'last_updated' => $item->updated_at->toISOString(),
             ];
@@ -295,24 +393,12 @@ class InventoryController extends Controller
             return back()->withErrors(['quantity' => 'Insufficient stock available.']);
         }
 
-        // Create movement record
-        $movement = InventoryMovement::create([
-            'inventory_id' => $item->id,
-            'movement_type' => $request->movement_type,
-            'quantity' => $request->quantity,
-            'remarks' => $request->reason,
-            'created_by' => $request->handled_by,
-        ]);
-
-        // Update item stock
+        // Update item stock using model methods (which create movement records)
         if ($request->movement_type === 'IN') {
-            $item->increment('stock', $request->quantity);
+            $item->addStock($request->quantity, $request->reason, $request->handled_by);
         } else {
-            $item->decrement('stock', $request->quantity);
-            $item->increment('consumed', $request->quantity);
+            $item->removeStock($request->quantity, false, $request->reason, $request->handled_by);
         }
-
-        $item->updateStatus();
 
         return redirect()->route('admin.inventory.supply-items')->with('success', 'Movement recorded successfully!');
     }
@@ -330,19 +416,8 @@ class InventoryController extends Controller
             return back()->withErrors(['quantity' => 'Insufficient stock available.']);
         }
 
-        // Update stock and consumed count
-        $item->decrement('stock', $request->quantity);
-        $item->increment('consumed', $request->quantity);
-        $item->updateStatus();
-
-        // Create movement record
-        InventoryMovement::create([
-            'inventory_id' => $item->id,
-            'movement_type' => 'OUT',
-            'quantity' => $request->quantity,
-            'remarks' => 'Consumed: ' . ($request->reason ?? 'No reason provided'),
-            'created_by' => auth()->user()->name ?? 'System',
-        ]);
+        // Update stock using model method (which creates movement record)
+        $item->removeStock($request->quantity, false, 'Consumed: ' . ($request->reason ?? 'No reason provided'), auth()->user()->name ?? 'System');
 
         return redirect()->route('admin.inventory.supply-items')->with('success', 'Item consumed successfully!');
     }
@@ -360,19 +435,8 @@ class InventoryController extends Controller
             return back()->withErrors(['quantity' => 'Insufficient stock available.']);
         }
 
-        // Update stock and rejected count
-        $item->decrement('stock', $request->quantity);
-        $item->increment('rejected', $request->quantity);
-        $item->updateStatus();
-
-        // Create movement record
-        InventoryMovement::create([
-            'inventory_id' => $item->id,
-            'movement_type' => 'OUT',
-            'quantity' => $request->quantity,
-            'remarks' => 'Rejected: ' . $request->reason,
-            'created_by' => auth()->user()->name ?? 'System',
-        ]);
+        // Update stock using model method (which creates movement record)
+        $item->removeStock($request->quantity, true, 'Rejected: ' . $request->reason, auth()->user()->name ?? 'System');
 
         return redirect()->route('admin.inventory.supply-items')->with('success', 'Item rejected successfully!');
     }
@@ -1054,6 +1118,35 @@ class InventoryController extends Controller
                             END")
                         ]);
                 }
+                
+                // Create record in inventory_used_rejected_items table
+                $usedBy = auth()->user()->name ?? 'System';
+                $userId = auth()->id() ?? 1;
+                $reason = null;
+                
+                // Extract reason from remarks
+                if ($request->remarks) {
+                    $reason = preg_replace('/^(Consumed|Rejected):\s*/i', '', $request->remarks);
+                    if (empty(trim($reason))) {
+                        $reason = $request->remarks;
+                    }
+                }
+                
+                // Get updated item for location
+                $updatedItem = \App\Models\InventoryItem::find($item->id);
+                
+                \App\Models\InventoryUsedRejectedItem::create([
+                    'inventory_item_id' => $item->id,
+                    'type' => $isRejected ? 'rejected' : 'used',
+                    'quantity' => $request->quantity,
+                    'reason' => $reason,
+                    'location' => $updatedItem->location ?? $updatedItem->assigned_to ?? null,
+                    'used_by' => $usedBy,
+                    'user_id' => $userId,
+                    'date_used_rejected' => $request->date ?? now()->toDateString(),
+                    'remarks' => $request->remarks ?? ($isRejected ? 'Item Rejected' : 'Item Consumed'),
+                    'reference_number' => null,
+                ]);
             }
             
             // Log immediately after update within transaction
@@ -1061,7 +1154,8 @@ class InventoryController extends Controller
                 'item_id' => $item->id,
                 'movement_type' => $request->movement_type,
                 'quantity' => $request->quantity,
-                'was_rejected' => $isRejected
+                'was_rejected' => $isRejected,
+                'used_rejected_record_created' => $request->movement_type === 'OUT'
             ]);
             
             return $movement;
@@ -1123,32 +1217,8 @@ class InventoryController extends Controller
             'handled_by' => 'nullable|string|max:100',
         ]);
 
-        // Use database transaction to ensure atomicity
-        $result = \DB::transaction(function () use ($item, $validated) {
-            // Create movement record
-            $movement = InventoryMovement::create([
-                'inventory_id' => $item->id,
-                'movement_type' => 'OUT',
-                'quantity' => $validated['quantity'],
-                'remarks' => 'Consumed: ' . ($validated['notes'] ?? 'No reason provided'),
-                'created_by' => $validated['handled_by'] ?? auth()->user()->name ?? 'System',
-            ]);
-
-            // Update item stock and consumed count
-            \DB::table('inventory_items')
-                ->where('id', $item->id)
-                ->update([
-                    'stock' => \DB::raw('stock - ' . $validated['quantity']),
-                    'consumed' => \DB::raw('consumed + ' . $validated['quantity']),
-                    'status' => \DB::raw("CASE 
-                        WHEN stock - " . $validated['quantity'] . " <= 0 THEN 'Out of Stock'
-                        WHEN stock - " . $validated['quantity'] . " <= low_stock_alert THEN 'Low Stock'
-                        ELSE 'In Stock'
-                    END")
-                ]);
-
-            return $movement;
-        });
+        // Update stock using model method (which creates movement record)
+        $item->removeStock($validated['quantity'], false, 'Consumed: ' . ($validated['notes'] ?? 'No reason provided'), $validated['handled_by'] ?? auth()->user()->name ?? 'System');
 
         // Force refresh the item from database
         $item = InventoryItem::findOrFail($id);
@@ -1166,36 +1236,147 @@ class InventoryController extends Controller
             'handled_by' => 'nullable|string|max:100',
         ]);
 
-        // Use database transaction to ensure atomicity
-        $result = \DB::transaction(function () use ($item, $validated) {
-            // Create movement record
-            $movement = InventoryMovement::create([
-                'inventory_id' => $item->id,
-                'movement_type' => 'OUT',
-                'quantity' => $validated['quantity'],
-                'remarks' => 'Rejected: ' . ($validated['notes'] ?? 'No reason provided'),
-                'created_by' => $validated['handled_by'] ?? auth()->user()->name ?? 'System',
-            ]);
-
-            // Update item stock and rejected count
-            \DB::table('inventory_items')
-                ->where('id', $item->id)
-                ->update([
-                    'stock' => \DB::raw('stock - ' . $validated['quantity']),
-                    'rejected' => \DB::raw('rejected + ' . $validated['quantity']),
-                    'status' => \DB::raw("CASE 
-                        WHEN stock - " . $validated['quantity'] . " <= 0 THEN 'Out of Stock'
-                        WHEN stock - " . $validated['quantity'] . " <= low_stock_alert THEN 'Low Stock'
-                        ELSE 'In Stock'
-                    END")
-                ]);
-
-            return $movement;
-        });
+        // Update stock using model method (which creates movement record)
+        $item->removeStock($validated['quantity'], true, 'Rejected: ' . ($validated['notes'] ?? 'No reason provided'), $validated['handled_by'] ?? auth()->user()->name ?? 'System');
 
         // Force refresh the item from database
         $item = InventoryItem::findOrFail($id);
 
         return back()->with('success', "Item rejected successfully! Stock: {$item->stock}, Rejected: {$item->rejected}");
+    }
+
+    /**
+     * Debug endpoint to check low stock items
+     */
+    public function debugLowStock()
+    {
+        $lowStockItems = InventoryItem::lowStock()
+            ->orderBy('stock', 'asc')
+            ->get();
+            
+        $allItems = InventoryItem::all();
+        
+        $debugInfo = [
+            'total_items' => $allItems->count(),
+            'low_stock_count' => $lowStockItems->count(),
+            'low_stock_items' => $lowStockItems->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'item_name' => $item->item_name,
+                    'item_code' => $item->item_code,
+                    'category' => $item->category,
+                    'stock' => $item->stock,
+                    'low_stock_alert' => $item->low_stock_alert,
+                    'status' => $item->status,
+                    'assigned_to' => $item->assigned_to,
+                    'location' => $item->location,
+                    'difference' => $item->stock - $item->low_stock_alert,
+                ];
+            })->toArray(),
+            'all_items_summary' => $allItems->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'item_name' => $item->item_name,
+                    'item_code' => $item->item_code,
+                    'stock' => $item->stock,
+                    'low_stock_alert' => $item->low_stock_alert,
+                    'is_low_stock' => $item->stock <= $item->low_stock_alert,
+                    'status' => $item->status,
+                ];
+            })->toArray()
+        ];
+        
+        return response()->json($debugInfo, 200, [], JSON_PRETTY_PRINT);
+    }
+
+    /**
+     * Debug endpoint to check inventory movements
+     */
+    public function debugMovements()
+    {
+        $movements = InventoryMovement::with('inventoryItem')->orderBy('created_at', 'desc')->get();
+        $incoming = InventoryMovement::where('movement_type', 'IN')->sum('quantity');
+        $outgoing = InventoryMovement::where('movement_type', 'OUT')->sum('quantity');
+        
+        $debugInfo = [
+            'total_movements' => $movements->count(),
+            'incoming_total' => $incoming,
+            'outgoing_total' => $outgoing,
+            'net_total' => $incoming - $outgoing,
+            'movements' => $movements->map(function($movement) {
+                return [
+                    'id' => $movement->id,
+                    'type' => $movement->movement_type,
+                    'quantity' => $movement->quantity,
+                    'remarks' => $movement->remarks,
+                    'item_name' => $movement->inventoryItem ? $movement->inventoryItem->item_name : 'No Item',
+                    'item_code' => $movement->inventoryItem ? $movement->inventoryItem->item_code : 'No Code',
+                    'created_at' => $movement->created_at->format('Y-m-d H:i:s'),
+                ];
+            })->toArray()
+        ];
+        return response()->json($debugInfo, 200, [], JSON_PRETTY_PRINT);
+    }
+
+    /**
+     * Test method to create a sample movement
+     */
+    public function testMovement()
+    {
+        $item = InventoryItem::first();
+        if (!$item) {
+            return response()->json(['error' => 'No inventory items found'], 404);
+        }
+
+        $beforeCount = InventoryMovement::count();
+        
+        // Test adding stock
+        $item->addStock(5, 'Test movement - stock added', 'Test User');
+        
+        $afterCount = InventoryMovement::count();
+        
+        return response()->json([
+            'item_name' => $item->item_name,
+            'item_code' => $item->item_code,
+            'before_movements' => $beforeCount,
+            'after_movements' => $afterCount,
+            'movement_created' => $afterCount > $beforeCount,
+            'latest_movement' => InventoryMovement::latest()->first()
+        ], 200, [], JSON_PRETTY_PRINT);
+    }
+
+    /**
+     * Update all inventory item statuses to ensure they're in sync with current stock levels
+     */
+    private function updateAllInventoryStatuses()
+    {
+        try {
+            $items = InventoryItem::all();
+            $updatedCount = 0;
+            
+            foreach ($items as $item) {
+                $oldStatus = $item->status;
+                $newStatus = 'In Stock';
+                
+                if ($item->stock <= 0) {
+                    $newStatus = 'Out of Stock';
+                } elseif ($item->stock <= $item->low_stock_alert) {
+                    $newStatus = 'Low Stock';
+                }
+                
+                // Only update if status has changed
+                if ($oldStatus !== $newStatus) {
+                    $item->update(['status' => $newStatus]);
+                    $updatedCount++;
+                }
+            }
+            
+            if ($updatedCount > 0) {
+                \Log::info("Updated {$updatedCount} inventory item statuses to sync with stock levels");
+            }
+            
+        } catch (\Exception $e) {
+            \Log::error('Error updating inventory statuses: ' . $e->getMessage());
+        }
     }
 }

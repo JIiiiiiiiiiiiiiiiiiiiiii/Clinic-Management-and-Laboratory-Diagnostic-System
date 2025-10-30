@@ -510,6 +510,17 @@ class EnhancedHmoReportController extends Controller
         $dateTo = $request->get('date_to', now()->format('Y-m-d'));
         $format = $request->get('format', 'excel');
         $providerId = $request->get('hmo_provider_id');
+        $reportType = $request->get('report_type', 'daily');
+
+        // Debug: Log the export request
+        \Log::info('HMO Export Data Request', [
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'format' => $format,
+            'provider_id' => $providerId,
+            'report_type' => $reportType,
+            'user' => auth()->user()?->name ?? 'Guest'
+        ]);
 
         try {
             // Get HMO data
@@ -517,13 +528,21 @@ class EnhancedHmoReportController extends Controller
             $hmoProviders = HmoProvider::all()->toArray();
             $summary = $this->getHmoSummary($dateFrom, $dateTo, $providerId);
 
+            // Debug: Log the data being exported
+            \Log::info('HMO Export Data Debug', [
+                'hmo_transactions_count' => is_array($hmoTransactions) ? count($hmoTransactions) : 'Not array',
+                'hmo_providers_count' => count($hmoProviders),
+                'summary' => $summary,
+                'format' => $format
+            ]);
+
             // Create filename
             $filename = 'hmo-report-' . $dateFrom . '-to-' . $dateTo . '-' . now()->format('Y-m-d-H-i-s');
 
             if ($format === 'excel') {
                 $export = new \App\Exports\HmoReportExport(
                     $summary,
-                    $hmoTransactions->toArray(),
+                    is_array($hmoTransactions) ? $hmoTransactions : $hmoTransactions->toArray(),
                     $hmoProviders,
                     $dateFrom,
                     $dateTo
@@ -537,7 +556,14 @@ class EnhancedHmoReportController extends Controller
                 return $this->exportToCsv($hmoTransactions, $hmoProviders, $summary, $filename);
             }
         } catch (\Exception $e) {
-            \Log::error('HMO export failed: ' . $e->getMessage());
+            \Log::error('HMO Export Error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'format' => $format,
+                'provider_id' => $providerId
+            ]);
             return response()->json(['error' => 'Export failed: ' . $e->getMessage()], 500);
         }
     }
@@ -933,12 +959,29 @@ class EnhancedHmoReportController extends Controller
     private function exportToPdf($hmoTransactions, $hmoProviders, $summary, $dateFrom, $dateTo, $filename)
     {
         try {
-            $pdf = Pdf::loadView('reports.hmo-report-pdf', [
-                'hmoTransactions' => $hmoTransactions->toArray(),
-                'hmoProviders' => $hmoProviders,
+            // Debug: Log the export data
+            \Log::info('HMO PDF Export Debug', [
+                'hmo_transactions_count' => is_array($hmoTransactions) ? count($hmoTransactions) : 'Not array',
+                'hmo_transactions_sample' => is_array($hmoTransactions) && count($hmoTransactions) > 0 ? $hmoTransactions[0] : 'No data',
+                'hmo_providers_count' => is_array($hmoProviders) ? count($hmoProviders) : 'Not array',
                 'summary' => $summary,
-                'dateFrom' => $dateFrom,
-                'dateTo' => $dateTo,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'filename' => $filename
+            ]);
+
+            // Convert logo to base64 for PDF
+            $logoPath = public_path('st-james-logo.png');
+            $logoBase64 = '';
+            if (file_exists($logoPath)) {
+                $logoData = file_get_contents($logoPath);
+                $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+            }
+
+            $pdf = Pdf::loadView('reports.hmo-report-unified-pdf', [
+                'hmoTransactions' => is_array($hmoTransactions) ? $hmoTransactions : $hmoTransactions->toArray(),
+                'title' => 'HMO Report - ' . \Carbon\Carbon::parse($dateFrom)->format('M d, Y') . ' to ' . \Carbon\Carbon::parse($dateTo)->format('M d, Y'),
+                'logoBase64' => $logoBase64,
             ]);
 
             $pdf->setPaper('A4', 'portrait');
@@ -950,7 +993,13 @@ class EnhancedHmoReportController extends Controller
 
             return $pdf->download($filename . '.pdf');
         } catch (\Exception $e) {
-            \Log::error('PDF export failed: ' . $e->getMessage());
+            \Log::error('HMO PDF Export Error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'hmo_transactions_count' => is_array($hmoTransactions) ? count($hmoTransactions) : 'Not array',
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo
+            ]);
             return response()->json(['error' => 'PDF export failed: ' . $e->getMessage()], 500);
         }
     }

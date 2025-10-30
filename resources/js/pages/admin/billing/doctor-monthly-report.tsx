@@ -394,7 +394,14 @@ export default function DoctorMonthlyReport({
                                 />
                                 <Button
                                     onClick={() => {
-                                        const exportUrl = `/admin/billing/doctor-summary/export?month=${selectedMonth}&format=excel&report_type=monthly`;
+                                        const params = new URLSearchParams({
+                                            month: selectedMonth,
+                                            format: 'excel',
+                                            report_type: 'monthly',
+                                        });
+                                        if (doctorId && doctorId !== 'all') params.set('doctor_id', String(doctorId));
+                                        if (status && status !== 'all') params.set('status', String(status));
+                                        const exportUrl = `/admin/billing/doctor-summary/export?${params.toString()}`;
                                         window.open(exportUrl, '_blank');
                                     }}
                                     className="bg-green-600 hover:bg-green-700 text-white ml-4"
@@ -404,7 +411,14 @@ export default function DoctorMonthlyReport({
                                 </Button>
                                 <Button
                                     onClick={() => {
-                                        const exportUrl = `/admin/billing/doctor-summary/export?month=${selectedMonth}&format=pdf&report_type=monthly`;
+                                        const params = new URLSearchParams({
+                                            month: selectedMonth,
+                                            format: 'pdf',
+                                            report_type: 'monthly',
+                                        });
+                                        if (doctorId && doctorId !== 'all') params.set('doctor_id', String(doctorId));
+                                        if (status && status !== 'all') params.set('status', String(status));
+                                        const exportUrl = `/admin/billing/doctor-summary/export?${params.toString()}`;
                                         window.open(exportUrl, '_blank');
                                     }}
                                     variant="outline"

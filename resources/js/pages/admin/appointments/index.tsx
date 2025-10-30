@@ -360,27 +360,69 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
     const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list' as 'list' | 'calendar');
     const [currentDate, setCurrentDate] = useState(new Date());
     
+    // Filter states
+    const [statusFilter, setStatusFilter] = useState(filters?.status || 'all');
+    const [dateFilter, setDateFilter] = useState<Date | undefined>(filters?.date ? new Date(filters.date) : undefined);
+    const [doctorFilter, setDoctorFilter] = useState(filters?.specialist || 'all');
+    const [searchTerm, setSearchTerm] = useState(filters?.search || '');
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(filters?.search || '');
+
+    // Search handler
+    const handleSearch = () => {
+        console.log('Search triggered with term:', debouncedSearchTerm);
+        const params: any = {};
+        
+        if (debouncedSearchTerm && debouncedSearchTerm.trim() !== '') {
+            params.search = debouncedSearchTerm;
+        }
+        if (statusFilter && statusFilter !== 'all') {
+            params.status = statusFilter;
+        }
+        if (dateFilter) {
+            params.date = format(dateFilter, 'yyyy-MM-dd');
+        }
+        if (doctorFilter && doctorFilter !== 'all') {
+            params.specialist = doctorFilter;
+        }
+
+        console.log('Search params:', params);
+        router.get(route('admin.appointments.index'), params, {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
+
     // Update local state when props change
     useEffect(() => {
         console.log('Appointments data received:', appointments);
         setAppointmentsList(appointments.data);
     }, [appointments.data]);
 
+    // Debounced search effect
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm);
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [searchTerm]);
+
+    // Handle search with server-side filtering
+    useEffect(() => {
+        if (debouncedSearchTerm !== (filters?.search || '')) {
+            handleSearch();
+        }
+    }, [debouncedSearchTerm]);
+
     // TanStack Table state
     const [sorting, setSorting] = useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = useState({});
-    const [globalFilter, setGlobalFilter] = useState(filters?.search || '');
     const [pagination, setPagination] = useState({
         pageIndex: 0,
         pageSize: 10,
     });
-    
-    // Filter states
-    const [statusFilter, setStatusFilter] = useState(filters?.status || 'all');
-    const [dateFilter, setDateFilter] = useState<Date | undefined>(filters?.date ? new Date(filters.date) : undefined);
-    const [doctorFilter, setDoctorFilter] = useState(filters?.specialist || 'all');
     
     // Modal states
     const [showEditModal, setShowEditModal] = useState(false);
@@ -398,7 +440,7 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
     
     // Initialize filters from props
     useEffect(() => {
-        if (filters.search) setGlobalFilter(filters.search);
+        if (filters.search) setSearchTerm(filters.search);
         if (filters.status) setStatusFilter(filters.status);
         if (filters.date) setDateFilter(new Date(filters.date));
         if (filters.specialist) setDoctorFilter(filters.specialist);
@@ -669,24 +711,11 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
         getFilteredRowModel: getFilteredRowModel(),
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
-        onGlobalFilterChange: setGlobalFilter,
-        globalFilterFn: (row, columnId, value) => {
-            const search = value.toLowerCase();
-            const appointment = row.original;
-            return (
-                appointment.patient_name?.toLowerCase().includes(search) ||
-                appointment.specialist_name?.toLowerCase().includes(search) ||
-                appointment.patient_id?.toLowerCase().includes(search) ||
-                appointment.contact_number?.toLowerCase().includes(search) ||
-                appointment.appointment_type?.toLowerCase().includes(search)
-            );
-        },
         state: {
             sorting,
             columnFilters,
             columnVisibility,
             rowSelection,
-            globalFilter,
             pagination,
         },
         onPaginationChange: setPagination,
@@ -812,9 +841,9 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                         <div className="flex flex-wrap items-center gap-4 py-4">
                             <div className="flex items-center gap-4 flex-1 min-w-0">
                                 <Input
-                                    placeholder="Search appointments..."
-                                    value={globalFilter ?? ""}
-                                    onChange={(event) => setGlobalFilter(event.target.value)}
+                                    placeholder="Search patient name, ID, or specialist..."
+                                    value={searchTerm}
+                                    onChange={(event) => setSearchTerm(event.target.value)}
                                     className="max-w-sm"
                                 />
                                 
@@ -897,7 +926,7 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                     <Button
                                         variant="outline"
                                         onClick={() => {
-                                            setGlobalFilter('');
+                                            setSearchTerm('');
                                             setStatusFilter('all');
                                             setDateFilter(undefined);
                                             setDoctorFilter('all');

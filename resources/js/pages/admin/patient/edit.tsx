@@ -120,7 +120,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                 icon={<Edit className="h-6 w-6" />}
                 actions={
                     <PatientActionButton
-                        variant="outline"
+                        variant="default"
                         icon={<ArrowLeft className="h-4 w-4" />}
                         label="Back to Patients"
                         href="/admin/patient"
@@ -450,10 +450,10 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                         icon={<Save className="h-5 w-5 text-black" />}
                     >
                         <div className="flex items-center justify-end gap-6">
-                            <Button asChild variant="outline" className="px-8 py-4 text-lg font-semibold rounded-xl">
+                            <Button asChild className="px-8 py-4 text-lg font-semibold rounded-xl bg-green-600 hover:bg-green-700 text-white">
                                 <Link href="/admin/patient">Cancel</Link>
                             </Button>
-                            <Button disabled={processing} type="submit" variant="default" className="px-8 py-4 text-lg font-semibold rounded-xl">
+                            <Button disabled={processing} type="submit" variant="default" className="px-8 py-4 text-lg font-semibold rounded-xl bg-green-600 hover:bg-green-700 text-white">
                                 <Save className="mr-3 h-6 w-6" />
                                 {processing ? 'Updating Patient...' : 'Update Patient'}
                             </Button>

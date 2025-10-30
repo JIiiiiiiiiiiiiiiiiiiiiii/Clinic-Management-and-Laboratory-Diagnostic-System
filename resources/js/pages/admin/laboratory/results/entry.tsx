@@ -137,18 +137,7 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
     };
 
     const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'ordered':
-                return 'bg-gray-100 text-black border-gray-200';
-            case 'processing':
-                return 'bg-gray-100 text-black border-gray-200';
-            case 'completed':
-                return 'bg-gray-100 text-black border-gray-200';
-            case 'cancelled':
-                return 'bg-gray-100 text-black border-gray-200';
-            default:
-                return 'bg-gray-100 text-gray-800 border-gray-200';
-        }
+        return 'bg-green-100 text-green-800 border-green-200';
     };
 
     const formatDate = (dateString: string) => {
@@ -553,7 +542,7 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                                         variant="outline" 
                                         onClick={handleSave} 
                                         disabled={processing}
-                                        className="flex-1 sm:flex-none"
+                                        className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white"
                                     >
                                         <Save className="mr-2 h-4 w-4" />
                                         Save Draft
@@ -563,7 +552,7 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                                         <Button 
                                             onClick={handleVerify} 
                                             disabled={processing}
-                                            className="flex-1 sm:flex-none"
+                                            className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white"
                                         >
                                             <CheckCircle className="mr-2 h-4 w-4" />
                                             Verify & Complete
@@ -571,7 +560,7 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                                     )}
                                     
                                     {isVerified && (
-                                        <Button variant="secondary" disabled className="flex-1 sm:flex-none">
+                                        <Button variant="secondary" disabled className="flex-1 sm:flex-none bg-green-600 text-white">
                                             <CheckCircle2 className="mr-2 h-4 w-4" />
                                             ✓ Verified
                                         </Button>
@@ -580,7 +569,7 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                                     <Button 
                                         variant="outline" 
                                         onClick={() => window.open(`/admin/laboratory/orders/${order.id}/report`, '_blank')}
-                                        className="flex-1 sm:flex-none"
+                                        className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white"
                                     >
                                         <FileText className="mr-2 h-4 w-4" />
                                         Generate Report
@@ -592,7 +581,7 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
 
                                     {/* Badge Section */}
                                     <div className="mb-8 pb-6 border-b border-gray-200 flex justify-end">
-                                        <Badge variant="outline" className="text-black border-gray-200">
+                                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
                                             {tests.length} test{tests.length !== 1 ? 's' : ''}
                                         </Badge>
                                     </div>

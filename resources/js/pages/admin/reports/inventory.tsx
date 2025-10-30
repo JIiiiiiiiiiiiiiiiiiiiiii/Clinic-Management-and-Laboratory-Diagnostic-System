@@ -68,16 +68,20 @@ type Supply = {
     name: string;
     code: string;
     category: string;
-    unit_of_measure: string;
-    current_stock: number;
-    minimum_stock_level: number;
-    maximum_stock_level: number;
-    unit_cost: number;
-    total_value: number;
-    is_low_stock: boolean;
-    is_out_of_stock: boolean;
-    is_active: boolean;
+    unit_of_measure?: string;
+    current_stock?: number;
+    minimum_stock_level?: number;
+    maximum_stock_level?: number;
+    is_low_stock?: boolean;
+    is_out_of_stock?: boolean;
+    is_active?: boolean;
     created_at: string;
+    // Movement fields
+    movement_type?: string;
+    quantity?: number;
+    created_by?: string;
+    remarks?: string;
+    item_id?: number;
 };
 
 interface InventoryReportsProps {
@@ -88,7 +92,6 @@ interface InventoryReportsProps {
         total_products: number;
         low_stock_items: number;
         out_of_stock: number;
-        total_value: number;
         used_count?: number;
         rejected_count?: number;
         total_transactions?: number;
@@ -99,7 +102,6 @@ interface InventoryReportsProps {
         net_value?: number;
         category_summary: Record<string, {
             count: number;
-            total_value: number;
             low_stock: number;
             out_of_stock: number;
             used_quantity?: number;
@@ -126,7 +128,6 @@ interface InventoryReportsProps {
         total_products: number;
         low_stock_items: number;
         out_of_stock: number;
-        total_value: number;
     };
     filterOptions?: {
         doctors: Array<{ id: number; name: string }>;
@@ -148,148 +149,207 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Inventory', href: '/admin/reports/inventory' },
 ];
 
-const createColumns = (): ColumnDef<Supply>[] => [
-    {
-        accessorKey: "name",
-        header: ({ column }) => {
-            return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
-                    Product Name
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            )
+const createColumns = (reportType: string): ColumnDef<Supply>[] => {
+    const baseColumns: ColumnDef<Supply>[] = [
+        {
+            accessorKey: "name",
+            header: ({ column }) => {
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                        className="h-8 px-2 lg:px-3"
+                    >
+                        Product Name
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                )
+            },
+            cell: ({ row }) => (
+                <div className="font-medium">{row.getValue("name")}</div>
+            ),
         },
-        cell: ({ row }) => (
-            <div className="font-medium">{row.getValue("name")}</div>
-        ),
-    },
-    {
-        accessorKey: "code",
-        header: "Code",
-        cell: ({ row }) => (
-            <div className="text-sm font-mono">{row.getValue("code")}</div>
-        ),
-    },
-    {
-        accessorKey: "category",
-        header: ({ column }) => {
-            return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
-                    Category
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            )
+        {
+            accessorKey: "code",
+            header: "Code",
+            cell: ({ row }) => (
+                <div className="text-sm font-mono">{row.getValue("code")}</div>
+            ),
         },
-        cell: ({ row }) => {
-            const category = row.getValue("category") as string;
-            return (
-                <Badge variant="outline" className="capitalize">
-                    {category}
-                </Badge>
-            );
+        {
+            accessorKey: "category",
+            header: ({ column }) => {
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                        className="h-8 px-2 lg:px-3"
+                    >
+                        Category
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                )
+            },
+            cell: ({ row }) => {
+                const category = row.getValue("category") as string;
+                return (
+                    <Badge variant="outline" className="capitalize">
+                        {category}
+                    </Badge>
+                );
+            },
         },
-    },
-    {
-        accessorKey: "current_stock",
-        header: ({ column }) => {
-            return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
-                    Current Stock
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            )
-        },
-        cell: ({ row }) => {
-            const stock = row.getValue("current_stock") as number;
-            const minLevel = row.original.minimum_stock_level;
-            const isLowStock = stock <= minLevel;
-            const isOutOfStock = stock <= 0;
-            
-            return (
-                <div className="flex items-center gap-2">
-                    <span className={isOutOfStock ? "text-red-600 font-semibold" : isLowStock ? "text-orange-600 font-semibold" : "text-green-600"}>
-                        {stock.toLocaleString()}
-                    </span>
-                    {isOutOfStock && <XCircle className="h-4 w-4 text-red-500" />}
-                    {isLowStock && !isOutOfStock && <AlertCircle className="h-4 w-4 text-orange-500" />}
-                </div>
-            );
-        },
-    },
-    {
-        accessorKey: "minimum_stock_level",
-        header: "Min Level",
-        cell: ({ row }) => (
-            <div className="text-sm">{row.getValue("minimum_stock_level")}</div>
-        ),
-    },
-    {
-        accessorKey: "unit_cost",
-        header: ({ column }) => {
-            return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
-                    Unit Cost
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            )
-        },
-        cell: ({ row }) => {
-            const cost = row.getValue("unit_cost") as number;
-            return (
-                <div className="text-sm">₱{cost.toFixed(2)}</div>
-            );
-        },
-    },
-    {
-        accessorKey: "total_value",
-        header: ({ column }) => {
-            return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
-                    Total Value
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            )
-        },
-        cell: ({ row }) => {
-            const value = row.getValue("total_value") as number;
-            return (
-                <div className="text-sm font-semibold">₱{value.toFixed(2)}</div>
-            );
-        },
-    },
-    {
-        accessorKey: "is_active",
-        header: "Status",
-        cell: ({ row }) => {
-            const isActive = row.getValue("is_active") as boolean;
-            return (
-                <Badge variant={isActive ? "default" : "secondary"}>
-                    {isActive ? "Active" : "Inactive"}
-                </Badge>
-            );
-        },
-    },
-];
+    ];
+
+    // Add columns based on report type
+    if (reportType === 'all') {
+        baseColumns.push(
+            {
+                accessorKey: "current_stock",
+                header: ({ column }) => {
+                    return (
+                        <Button
+                            variant="ghost"
+                            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                            className="h-8 px-2 lg:px-3"
+                        >
+                            Current Stock
+                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                    )
+                },
+                cell: ({ row }) => {
+                    const stock = row.getValue("current_stock") as number;
+                    const minLevel = row.original.minimum_stock_level;
+                    const isLowStock = stock <= minLevel;
+                    const isOutOfStock = stock <= 0;
+                    
+                    return (
+                        <div className="flex items-center gap-2">
+                            <span className={isOutOfStock ? "text-red-600 font-semibold" : isLowStock ? "text-orange-600 font-semibold" : "text-green-600"}>
+                                {stock.toLocaleString()}
+                            </span>
+                            {isOutOfStock && <XCircle className="h-4 w-4 text-red-500" />}
+                            {isLowStock && !isOutOfStock && <AlertCircle className="h-4 w-4 text-orange-500" />}
+                        </div>
+                    );
+                },
+            },
+            {
+                accessorKey: "minimum_stock_level",
+                header: "Min Level",
+                cell: ({ row }) => (
+                    <div className="text-sm">{row.getValue("minimum_stock_level")}</div>
+                ),
+            },
+            {
+                accessorKey: "is_active",
+                header: "Status",
+                cell: ({ row }) => {
+                    const isActive = row.getValue("is_active") as boolean;
+                    return (
+                        <Badge variant={isActive ? "default" : "secondary"}>
+                            {isActive ? "Active" : "Inactive"}
+                        </Badge>
+                    );
+                },
+            }
+        );
+    } else if (reportType === 'used_rejected') {
+        baseColumns.push(
+            {
+                accessorKey: "used_quantity",
+                header: "Used Quantity",
+                cell: ({ row }) => (
+                    <div className="text-sm font-medium">{row.getValue("used_quantity") || 0}</div>
+                ),
+            },
+            {
+                accessorKey: "rejected_quantity",
+                header: "Rejected Quantity",
+                cell: ({ row }) => (
+                    <div className="text-sm font-medium">{row.getValue("rejected_quantity") || 0}</div>
+                ),
+            }
+        );
+    } else if (reportType === 'in_out') {
+        baseColumns.push(
+            {
+                accessorKey: "movement_type",
+                header: "Movement Type",
+                cell: ({ row }) => {
+                    const type = row.getValue("movement_type") as string | undefined;
+                    // Only use fallback if the value is truly null/undefined, not if it's an empty string
+                    const movementType = type ?? 'UNKNOWN';
+                    return (
+                        <Badge variant={movementType === 'IN' ? 'default' : 'destructive'}>
+                            {movementType === 'IN' ? 'Incoming' : movementType === 'OUT' ? 'Outgoing' : 'Unknown'}
+                        </Badge>
+                    );
+                },
+            },
+            {
+                accessorKey: "quantity",
+                header: "Quantity",
+                cell: ({ row }) => {
+                    const quantity = row.getValue("quantity") as number | undefined;
+                    const type = row.original.movement_type;
+                    const quantityValue = quantity ?? 0;
+                    return (
+                        <div className={`text-sm font-medium ${type === 'IN' ? 'text-green-600' : 'text-red-600'}`}>
+                            {quantityValue.toLocaleString()}
+                        </div>
+                    );
+                },
+            },
+            {
+                accessorKey: "created_by",
+                header: "Created By",
+                cell: ({ row }) => {
+                    const createdBy = row.getValue("created_by") as string | undefined;
+                    // Only use fallback if the value is truly null/undefined, not if it's an empty string
+                    return (
+                        <div className="text-sm">{createdBy ?? 'System'}</div>
+                    );
+                },
+            },
+            {
+                accessorKey: "created_at",
+                header: "Date",
+                cell: ({ row }) => {
+                    const date = row.getValue("created_at") as string | undefined;
+                    if (!date) return <div className="text-sm text-gray-600">N/A</div>;
+                    
+                    try {
+                        const dateObj = new Date(date);
+                        return (
+                            <div className="text-sm text-gray-600">
+                                {dateObj.toLocaleDateString()} {dateObj.toLocaleTimeString()}
+                            </div>
+                        );
+                    } catch (error) {
+                        return <div className="text-sm text-gray-600">Invalid Date</div>;
+                    }
+                },
+            },
+            {
+                accessorKey: "remarks",
+                header: "Remarks",
+                cell: ({ row }) => {
+                    const remarks = row.getValue("remarks") as string | undefined;
+                    const remarksValue = remarks || 'No remarks';
+                    return (
+                        <div className="text-sm text-gray-600 max-w-xs truncate" title={remarksValue}>
+                            {remarksValue}
+                        </div>
+                    );
+                },
+            }
+        );
+    }
+
+    return baseColumns;
+};
 
 export default function InventoryReports({
     filter,
@@ -320,6 +380,11 @@ export default function InventoryReports({
             dataCount: data?.supply_details?.length || 0,
             suppliesCount: supplies?.data?.length || 0
         });
+        
+        // Debug movement data specifically
+        if (reportType === 'in_out' && data?.supply_details) {
+            console.log('Movement data sample:', data.supply_details.slice(0, 3));
+        }
     }, [filter, date, reportType, data, supplies]);
 
     const [currentFilter, setCurrentFilter] = useState(filter || 'daily');
@@ -356,7 +421,6 @@ export default function InventoryReports({
                 total_products: 0,
                 low_stock_items: 0,
                 out_of_stock: 0,
-                total_value: 0,
                 category_summary: {},
                 supply_details: [],
                 period: 'No data available',
@@ -365,37 +429,169 @@ export default function InventoryReports({
             };
         }
         
-        const total = currentSupplies.length;
-        const lowStock = currentSupplies.filter(s => s.current_stock <= s.minimum_stock_level).length;
-        const outOfStock = currentSupplies.filter(s => s.current_stock <= 0).length;
-        const totalValue = currentSupplies.reduce((sum, supply) => sum + (supply.total_value || 0), 0);
+        // Calculate totals based on report type
+        let total = 0;
+        let lowStock = 0;
+        let outOfStock = 0;
+        
+        if (currentReportType === 'used_rejected') {
+            // For used/rejected reports, count unique items from supply_details
+            const uniqueItems = new Set(currentSupplies.map(s => s.item_id || s.id));
+            total = uniqueItems.size;
+            // Low stock and out of stock not applicable for used/rejected reports
+            lowStock = 0;
+            outOfStock = 0;
+        } else {
+            // For other reports, use standard inventory calculations
+            total = currentSupplies.length;
+            lowStock = currentSupplies.filter(s => s.current_stock <= s.minimum_stock_level).length;
+            outOfStock = currentSupplies.filter(s => s.current_stock <= 0).length;
+        }
         
         const categorySummary = currentSupplies.reduce((acc, supply) => {
             const category = supply.category;
             if (!acc[category]) {
                 acc[category] = {
                     count: 0,
-                    total_value: 0,
                     low_stock: 0,
                     out_of_stock: 0,
+                    used_quantity: 0,
+                    rejected_quantity: 0,
                 };
             }
             acc[category].count += 1;
-            acc[category].total_value += supply.total_value || 0;
-            if (supply.current_stock <= supply.minimum_stock_level) {
-                acc[category].low_stock += 1;
+            
+            // For inventory reports, check stock levels
+            if (supply.current_stock !== undefined) {
+                if (supply.current_stock <= supply.minimum_stock_level) {
+                    acc[category].low_stock += 1;
+                }
+                if (supply.current_stock <= 0) {
+                    acc[category].out_of_stock += 1;
+                }
             }
-            if (supply.current_stock <= 0) {
-                acc[category].out_of_stock += 1;
+            
+            // For used/rejected reports, calculate quantities
+            if (currentReportType === 'used_rejected') {
+                if (supply.type === 'used' || (supply.movement_type === 'used' && !supply.type)) {
+                    acc[category].used_quantity += supply.quantity || supply.used_quantity || 0;
+                } else if (supply.type === 'rejected' || (supply.movement_type === 'rejected' && !supply.type)) {
+                    acc[category].rejected_quantity += supply.quantity || supply.rejected_quantity || 0;
+                } else if (supply.used_quantity > 0) {
+                    acc[category].used_quantity += supply.used_quantity;
+                } else if (supply.rejected_quantity > 0) {
+                    acc[category].rejected_quantity += supply.rejected_quantity;
+                }
             }
+            
             return acc;
-        }, {} as Record<string, { count: number; total_value: number; low_stock: number; out_of_stock: number; }>);
+        }, {} as Record<string, { count: number; low_stock: number; out_of_stock: number; used_quantity?: number; rejected_quantity?: number; }>);
+
+        // Calculate movement statistics for in_out report type
+        let incomingCount = 0;
+        let outgoingCount = 0;
+        let incomingQuantity = 0;
+        let outgoingQuantity = 0;
+        let totalTransactions = 0;
+        let netQuantity = 0;
+
+        // Calculate used/rejected statistics for used_rejected report type
+        let usedCount = 0;
+        let rejectedCount = 0;
+        let usedQuantity = 0;
+        let rejectedQuantity = 0;
+
+        if (currentReportType === 'in_out') {
+            // Count movements from the supply_details (which contains movement data for in_out)
+            console.log('Calculating movement stats for in_out report type');
+            console.log('Current supplies for movement calculation:', currentSupplies.slice(0, 3));
+            
+            currentSupplies.forEach(supply => {
+                if (supply.movement_type === 'IN') {
+                    incomingCount++;
+                    incomingQuantity += supply.quantity || 0;
+                } else if (supply.movement_type === 'OUT') {
+                    outgoingCount++;
+                    outgoingQuantity += supply.quantity || 0;
+                }
+            });
+            
+            totalTransactions = incomingCount + outgoingCount;
+            netQuantity = incomingQuantity - outgoingQuantity;
+            
+            console.log('Movement calculation results:', {
+                incomingCount,
+                outgoingCount,
+                incomingQuantity,
+                outgoingQuantity,
+                totalTransactions,
+                netQuantity
+            });
+        } else if (currentReportType === 'used_rejected') {
+            // Calculate used/rejected statistics from supply_details (which contains used/rejected item records)
+            console.log('Calculating used/rejected stats for used_rejected report type');
+            console.log('Current supplies for used/rejected calculation:', currentSupplies.slice(0, 3));
+            
+            // Count from supply_details table - each record represents one transaction
+            currentSupplies.forEach(supply => {
+                // Check type field first (from inventory_used_rejected_items)
+                if (supply.type === 'used' || (supply.movement_type === 'used' && !supply.type)) {
+                    usedCount++;
+                    usedQuantity += supply.quantity || supply.used_quantity || 0;
+                } else if (supply.type === 'rejected' || (supply.movement_type === 'rejected' && !supply.type)) {
+                    rejectedCount++;
+                    rejectedQuantity += supply.quantity || supply.rejected_quantity || 0;
+                }
+                // Also check if used_quantity or rejected_quantity fields exist (sum aggregation)
+                else if (supply.used_quantity > 0) {
+                    usedCount++;
+                    usedQuantity += supply.used_quantity;
+                } else if (supply.rejected_quantity > 0) {
+                    rejectedCount++;
+                    rejectedQuantity += supply.rejected_quantity;
+                }
+            });
+            
+            // Use backend-provided values if they're more accurate (backend counts all records)
+            // But prefer our calculation from supply_details if we have data
+            if (currentSupplies.length > 0) {
+                // We calculated from supply_details, use those values
+                totalTransactions = usedCount + rejectedCount;
+            } else {
+                // Fallback to backend-provided values
+                usedCount = data?.used_count || 0;
+                rejectedCount = data?.rejected_count || 0;
+                totalTransactions = data?.total_transactions || (usedCount + rejectedCount);
+            }
+            
+            console.log('Used/Rejected calculation results from Supply Details:', {
+                supplyDetailsCount: currentSupplies.length,
+                usedCount,
+                rejectedCount,
+                usedQuantity,
+                rejectedQuantity,
+                totalTransactions,
+                backendUsedCount: data?.used_count,
+                backendRejectedCount: data?.rejected_count
+            });
+        }
 
         const result = {
             total_products: total,
             low_stock_items: lowStock,
             out_of_stock: outOfStock,
-            total_value: totalValue,
+            // Movement data for in_out report
+            incoming_count: incomingCount,
+            outgoing_count: outgoingCount,
+            incoming_quantity: incomingQuantity,
+            outgoing_quantity: outgoingQuantity,
+            total_transactions: totalTransactions,
+            net_quantity: netQuantity,
+            // Used/Rejected data for used_rejected report
+            used_count: usedCount || data?.used_count || 0,
+            rejected_count: rejectedCount || data?.rejected_count || 0,
+            used_quantity: usedQuantity || data?.used_quantity || 0,
+            rejected_quantity: rejectedQuantity || data?.rejected_quantity || 0,
             category_summary: categorySummary,
             supply_details: currentSupplies,
             period: data?.period || (currentReportType === 'all' 
@@ -417,12 +613,17 @@ export default function InventoryReports({
             total_products: data?.total_products || 0,
             low_stock_items: data?.low_stock_items || 0,
             out_of_stock: data?.out_of_stock || 0,
-            total_value: data?.total_value || 0,
             category_summary: data?.category_summary || {},
             supply_details: data?.supply_details || [],
             period: data?.period || 'Loading...',
             start_date: data?.start_date || currentDate,
-            end_date: data?.end_date || currentDate
+            end_date: data?.end_date || currentDate,
+            // Used/Rejected data
+            used_count: data?.used_count || 0,
+            rejected_count: data?.rejected_count || 0,
+            total_transactions: data?.total_transactions || 0,
+            used_quantity: data?.used_quantity || 0,
+            rejected_quantity: data?.rejected_quantity || 0
         };
         
         console.log('Initial filteredData:', initialData);
@@ -437,6 +638,11 @@ export default function InventoryReports({
     const handleFilterChange = (newFilter: string) => {
         setCurrentFilter(newFilter);
         setIsLoading(true);
+        console.log('Filter change - sending:', {
+            filter: newFilter,
+            date: currentDate,
+            report_type: currentReportType
+        });
         router.get('/admin/reports/inventory', {
             filter: newFilter,
             date: currentDate,
@@ -450,6 +656,11 @@ export default function InventoryReports({
     const handleDateChange = (newDate: string) => {
         setCurrentDate(newDate);
         setIsLoading(true);
+        console.log('Date change - sending:', {
+            filter: currentFilter,
+            date: newDate,
+            report_type: currentReportType
+        });
         router.get('/admin/reports/inventory', {
             filter: currentFilter,
             date: newDate,
@@ -468,7 +679,7 @@ export default function InventoryReports({
             date: currentDate,
             report_type: newReportType
         }, {
-            preserveState: true,
+            preserveState: false, // Force refresh to get new data
             onFinish: () => setIsLoading(false)
         });
     };
@@ -501,10 +712,14 @@ export default function InventoryReports({
     };
 
     // Initialize table
-    const columns = useMemo(() => createColumns(), []);
+    const columns = useMemo(() => createColumns(currentReportType), [currentReportType]);
+    
+    // Debug table data
+    const tableData = filteredData.supply_details || data?.supply_details || supplies?.data || [];
+    console.log('Table data for report type', currentReportType, ':', tableData.slice(0, 2));
     
     const table = useReactTable({
-        data: filteredData.supply_details || data?.supply_details || supplies?.data || [],
+        data: tableData,
         columns,
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
@@ -540,209 +755,164 @@ export default function InventoryReports({
                 <div className="p-6">
                     {/* Dynamic Insight Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        {currentReportType === 'all' ? (
+						{currentReportType === 'all' ? (
                             <>
-                                <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-lg">
+								<Card className="shadow-sm">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <p className="text-blue-100 text-sm font-medium">
+												<p className="text-gray-500 text-sm font-medium">
                                                     Total Products {isLoading && <span className="animate-pulse">⏳</span>}
                                                 </p>
                                                 <p className="text-3xl font-bold">{(filteredData.total_products || 0).toLocaleString()}</p>
-                                                <p className="text-blue-100 text-xs mt-1">
+												<p className="text-gray-500 text-xs mt-1">
                                                     {currentReportType === 'all' ? 'All Items' : 
                                                      currentFilter === 'daily' ? 'Today\'s Count' : 
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
                                                     {currentReportType !== 'all' && ` (${currentReportType.replace('_', ' ')})`}
                                                 </p>
                                             </div>
-                                            <Package className="h-8 w-8 text-blue-200" />
+											<Package className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card className="bg-gradient-to-r from-orange-500 to-orange-600 text-white border-0 shadow-lg">
+								<Card className="shadow-sm">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <p className="text-orange-100 text-sm font-medium">Low Stock Items</p>
+												<p className="text-gray-500 text-sm font-medium">Low Stock Items</p>
                                                 <p className="text-3xl font-bold">{(filteredData.low_stock_items || 0).toLocaleString()}</p>
-                                                <p className="text-orange-100 text-xs mt-1">
+												<p className="text-gray-500 text-xs mt-1">
                                                     {(filteredData.total_products || 0) > 0 ? 
                                                         (((filteredData.low_stock_items || 0) / (filteredData.total_products || 1)) * 100).toFixed(1) : 0
                                                     }% of total
                                                 </p>
                                             </div>
-                                            <AlertTriangle className="h-8 w-8 text-orange-200" />
+											<AlertTriangle className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card className="bg-gradient-to-r from-red-500 to-red-600 text-white border-0 shadow-lg">
+								<Card className="shadow-sm">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <p className="text-red-100 text-sm font-medium">Out of Stock</p>
+												<p className="text-gray-500 text-sm font-medium">Out of Stock</p>
                                                 <p className="text-3xl font-bold">{(filteredData.out_of_stock || 0).toLocaleString()}</p>
-                                                <p className="text-red-100 text-xs mt-1">
+												<p className="text-gray-500 text-xs mt-1">
                                                     {(filteredData.total_products || 0) > 0 ? 
                                                         (((filteredData.out_of_stock || 0) / (filteredData.total_products || 1)) * 100).toFixed(1) : 0
                                                     }% of total
                                                 </p>
                                             </div>
-                                            <XCircle className="h-8 w-8 text-red-200" />
+											<XCircle className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white border-0 shadow-lg">
-                                    <CardContent className="p-6">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-green-100 text-sm font-medium">Total Value</p>
-                                                <p className="text-3xl font-bold">₱{(filteredData.total_value || 0).toLocaleString()}</p>
-                                                <p className="text-green-100 text-xs mt-1">
-                                                    {currentFilter === 'daily' ? 'Today\'s Value' : 
-                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
-                                                </p>
-                                            </div>
-                                            <DollarSign className="h-8 w-8 text-green-200" />
-                                        </div>
-                                    </CardContent>
-                                </Card>
                             </>
-                        ) : currentReportType === 'used_rejected' ? (
+						) : currentReportType === 'used_rejected' ? (
                             <>
-                                <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-lg">
+								<Card className="shadow-sm">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <p className="text-blue-100 text-sm font-medium">Total Products</p>
+												<p className="text-gray-500 text-sm font-medium">Total Products</p>
                                                 <p className="text-3xl font-bold">{(filteredData.total_products || 0).toLocaleString()}</p>
-                                                <p className="text-blue-100 text-xs mt-1">
+												<p className="text-gray-500 text-xs mt-1">
                                                     {currentFilter === 'daily' ? 'Today\'s Count' : 
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
                                                 </p>
                                             </div>
-                                            <Package className="h-8 w-8 text-blue-200" />
+											<Package className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white border-0 shadow-lg">
+								<Card className="shadow-sm">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <p className="text-green-100 text-sm font-medium">Used Items</p>
-                                                <p className="text-3xl font-bold">{(filteredData.used_count || 0).toLocaleString()}</p>
-                                                <p className="text-green-100 text-xs mt-1">
-                                                    {(filteredData.total_transactions || 0) > 0 ? 
-                                                        (((filteredData.used_count || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0
-                                                    }% of transactions
+												<p className="text-gray-500 text-sm font-medium">Used Items</p>
+                                                <p className="text-3xl font-bold">{(filteredData.used_quantity || 0).toLocaleString()}</p>
+												<p className="text-gray-500 text-xs mt-1">
+                                                    {((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0)) > 0 ? 
+                                                        (((filteredData.used_quantity || 0) / ((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0))) * 100).toFixed(1) : 0
+                                                    }% of total quantity
                                                 </p>
                                             </div>
-                                            <CheckCircle className="h-8 w-8 text-green-200" />
+											<CheckCircle className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card className="bg-gradient-to-r from-red-500 to-red-600 text-white border-0 shadow-lg">
+								<Card className="shadow-sm">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <p className="text-red-100 text-sm font-medium">Rejected Items</p>
-                                                <p className="text-3xl font-bold">{(filteredData.rejected_count || 0).toLocaleString()}</p>
-                                                <p className="text-red-100 text-xs mt-1">
-                                                    {(filteredData.total_transactions || 0) > 0 ? 
-                                                        (((filteredData.rejected_count || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0
-                                                    }% of transactions
+												<p className="text-gray-500 text-sm font-medium">Rejected Items</p>
+                                                <p className="text-3xl font-bold">{(filteredData.rejected_quantity || 0).toLocaleString()}</p>
+												<p className="text-gray-500 text-xs mt-1">
+                                                    {((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0)) > 0 ? 
+                                                        (((filteredData.rejected_quantity || 0) / ((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0))) * 100).toFixed(1) : 0
+                                                    }% of total quantity
                                                 </p>
                                             </div>
-                                            <XCircle className="h-8 w-8 text-red-200" />
+											<XCircle className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0 shadow-lg">
-                                    <CardContent className="p-6">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-purple-100 text-sm font-medium">Total Value</p>
-                                                <p className="text-3xl font-bold">₱{(filteredData.total_value || 0).toLocaleString()}</p>
-                                                <p className="text-purple-100 text-xs mt-1">
-                                                    {currentFilter === 'daily' ? 'Today\'s Value' : 
-                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
-                                                </p>
-                                            </div>
-                                            <DollarSign className="h-8 w-8 text-purple-200" />
-                                        </div>
-                                    </CardContent>
-                                </Card>
                             </>
-                        ) : currentReportType === 'in_out' ? (
+						) : currentReportType === 'in_out' ? (
                             <>
-                                <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-lg">
+								<Card className="shadow-sm">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <p className="text-blue-100 text-sm font-medium">Total Products</p>
+												<p className="text-gray-500 text-sm font-medium">Total Products</p>
                                                 <p className="text-3xl font-bold">{(filteredData.total_products || 0).toLocaleString()}</p>
-                                                <p className="text-blue-100 text-xs mt-1">
+												<p className="text-gray-500 text-xs mt-1">
                                                     {currentFilter === 'daily' ? 'Today\'s Count' : 
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
                                                 </p>
                                             </div>
-                                            <Package className="h-8 w-8 text-blue-200" />
+											<Package className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white border-0 shadow-lg">
+								<Card className="shadow-sm">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <p className="text-green-100 text-sm font-medium">Incoming</p>
+												<p className="text-gray-500 text-sm font-medium">Incoming</p>
                                                 <p className="text-3xl font-bold">{(filteredData.incoming_count || 0).toLocaleString()}</p>
-                                                <p className="text-green-100 text-xs mt-1">
-                                                    ₱{(filteredData.incoming_value || 0).toLocaleString()}
+												<p className="text-gray-500 text-xs mt-1">
+                                                    {(filteredData.incoming_quantity || 0).toLocaleString()} items
                                                 </p>
                                             </div>
-                                            <TrendingUp className="h-8 w-8 text-green-200" />
+											<TrendingUp className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card className="bg-gradient-to-r from-orange-500 to-orange-600 text-white border-0 shadow-lg">
+								<Card className="shadow-sm">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <p className="text-orange-100 text-sm font-medium">Outgoing</p>
+												<p className="text-gray-500 text-sm font-medium">Outgoing</p>
                                                 <p className="text-3xl font-bold">{(filteredData.outgoing_count || 0).toLocaleString()}</p>
-                                                <p className="text-orange-100 text-xs mt-1">
-                                                    ₱{(filteredData.outgoing_value || 0).toLocaleString()}
+												<p className="text-gray-500 text-xs mt-1">
+                                                    {(filteredData.outgoing_quantity || 0).toLocaleString()} items
                                                 </p>
                                             </div>
-                                            <TrendingDown className="h-8 w-8 text-orange-200" />
+											<TrendingDown className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0 shadow-lg">
-                                    <CardContent className="p-6">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-purple-100 text-sm font-medium">Net Value</p>
-                                                <p className="text-3xl font-bold">₱{(filteredData.net_value || 0).toLocaleString()}</p>
-                                                <p className="text-purple-100 text-xs mt-1">
-                                                    {currentFilter === 'daily' ? 'Today\'s Net' : 
-                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
-                                                </p>
-                                            </div>
-                                            <DollarSign className="h-8 w-8 text-purple-200" />
-                                        </div>
-                                    </CardContent>
-                                </Card>
                             </>
                         ) : null}
                     </div>
@@ -847,108 +1017,75 @@ export default function InventoryReports({
                         </div>
                     </div>
 
-                    {/* Report Summary */}
-                    <div className="mb-8">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Report Summary</h3>
-                        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                            <table className="w-full">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metric</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {currentReportType === 'all' ? (
-                                        <>
-                                            <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Products</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_products || 0}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
-                                            </tr>
-                                            <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Low Stock Items</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.low_stock_items || 0}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {(filteredData.total_products || 0) > 0 ? (((filteredData.low_stock_items || 0) / (filteredData.total_products || 1)) * 100).toFixed(1) : 0}%
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Out of Stock</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.out_of_stock || 0}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {(filteredData.total_products || 0) > 0 ? (((filteredData.out_of_stock || 0) / (filteredData.total_products || 1)) * 100).toFixed(1) : 0}%
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Value</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₱{(filteredData.total_value || 0).toLocaleString()}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
-                                            </tr>
-                                        </>
-                                    ) : currentReportType === 'used_rejected' ? (
-                                        <>
-                                            <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Products</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_products || 0}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
-                                            </tr>
-                                            <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Used Items</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.used_count || 0}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {(filteredData.total_transactions || 0) > 0 ? (((filteredData.used_count || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0}%
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Rejected Items</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.rejected_count || 0}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {(filteredData.total_transactions || 0) > 0 ? (((filteredData.rejected_count || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0}%
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Value</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₱{(filteredData.total_value || 0).toLocaleString()}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
-                                            </tr>
-                                        </>
-                                    ) : currentReportType === 'in_out' ? (
-                                        <>
-                                            <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Products</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_products || 0}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
-                                            </tr>
-                                            <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Incoming</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.incoming_count || 0}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {(filteredData.total_transactions || 0) > 0 ? (((filteredData.incoming_count || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0}%
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Outgoing</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.outgoing_count || 0}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {(filteredData.total_transactions || 0) > 0 ? (((filteredData.outgoing_count || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0}%
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Net Value</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₱{(filteredData.net_value || 0).toLocaleString()}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
-                                            </tr>
-                                        </>
-                                    ) : null}
-                                </tbody>
-                            </table>
+                    {/* Report Summary - Hidden for in_out report type */}
+                    {currentReportType !== 'in_out' && (
+                        <div className="mb-8">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Report Summary</h3>
+                            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                                <table className="w-full">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metric</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {currentReportType === 'all' ? (
+                                            <>
+                                                <tr>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Products</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_products || 0}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Low Stock Items</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.low_stock_items || 0}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                        {(filteredData.total_products || 0) > 0 ? (((filteredData.low_stock_items || 0) / (filteredData.total_products || 1)) * 100).toFixed(1) : 0}%
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Out of Stock</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.out_of_stock || 0}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                        {(filteredData.total_products || 0) > 0 ? (((filteredData.out_of_stock || 0) / (filteredData.total_products || 1)) * 100).toFixed(1) : 0}%
+                                                    </td>
+                                                </tr>
+                                            </>
+                                        ) : currentReportType === 'used_rejected' ? (
+                                            <>
+                                                <tr>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Products</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_products || 0}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Used Items</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{(filteredData.used_quantity || 0).toLocaleString()}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                        {((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0)) > 0 ? 
+                                                            (((filteredData.used_quantity || 0) / ((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0))) * 100).toFixed(1) : 0}%
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Rejected Items</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{(filteredData.rejected_quantity || 0).toLocaleString()}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                        {((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0)) > 0 ? 
+                                                            (((filteredData.rejected_quantity || 0) / ((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0))) * 100).toFixed(1) : 0}%
+                                                    </td>
+                                                </tr>
+                                            </>
+                                        ) : null}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
-                    {/* Category Summary */}
-                    {filteredData.category_summary && Object.keys(filteredData.category_summary).length > 0 && (
+                    {/* Category Summary - Hidden for in_out report type */}
+                    {currentReportType !== 'in_out' && filteredData.category_summary && Object.keys(filteredData.category_summary).length > 0 && (
                         <div className="mb-8">
                             <h3 className="text-lg font-semibold text-gray-900 mb-4">Category Summary</h3>
                             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -959,21 +1096,13 @@ export default function InventoryReports({
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
                                             {currentReportType === 'all' ? (
                                                 <>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Value</th>
                                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Low Stock</th>
                                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Out of Stock</th>
                                                 </>
                                             ) : currentReportType === 'used_rejected' ? (
                                                 <>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Value</th>
                                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Used Quantity</th>
                                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rejected Quantity</th>
-                                                </>
-                                            ) : currentReportType === 'in_out' ? (
-                                                <>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Incoming Value</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Outgoing Value</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Value</th>
                                                 </>
                                             ) : null}
                                         </tr>
@@ -985,21 +1114,13 @@ export default function InventoryReports({
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.count}</td>
                                                 {currentReportType === 'all' ? (
                                                     <>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₱{data.total_value.toLocaleString()}</td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.low_stock}</td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.out_of_stock}</td>
                                                     </>
                                                 ) : currentReportType === 'used_rejected' ? (
                                                     <>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₱{data.total_value.toLocaleString()}</td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.used_quantity || 0}</td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.rejected_quantity || 0}</td>
-                                                    </>
-                                                ) : currentReportType === 'in_out' ? (
-                                                    <>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₱{(data.incoming_value || 0).toLocaleString()}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₱{(data.outgoing_value || 0).toLocaleString()}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₱{(data.net_value || 0).toLocaleString()}</td>
                                                     </>
                                                 ) : null}
                                             </tr>

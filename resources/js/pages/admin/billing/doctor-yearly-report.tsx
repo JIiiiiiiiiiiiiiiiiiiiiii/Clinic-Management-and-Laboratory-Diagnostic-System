@@ -393,7 +393,7 @@ export default function DoctorYearlyReport({
                                 <Button
                                     onClick={() => {
                                         const exportUrl = `/admin/billing/doctor-summary/export?year=${selectedYear}&format=excel&report_type=yearly`;
-                                        window.open(exportUrl, '_blank');
+                                        window.location.href = exportUrl;
                                     }}
                                     className="bg-green-600 hover:bg-green-700 text-white ml-4"
                                 >
@@ -403,7 +403,7 @@ export default function DoctorYearlyReport({
                                 <Button
                                     onClick={() => {
                                         const exportUrl = `/admin/billing/doctor-summary/export?year=${selectedYear}&format=pdf&report_type=yearly`;
-                                        window.open(exportUrl, '_blank');
+                                        window.location.href = exportUrl;
                                     }}
                                     variant="outline"
                                     className="ml-2"

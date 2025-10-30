@@ -32,7 +32,6 @@ type InventoryStats = {
     low_stock_products: number;
     expiring_soon: number;
     expired_stock: number;
-    total_value: number;
     recent_transactions: number;
 };
 

@@ -83,8 +83,6 @@ type SupplyItem = {
     rejected: number;
     status: string;
     low_stock_alert: number;
-    unit_price?: number;
-    total_value?: number;
     location?: string;
     last_updated?: string;
 };
@@ -204,44 +202,6 @@ const createDoctorNurseColumns = (handleOpenConsumeModal: (item: SupplyItem) => 
                     {isLowStock && <AlertTriangle className="h-4 w-4 text-orange-500" />}
                 </div>
             );
-        },
-    },
-    {
-        accessorKey: "unit_price",
-        header: ({ column }) => {
-            return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
-                    Unit Price
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            )
-        },
-        cell: ({ row }) => {
-            const price = parseFloat(String(row.getValue("unit_price") || 0));
-            return <div className="font-medium">₱{price.toLocaleString()}</div>;
-        },
-    },
-    {
-        accessorKey: "total_value",
-        header: ({ column }) => {
-            return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
-                    Total Value
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            )
-        },
-        cell: ({ row }) => {
-            const value = parseFloat(String(row.getValue("total_value") || 0));
-            return <div className="font-medium">₱{value.toLocaleString()}</div>;
         },
     },
     {
@@ -431,44 +391,6 @@ const createMedTechColumns = (handleOpenConsumeModal: (item: SupplyItem) => void
                     {isLowStock && <AlertTriangle className="h-4 w-4 text-orange-500" />}
                 </div>
             );
-        },
-    },
-    {
-        accessorKey: "unit_price",
-        header: ({ column }) => {
-            return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
-                    Unit Price
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            )
-        },
-        cell: ({ row }) => {
-            const price = parseFloat(String(row.getValue("unit_price") || 0));
-            return <div className="font-medium">₱{price.toLocaleString()}</div>;
-        },
-    },
-    {
-        accessorKey: "total_value",
-        header: ({ column }) => {
-            return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
-                    Total Value
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            )
-        },
-        cell: ({ row }) => {
-            const value = parseFloat(String(row.getValue("total_value") || 0));
-            return <div className="font-medium">₱{value.toLocaleString()}</div>;
         },
     },
     {

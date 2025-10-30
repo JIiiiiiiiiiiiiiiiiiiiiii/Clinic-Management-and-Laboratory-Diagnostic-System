@@ -156,24 +156,6 @@ const consumedItemsColumns: ColumnDef<any>[] = [
         ),
     },
     {
-        accessorKey: 'total_cost',
-        header: ({ column }) => {
-            return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
-                    Total Cost
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            )
-        },
-        cell: ({ row }) => (
-            <div className="font-medium">₱{Number(row.getValue("total_cost") || 0).toFixed(2)}</div>
-        ),
-    },
-    {
         accessorKey: 'department',
         header: "Department",
         cell: ({ row }) => (
@@ -227,24 +209,6 @@ const rejectedItemsColumns: ColumnDef<any>[] = [
         header: "Unit",
         cell: ({ row }) => (
             <div className="text-sm">{row.getValue("unit")}</div>
-        ),
-    },
-    {
-        accessorKey: 'total_cost',
-        header: ({ column }) => {
-            return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
-                    Total Cost
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            )
-        },
-        cell: ({ row }) => (
-            <div className="font-medium">₱{Number(row.getValue("total_cost") || 0).toFixed(2)}</div>
         ),
     },
     {

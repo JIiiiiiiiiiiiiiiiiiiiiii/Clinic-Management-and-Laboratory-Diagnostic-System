@@ -820,7 +820,7 @@ class DoctorPaymentController extends Controller
                 $month = $request->get('month', now()->format('Y-m'));
                 $filters = [
                     'date_from' => $month . '-01',
-                    'date_to' => now()->parse($month)->endOfMonth()->format('Y-m-d'),
+                    'date_to' => \Carbon\Carbon::parse($month)->endOfMonth()->format('Y-m-d'),
                     'report_type' => 'monthly',
                     'doctor_id' => $request->get('doctor_id', 'all'),
                     'status' => $request->get('status', 'all'),
@@ -896,7 +896,7 @@ class DoctorPaymentController extends Controller
                 $month = $request->get('month', now()->format('Y-m'));
                 $filters = [
                     'date_from' => $month . '-01',
-                    'date_to' => now()->parse($month)->endOfMonth()->format('Y-m-d'),
+                    'date_to' => \Carbon\Carbon::parse($month)->endOfMonth()->format('Y-m-d'),
                     'report_type' => 'monthly',
                     'doctor_id' => $request->get('doctor_id', 'all'),
                     'status' => $request->get('status', 'all'),
@@ -939,10 +939,19 @@ class DoctorPaymentController extends Controller
                 // PDF export
                 $filename = 'doctor-summary-' . $reportType . '-' . now()->format('Y-m-d-H-i-s') . '.pdf';
                 
+                // Convert logo to base64 for PDF
+                $logoPath = public_path('st-james-logo.png');
+                $logoBase64 = null;
+                if (file_exists($logoPath)) {
+                    $logoData = file_get_contents($logoPath);
+                    $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+                }
+
                 $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.doctor-summary-pdf', [
                     'reportData' => $reportData,
                     'summary' => $summary,
-                    'filters' => $filters
+                    'filters' => $filters,
+                    'logoBase64' => $logoBase64
                 ])->setPaper('a4', 'portrait')
                   ->setOptions([
                       'isHtml5ParserEnabled' => true,

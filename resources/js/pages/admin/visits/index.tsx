@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
@@ -231,6 +231,16 @@ const createColumns = (): ColumnDef<any>[] => [
 ];
 
 interface VisitsIndexProps {
+    visits: any[];
+    pagination: {
+        current_page: number;
+        last_page: number;
+        per_page: number;
+        total: number;
+        from: number;
+        to: number;
+    };
+    // Keep for backward compatibility
     initial_visits: any[];
     follow_up_visits: any[];
     initial_visits_pagination: {
@@ -261,6 +271,8 @@ interface VisitsIndexProps {
 }
 
 export default function VisitsIndex({ 
+    visits = [],
+    pagination,
     initial_visits = [], 
     follow_up_visits = [], 
     initial_visits_pagination, 
@@ -276,12 +288,67 @@ export default function VisitsIndex({
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = useState({});
     const [globalFilter, setGlobalFilter] = useState(filters.search || '');
+    const [isLoading, setIsLoading] = useState(false);
+    const [searchValue, setSearchValue] = useState(filters.search || '');
 
-    // Combine all visits for the table
-    const allVisits = [...initial_visits, ...follow_up_visits];
+    // Use the new visits prop or fallback to combined visits for backward compatibility
+    const allVisits = useMemo(() => {
+        if (visits && visits.length > 0) {
+            return visits;
+        }
+        return [...(initial_visits || []), ...(follow_up_visits || [])];
+    }, [visits, initial_visits, follow_up_visits]);
 
-    // Initialize table
-    const columns = createColumns();
+    // Debounced search to prevent excessive filtering
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            setGlobalFilter(searchValue);
+        }, 300);
+
+        return () => clearTimeout(timeoutId);
+    }, [searchValue]);
+
+    // Pagination handlers
+    const handlePageChange = (page: number) => {
+        router.get(route('admin.visits.index'), {
+            ...filters,
+            page,
+            per_page: pagination?.per_page || 15
+        }, {
+            preserveState: true,
+            preserveScroll: true
+        });
+    };
+
+    const handlePerPageChange = (perPage: number) => {
+        router.get(route('admin.visits.index'), {
+            ...filters,
+            page: 1,
+            per_page: perPage
+        }, {
+            preserveState: true,
+            preserveScroll: true
+        });
+    };
+
+    // Memoize columns to prevent unnecessary re-renders
+    const columns = useMemo(() => createColumns(), []);
+
+    // Optimize global filter function with useCallback
+    const globalFilterFn = useCallback((row: any, columnId: string, value: string) => {
+        if (!value) return true;
+        const search = value.toLowerCase();
+        const visit = row.original;
+        return (
+            visit.patient?.first_name?.toLowerCase().includes(search) ||
+            visit.patient?.last_name?.toLowerCase().includes(search) ||
+            visit.patient?.patient_no?.toLowerCase().includes(search) ||
+            visit.purpose?.toLowerCase().includes(search) ||
+            visit.staff?.name?.toLowerCase().includes(search)
+        );
+    }, []);
+
+    // Initialize table with performance optimizations
     const table = useReactTable({
         data: allVisits || [],
         columns,
@@ -294,16 +361,22 @@ export default function VisitsIndex({
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
         onGlobalFilterChange: setGlobalFilter,
-        globalFilterFn: (row, columnId, value) => {
-            const search = value.toLowerCase();
-            const visit = row.original;
-            return (
-                visit.patient?.first_name?.toLowerCase().includes(search) ||
-                visit.patient?.last_name?.toLowerCase().includes(search) ||
-                visit.patient?.patient_code?.toLowerCase().includes(search) ||
-                visit.purpose?.toLowerCase().includes(search) ||
-                visit.staff?.name?.toLowerCase().includes(search)
-            );
+        globalFilterFn,
+        // Performance optimizations
+        enableRowSelection: true,
+        enableMultiRowSelection: false,
+        enableSubRowSelection: false,
+        enableColumnResizing: false,
+        enableColumnOrdering: false,
+        enableHiding: true,
+        enableSorting: true,
+        enableFiltering: true,
+        enableGlobalFilter: true,
+        // Pagination settings
+        initialState: {
+            pagination: {
+                pageSize: 15,
+            },
         },
         state: {
             sorting,
@@ -315,11 +388,10 @@ export default function VisitsIndex({
     });
 
     const stats = {
-        totalVisits: initial_visits_pagination.total + follow_up_visits_pagination.total,
-        initialVisits: initial_visits_pagination.total,
-        followUpVisits: follow_up_visits_pagination.total,
-        completedToday: initial_visits.filter(v => v.status === 'completed' && new Date(v.visit_date).toDateString() === new Date().toDateString()).length + 
-                       follow_up_visits.filter(v => v.status === 'completed' && new Date(v.visit_date).toDateString() === new Date().toDateString()).length
+        totalVisits: pagination?.total || (initial_visits_pagination?.total || 0) + (follow_up_visits_pagination?.total || 0),
+        initialVisits: pagination?.total || initial_visits_pagination?.total || 0,
+        followUpVisits: follow_up_visits_pagination?.total || 0,
+        completedToday: allVisits.filter(v => v.status === 'completed' && new Date(v.visit_date).toDateString() === new Date().toDateString()).length
     };
 
     return (
@@ -395,15 +467,19 @@ export default function VisitsIndex({
                         <CardContent className="p-6">
                             {/* Table Controls */}
                             <div className="flex items-center py-4">
-                                <Input
-                                    placeholder="Search visits..."
-                                    value={globalFilter ?? ""}
-                                    onChange={(event) => setGlobalFilter(event.target.value)}
-                                    className="max-w-sm"
-                                />
+                                <div className="relative max-w-sm">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                                    <Input
+                                        placeholder="Search visits..."
+                                        value={searchValue}
+                                        onChange={(event) => setSearchValue(event.target.value)}
+                                        className="pl-10"
+                                        disabled={isLoading}
+                                    />
+                                </div>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="ml-auto">
+                                        <Button variant="outline" className="ml-auto" disabled={isLoading}>
                                             Columns <ChevronDown className="ml-2 h-4 w-4" />
                                         </Button>
                                     </DropdownMenuTrigger>
@@ -454,7 +530,19 @@ export default function VisitsIndex({
                                         ))}
                                     </TableHeader>
                                     <TableBody>
-                                        {table.getRowModel().rows?.length ? (
+                                        {isLoading ? (
+                                            <TableRow>
+                                                <TableCell
+                                                    colSpan={columns.length}
+                                                    className="h-24 text-center"
+                                                >
+                                                    <div className="flex items-center justify-center">
+                                                        <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                                                        Loading visits...
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : table.getRowModel().rows?.length ? (
                                             table.getRowModel().rows.map((row) => (
                                                 <TableRow
                                                     key={row.id}
@@ -476,7 +564,7 @@ export default function VisitsIndex({
                                                     colSpan={columns.length}
                                                     className="h-24 text-center"
                                                 >
-                                                    No results.
+                                                    No results found.
                                                 </TableCell>
                                             </TableRow>
                                         )}
@@ -486,20 +574,19 @@ export default function VisitsIndex({
                             {/* Pagination */}
                             <div className="flex items-center justify-between px-2 py-4">
                                 <div className="text-muted-foreground flex-1 text-sm">
-                                    {table.getFilteredSelectedRowModel().rows.length} of{" "}
-                                    {table.getFilteredRowModel().rows.length} row(s) selected.
+                                    Showing {pagination?.from || 1} to {pagination?.to || allVisits.length} of {pagination?.total || allVisits.length} results
                                 </div>
                                 <div className="flex items-center space-x-6 lg:space-x-8">
                                     <div className="flex items-center space-x-2">
                                         <p className="text-sm font-medium">Rows per page</p>
                                         <Select
-                                            value={`${table.getState().pagination.pageSize}`}
+                                            value={`${pagination?.per_page || 15}`}
                                             onValueChange={(value) => {
-                                                table.setPageSize(Number(value))
+                                                handlePerPageChange(Number(value));
                                             }}
                                         >
                                             <SelectTrigger className="h-8 w-[70px]">
-                                                <SelectValue placeholder={table.getState().pagination.pageSize} />
+                                                <SelectValue placeholder={pagination?.per_page || 15} />
                                             </SelectTrigger>
                                             <SelectContent side="top">
                                                 {[10, 20, 30, 40, 50].map((pageSize) => (
@@ -511,16 +598,15 @@ export default function VisitsIndex({
                                         </Select>
                                     </div>
                                     <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-                                        Page {table.getState().pagination.pageIndex + 1} of{" "}
-                                        {table.getPageCount()}
+                                        Page {pagination?.current_page || 1} of {pagination?.last_page || 1}
                                     </div>
                                     <div className="flex items-center space-x-2">
                                         <Button
                                             variant="outline"
                                             size="icon"
                                             className="hidden size-8 lg:flex"
-                                            onClick={() => table.setPageIndex(0)}
-                                            disabled={!table.getCanPreviousPage()}
+                                            onClick={() => handlePageChange(1)}
+                                            disabled={!pagination || pagination.current_page <= 1}
                                         >
                                             <span className="sr-only">Go to first page</span>
                                             <ChevronsLeft className="h-4 w-4" />
@@ -529,8 +615,8 @@ export default function VisitsIndex({
                                             variant="outline"
                                             size="icon"
                                             className="size-8"
-                                            onClick={() => table.previousPage()}
-                                            disabled={!table.getCanPreviousPage()}
+                                            onClick={() => handlePageChange((pagination?.current_page || 1) - 1)}
+                                            disabled={!pagination || pagination.current_page <= 1}
                                         >
                                             <span className="sr-only">Go to previous page</span>
                                             <ChevronLeft className="h-4 w-4" />
@@ -539,8 +625,8 @@ export default function VisitsIndex({
                                             variant="outline"
                                             size="icon"
                                             className="size-8"
-                                            onClick={() => table.nextPage()}
-                                            disabled={!table.getCanNextPage()}
+                                            onClick={() => handlePageChange((pagination?.current_page || 1) + 1)}
+                                            disabled={!pagination || pagination.current_page >= pagination.last_page}
                                         >
                                             <span className="sr-only">Go to next page</span>
                                             <ChevronRight className="h-4 w-4" />
@@ -549,8 +635,8 @@ export default function VisitsIndex({
                                             variant="outline"
                                             size="icon"
                                             className="hidden size-8 lg:flex"
-                                            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-                                            disabled={!table.getCanNextPage()}
+                                            onClick={() => handlePageChange(pagination?.last_page || 1)}
+                                            disabled={!pagination || pagination.current_page >= pagination.last_page}
                                         >
                                             <span className="sr-only">Go to last page</span>
                                             <ChevronsRight className="h-4 w-4" />

@@ -52,6 +52,8 @@ type InventoryStats = {
     out_of_stock_items: number;
     total_suppliers: number;
     total_movements_today: number;
+    consumed_today: number;
+    rejected_today: number;
 };
 
 type RecentMovement = {
@@ -83,8 +85,6 @@ interface InventoryItem {
     category: string;
     stock: number;
     low_stock_alert: number;
-    unit_price: number;
-    total_value: number;
     location: string;
     assigned_to: string;
     status: 'in_stock' | 'low_stock' | 'out_of_stock';
@@ -176,44 +176,6 @@ const createDoctorNurseColumns = (): ColumnDef<InventoryItem>[] => [
                     {isLowStock && <AlertTriangle className="h-4 w-4 text-orange-500" />}
                 </div>
             );
-        },
-    },
-    {
-        accessorKey: "unit_price",
-        header: ({ column }) => {
-            return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
-                    Unit Price
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            )
-        },
-        cell: ({ row }) => {
-            const price = parseFloat(row.getValue("unit_price"));
-            return <div className="font-medium">₱{price.toLocaleString()}</div>;
-        },
-    },
-    {
-        accessorKey: "total_value",
-        header: ({ column }) => {
-            return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
-                    Total Value
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            )
-        },
-        cell: ({ row }) => {
-            const value = parseFloat(row.getValue("total_value"));
-            return <div className="font-medium">₱{value.toLocaleString()}</div>;
         },
     },
     {
@@ -347,44 +309,6 @@ const createMedTechColumns = (): ColumnDef<InventoryItem>[] => [
                     {isLowStock && <AlertTriangle className="h-4 w-4 text-orange-500" />}
                 </div>
             );
-        },
-    },
-    {
-        accessorKey: "unit_price",
-        header: ({ column }) => {
-            return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
-                    Unit Price
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            )
-        },
-        cell: ({ row }) => {
-            const price = parseFloat(row.getValue("unit_price"));
-            return <div className="font-medium">₱{price.toLocaleString()}</div>;
-        },
-    },
-    {
-        accessorKey: "total_value",
-        header: ({ column }) => {
-            return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
-                    Total Value
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            )
-        },
-        cell: ({ row }) => {
-            const value = parseFloat(row.getValue("total_value"));
-            return <div className="font-medium">₱{value.toLocaleString()}</div>;
         },
     },
     {
@@ -604,7 +528,7 @@ export default function InventoryDashboard({
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm font-medium text-gray-600">Consumed</p>
-                                        <p className="text-3xl font-bold text-gray-900">6</p>
+                                        <p className="text-3xl font-bold text-gray-900">{stats.consumed_today || 0}</p>
                                         <p className="text-sm text-gray-500">Items used today</p>
                                     </div>
                                     <div className="p-3 bg-green-100 rounded-full">
@@ -619,7 +543,7 @@ export default function InventoryDashboard({
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm font-medium text-gray-600">Rejected</p>
-                                        <p className="text-3xl font-bold text-gray-900">0</p>
+                                        <p className="text-3xl font-bold text-gray-900">{stats.rejected_today || 0}</p>
                                         <p className="text-sm text-gray-500">Items rejected</p>
                                     </div>
                                     <div className="p-3 bg-gray-100 rounded-full">

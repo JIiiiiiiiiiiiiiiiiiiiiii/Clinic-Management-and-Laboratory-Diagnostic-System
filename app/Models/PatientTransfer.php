@@ -88,6 +88,11 @@ class PatientTransfer extends Model
         return $query->where('status', 'cancelled');
     }
 
+    public function scopeByRegistrationType($query, $type)
+    {
+        return $query->where('registration_type', $type);
+    }
+
     public function scopeByPriority($query, $priority)
     {
         return $query->where('priority', $priority);
@@ -96,12 +101,6 @@ class PatientTransfer extends Model
     public function scopeByDateRange($query, $startDate, $endDate)
     {
         return $query->whereBetween('transfer_date', [$startDate, $endDate]);
-    }
-
-    // New scopes for registration system
-    public function scopeByRegistrationType($query, $type)
-    {
-        return $query->where('registration_type', $type);
     }
 
     public function scopeByApprovalStatus($query, $status)

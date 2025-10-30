@@ -32,6 +32,7 @@ class AppointmentController extends Controller
         // Apply filters
         if ($request->filled('search')) {
             $search = $request->search;
+            \Log::info('Search term received:', ['search' => $search]);
             $query->where(function ($q) use ($search) {
                 $q->where('id', 'like', "%{$search}%")
                   ->orWhereHas('patient', function($patientQuery) use ($search) {
@@ -136,6 +137,7 @@ class AppointmentController extends Controller
 
         // Debug: Log appointments count and details
         \Log::info('Appointments found: ' . $appointments->count());
+        \Log::info('Search applied:', ['search' => $request->search, 'count' => $appointments->count()]);
         \Log::info('Transformed appointments data:', $transformedAppointments->toArray());
 
         // Get next available patient ID with smart reset logic

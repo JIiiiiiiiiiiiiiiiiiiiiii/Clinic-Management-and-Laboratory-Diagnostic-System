@@ -3,31 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Appointments Report - {{ ucfirst($reportType) }}</title>
+    <title>Appointments Report</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px 30px;
+            margin: 20px;
             color: #333;
-            width: 100%;
-            box-sizing: border-box;
         }
         .header {
             text-align: center;
             margin-bottom: 30px;
-            border-bottom: 2px solid #e5e7eb;
+            border-bottom: 2px solid #333;
             padding-bottom: 20px;
         }
         .header h1 {
+            color: #2563eb;
             margin: 0;
-            color: #1f2937;
             font-size: 24px;
         }
-        .header p {
+        .header h2 {
+            color: #666;
             margin: 5px 0 0 0;
-            color: #6b7280;
-            font-size: 14px;
+            font-size: 16px;
+            font-weight: normal;
         }
         .summary-section {
             margin-bottom: 30px;
@@ -137,56 +135,21 @@
 <body>
     <div style="max-width: 100%; margin: 0 auto; padding: 0 10px;">
     <div class="header">
-        <h1>Appointments Report - {{ ucfirst($reportType) }}</h1>
-        <p>Generated on {{ now()->format('F j, Y \a\t g:i A') }}</p>
-        <p>Date Range: {{ \Carbon\Carbon::parse($dateFrom)->format('M j, Y') }} - {{ \Carbon\Carbon::parse($dateTo)->format('M j, Y') }}</p>
+        <div style="text-align: center; margin-bottom: 20px; padding: 10px 0; position: relative;">
+            <div style="position: absolute; left: 0; top: 0;">
+                <img src="{{ $logoBase64 ?? public_path('st-james-logo.png') }}" alt="St. James Hospital Logo" style="width: 80px; height: 80px;">
+            </div>
+            <div style="text-align: center; width: 100%;">
+                <div style="font-size: 24px; font-weight: bold; color: #2d5a27; margin: 0 0 5px 0;">St. James Hospital Clinic, Inc.</div>
+                <div style="font-size: 12px; color: #333; margin: 0 0 3px 0;">San Isidro City of Cabuyao Laguna</div>
+                <div style="font-size: 14px; font-style: italic; color: #1e40af; margin: 0 0 5px 0;">Santa Rosa's First in Quality Healthcare Service</div>
+                <div style="font-size: 16px; font-weight: bold; color: #2d5a27; margin: 0 0 5px 0;">PASYENTE MUNA</div>
+                <div style="font-size: 10px; color: #666; margin: 0;">Tel. Nos. 02.85844533; 049.5341254; 049.5020058; Fax No.: local 307<br>email add: info@stjameshospital.com.ph</div>
+            </div>
+        </div>
+        <h1>Appointments Report</h1>
     </div>
 
-    <div class="summary-section">
-        <h2>Summary Statistics</h2>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-            <thead>
-                <tr style="background-color: #f3f4f6;">
-                    <th style="border: 1px solid #d1d5db; padding: 12px; text-align: left; font-weight: bold; color: #374151;">Metric</th>
-                    <th style="border: 1px solid #d1d5db; padding: 12px; text-align: left; font-weight: bold; color: #374151;">Value</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td style="border: 1px solid #d1d5db; padding: 8px; font-weight: bold;">Total Appointments</td>
-                    <td style="border: 1px solid #d1d5db; padding: 8px;">{{ $summary['total_appointments'] }}</td>
-                </tr>
-                <tr style="background-color: #f9fafb;">
-                    <td style="border: 1px solid #d1d5db; padding: 8px; font-weight: bold;">Completed Appointments</td>
-                    <td style="border: 1px solid #d1d5db; padding: 8px;">{{ $summary['completed_appointments'] }}</td>
-                </tr>
-                <tr>
-                    <td style="border: 1px solid #d1d5db; padding: 8px; font-weight: bold;">Pending Appointments</td>
-                    <td style="border: 1px solid #d1d5db; padding: 8px;">{{ $summary['pending_appointments'] }}</td>
-                </tr>
-                <tr style="background-color: #f9fafb;">
-                    <td style="border: 1px solid #d1d5db; padding: 8px; font-weight: bold;">Confirmed Appointments</td>
-                    <td style="border: 1px solid #d1d5db; padding: 8px;">{{ $summary['confirmed_appointments'] }}</td>
-                </tr>
-                <tr>
-                    <td style="border: 1px solid #d1d5db; padding: 8px; font-weight: bold;">Cancelled Appointments</td>
-                    <td style="border: 1px solid #d1d5db; padding: 8px;">{{ $summary['cancelled_appointments'] }}</td>
-                </tr>
-                <tr style="background-color: #f9fafb;">
-                    <td style="border: 1px solid #d1d5db; padding: 8px; font-weight: bold;">Total Revenue</td>
-                    <td style="border: 1px solid #d1d5db; padding: 8px; color: #059669; font-weight: bold;">PHP {{ number_format($summary['total_revenue'], 2) }}</td>
-                </tr>
-                <tr>
-                    <td style="border: 1px solid #d1d5db; padding: 8px; font-weight: bold;">Online Appointments</td>
-                    <td style="border: 1px solid #d1d5db; padding: 8px;">{{ $summary['online_appointments'] }}</td>
-                </tr>
-                <tr style="background-color: #f9fafb;">
-                    <td style="border: 1px solid #d1d5db; padding: 8px; font-weight: bold;">Walk-in Appointments</td>
-                    <td style="border: 1px solid #d1d5db; padding: 8px;">{{ $summary['walk_in_appointments'] }}</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
 
     <div class="table-section">
         <h2>Appointments Details</h2>
@@ -238,10 +201,6 @@
         </table>
     </div>
 
-    <div class="footer">
-        <p>This report was generated by the Clinic Management System</p>
-        <p>For questions or support, please contact the system administrator</p>
-    </div>
     </div>
 </body>
 </html>

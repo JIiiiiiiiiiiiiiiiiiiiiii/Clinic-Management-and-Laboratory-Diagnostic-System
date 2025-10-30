@@ -275,9 +275,9 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
             });
             
             if (format === 'excel') {
-                window.location.href = `/admin/reports/laboratory/export/excel?${params}`;
+                window.location.href = `/admin/laboratory-reports/export/excel?${params}`;
             } else {
-                window.location.href = `/admin/reports/laboratory/export/pdf?${params}`;
+                window.location.href = `/admin/laboratory-reports/export/pdf?${params}`;
             }
 
             setTimeout(() => {

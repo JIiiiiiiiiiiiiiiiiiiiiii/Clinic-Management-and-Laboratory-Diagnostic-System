@@ -81,7 +81,7 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
             cell: ({ row }) => {
                 const isActive = row.getValue('is_active') as boolean;
                 return (
-                    <Badge variant={isActive ? 'default' : 'secondary'}>
+                    <Badge variant={isActive ? 'default' : 'secondary'} className="bg-green-100 text-green-800 border-green-200">
                         {isActive ? 'Active' : 'Inactive'}
                     </Badge>
                 );
@@ -101,7 +101,7 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
                 const test = row.original;
                 return (
                     <div className="flex gap-2">
-                        <Button asChild>
+                        <Button asChild className="bg-green-600 hover:bg-green-700 text-white">
                             <Link href={`/admin/laboratory/tests/${test.id}/edit`}>
                                 <Edit className="mr-1 h-4 w-4" />
                                 Edit

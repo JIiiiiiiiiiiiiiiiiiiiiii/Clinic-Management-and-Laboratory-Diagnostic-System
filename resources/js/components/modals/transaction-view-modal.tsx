@@ -103,6 +103,7 @@ export default function TransactionViewModal({
 }: TransactionViewModalProps) {
     const [transaction, setTransaction] = useState<BillingTransaction | null>(null);
     const [loading, setLoading] = useState(false);
+    const [isMarkingAsPaid, setIsMarkingAsPaid] = useState(false);
 
     useEffect(() => {
         if (isOpen && transactionId) {
@@ -133,10 +134,32 @@ export default function TransactionViewModal({
     };
 
     const handleMarkAsPaid = (transactionId: number) => {
-        // TODO: Implement mark as paid functionality
-        console.log('Mark as paid:', transactionId);
-        // This would typically make an API call to update the transaction status
-        // and then refresh the transaction data or close the modal
+        if (isMarkingAsPaid) return;
+        
+        setIsMarkingAsPaid(true);
+        
+        router.put(`/admin/billing/${transactionId}/mark-paid`, {
+            payment_method: transaction?.payment_method || 'cash',
+            payment_reference: transaction?.payment_reference || '',
+            notes: transaction?.notes || ''
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                // Refresh the transaction data after successful payment
+                fetchTransaction();
+                // Show success message
+                alert('Transaction marked as paid successfully!');
+            },
+            onError: (errors) => {
+                console.error('Error marking transaction as paid:', errors);
+                const errorMessage = errors?.message || errors?.error || 'Failed to mark transaction as paid. Please try again.';
+                alert(errorMessage);
+            },
+            onFinish: () => {
+                setIsMarkingAsPaid(false);
+            }
+        });
     };
 
     const handleEdit = (transactionId: number) => {
@@ -500,10 +523,20 @@ export default function TransactionViewModal({
                                 {transaction.status === 'pending' && (
                                     <Button 
                                         onClick={() => handleMarkAsPaid(transaction.id)}
-                                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-2"
+                                        disabled={isMarkingAsPaid}
+                                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 disabled:opacity-50"
                                     >
-                                        <CheckCircle className="mr-2 h-4 w-4" />
-                                        Mark as Paid
+                                        {isMarkingAsPaid ? (
+                                            <>
+                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                                Processing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <CheckCircle className="mr-2 h-4 w-4" />
+                                                Mark as Paid
+                                            </>
+                                        )}
                                     </Button>
                                 )}
                                 <Button 
