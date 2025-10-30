@@ -55,6 +55,14 @@ class EnhancedInventoryController extends Controller
             $totalIn = $movements->where('movement_type', 'IN')->sum('quantity');
             $totalOut = $movements->where('movement_type', 'OUT')->sum('quantity');
             
+            // Calculate status dynamically based on current stock and low stock alert
+            $status = 'In Stock';
+            if ($item->stock <= 0) {
+                $status = 'Out of Stock';
+            } elseif ($item->stock <= $item->low_stock_alert) {
+                $status = 'Low Stock';
+            }
+            
             return [
                 'id' => $item->id,
                 'item_name' => $item->item_name,
@@ -64,7 +72,7 @@ class EnhancedInventoryController extends Controller
                 'total_in' => $totalIn,
                 'total_out' => $totalOut,
                 'net_movement' => $totalIn - $totalOut,
-                'status' => $item->status,
+                'status' => $status,
             ];
         });
 

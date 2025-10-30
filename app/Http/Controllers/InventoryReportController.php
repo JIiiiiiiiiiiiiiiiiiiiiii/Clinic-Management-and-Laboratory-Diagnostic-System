@@ -78,8 +78,6 @@ class InventoryReportController extends Controller
                     'current_stock' => $item->stock,
                     'minimum_stock_level' => $item->low_stock_alert,
                     'maximum_stock_level' => $item->max_stock ?? 0,
-                    'unit_cost' => $item->unit_cost ?? 0,
-                    'total_value' => $item->stock * ($item->unit_cost ?? 0),
                     'is_low_stock' => $item->stock <= $item->low_stock_alert,
                     'is_out_of_stock' => $item->stock <= 0,
                     'is_active' => $item->status === 'Active',
@@ -107,7 +105,6 @@ class InventoryReportController extends Controller
                 'out_of_stock' => $supplies->filter(function($item) {
                     return $item['current_stock'] <= 0;
                 })->count(),
-                'total_value' => $supplies->sum('total_value') ?? 0,
             ];
 
             return Inertia::render('admin/reports/inventory', [
@@ -130,7 +127,6 @@ class InventoryReportController extends Controller
                     'total_products' => 0,
                     'low_stock_items' => 0,
                     'out_of_stock' => 0,
-                    'total_value' => 0,
                     'category_summary' => [],
                     'supply_details' => [],
                     'period' => 'No data available',
@@ -142,7 +138,6 @@ class InventoryReportController extends Controller
                     'total_products' => 0,
                     'low_stock_items' => 0,
                     'out_of_stock' => 0,
-                    'total_value' => 0,
                 ],
                 'filterOptions' => [],
                 'metadata' => [
@@ -162,11 +157,11 @@ class InventoryReportController extends Controller
         $dateObj = Carbon::parse($date);
         switch ($filter) {
             case 'monthly':
-                return $dateObj->startOfMonth();
+                return $dateObj->copy()->startOfMonth();
             case 'yearly':
-                return $dateObj->startOfYear();
+                return $dateObj->copy()->startOfYear();
             default: // daily
-                return $dateObj->startOfDay();
+                return $dateObj->copy()->startOfDay();
         }
     }
     
@@ -175,11 +170,11 @@ class InventoryReportController extends Controller
         $dateObj = Carbon::parse($date);
         switch ($filter) {
             case 'monthly':
-                return $dateObj->endOfMonth();
+                return $dateObj->copy()->endOfMonth();
             case 'yearly':
-                return $dateObj->endOfYear();
+                return $dateObj->copy()->endOfYear();
             default: // daily
-                return $dateObj->endOfDay();
+                return $dateObj->copy()->endOfDay();
         }
     }
     
@@ -187,6 +182,15 @@ class InventoryReportController extends Controller
     {
         $startDate = $this->getStartDate($filter, $date);
         $endDate = $this->getEndDate($filter, $date);
+        
+        // Handle different report types
+        if ($reportType === 'in_out') {
+            return $this->getInOutReportData($startDate, $endDate, $filter, $date);
+        }
+        
+        if ($reportType === 'used_rejected') {
+            return $this->getUsedRejectedReportData($startDate, $endDate, $filter, $date);
+        }
         
         // Get inventory items for the period
         $items = \App\Models\InventoryItem::whereBetween('created_at', [$startDate, $endDate])->get();
@@ -204,18 +208,12 @@ class InventoryReportController extends Controller
         $outOfStock = $items->filter(function($item) {
             return $item->stock <= 0;
         })->count();
-        $totalValue = $items->sum(function($item) {
-            return $item->stock * ($item->unit_cost ?? 0);
-        });
         
         // Calculate category summary
         $categorySummary = $items->groupBy('category')
             ->map(function ($categoryItems) {
                 return [
                     'count' => $categoryItems->count(),
-                    'total_value' => $categoryItems->sum(function($item) {
-                        return $item->stock * ($item->unit_cost ?? 0);
-                    }),
                     'low_stock' => $categoryItems->filter(function($item) {
                         return $item->stock <= $item->low_stock_alert;
                     })->count(),
@@ -236,8 +234,6 @@ class InventoryReportController extends Controller
                 'current_stock' => $item->stock,
                 'minimum_stock_level' => $item->low_stock_alert,
                 'maximum_stock_level' => $item->max_stock ?? 0,
-                'unit_cost' => $item->unit_cost ?? 0,
-                'total_value' => $item->stock * ($item->unit_cost ?? 0),
                 'is_low_stock' => $item->stock <= $item->low_stock_alert,
                 'is_out_of_stock' => $item->stock <= 0,
                 'is_active' => $item->status === 'Active',
@@ -249,13 +245,296 @@ class InventoryReportController extends Controller
             'total_products' => $totalProducts,
             'low_stock_items' => $lowStockItems,
             'out_of_stock' => $outOfStock,
-            'total_value' => $totalValue,
             'category_summary' => $categorySummary,
             'supply_details' => $itemDetails,
             'period' => $this->getPeriodLabel($filter, $date),
             'start_date' => $startDate->format('Y-m-d'),
             'end_date' => $endDate->format('Y-m-d')
         ];
+    }
+    
+    private function getInOutReportData($startDate, $endDate, $filter, $date)
+    {
+        try {
+            \Log::info('InventoryReportController - getInOutReportData Debug', [
+                'start_date' => $startDate->format('Y-m-d H:i:s'),
+                'end_date' => $endDate->format('Y-m-d H:i:s'),
+                'filter' => $filter,
+                'date' => $date,
+                'start_date_timestamp' => $startDate->timestamp,
+                'end_date_timestamp' => $endDate->timestamp,
+                'timezone' => $startDate->timezone->getName(),
+                'current_time' => now()->format('Y-m-d H:i:s')
+            ]);
+            
+            // Get incoming and outgoing movements from InventoryMovement model with date filtering
+            $incomingMovements = \App\Models\InventoryMovement::where('movement_type', 'IN')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->with('inventoryItem')
+                ->orderBy('created_at', 'desc')
+                ->get();
+                
+            $outgoingMovements = \App\Models\InventoryMovement::where('movement_type', 'OUT')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->with('inventoryItem')
+                ->orderBy('created_at', 'desc')
+                ->get();
+            
+            // Get all movements for debugging (with date filtering)
+            $allMovements = \App\Models\InventoryMovement::whereBetween('created_at', [$startDate, $endDate])
+                ->with('inventoryItem')
+                ->orderBy('created_at', 'desc')
+                ->get();
+            
+            // Get all movements for comparison (without date filter)
+            $allMovementsAllTime = \App\Models\InventoryMovement::with('inventoryItem')->orderBy('created_at', 'desc')->get();
+            
+            \Log::info('InventoryReportController - In/Out Movement Query Results', [
+                'incoming_movements_count' => $incomingMovements->count(),
+                'outgoing_movements_count' => $outgoingMovements->count(),
+                'date_range' => $startDate->format('Y-m-d') . ' to ' . $endDate->format('Y-m-d'),
+                'total_movements_in_date_range' => $allMovements->count(),
+                'total_movements_all_time' => $allMovementsAllTime->count(),
+                'sample_movement_data' => $allMovements->take(3)->map(function($m) {
+                    return [
+                        'id' => $m->id,
+                        'movement_type' => $m->movement_type,
+                        'quantity' => $m->quantity,
+                        'created_by' => $m->created_by,
+                        'remarks' => $m->remarks,
+                        'item_name' => $m->inventoryItem ? $m->inventoryItem->item_name : 'No Item',
+                        'created_at' => $m->created_at->format('Y-m-d H:i:s'),
+                    ];
+                })->toArray(),
+                'all_time_sample' => $allMovementsAllTime->take(3)->map(function($m) {
+                    return [
+                        'id' => $m->id,
+                        'movement_type' => $m->movement_type,
+                        'created_at' => $m->created_at->format('Y-m-d H:i:s'),
+                    ];
+                })->toArray()
+            ]);
+            
+            // Calculate statistics from the already filtered movements
+            $totalMovements = $allMovements->count();
+            $incomingCount = $incomingMovements->count();
+            $outgoingCount = $outgoingMovements->count();
+            
+            // Return individual movements instead of grouped data
+            $movementDetails = $allMovements->map(function ($movement) {
+                $item = $movement->inventoryItem;
+                
+                $mappedData = [
+                    'id' => $movement->id,
+                    'name' => $item ? $item->item_name : 'Unknown Item',
+                    'code' => $item ? $item->item_code : 'N/A',
+                    'category' => $item ? $item->category : 'Unknown',
+                    'movement_type' => $movement->movement_type,
+                    'quantity' => $movement->quantity,
+                    'created_by' => $movement->created_by,
+                    'remarks' => $movement->remarks,
+                    'created_at' => $movement->created_at->format('Y-m-d H:i:s'),
+                    'item_id' => $movement->inventory_id,
+                ];
+                
+                // Debug log for first few items
+                if ($movement->id <= 3) {
+                    \Log::info('InventoryReportController - Movement mapping debug', [
+                        'original_movement' => [
+                            'id' => $movement->id,
+                            'movement_type' => $movement->movement_type,
+                            'created_by' => $movement->created_by,
+                            'remarks' => $movement->remarks,
+                        ],
+                        'mapped_data' => $mappedData
+                    ]);
+                }
+                
+                return $mappedData;
+            })->values();
+            
+            // Also create grouped summary for category summary
+            $productSummary = $allMovements->groupBy('inventory_id')
+                ->map(function ($movements) {
+                    $item = $movements->first()->inventoryItem;
+                    $incoming = $movements->where('movement_type', 'IN');
+                    $outgoing = $movements->where('movement_type', 'OUT');
+                    
+                    return [
+                        'id' => $item->id,
+                        'name' => $item->item_name,
+                        'code' => $item->item_code,
+                        'category' => $item->category,
+                        'unit_of_measure' => $item->unit,
+                        'incoming_quantity' => $incoming->sum('quantity'),
+                        'outgoing_quantity' => $outgoing->sum('quantity'),
+                        'net_quantity' => $incoming->sum('quantity') - $outgoing->sum('quantity'),
+                        'movement_count' => $movements->count(),
+                        'last_movement_date' => $movements->max('created_at'),
+                    ];
+                })->values();
+            
+            // Category summary
+            $categorySummary = $productSummary->groupBy('category')
+                ->map(function ($products) {
+                    return [
+                        'count' => $products->count(),
+                        'incoming_quantity' => $products->sum('incoming_quantity'),
+                        'outgoing_quantity' => $products->sum('outgoing_quantity'),
+                        'net_quantity' => $products->sum('incoming_quantity') - $products->sum('outgoing_quantity'),
+                    ];
+                })->toArray();
+
+            // Debug: Log the final data being returned
+            \Log::info('InventoryReportController - getInOutReportData Final Data', [
+                'total_movements' => $totalMovements,
+                'movement_details_count' => $movementDetails->count(),
+                'sample_movement_details' => $movementDetails->take(3)->toArray(),
+                'incoming_count' => $incomingCount,
+                'outgoing_count' => $outgoingCount,
+            ]);
+
+            return [
+                'total_products' => $productSummary->count(),
+                'low_stock_items' => 0, // Not applicable for in/out
+                'out_of_stock' => 0, // Not applicable for in/out
+                'incoming_count' => $incomingCount,
+                'outgoing_count' => $outgoingCount,
+                'total_transactions' => $totalMovements,
+                'incoming_quantity' => $incomingMovements->sum('quantity'),
+                'outgoing_quantity' => $outgoingMovements->sum('quantity'),
+                'net_quantity' => $incomingMovements->sum('quantity') - $outgoingMovements->sum('quantity'),
+                'category_summary' => $categorySummary,
+                'supply_details' => $movementDetails->toArray(), // Use movement details instead of product summary
+                'period' => $this->getPeriodLabel($filter, $date),
+                'start_date' => $startDate->format('Y-m-d'),
+                'end_date' => $endDate->format('Y-m-d')
+            ];
+        } catch (\Exception $e) {
+            \Log::error('InventoryReportController - In/Out report data error: ' . $e->getMessage());
+            return [
+                'total_products' => 0,
+                'low_stock_items' => 0,
+                'out_of_stock' => 0,
+                'incoming_count' => 0,
+                'outgoing_count' => 0,
+                'total_transactions' => 0,
+                'category_summary' => [],
+                'supply_details' => [],
+                'period' => 'No data available',
+                'start_date' => $startDate->format('Y-m-d'),
+                'end_date' => $endDate->format('Y-m-d')
+            ];
+        }
+    }
+    
+    private function getUsedRejectedReportData($startDate, $endDate, $filter, $date)
+    {
+        try {
+            \Log::info('InventoryReportController - getUsedRejectedReportData Debug', [
+                'start_date' => $startDate->format('Y-m-d H:i:s'),
+                'end_date' => $endDate->format('Y-m-d H:i:s'),
+                'filter' => $filter,
+                'date' => $date
+            ]);
+            
+            // Get used and rejected items from the new dedicated table
+            $usedMovements = \App\Models\InventoryUsedRejectedItem::getUsedItems($startDate->format('Y-m-d'), $endDate->format('Y-m-d'));
+            $rejectedMovements = \App\Models\InventoryUsedRejectedItem::getRejectedItems($startDate->format('Y-m-d'), $endDate->format('Y-m-d'));
+            $allMovements = \App\Models\InventoryUsedRejectedItem::getAllUsedRejectedItems($startDate->format('Y-m-d'), $endDate->format('Y-m-d'));
+            
+            \Log::info('InventoryReportController - Used/Rejected Movement Query Results', [
+                'used_movements_count' => $usedMovements->count(),
+                'rejected_movements_count' => $rejectedMovements->count(),
+                'date_range' => $startDate->format('Y-m-d') . ' to ' . $endDate->format('Y-m-d'),
+                'total_movements_in_date_range' => $allMovements->count(),
+                'sample_movement_data' => $allMovements->take(3)->map(function($m) {
+                    return [
+                        'id' => $m->id,
+                        'movement_type' => $m->movement_type,
+                        'quantity' => $m->quantity,
+                        'created_by' => $m->created_by,
+                        'remarks' => $m->remarks,
+                        'item_name' => $m->inventoryItem ? $m->inventoryItem->item_name : 'No Item',
+                        'created_at' => $m->created_at->format('Y-m-d H:i:s'),
+                    ];
+                })->toArray()
+            ]);
+            
+            // Calculate statistics from the already filtered movements
+            $totalMovements = $allMovements->count();
+            $usedCount = $usedMovements->count();
+            $rejectedCount = $rejectedMovements->count();
+            
+            // Return individual movements instead of grouped data
+            $movementDetails = $allMovements->map(function ($item) {
+                $inventoryItem = $item->inventoryItem;
+                
+                $mappedData = [
+                    'id' => $item->id,
+                    'name' => $inventoryItem ? $inventoryItem->item_name : 'Unknown Item',
+                    'code' => $inventoryItem ? $inventoryItem->item_code : 'N/A',
+                    'category' => $inventoryItem ? $inventoryItem->category : 'Unknown',
+                    'movement_type' => $item->type,
+                    'quantity' => $item->quantity,
+                    'created_by' => $item->used_by,
+                    'remarks' => $item->remarks,
+                    'created_at' => $item->date_used_rejected . ' ' . $item->created_at->format('H:i:s'),
+                    'item_id' => $item->inventory_item_id,
+                    // Add used/rejected specific fields
+                    'used_quantity' => $item->type === 'used' ? $item->quantity : 0,
+                    'rejected_quantity' => $item->type === 'rejected' ? $item->quantity : 0,
+                    'reason' => $item->reason,
+                    'location' => $item->location,
+                ];
+                
+                return $mappedData;
+            })->values();
+            
+            // Create category summary for used/rejected
+            $categorySummary = $allMovements->groupBy('inventoryItem.category')
+                ->map(function ($items) {
+                    $used = $items->where('type', 'used');
+                    $rejected = $items->where('type', 'rejected');
+                    
+                    return [
+                        'count' => $items->count(),
+                        'used_quantity' => $used->sum('quantity'),
+                        'rejected_quantity' => $rejected->sum('quantity'),
+                    ];
+                })->toArray();
+            
+            return [
+                'total_products' => $allMovements->groupBy('inventory_item_id')->count(),
+                'low_stock_items' => 0, // Not applicable for used/rejected
+                'out_of_stock' => 0, // Not applicable for used/rejected
+                'used_count' => $usedCount,
+                'rejected_count' => $rejectedCount,
+                'total_transactions' => $totalMovements,
+                'used_quantity' => $usedMovements->sum('quantity'),
+                'rejected_quantity' => $rejectedMovements->sum('quantity'),
+                'category_summary' => $categorySummary,
+                'supply_details' => $movementDetails->toArray(),
+                'period' => $this->getPeriodLabel($filter, $date),
+                'start_date' => $startDate->format('Y-m-d'),
+                'end_date' => $endDate->format('Y-m-d')
+            ];
+        } catch (\Exception $e) {
+            \Log::error('InventoryReportController - Used/Rejected report data error: ' . $e->getMessage());
+            return [
+                'total_products' => 0,
+                'low_stock_items' => 0,
+                'out_of_stock' => 0,
+                'used_count' => 0,
+                'rejected_count' => 0,
+                'total_transactions' => 0,
+                'category_summary' => [],
+                'supply_details' => [],
+                'period' => 'No data available',
+                'start_date' => $startDate->format('Y-m-d'),
+                'end_date' => $endDate->format('Y-m-d')
+            ];
+        }
     }
     
     private function getPeriodLabel($filter, $date)
@@ -515,11 +794,14 @@ class InventoryReportController extends Controller
     public function exportUsedRejected(Request $request)
     {
         $filters = $request->only(['period', 'start_date', 'end_date', 'department']);
+        $filters['report_type'] = 'used_rejected'; // Set report type for PDF template
+        
         $data = $this->reportService->generateUsedRejectedReport($filters);
+        
         $format = $request->get('format', 'pdf');
 
         if ($format === 'pdf') {
-            return $this->exportToPdf('Used/Rejected Supplies Report', $data);
+            return $this->exportToPdf('Used/Rejected Supplies Report', $data, $filters);
         } else {
             return $this->exportToExcel('Used/Rejected Supplies Report', $data);
         }
@@ -577,11 +859,12 @@ class InventoryReportController extends Controller
         }
     }
 
-    private function exportToPdf($title, $data)
+    private function exportToPdf($title, $data, $filters = [])
     {
         $html = view('reports.inventory-pdf', [
             'title' => $title,
             'data' => $data,
+            'filters' => $filters,
         ])->render();
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html);

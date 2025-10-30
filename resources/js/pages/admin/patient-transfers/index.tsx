@@ -216,15 +216,19 @@ const createColumns = (handleApproveClick: (transfer: PatientTransfer) => void, 
                                 View Details
                             </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleApproveClick(transfer)}>
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Approve
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleRejectClick(transfer)}>
-                            <XCircle className="mr-2 h-4 w-4" />
-                            Reject
-                        </DropdownMenuItem>
+                        {transfer.approval_status === 'pending' && (
+                            <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleApproveClick(transfer)}>
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    Approve
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleRejectClick(transfer)}>
+                                    <XCircle className="mr-2 h-4 w-4" />
+                                    Reject
+                                </DropdownMenuItem>
+                            </>
+                        )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
                             onClick={() => handleDeleteClick(transfer)}
@@ -290,6 +294,7 @@ export default function PatientTransferIndex({ transfers, userRole, statistics }
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = useState({});
     const [globalFilter, setGlobalFilter] = useState('');
+    const [statusFilter, setStatusFilter] = useState('pending');
 
     // Modal states
     const [approveModalOpen, setApproveModalOpen] = useState(false);
@@ -348,6 +353,14 @@ export default function PatientTransferIndex({ transfers, userRole, statistics }
                 }
             });
         }
+    };
+
+    const handleStatusFilterChange = (status: string) => {
+        setStatusFilter(status);
+        router.get(route('admin.patient.transfer.registrations.index'), { status }, {
+            preserveState: true,
+            preserveScroll: true,
+        });
     };
 
     // Initialize table
@@ -482,16 +495,27 @@ export default function PatientTransferIndex({ transfers, userRole, statistics }
                     <Card className="bg-white border border-gray-200">
                         <CardContent className="p-6">
                             {/* Table Controls */}
-                            <div className="flex items-center py-4">
+                            <div className="flex items-center py-4 gap-4">
                                 <Input
                                     placeholder="Search transfers..."
                                     value={globalFilter ?? ""}
                                     onChange={(event) => setGlobalFilter(event.target.value)}
                                     className="max-w-sm"
                                 />
+                                <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+                                    <SelectTrigger className="w-[180px]">
+                                        <SelectValue placeholder="Filter by status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="pending">Pending</SelectItem>
+                                        <SelectItem value="approved">Approved</SelectItem>
+                                        <SelectItem value="rejected">Rejected</SelectItem>
+                                        <SelectItem value="all">All Status</SelectItem>
+                                    </SelectContent>
+                                </Select>
                                 <Button
                                     asChild
-                                    className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                                    className="bg-green-600 hover:bg-green-700 text-white"
                                 >
                                     <Link href={route('admin.patient.transfer.registrations.create')}>
                                         <Plus className="h-4 w-4 mr-2" />

@@ -38,7 +38,6 @@ type StockLevelsData = {
         in_stock: number;
         low_stock: number;
         out_of_stock: number;
-        total_value: number;
     };
     category_stats: any;
     needs_restock: any[];
@@ -211,7 +210,7 @@ export default function StockLevelsReport({
                         </div>
 
                         {/* Summary Statistics */}
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                             <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
                                 <div className="flex items-center gap-2 mb-2">
                                     <Package className="h-4 w-4 text-black" />
@@ -240,13 +239,6 @@ export default function StockLevelsReport({
                                 </div>
                                 <div className="text-2xl font-bold text-red-600">{data.summary.out_of_stock}</div>
                             </div>
-                            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <DollarSign className="h-4 w-4 text-blue-600" />
-                                    <span className="text-sm font-medium text-gray-800">Total Value</span>
-                                </div>
-                                <div className="text-2xl font-bold text-blue-600">${data.summary.total_value.toLocaleString()}</div>
-                            </div>
                         </div>
 
                         {/* Items Needing Restock */}
@@ -260,8 +252,6 @@ export default function StockLevelsReport({
                                             <TableHead className="font-semibold text-black">Category</TableHead>
                                             <TableHead className="font-semibold text-black">Department</TableHead>
                                             <TableHead className="font-semibold text-black">Current Stock</TableHead>
-                                            <TableHead className="font-semibold text-black">Unit Cost</TableHead>
-                                            <TableHead className="font-semibold text-black">Total Value</TableHead>
                                             <TableHead className="font-semibold text-black">Status</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -273,8 +263,6 @@ export default function StockLevelsReport({
                                                     <TableCell>{item.category}</TableCell>
                                                     <TableCell>{item.assigned_to}</TableCell>
                                                     <TableCell>{item.stock}</TableCell>
-                                                    <TableCell>${item.unit_cost || 0}</TableCell>
-                                                    <TableCell>${((item.stock || 0) * (item.unit_cost || 0)).toLocaleString()}</TableCell>
                                                     <TableCell>
                                                         <Badge 
                                                             variant={
@@ -293,7 +281,7 @@ export default function StockLevelsReport({
                                             ))
                                         ) : (
                                             <TableRow>
-                                                <TableCell colSpan={7} className="text-center py-8">
+                                                <TableCell colSpan={5} className="text-center py-8">
                                                     <div className="flex flex-col items-center">
                                                         <CheckCircle className="mx-auto mb-4 h-12 w-12 text-green-400" />
                                                         <h3 className="mb-2 text-lg font-semibold text-black">All items are well stocked</h3>

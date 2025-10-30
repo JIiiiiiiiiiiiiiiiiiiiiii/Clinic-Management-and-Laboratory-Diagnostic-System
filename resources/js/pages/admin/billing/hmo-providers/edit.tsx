@@ -7,9 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
-import Heading from '@/components/heading';
 import { 
-    ArrowLeft, 
     Building2,
     Save,
     X
@@ -58,22 +56,6 @@ export default function EditHmoProvider({ hmoProvider }: EditHmoProviderProps) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Edit HMO Provider" />
             <div className="min-h-screen bg-white p-6">
-                {/* Header Section */}
-                <div className="mb-8">
-                    <div className="flex items-center gap-6">
-                        <Button asChild variant="outline" className="h-12 w-12">
-                            <Link href="/admin/billing/hmo-providers">
-                                <ArrowLeft className="h-5 w-5" />
-                            </Link>
-                        </Button>
-                        <Heading 
-                            title="Edit HMO Provider" 
-                            description="Update health maintenance organization provider information"
-                            icon={Building2} 
-                        />
-                    </div>
-                </div>
-
                 <div className="max-w-4xl mx-auto">
                     <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
                         <CardHeader>

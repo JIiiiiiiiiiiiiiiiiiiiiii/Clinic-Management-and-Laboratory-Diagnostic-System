@@ -189,6 +189,7 @@ Route::prefix('admin')
             Route::get('/', [App\Http\Controllers\Admin\BillingController::class, 'transactions'])->name('index');
             
             // Main billing routes
+            Route::get('/create', [App\Http\Controllers\Admin\BillingController::class, 'create'])->name('create');
             Route::get('/transactions', [App\Http\Controllers\Admin\BillingController::class, 'transactions'])->name('transactions');
             Route::post('/transactions', [App\Http\Controllers\Admin\BillingController::class, 'storeTransaction'])->name('store-transaction');
             Route::get('/pending-appointments', [App\Http\Controllers\Admin\BillingController::class, 'pendingAppointments'])->name('pending-appointments');
@@ -718,6 +719,11 @@ Route::prefix('admin')
             // Main inventory dashboard
             Route::get('/', [App\Http\Controllers\InventoryController::class, 'index'])->name('index');
             Route::post('/', [App\Http\Controllers\InventoryController::class, 'store'])->name('store');
+            
+            // Debug route for low stock items
+            Route::get('/debug-low-stock', [App\Http\Controllers\InventoryController::class, 'debugLowStock'])->name('debug-low-stock');
+Route::get('/debug-movements', [App\Http\Controllers\InventoryController::class, 'debugMovements'])->name('debug-movements');
+Route::get('/test-movement', [App\Http\Controllers\InventoryController::class, 'testMovement'])->name('test-movement');
             
             // Category-specific pages (must come before {id} routes)
             Route::get('/supply-items', [App\Http\Controllers\InventoryController::class, 'supplyItems'])->name('supply-items');

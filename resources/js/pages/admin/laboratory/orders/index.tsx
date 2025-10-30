@@ -134,7 +134,7 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                 return (
                     <div className="flex flex-wrap gap-1">
                         {(tests || []).map((test) => (
-                            <Badge key={test.id} variant="outline" className="text-xs">
+                            <Badge key={test.id} variant="outline" className="text-xs bg-green-100 text-green-800 border-green-200">
                                 {test.name}
                             </Badge>
                         ))}
@@ -163,23 +163,23 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
                 const order = row.original;
                 return (
                     <div className="flex gap-2">
-                        <Button asChild>
+                        <Button asChild className="bg-green-600 hover:bg-green-700 text-white">
                             <Link href={`/admin/laboratory/orders/${order.id}`}>
                                 <Eye className="mr-1 h-4 w-4" />
                                 View Order
                             </Link>
                         </Button>
-                        <Button onClick={() => handleEnterResults(order.id)} disabled={order.status === 'cancelled'}>
+                        <Button onClick={() => handleEnterResults(order.id)} disabled={order.status === 'cancelled'} className="bg-green-600 hover:bg-green-700 text-white">
                             <FileText className="mr-1 h-4 w-4" />
                             Results
                         </Button>
                         {order.status === 'ordered' && (
-                            <Button variant="outline" onClick={() => handleUpdateStatus(order.id, 'processing')}>
+                            <Button variant="outline" onClick={() => handleUpdateStatus(order.id, 'processing')} className="bg-green-600 hover:bg-green-700 text-white">
                                 Start
                             </Button>
                         )}
                         {order.status === 'processing' && (
-                            <Button onClick={() => handleUpdateStatus(order.id, 'completed')}>Complete</Button>
+                            <Button onClick={() => handleUpdateStatus(order.id, 'completed')} className="bg-green-600 hover:bg-green-700 text-white">Complete</Button>
                         )}
                     </div>
                 );
@@ -213,7 +213,7 @@ export default function LabOrdersIndex({ orders }: { orders: Order[] }) {
         };
 
         return (
-            <Badge variant={variantMap[status] as any}>
+            <Badge variant={variantMap[status] as any} className="bg-green-100 text-green-800 border-green-200">
                 <Icon className="mr-1 h-3 w-3" />
                 {config.label}
             </Badge>

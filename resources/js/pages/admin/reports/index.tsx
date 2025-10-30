@@ -93,7 +93,7 @@ export default function ReportsDashboard({ summary, recentReports, filterOptions
             title: 'Patient Reports',
             description: 'Patient demographics, registration trends, and visit reports',
             icon: Users,
-            color: 'bg-gradient-to-r from-blue-500 to-cyan-500',
+            color: '',
             href: '/admin/reports/patients',
             stats: {
                 total: summary?.total_patients || 0,
@@ -106,7 +106,7 @@ export default function ReportsDashboard({ summary, recentReports, filterOptions
             title: 'Laboratory Reports',
             description: 'Lab orders, test results, and diagnostic reports',
             icon: FlaskConical,
-            color: 'bg-gradient-to-r from-purple-500 to-pink-500',
+            color: '',
             href: '/admin/reports/laboratory',
             stats: {
                 total: summary?.total_lab_orders || 0,
@@ -119,7 +119,7 @@ export default function ReportsDashboard({ summary, recentReports, filterOptions
             title: 'Consultation/Appointment Reports',
             description: 'Appointment scheduling, doctor availability, and consultation reports',
             icon: Calendar,
-            color: 'bg-gradient-to-r from-green-500 to-emerald-500',
+            color: '',
             href: '/admin/reports/appointments',
             stats: {
                 total: summary?.total_appointments || 0,
@@ -132,7 +132,7 @@ export default function ReportsDashboard({ summary, recentReports, filterOptions
             title: 'Inventory Reports',
             description: 'Stock levels, supply usage, and inventory management',
             icon: Package,
-            color: 'bg-gradient-to-r from-orange-500 to-red-500',
+            color: '',
             href: '/admin/reports/inventory',
             stats: {
                 total: summary?.total_products || 0,
@@ -145,7 +145,7 @@ export default function ReportsDashboard({ summary, recentReports, filterOptions
             title: 'Financial Reports',
             description: 'Revenue, expenses, billing, and financial reports',
             icon: DollarSign,
-            color: 'bg-gradient-to-r from-green-600 to-teal-600',
+            color: '',
             href: '/admin/reports/financial',
             stats: {
                 revenue: summary?.total_revenue || 0,
@@ -571,28 +571,15 @@ export default function ReportsDashboard({ summary, recentReports, filterOptions
                         <TabsContent value="reports" className="space-y-6">
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                                 {reportSections.map((section) => (
-                                    <Card key={section.id} className="relative overflow-hidden transition-shadow hover:shadow-lg">
-                                        <div className={`absolute inset-0 ${section.color} opacity-10`} />
-                                        <CardHeader className="relative">
-                                            <CardTitle className="flex items-center gap-2">
-                                                <section.icon className="h-5 w-5" />
+                                    <Card key={section.id} className="transition-shadow hover:shadow-lg">
+                                        <CardHeader>
+                                            <CardTitle>
                                                 {section.title}
                             </CardTitle>
-                                            <CardDescription>{section.description}</CardDescription>
                         </CardHeader>
-                                        <CardContent className="relative">
-                                            <div className="mb-4 grid grid-cols-2 gap-4">
-                                                {Object.entries(section.stats).map(([key, value]) => (
-                                                    <div key={key} className="text-center">
-                                                        <div className="text-2xl font-bold">
-                                                            {typeof value === 'number' ? value.toLocaleString() : value}
-                                                        </div>
-                                                        <div className="text-xs text-gray-600 capitalize">{key.replace('_', ' ')}</div>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                        <CardContent>
                                             <div className="flex gap-2">
-                                                <Button asChild className="flex-1">
+                                                <Button asChild className="flex-1 bg-green-600 hover:bg-green-700 text-white">
                                                     <a href={section.href}>View Report</a>
                                                 </Button>
                                 </div>

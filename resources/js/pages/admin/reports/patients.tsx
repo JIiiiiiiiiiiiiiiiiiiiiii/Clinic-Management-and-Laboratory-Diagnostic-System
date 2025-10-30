@@ -265,8 +265,8 @@ export default function PatientReports({ filter, date, data, patients, summary, 
             const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
             return createdDate >= startOfMonth;
         }).length;
-        const malePatients = currentPatients.filter(p => p.sex === 'Male').length;
-        const femalePatients = currentPatients.filter(p => p.sex === 'Female').length;
+        const malePatients = currentPatients.filter(p => p.sex === 'male').length;
+        const femalePatients = currentPatients.filter(p => p.sex === 'female').length;
         
         // Calculate age groups from filtered data
         const ageGroups = currentPatients.reduce((acc, patient) => {
@@ -346,9 +346,9 @@ export default function PatientReports({ filter, date, data, patients, summary, 
             });
             
             if (format === 'excel') {
-                window.location.href = `/admin/reports/patients/export/excel?${params}`;
+                window.location.href = `/admin/reports/export?type=patients&format=excel&${params}`;
             } else {
-                window.location.href = `/admin/reports/patients/export/pdf?${params}`;
+                window.location.href = `/admin/reports/export?type=patients&format=pdf&${params}`;
             }
 
             setTimeout(() => {

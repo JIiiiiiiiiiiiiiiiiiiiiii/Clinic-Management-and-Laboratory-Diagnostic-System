@@ -649,7 +649,15 @@ class BillingReportController extends Controller
 
             if ($format === 'pdf') {
                 $filename = 'Doctor_Summary_Report_' . now()->format('Y-m-d') . '.pdf';
-                $html = $this->buildHtmlTable('Doctor Summary Report - ' . $dateFrom . ' to ' . $dateTo, $exportData);
+                // Convert logo to base64 for PDF
+                $logoPath = public_path('st-james-logo.png');
+                $logoBase64 = null;
+                if (file_exists($logoPath)) {
+                    $logoData = file_get_contents($logoPath);
+                    $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+                }
+                
+                $html = $this->buildHtmlTable('Doctor Summary Report - ' . $dateFrom . ' to ' . $dateTo, $exportData, $logoBase64);
                 return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)->download($filename);
             }
             
@@ -703,17 +711,9 @@ class BillingReportController extends Controller
             $exportData[] = [
                 'Type' => 'Billing Transaction',
                 'Transaction ID' => $transaction->transaction_id,
-                'Patient Name' => $this->getPatientName($transaction),
-                'Specialist' => $this->getSpecialistName($transaction),
-                'Amount' => $transaction->amount, // Use final amount after discounts
                 'Payment Method' => $transaction->payment_method,
-                'HMO Provider' => $transaction->hmo_provider ?? 'N/A',
                 'Status' => $transaction->status,
-                'Description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',
-                'Date' => $transaction->transaction_date->format('Y-m-d'),
-                'Time' => $transaction->transaction_date->format('H:i:s'),
-                'Items Count' => $transaction->appointmentLinks->count(), // Use appointmentLinks instead of items
-                'Appointments Count' => $transaction->appointmentLinks->count(),
+                'Full Date' => $transaction->transaction_date->format('Y-m-d H:i:s'),
             ];
         }
 
@@ -722,17 +722,9 @@ class BillingReportController extends Controller
             $exportData[] = [
                 'Type' => 'Doctor Payment',
                 'Transaction ID' => 'DP-' . $payment->id,
-                'Patient Name' => 'Doctor Payment',
-                'Specialist' => $payment->doctor ? $payment->doctor->name : 'Unknown Doctor',
-                'Amount' => -$payment->amount_paid,
                 'Payment Method' => $payment->payment_method,
-                'HMO Provider' => 'N/A',
                 'Status' => $payment->status,
-                'Description' => 'Doctor Payment - ' . $payment->description,
-                'Date' => $payment->payment_date->format('Y-m-d'),
-                'Time' => $payment->payment_date->format('H:i:s'),
-                'Items Count' => 0,
-                'Appointments Count' => 0,
+                'Full Date' => $payment->payment_date->format('Y-m-d H:i:s'),
             ];
         }
 
@@ -740,7 +732,7 @@ class BillingReportController extends Controller
 
         // Sort by date
         usort($exportData, function($a, $b) {
-            return strtotime($a['Date'] . ' ' . $a['Time']) - strtotime($b['Date'] . ' ' . $b['Time']);
+            return strtotime($a['Full Date']) - strtotime($b['Full Date']);
         });
 
         // Generate filename
@@ -753,7 +745,15 @@ class BillingReportController extends Controller
 
         try {
             if ($format === 'pdf') {
-                $html = $this->buildHtmlTable('Comprehensive Report - ' . $dateFrom . ' to ' . $dateTo, $exportData);
+                // Convert logo to base64 for PDF
+                $logoPath = public_path('st-james-logo.png');
+                $logoBase64 = null;
+                if (file_exists($logoPath)) {
+                    $logoData = file_get_contents($logoPath);
+                    $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+                }
+                
+                $html = $this->buildHtmlTable('Comprehensive Report - ' . $dateFrom . ' to ' . $dateTo, $exportData, $logoBase64);
                 return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)->download($filename);
             }
 
@@ -902,17 +902,9 @@ class BillingReportController extends Controller
             $exportData[] = [
                 'Type' => 'Billing Transaction',
                 'Transaction ID' => $transaction->transaction_id,
-                'Patient Name' => $this->getPatientName($transaction),
-                'Specialist' => $this->getSpecialistName($transaction),
-                'Amount' => $transaction->amount, // Use final amount after discounts
                 'Payment Method' => $transaction->payment_method,
                 'Status' => $transaction->status,
-                'Description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',
-                'Date' => $transaction->transaction_date_only ?? $transaction->transaction_date->format('Y-m-d'),
-                'Time' => $transaction->transaction_time_only ?? $transaction->transaction_date->format('H:i:s'),
-                'Full DateTime' => $transaction->transaction_date->format('Y-m-d H:i:s'),
-                'Items Count' => $transaction->appointmentLinks->count(), // Use appointmentLinks instead of items
-                'Appointments Count' => $transaction->appointmentLinks->count(),
+                'Full Date' => $transaction->transaction_date->format('Y-m-d H:i:s'),
             ];
         }
 
@@ -921,17 +913,9 @@ class BillingReportController extends Controller
             $exportData[] = [
                 'Type' => 'Doctor Payment',
                 'Transaction ID' => 'DP-' . $payment->id,
-                'Patient Name' => 'Doctor Payment',
-                'Specialist' => $payment->doctor ? $payment->doctor->name : 'Unknown Doctor',
-                'Amount' => -$payment->amount_paid,
                 'Payment Method' => $payment->payment_method,
                 'Status' => $payment->status,
-                'Description' => 'Doctor Payment - ' . $payment->description,
-                'Date' => $payment->payment_date->format('Y-m-d'),
-                'Time' => $payment->payment_date->format('H:i:s'),
-                'Full DateTime' => $payment->payment_date->format('Y-m-d H:i:s'),
-                'Items Count' => 0,
-                'Appointments Count' => 0,
+                'Full Date' => $payment->payment_date->format('Y-m-d H:i:s'),
             ];
         }
 
@@ -939,7 +923,7 @@ class BillingReportController extends Controller
 
         // Sort by time
         usort($exportData, function($a, $b) {
-            return strtotime($a['Time']) - strtotime($b['Time']);
+            return strtotime($a['Full Date']) - strtotime($b['Full Date']);
         });
 
         // Generate filename with proper extensions
@@ -953,7 +937,15 @@ class BillingReportController extends Controller
 
         try {
             if ($format === 'pdf') {
-                $html = $this->buildHtmlTable('Daily Report - ' . $date, $exportData);
+                // Convert logo to base64 for PDF
+                $logoPath = public_path('st-james-logo.png');
+                $logoBase64 = null;
+                if (file_exists($logoPath)) {
+                    $logoData = file_get_contents($logoPath);
+                    $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+                }
+                
+                $html = $this->buildHtmlTable('Daily Report - ' . $date, $exportData, $logoBase64);
                 return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)->download($filename);
             }
 
@@ -1007,17 +999,9 @@ class BillingReportController extends Controller
             $exportData[] = [
                 'Type' => 'Billing Transaction',
                 'Transaction ID' => $transaction->transaction_id,
-                'Patient Name' => $this->getPatientName($transaction),
-                'Specialist' => $this->getSpecialistName($transaction),
-                'Amount' => $transaction->amount, // Use final amount after discounts
                 'Payment Method' => $transaction->payment_method,
                 'Status' => $transaction->status,
-                'Description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',
-                'Date' => $transaction->transaction_date_only ?? $transaction->transaction_date->format('Y-m-d'),
-                'Time' => $transaction->transaction_time_only ?? $transaction->transaction_date->format('H:i:s'),
-                'Full DateTime' => $transaction->transaction_date->format('Y-m-d H:i:s'),
-                'Items Count' => $transaction->appointmentLinks->count(), // Use appointmentLinks instead of items
-                'Appointments Count' => $transaction->appointmentLinks->count(),
+                'Full Date' => $transaction->transaction_date->format('Y-m-d H:i:s'),
             ];
         }
 
@@ -1026,17 +1010,9 @@ class BillingReportController extends Controller
             $exportData[] = [
                 'Type' => 'Doctor Payment',
                 'Transaction ID' => 'DP-' . $payment->id,
-                'Patient Name' => 'Doctor Payment',
-                'Specialist' => $payment->doctor ? $payment->doctor->name : 'Unknown Doctor',
-                'Amount' => -$payment->amount_paid,
                 'Payment Method' => $payment->payment_method,
                 'Status' => $payment->status,
-                'Description' => 'Doctor Payment - ' . $payment->description,
-                'Date' => $payment->payment_date->format('Y-m-d'),
-                'Time' => $payment->payment_date->format('H:i:s'),
-                'Full DateTime' => $payment->payment_date->format('Y-m-d H:i:s'),
-                'Items Count' => 0,
-                'Appointments Count' => 0,
+                'Full Date' => $payment->payment_date->format('Y-m-d H:i:s'),
             ];
         }
 
@@ -1044,7 +1020,7 @@ class BillingReportController extends Controller
 
         // Sort by time
         usort($exportData, function($a, $b) {
-            return strtotime($a['Time']) - strtotime($b['Time']);
+            return strtotime($a['Full Date']) - strtotime($b['Full Date']);
         });
 
         // Generate filename with proper extensions
@@ -1057,8 +1033,34 @@ class BillingReportController extends Controller
         $filename = 'monthly-report-' . $month . '.' . $extension;
 
         if ($format === 'pdf') {
-            $html = $this->buildHtmlTable('Monthly Report - ' . $month, $exportData);
-            return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)->download($filename);
+            // Debug: Log the export data
+            Log::info('Monthly PDF Export Debug', [
+                'month' => $month,
+                'export_data_count' => count($exportData),
+                'export_data_sample' => count($exportData) > 0 ? $exportData[0] : 'No data',
+                'filename' => $filename
+            ]);
+
+            // Convert logo to base64 for PDF
+            $logoPath = public_path('st-james-logo.png');
+            $logoBase64 = null;
+            if (file_exists($logoPath)) {
+                $logoData = file_get_contents($logoPath);
+                $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+            }
+            
+            try {
+                $html = $this->buildHtmlTable('Monthly Report - ' . $month, $exportData, $logoBase64);
+                return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)->download($filename);
+            } catch (\Exception $e) {
+                Log::error('Monthly PDF Export Error', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                    'month' => $month,
+                    'export_data_count' => count($exportData)
+                ]);
+                return back()->with('error', 'PDF export failed: ' . $e->getMessage());
+            }
         }
 
         if (in_array($format, ['word', 'doc', 'docx'])) {
@@ -1099,17 +1101,9 @@ class BillingReportController extends Controller
             $exportData[] = [
                 'Type' => 'Billing Transaction',
                 'Transaction ID' => $transaction->transaction_id,
-                'Patient Name' => $this->getPatientName($transaction),
-                'Specialist' => $this->getSpecialistName($transaction),
-                'Amount' => $transaction->amount, // Use final amount after discounts
                 'Payment Method' => $transaction->payment_method,
                 'Status' => $transaction->status,
-                'Description' => $transaction->description ?: 'Payment for ' . $transaction->appointmentLinks->count() . ' appointment(s)',
-                'Date' => $transaction->transaction_date_only ?? $transaction->transaction_date->format('Y-m-d'),
-                'Time' => $transaction->transaction_time_only ?? $transaction->transaction_date->format('H:i:s'),
-                'Full DateTime' => $transaction->transaction_date->format('Y-m-d H:i:s'),
-                'Items Count' => $transaction->appointmentLinks->count(), // Use appointmentLinks instead of items
-                'Appointments Count' => $transaction->appointmentLinks->count(),
+                'Full Date' => $transaction->transaction_date->format('Y-m-d H:i:s'),
             ];
         }
 
@@ -1118,17 +1112,9 @@ class BillingReportController extends Controller
             $exportData[] = [
                 'Type' => 'Doctor Payment',
                 'Transaction ID' => 'DP-' . $payment->id,
-                'Patient Name' => 'Doctor Payment',
-                'Specialist' => $payment->doctor ? $payment->doctor->name : 'Unknown Doctor',
-                'Amount' => -$payment->amount_paid,
                 'Payment Method' => $payment->payment_method,
                 'Status' => $payment->status,
-                'Description' => 'Doctor Payment - ' . $payment->description,
-                'Date' => $payment->payment_date->format('Y-m-d'),
-                'Time' => $payment->payment_date->format('H:i:s'),
-                'Full DateTime' => $payment->payment_date->format('Y-m-d H:i:s'),
-                'Items Count' => 0,
-                'Appointments Count' => 0,
+                'Full Date' => $payment->payment_date->format('Y-m-d H:i:s'),
             ];
         }
 
@@ -1136,7 +1122,7 @@ class BillingReportController extends Controller
 
         // Sort by time
         usort($exportData, function($a, $b) {
-            return strtotime($a['Time']) - strtotime($b['Time']);
+            return strtotime($a['Full Date']) - strtotime($b['Full Date']);
         });
 
         // Generate filename with proper extensions
@@ -1149,8 +1135,34 @@ class BillingReportController extends Controller
         $filename = 'yearly-report-' . $year . '.' . $extension;
 
         if ($format === 'pdf') {
-            $html = $this->buildHtmlTable('Yearly Report - ' . $year, $exportData);
-            return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)->download($filename);
+            // Debug: Log the export data
+            Log::info('Yearly PDF Export Debug', [
+                'year' => $year,
+                'export_data_count' => count($exportData),
+                'export_data_sample' => count($exportData) > 0 ? $exportData[0] : 'No data',
+                'filename' => $filename
+            ]);
+
+            // Convert logo to base64 for PDF
+            $logoPath = public_path('st-james-logo.png');
+            $logoBase64 = null;
+            if (file_exists($logoPath)) {
+                $logoData = file_get_contents($logoPath);
+                $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+            }
+            
+            try {
+                $html = $this->buildHtmlTable('Yearly Report - ' . $year, $exportData, $logoBase64);
+                return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)->download($filename);
+            } catch (\Exception $e) {
+                Log::error('Yearly PDF Export Error', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                    'year' => $year,
+                    'export_data_count' => count($exportData)
+                ]);
+                return back()->with('error', 'PDF export failed: ' . $e->getMessage());
+            }
         }
 
         if (in_array($format, ['word', 'doc', 'docx'])) {
@@ -1167,7 +1179,7 @@ class BillingReportController extends Controller
         );
     }
 
-    private function buildHtmlTable($title, $data)
+    private function buildHtmlTable($title, $data, $logoBase64 = null)
     {
         $html = '<!DOCTYPE html>
 <html>
@@ -1181,24 +1193,27 @@ class BillingReportController extends Controller
             padding: 20px;
             color: #333;
         }
+        .container {
+            max-width: 95%;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
         
-        .hospital-header {
+        .header {
             text-align: center;
             margin-bottom: 30px;
-            border-bottom: 2px solid #2d5a27;
             padding-bottom: 20px;
         }
-        
-        .hospital-logo {
-            display: inline-block;
-            vertical-align: top;
-            margin-right: 20px;
+        .header h1 {
+            color: #2563eb;
+            margin: 0;
+            font-size: 24px;
         }
-        
-        .hospital-info {
-            display: inline-block;
-            text-align: left;
-            vertical-align: top;
+        .header h2 {
+            color: #666;
+            margin: 5px 0 0 0;
+            font-size: 16px;
+            font-weight: normal;
         }
         
         .hospital-name {
@@ -1242,22 +1257,43 @@ class BillingReportController extends Controller
             color: #2d5a27;
         }
         
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
+        .section {
+            margin-bottom: 30px;
         }
-        
-        .data-table th,
-        .data-table td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        
-        .data-table th {
-            background-color: #f8f9fa;
+        .section-title {
+            background: #16a34a;
+            color: white;
+            padding: 10px 15px;
+            margin: 0 0 15px 0;
+            font-size: 16px;
             font-weight: bold;
+        }
+        .table-wrapper {
+            margin: 0 15px;
+            overflow-x: auto;
+        }
+        .summary-table {
+            width: 100%;
+            max-width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            table-layout: fixed;
+        }
+        .summary-table th {
+            background: #f3f4f6;
+            color: #374151;
+            padding: 12px 8px;
+            text-align: left;
+            font-weight: bold;
+            border: 1px solid #d1d5db;
+        }
+        .summary-table td {
+            padding: 10px 8px;
+            border: 1px solid #d1d5db;
+            vertical-align: top;
+        }
+        .summary-table tr:nth-child(even) {
+            background: #f9fafb;
         }
         
         .footer {
@@ -1271,28 +1307,28 @@ class BillingReportController extends Controller
     </style>
 </head>
 <body>
-    <div class="hospital-header">
-        <div class="hospital-logo">
-            <img src="' . public_path('st-james-logo.png') . '" alt="St. James Hospital Logo" style="width: 80px; height: 80px;">
-        </div>
-        <div class="hospital-info">
-            <div class="hospital-name">St. James Hospital Clinic, Inc.</div>
-            <div class="hospital-address">San Isidro City of Cabuyao Laguna</div>
-            <div class="hospital-slogan">Santa Rosa\'s First in Quality Healthcare Service</div>
-            <div class="hospital-motto">PASYENTE MUNA</div>
-            <div class="hospital-contact">
-                Tel. Nos. 02.85844533; 049.5341254; 049.5020058; Fax No.: local 307<br>
-                email add: info@stjameshospital.com.ph
+    <div class="header">
+        <div style="text-align: center; margin-bottom: 20px; padding: 10px 0; position: relative;">
+            <div style="position: absolute; left: 0; top: 0;">
+                <img src="' . ($logoBase64 ?? public_path('st-james-logo.png')) . '" alt="St. James Hospital Logo" style="width: 80px; height: 80px;">
+            </div>
+            <div style="text-align: center; width: 100%;">
+                <div style="font-size: 24px; font-weight: bold; color: #2d5a27; margin: 0 0 5px 0;">St. James Hospital Clinic, Inc.</div>
+                <div style="font-size: 12px; color: #333; margin: 0 0 3px 0;">San Isidro City of Cabuyao Laguna</div>
+                <div style="font-size: 14px; font-style: italic; color: #1e40af; margin: 0 0 5px 0;">Santa Rosa\'s First in Quality Healthcare Service</div>
+                <div style="font-size: 16px; font-weight: bold; color: #2d5a27; margin: 0 0 5px 0;">PASYENTE MUNA</div>
+                <div style="font-size: 10px; color: #666; margin: 0;">Tel. Nos. 02.85844533; 049.5341254; 049.5020058; Fax No.: local 307<br>email add: info@stjameshospital.com.ph</div>
             </div>
         </div>
+        <h1>Transaction Report</h1>
+        <h2>' . $title . '</h2>
     </div>
-    
-    <div class="report-title">' . $title . '</div>
-    <div style="text-align: center; margin-bottom: 20px; font-size: 12px; color: #666;">
-        Generated on: ' . now()->format('M d, Y H:i A') . '
-    </div>
-    
-    <table class="data-table">';
+
+    <div class="container">
+        <div class="section">
+            <div class="section-title">Transaction Details</div>
+            <div class="table-wrapper">
+            <table class="summary-table">';
         if (!empty($data)) {
             // Add headers
             $html .= '<tr>';
@@ -1312,10 +1348,14 @@ class BillingReportController extends Controller
         }
         
         $html .= '</table>
-    
+            </div>
+        </div>
+    </div>
+
     <div class="footer">
-        <p>This report was generated automatically by the Clinic Management System</p>
+        <p>This report was generated automatically by the Clinic Management System on ' . now()->format('M d, Y H:i A') . '</p>
         <p>For questions or support, please contact the system administrator</p>
+        <p><strong>CONFIDENTIAL</strong> - This document contains sensitive information and should be handled with care.</p>
     </div>
 </body>
 </html>';

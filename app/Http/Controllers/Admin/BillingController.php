@@ -14,6 +14,8 @@ use App\Services\DateValidationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class BillingController extends Controller
 {
@@ -464,7 +466,9 @@ class BillingController extends Controller
     public function create()
     {
         $patients = Patient::select('id', 'first_name', 'last_name', 'patient_no')->get();
-        $doctors = User::where('role', 'doctor')->select('id', 'name')->get();
+        $doctors = \App\Models\Specialist::where('role', 'Doctor')
+            ->select('specialist_id as id', 'name')
+            ->get();
         $labTests = LabTest::select('id', 'name', 'code', 'price')->get();
         $hmoProviders = \App\Models\HmoProvider::where('is_active', true)
             ->select('id', 'name', 'code', 'is_active')
@@ -782,7 +786,7 @@ class BillingController extends Controller
         \App\Helpers\SystemWideSpecialistBillingHelper::validateAllAppointments();
         \App\Helpers\SystemWideSpecialistBillingHelper::fixAllBillingTransactions();
         $request->validate([
-            'payment_method' => 'required|in:cash,hmo',
+            'payment_method' => 'required|in:cash,card,bank_transfer,check,hmo',
             'payment_reference' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
         ]);
@@ -806,9 +810,25 @@ class BillingController extends Controller
 
             DB::commit();
 
+            // Return JSON response for AJAX requests, or redirect for Inertia
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Transaction marked as paid successfully!'
+                ]);
+            }
+
             return back()->with('success', 'Transaction marked as paid successfully!');
         } catch (\Exception $e) {
             DB::rollback();
+            
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to mark transaction as paid. Please try again.'
+                ], 500);
+            }
+            
             return back()->withErrors(['error' => 'Failed to mark transaction as paid. Please try again.']);
         }
     }
@@ -1197,7 +1217,9 @@ class BillingController extends Controller
 
         $transaction->load(['patient', 'doctor', 'items']);
         $patients = Patient::select('id', 'first_name', 'last_name', 'patient_no')->get();
-        $doctors = User::where('role', 'doctor')->select('id', 'name')->get();
+        $doctors = \App\Models\Specialist::where('role', 'Doctor')
+            ->select('specialist_id as id', 'name')
+            ->get();
         $labTests = LabTest::select('id', 'name', 'code', 'price')->get();
 
         \Log::info('Edit page data loaded:', [
@@ -1462,8 +1484,520 @@ class BillingController extends Controller
 
     public function export(Request $request)
     {
-        // Export functionality - placeholder for now
-        return response()->json(['message' => 'Export functionality will be implemented']);
+        try {
+            $format = $request->get('format', 'excel');
+            $type = $request->get('type', 'billing-transactions');
+            $dateFrom = $request->get('date_from', now()->subDays(30)->format('Y-m-d'));
+            $dateTo = $request->get('date_to', now()->format('Y-m-d'));
+            $status = $request->get('status', 'all');
+            $paymentMethod = $request->get('payment_method', 'all');
+            $doctorId = $request->get('doctor_id', 'all');
+            $specialistId = $request->get('specialist_id', 'all');
+            $source = $request->get('source', 'all');
+
+            if ($type === 'pending-appointments') {
+                return $this->exportPendingAppointments($request, $format, $dateFrom, $dateTo, $status, $specialistId, $source);
+            } else {
+                return $this->exportBillingTransactions($request, $format, $dateFrom, $dateTo, $status, $paymentMethod, $doctorId);
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Export failed: ' . $e->getMessage());
+            return response()->json(['error' => 'Export failed: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Export billing transactions
+     */
+    private function exportBillingTransactions($request, $format, $dateFrom, $dateTo, $status, $paymentMethod, $doctorId)
+    {
+        // Build query with filters
+        $query = BillingTransaction::with(['patient', 'doctor', 'appointment']);
+
+        // Apply date range filter
+        if ($dateFrom && $dateTo) {
+            $query->whereBetween('transaction_date', [
+                $dateFrom . ' 00:00:00',
+                $dateTo . ' 23:59:59'
+            ]);
+        }
+
+        // Apply status filter
+        if ($status !== 'all') {
+            $query->where('status', $status);
+        }
+
+        // Apply payment method filter
+        if ($paymentMethod !== 'all') {
+            $query->where('payment_method', $paymentMethod);
+        }
+
+        // Apply doctor filter
+        if ($doctorId !== 'all') {
+            $query->where('doctor_id', $doctorId);
+        }
+
+        // Get transactions
+        $transactions = $query->orderBy('transaction_date', 'desc')->get();
+
+        $filters = [
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'status' => $status,
+            'payment_method' => $paymentMethod,
+            'doctor_id' => $doctorId,
+        ];
+
+        if ($format === 'excel') {
+            $filename = 'billing_transactions_' . $dateFrom . '_to_' . $dateTo . '_' . now()->format('Ymd_His') . '.xlsx';
+            
+            return Excel::download(
+                new \App\Exports\BillingTransactionExport($transactions, $filters, 'excel'),
+                $filename,
+                \Maatwebsite\Excel\Excel::XLSX
+            );
+        } elseif ($format === 'pdf') {
+            // For PDF, we'll create a simple HTML table and convert to PDF
+            $html = $this->buildBillingTransactionsPdf($transactions, $filters);
+            $filename = 'billing_transactions_' . $dateFrom . '_to_' . $dateTo . '_' . now()->format('Ymd_His') . '.pdf';
+            
+            return Pdf::loadHTML($html)->download($filename);
+        } else {
+            return response()->json(['error' => 'Invalid format. Supported formats: excel, pdf'], 400);
+        }
+    }
+
+    /**
+     * Export pending appointments
+     */
+    private function exportPendingAppointments($request, $format, $dateFrom, $dateTo, $status, $specialistId, $source)
+    {
+        // Build query for pending appointments
+        $query = Appointment::query()
+            ->where(function($q) {
+                $q->whereNull('billing_status')
+                  ->orWhere('billing_status', 'pending')
+                  ->orWhere('billing_status', 'not_billed');
+            });
+
+        // Apply date range filter
+        if ($dateFrom && $dateTo) {
+            $query->whereBetween('appointment_date', [
+                $dateFrom . ' 00:00:00',
+                $dateTo . ' 23:59:59'
+            ]);
+        }
+
+        // Apply status filter
+        if ($status !== 'all') {
+            $query->where('status', $status);
+        }
+
+        // Apply specialist filter
+        if ($specialistId !== 'all') {
+            $query->where('specialist_id', $specialistId);
+        }
+
+        // Apply source filter
+        if ($source !== 'all') {
+            $query->where('source', $source);
+        }
+
+        // Get appointments
+        $appointments = $query->orderBy('appointment_date', 'asc')->get();
+
+        $filters = [
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'status' => $status,
+            'specialist_id' => $specialistId,
+            'source' => $source,
+        ];
+
+        if ($format === 'excel') {
+            $filename = 'pending_appointments_' . $dateFrom . '_to_' . $dateTo . '_' . now()->format('Ymd_His') . '.xlsx';
+            
+            return Excel::download(
+                new \App\Exports\PendingAppointmentExport($appointments, $filters, 'excel'),
+                $filename,
+                \Maatwebsite\Excel\Excel::XLSX
+            );
+        } elseif ($format === 'pdf') {
+            // For PDF, we'll create a simple HTML table and convert to PDF
+            $html = $this->buildPendingAppointmentsPdf($appointments, $filters);
+            $filename = 'pending_appointments_' . $dateFrom . '_to_' . $dateTo . '_' . now()->format('Ymd_His') . '.pdf';
+            
+            return Pdf::loadHTML($html)->download($filename);
+        } else {
+            return response()->json(['error' => 'Invalid format. Supported formats: excel, pdf'], 400);
+        }
+    }
+
+    /**
+     * Build HTML for PDF export
+     */
+    private function buildBillingTransactionsPdf($transactions, $filters)
+    {
+        $html = '
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Billing Transactions Report</title>
+            <style>
+                body {
+                    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                    font-size: 12px;
+                    line-height: 1.4;
+                    margin: 0;
+                    padding: 20px;
+                    color: #333;
+                }
+
+                .hospital-header {
+                    text-align: center;
+                    margin-bottom: 20px;
+                    padding: 5px 0;
+                    position: relative;
+                }
+                
+                .hospital-logo {
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                }
+                
+                .hospital-info {
+                    text-align: center;
+                    width: 100%;
+                }
+                
+                .hospital-name {
+                    font-size: 24px;
+                    font-weight: bold;
+                    color: #2d5a27;
+                    margin: 0 0 5px 0;
+                }
+                
+                .hospital-address {
+                    font-size: 12px;
+                    color: #333;
+                    margin: 0 0 3px 0;
+                }
+                
+                .hospital-slogan {
+                    font-size: 14px;
+                    font-style: italic;
+                    color: #1e40af;
+                    margin: 0 0 5px 0;
+                }
+                
+                .hospital-motto {
+                    font-size: 16px;
+                    font-weight: bold;
+                    color: #2d5a27;
+                    margin: 0 0 5px 0;
+                }
+                
+                .hospital-contact {
+                    font-size: 10px;
+                    color: #666;
+                    margin: 0;
+                }
+
+                .report-title {
+                    text-align: center;
+                    font-size: 18px;
+                    font-weight: bold;
+                    margin: 20px 0;
+                    color: #2d5a27;
+                }
+
+                .transactions-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 20px 0;
+                    font-size: 11px;
+                }
+                
+                .transactions-table th, 
+                .transactions-table td {
+                    border: 1px solid #ddd;
+                    padding: 6px;
+                    text-align: left;
+                }
+                
+                .transactions-table th {
+                    background-color: #f2f2f2;
+                    font-weight: bold;
+                    color: #2d5a27;
+                }
+                
+                .amount {
+                    text-align: right;
+                }
+                
+                .status-paid {
+                    color: green;
+                    font-weight: bold;
+                }
+                
+                .status-pending {
+                    color: orange;
+                    font-weight: bold;
+                }
+                
+                .status-cancelled {
+                    color: red;
+                    font-weight: bold;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="hospital-header">
+                <div class="hospital-logo">
+                    <img src="' . public_path('st-james-logo.png') . '" alt="St. James Hospital Logo" style="width: 80px; height: 80px;">
+                </div>
+                <div class="hospital-info">
+                    <div class="hospital-name">St. James Hospital Clinic, Inc.</div>
+                    <div class="hospital-address">San Isidro City of Cabuyao Laguna</div>
+                    <div class="hospital-slogan">Santa Rosa\'s First in Quality Healthcare Service</div>
+                    <div class="hospital-motto">PASYENTE MUNA</div>
+                    <div class="hospital-contact">
+                        Tel. Nos. 02.85844533; 049.5341254; 049.5020058; Fax No.: local 307<br>
+                        email add: info@stjameshospital.com.ph
+                    </div>
+                </div>
+            </div>
+            
+            <div class="report-title">Billing Transactions Report</div>
+            
+            <table class="transactions-table">
+                <thead>
+                    <tr>
+                        <th>Transaction ID</th>
+                        <th>Patient Name</th>
+                        <th>Doctor Name</th>
+                        <th>Total Amount</th>
+                        <th>Final Amount</th>
+                        <th>Payment Method</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>';
+
+        foreach ($transactions as $transaction) {
+            $statusClass = 'status-' . $transaction->status;
+            $html .= '
+                    <tr>
+                        <td>' . $transaction->transaction_id . '</td>
+                        <td>' . ($transaction->patient ? $transaction->patient->first_name . ' ' . $transaction->patient->last_name : 'N/A') . '</td>
+                        <td>' . ($transaction->doctor ? $transaction->doctor->name : 'N/A') . '</td>
+                        <td class="amount">PHP ' . number_format($transaction->total_amount, 2) . '</td>
+                        <td class="amount">PHP ' . number_format($transaction->amount ?? $transaction->total_amount, 2) . '</td>
+                        <td>' . ucfirst($transaction->payment_method ?? 'N/A') . '</td>
+                        <td class="' . $statusClass . '">' . ucfirst($transaction->status) . '</td>
+                        <td>' . ($transaction->transaction_date ? $transaction->transaction_date->format('M d, Y H:i') : 'N/A') . '</td>
+                    </tr>';
+        }
+
+        $html .= '
+                </tbody>
+            </table>
+        </body>
+        </html>';
+
+        return $html;
+    }
+
+    /**
+     * Build HTML for Pending Appointments PDF export
+     */
+    private function buildPendingAppointmentsPdf($appointments, $filters)
+    {
+        $html = '
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Pending Appointments Report</title>
+            <style>
+                body {
+                    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                    font-size: 12px;
+                    line-height: 1.4;
+                    margin: 0;
+                    padding: 20px;
+                    color: #333;
+                }
+
+                .hospital-header {
+                    text-align: center;
+                    margin-bottom: 20px;
+                    padding: 5px 0;
+                    position: relative;
+                }
+                
+                .hospital-logo {
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                }
+                
+                .hospital-info {
+                    text-align: center;
+                    width: 100%;
+                }
+                
+                .hospital-name {
+                    font-size: 24px;
+                    font-weight: bold;
+                    color: #2d5a27;
+                    margin: 0 0 5px 0;
+                }
+                
+                .hospital-address {
+                    font-size: 12px;
+                    color: #333;
+                    margin: 0 0 3px 0;
+                }
+                
+                .hospital-slogan {
+                    font-size: 14px;
+                    font-style: italic;
+                    color: #1e40af;
+                    margin: 0 0 5px 0;
+                }
+                
+                .hospital-motto {
+                    font-size: 16px;
+                    font-weight: bold;
+                    color: #2d5a27;
+                    margin: 0 0 5px 0;
+                }
+                
+                .hospital-contact {
+                    font-size: 10px;
+                    color: #666;
+                    margin: 0;
+                }
+
+                .report-title {
+                    text-align: center;
+                    font-size: 18px;
+                    font-weight: bold;
+                    margin: 20px 0;
+                    color: #2d5a27;
+                }
+
+                .appointments-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 20px 0;
+                    font-size: 10px;
+                }
+                
+                .appointments-table th, 
+                .appointments-table td {
+                    border: 1px solid #ddd;
+                    padding: 4px;
+                    text-align: left;
+                }
+                
+                .appointments-table th {
+                    background-color: #f2f2f2;
+                    font-weight: bold;
+                    color: #2d5a27;
+                }
+                
+                .amount {
+                    text-align: right;
+                }
+                
+                .status-confirmed {
+                    color: green;
+                    font-weight: bold;
+                }
+                
+                .status-pending {
+                    color: orange;
+                    font-weight: bold;
+                }
+                
+                .status-cancelled {
+                    color: red;
+                    font-weight: bold;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="hospital-header">
+                <div class="hospital-logo">
+                    <img src="' . public_path('st-james-logo.png') . '" alt="St. James Hospital Logo" style="width: 80px; height: 80px;">
+                </div>
+                <div class="hospital-info">
+                    <div class="hospital-name">St. James Hospital Clinic, Inc.</div>
+                    <div class="hospital-address">San Isidro City of Cabuyao Laguna</div>
+                    <div class="hospital-slogan">Santa Rosa\'s First in Quality Healthcare Service</div>
+                    <div class="hospital-motto">PASYENTE MUNA</div>
+                    <div class="hospital-contact">
+                        Tel. Nos. 02.85844533; 049.5341254; 049.5020058; Fax No.: local 307<br>
+                        email add: info@stjameshospital.com.ph
+                    </div>
+                </div>
+            </div>
+            
+            <div class="report-title">Pending Appointments Report</div>
+            
+            <table class="appointments-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Patient Name</th>
+                        <th>Contact</th>
+                        <th>Type</th>
+                        <th>Specialist</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Status</th>
+                        <th>Source</th>
+                        <th>Price</th>
+                        <th>Lab Amount</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>';
+
+        foreach ($appointments as $appointment) {
+            $statusClass = 'status-' . strtolower($appointment->status);
+            $html .= '
+                    <tr>
+                        <td>' . $appointment->id . '</td>
+                        <td>' . $appointment->patient_name . '</td>
+                        <td>' . ($appointment->contact_number ?? 'N/A') . '</td>
+                        <td>' . ucfirst($appointment->appointment_type) . '</td>
+                        <td>' . $appointment->specialist_name . '</td>
+                        <td>' . ($appointment->appointment_date ? $appointment->appointment_date->format('M d, Y') : 'N/A') . '</td>
+                        <td>' . ($appointment->appointment_time ? $appointment->appointment_time->format('g:i A') : 'N/A') . '</td>
+                        <td class="' . $statusClass . '">' . ucfirst($appointment->status) . '</td>
+                        <td>' . ucfirst($appointment->source ?? 'online') . '</td>
+                        <td class="amount">PHP ' . number_format($appointment->price, 2) . '</td>
+                        <td class="amount">PHP ' . number_format($appointment->total_lab_amount ?? 0, 2) . '</td>
+                        <td class="amount">PHP ' . number_format($appointment->final_total_amount ?? $appointment->price, 2) . '</td>
+                    </tr>';
+        }
+
+        $html .= '
+                </tbody>
+            </table>
+        </body>
+        </html>';
+
+        return $html;
     }
 
     /**

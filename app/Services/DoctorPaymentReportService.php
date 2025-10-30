@@ -122,6 +122,7 @@ class DoctorPaymentReportService
                     'incentives' => $payment->incentives,
                     'net_payment' => $payment->net_payment,
                     'status' => $payment->status,
+                    'paid_date' => $payment->paid_date,
                     'notes' => $payment->notes,
                     'created_at' => $payment->created_at,
                 ];
@@ -151,6 +152,7 @@ class DoctorPaymentReportService
                     'incentives' => $payment->incentives,
                     'net_payment' => $payment->net_payment,
                     'status' => $payment->status,
+                    'paid_date' => $payment->paid_date,
                     'notes' => $payment->notes,
                     'created_at' => $payment->created_at,
                 ];
@@ -178,6 +180,7 @@ class DoctorPaymentReportService
                     'incentives' => $payment->incentives,
                     'net_payment' => $payment->net_payment,
                     'status' => $payment->status,
+                    'paid_date' => $payment->paid_date,
                     'notes' => $payment->notes,
                     'created_at' => $payment->created_at,
                 ];

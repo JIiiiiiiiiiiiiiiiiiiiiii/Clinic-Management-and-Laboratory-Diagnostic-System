@@ -266,8 +266,8 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                             {duplicate.mobile_no ? ` • ${duplicate.mobile_no}` : ''}
                             {duplicate.patient_no ? ` • Patient No: ${duplicate.patient_no}` : ''}
                         </div>
-                        <div className="mt-3 flex gap-2">
-                            <Button variant="secondary" asChild>
+                            <div className="mt-3 flex gap-2">
+                            <Button variant="secondary" asChild className="bg-green-600 hover:bg-green-700 text-white">
                                 <Link href={`/admin/patient/${duplicate.id}`}>View Existing</Link>
                             </Button>
                             <Button variant="destructive" onClick={proceedDuplicate}>
@@ -748,9 +748,8 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                 {currentStep > 1 && (
                                     <Button
                                         type="button"
-                                        variant="outline"
                                         onClick={prevStep}
-                                        className="px-6 py-3 h-12 border-gray-300 hover:bg-gray-50 rounded-xl text-lg font-semibold"
+                                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 h-12 rounded-xl text-lg font-semibold"
                                     >
                                         <ArrowLeft className="mr-2 h-5 w-5" />
                                         Previous
@@ -763,7 +762,7 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                     <Button
                                         type="button"
                                         onClick={nextStep}
-                                        className="bg-gray-600 hover:bg-gray-700blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 h-12 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold"
+                                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 h-12 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold"
                                     >
                                         Next Step
                                         <ArrowLeft className="ml-2 h-5 w-5 rotate-180" />
@@ -772,7 +771,7 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                     <Button 
                                         disabled={processing} 
                                         type="submit"
-                                        className="bg-gray-600 hover:bg-gray-700green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-8 py-3 h-12 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold"
+                                        className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 h-12 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold"
                                     >
                                         <Save className="mr-3 h-6 w-6" />
                                         {processing ? 'Creating Patient...' : 'Complete Registration'}

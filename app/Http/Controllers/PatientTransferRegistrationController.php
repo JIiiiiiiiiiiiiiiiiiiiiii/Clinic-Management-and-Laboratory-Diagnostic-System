@@ -21,7 +21,7 @@ class PatientTransferRegistrationController extends Controller
     {
         $user = auth()->user();
         
-        // Build the base query - get ALL transfers regardless of status
+        // Build the base query - only show pending transfers by default to prevent double approval
         $query = PatientTransfer::with(['patient', 'requestedBy', 'approvedBy']);
 
         // Filter based on user role for cross-approval system
@@ -33,14 +33,17 @@ class PatientTransferRegistrationController extends Controller
             $query->byRegistrationType('admin');
         }
 
-        // Apply status filter if provided
+        // Apply status filter - default to pending only to prevent double approval
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('approval_status', $request->status);
+        } else {
+            // Default to showing only pending transfers to prevent double approval
+            $query->where('approval_status', 'pending');
         }
 
         $transfers = $query->orderBy('created_at', 'desc')->paginate(15);
 
-        // Calculate statistics
+        // Calculate statistics for the user's role
         $allTransfers = PatientTransfer::query();
         if ($user->role === 'admin') {
             $allTransfers->byRegistrationType('hospital');
@@ -242,6 +245,16 @@ class PatientTransferRegistrationController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
 
+        // Check if transfer is already approved to prevent double approval
+        if ($transfer->approval_status === 'approved') {
+            return back()->withErrors(['error' => 'This transfer has already been approved.']);
+        }
+
+        // Check if transfer is rejected
+        if ($transfer->approval_status === 'rejected') {
+            return back()->withErrors(['error' => 'This transfer has been rejected and cannot be approved.']);
+        }
+
         try {
             DB::beginTransaction();
 
@@ -271,6 +284,15 @@ class PatientTransferRegistrationController extends Controller
         $request->validate([
             'notes' => 'required|string|max:1000',
         ]);
+
+        // Check if transfer is already processed to prevent double processing
+        if ($transfer->approval_status === 'approved') {
+            return back()->withErrors(['error' => 'This transfer has already been approved and cannot be rejected.']);
+        }
+
+        if ($transfer->approval_status === 'rejected') {
+            return back()->withErrors(['error' => 'This transfer has already been rejected.']);
+        }
 
         try {
             DB::beginTransaction();

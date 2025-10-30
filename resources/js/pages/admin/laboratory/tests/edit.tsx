@@ -122,7 +122,7 @@ export default function TestEdit({ test }: TestEditProps): React.ReactElement {
                             <p className="text-sm text-gray-500 mt-1">How this test will look to users when ordering</p>
                         </div>
                     </div>
-                    <Button variant="secondary" onClick={() => setPreviewMode(false)}>
+                    <Button variant="secondary" onClick={() => setPreviewMode(false)} className="bg-green-600 hover:bg-green-700 text-white">
                         <Edit className="mr-2 h-4 w-4" />
                         Edit Test
                     </Button>
@@ -203,11 +203,11 @@ export default function TestEdit({ test }: TestEditProps): React.ReactElement {
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
-                                    <Button variant="secondary" onClick={() => setPreviewMode(true)}>
+                                    <Button variant="secondary" onClick={() => setPreviewMode(true)} className="bg-green-600 hover:bg-green-700 text-white">
                                         <Eye className="mr-3 h-6 w-6" />
                                         Preview
                                     </Button>
-                                    <Button onClick={submit} disabled={processing}>
+                                    <Button onClick={submit} disabled={processing} className="bg-green-600 hover:bg-green-700 text-white">
                                         <Save className="mr-3 h-6 w-6" />
                                         Save Changes
                                     </Button>

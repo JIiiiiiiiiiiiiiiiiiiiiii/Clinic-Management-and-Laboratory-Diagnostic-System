@@ -54,7 +54,7 @@ class InventoryItem extends Model
 
     public function scopeLowStock($query)
     {
-        return $query->whereRaw('stock <= low_stock_alert');
+        return $query->whereRaw('stock > 0 AND stock <= low_stock_alert');
     }
 
     public function updateStatus()
@@ -69,7 +69,7 @@ class InventoryItem extends Model
         $this->save();
     }
 
-    public function addStock($quantity)
+    public function addStock($quantity, $remarks = 'Stock Added', $createdBy = null)
     {
         // Update stock
         $this->stock += $quantity;
@@ -86,17 +86,27 @@ class InventoryItem extends Model
         // Save all changes atomically
         $this->save();
         
+        // Create movement record
+        InventoryMovement::create([
+            'inventory_id' => $this->id,
+            'movement_type' => 'IN',
+            'quantity' => $quantity,
+            'remarks' => $remarks,
+            'created_by' => $createdBy ?? auth()->id() ?? 1, // Default to user 1 if no auth
+        ]);
+        
         // Log the update for debugging
         \Log::info('InventoryItem addStock completed:', [
             'item_id' => $this->id,
             'item_name' => $this->item_name,
             'quantity_added' => $quantity,
             'new_stock' => $this->stock,
-            'new_status' => $this->status
+            'new_status' => $this->status,
+            'movement_created' => true
         ]);
     }
 
-    public function removeStock($quantity, $isRejected = false)
+    public function removeStock($quantity, $isRejected = false, $remarks = null, $createdBy = null)
     {
         // Update all fields simultaneously
         $this->stock -= $quantity;
@@ -118,6 +128,59 @@ class InventoryItem extends Model
         // Save all changes atomically
         $this->save();
         
+        // Create movement record
+        $movementRemarks = $remarks ?? ($isRejected ? 'Item Rejected' : 'Item Consumed');
+        InventoryMovement::create([
+            'inventory_id' => $this->id,
+            'movement_type' => 'OUT',
+            'quantity' => $quantity,
+            'remarks' => $movementRemarks,
+            'created_by' => $createdBy ?? auth()->id() ?? 1, // Default to user 1 if no auth
+        ]);
+        
+        // Extract reason and parse createdBy
+        $reason = null;
+        $usedBy = null;
+        $userId = null;
+        
+        // Parse remarks to extract reason
+        if ($remarks) {
+            // Remove prefix like "Consumed: " or "Rejected: "
+            $reason = preg_replace('/^(Consumed|Rejected):\s*/i', '', $remarks);
+            if (empty(trim($reason))) {
+                $reason = $remarks;
+            }
+        }
+        
+        // Parse createdBy - it can be a user ID (integer) or user name (string)
+        if (is_numeric($createdBy)) {
+            $userId = (int)$createdBy;
+            $user = \App\Models\User::find($userId);
+            $usedBy = $user ? $user->name : 'System';
+        } elseif ($createdBy) {
+            $usedBy = $createdBy;
+            // Try to find user by name
+            $user = \App\Models\User::where('name', $createdBy)->first();
+            $userId = $user ? $user->id : (auth()->id() ?? 1);
+        } else {
+            $usedBy = auth()->user()->name ?? 'System';
+            $userId = auth()->id() ?? 1;
+        }
+        
+        // Create record in inventory_used_rejected_items table
+        InventoryUsedRejectedItem::create([
+            'inventory_item_id' => $this->id,
+            'type' => $isRejected ? 'rejected' : 'used',
+            'quantity' => $quantity,
+            'reason' => $reason,
+            'location' => $this->location ?? $this->assigned_to ?? null,
+            'used_by' => $usedBy,
+            'user_id' => $userId,
+            'date_used_rejected' => now()->toDateString(),
+            'remarks' => $movementRemarks,
+            'reference_number' => null, // Can be set when related to specific transactions
+        ]);
+        
         // Log the update for debugging
         \Log::info('InventoryItem removeStock completed:', [
             'item_id' => $this->id,
@@ -127,7 +190,9 @@ class InventoryItem extends Model
             'new_rejected' => $this->rejected,
             'new_consumed' => $this->consumed,
             'new_status' => $this->status,
-            'was_rejected' => $isRejected
+            'was_rejected' => $isRejected,
+            'movement_created' => true,
+            'used_rejected_record_created' => true
         ]);
     }
 

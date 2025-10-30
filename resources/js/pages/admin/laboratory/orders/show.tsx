@@ -101,18 +101,7 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
     };
 
     const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'ordered':
-                return 'bg-gray-100 text-black border-gray-200';
-            case 'processing':
-                return 'bg-gray-100 text-black border-gray-200';
-            case 'completed':
-                return 'bg-gray-100 text-black border-gray-200';
-            case 'cancelled':
-                return 'bg-gray-100 text-black border-gray-200';
-            default:
-                return 'bg-gray-100 text-gray-800 border-gray-200';
-        }
+        return 'bg-green-100 text-green-800 border-green-200';
     };
 
     const formatDate = (dateString: string) => {
@@ -169,15 +158,15 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
-                            <Button variant="outline" onClick={() => router.visit(`/admin/laboratory/orders/${order.id}/results`)}>
+                            <Button variant="outline" onClick={() => router.visit(`/admin/laboratory/orders/${order.id}/results`)} className="bg-green-600 hover:bg-green-700 text-white">
                                 <Edit className="mr-2 h-4 w-4" />
                                 Enter Results
                             </Button>
-                            <Button variant="outline" onClick={() => window.open(`/admin/laboratory/orders/${order.id}/report`, '_blank')}>
+                            <Button variant="outline" onClick={() => window.open(`/admin/laboratory/orders/${order.id}/report`, '_blank')} className="bg-green-600 hover:bg-green-700 text-white">
                                 <FileText className="mr-2 h-4 w-4" />
                                 Generate Report
                             </Button>
-                            <Button variant="outline" onClick={() => window.open(`/admin/laboratory/orders/${order.id}/export.xlsx`, '_blank')}>
+                            <Button variant="outline" onClick={() => window.open(`/admin/laboratory/orders/${order.id}/export.xlsx`, '_blank')} className="bg-green-600 hover:bg-green-700 text-white">
                                 <Download className="mr-2 h-4 w-4" />
                                 Export Excel
                             </Button>

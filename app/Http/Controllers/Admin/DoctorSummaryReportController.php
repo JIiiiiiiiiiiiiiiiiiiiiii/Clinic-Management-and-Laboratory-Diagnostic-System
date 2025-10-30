@@ -517,11 +517,11 @@ class DoctorSummaryReportController extends Controller
                 
                 $exportData[] = [
                     'Doctor Name' => $paymentData['doctor']['name'],
-                    'Total Paid' => number_format($paymentData['total_paid'], 2),
-                    'Pending Amount' => number_format($paymentData['pending_amount'], 2),
+                    'Total Paid' => 'PHP ' . number_format($paymentData['total_paid'], 2),
+                    'Pending Amount' => 'PHP ' . number_format($paymentData['pending_amount'], 2),
                     'Payment Count' => $paymentData['payment_count'],
                     'Paid Payments' => $paymentData['paid_payments'],
-                    'Total Revenue' => number_format($revenueData['total_revenue'], 2),
+                    'Total Revenue' => 'PHP ' . number_format($revenueData['total_revenue'], 2),
                     'Transaction Count' => $revenueData['transaction_count'],
                 ];
             }
@@ -529,7 +529,15 @@ class DoctorSummaryReportController extends Controller
             $filename = 'Doctor_Summary_Daily_Report_' . $date . '.' . $format;
 
             if ($format === 'pdf') {
-                $html = $this->buildHtmlTable('Doctor Summary Daily Report - ' . $date, $exportData);
+                // Convert logo to base64 for PDF
+                $logoPath = public_path('st-james-logo.png');
+                $logoBase64 = null;
+                if (file_exists($logoPath)) {
+                    $logoData = file_get_contents($logoPath);
+                    $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+                }
+                
+                $html = $this->buildHtmlTable('Doctor Summary Daily Report - ' . $date, $exportData, $logoBase64);
                 return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)->download($filename);
             }
             
@@ -617,11 +625,11 @@ class DoctorSummaryReportController extends Controller
                 
                 $exportData[] = [
                     'Doctor Name' => $paymentData['doctor']['name'],
-                    'Total Paid' => number_format($paymentData['total_paid'], 2),
-                    'Pending Amount' => number_format($paymentData['pending_amount'], 2),
+                    'Total Paid' => 'PHP ' . number_format($paymentData['total_paid'], 2),
+                    'Pending Amount' => 'PHP ' . number_format($paymentData['pending_amount'], 2),
                     'Payment Count' => $paymentData['payment_count'],
                     'Paid Payments' => $paymentData['paid_payments'],
-                    'Total Revenue' => number_format($revenueData['total_revenue'], 2),
+                    'Total Revenue' => 'PHP ' . number_format($revenueData['total_revenue'], 2),
                     'Transaction Count' => $revenueData['transaction_count'],
                 ];
             }
@@ -629,7 +637,15 @@ class DoctorSummaryReportController extends Controller
             $filename = 'Doctor_Summary_Monthly_Report_' . $month . '.' . $format;
 
             if ($format === 'pdf') {
-                $html = $this->buildHtmlTable('Doctor Summary Monthly Report - ' . $month, $exportData);
+                // Convert logo to base64 for PDF
+                $logoPath = public_path('st-james-logo.png');
+                $logoBase64 = null;
+                if (file_exists($logoPath)) {
+                    $logoData = file_get_contents($logoPath);
+                    $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+                }
+                
+                $html = $this->buildHtmlTable('Doctor Summary Monthly Report - ' . $month, $exportData, $logoBase64);
                 return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)->download($filename);
             }
             
@@ -715,11 +731,11 @@ class DoctorSummaryReportController extends Controller
                 
                 $exportData[] = [
                     'Doctor Name' => $paymentData['doctor']['name'],
-                    'Total Paid' => number_format($paymentData['total_paid'], 2),
-                    'Pending Amount' => number_format($paymentData['pending_amount'], 2),
+                    'Total Paid' => 'PHP ' . number_format($paymentData['total_paid'], 2),
+                    'Pending Amount' => 'PHP ' . number_format($paymentData['pending_amount'], 2),
                     'Payment Count' => $paymentData['payment_count'],
                     'Paid Payments' => $paymentData['paid_payments'],
-                    'Total Revenue' => number_format($revenueData['total_revenue'], 2),
+                    'Total Revenue' => 'PHP ' . number_format($revenueData['total_revenue'], 2),
                     'Transaction Count' => $revenueData['transaction_count'],
                 ];
             }
@@ -727,7 +743,15 @@ class DoctorSummaryReportController extends Controller
             $filename = 'Doctor_Summary_Yearly_Report_' . $year . '.' . $format;
 
             if ($format === 'pdf') {
-                $html = $this->buildHtmlTable('Doctor Summary Yearly Report - ' . $year, $exportData);
+                // Convert logo to base64 for PDF
+                $logoPath = public_path('st-james-logo.png');
+                $logoBase64 = null;
+                if (file_exists($logoPath)) {
+                    $logoData = file_get_contents($logoPath);
+                    $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+                }
+                
+                $html = $this->buildHtmlTable('Doctor Summary Yearly Report - ' . $year, $exportData, $logoBase64);
                 return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)->download($filename);
             }
             
@@ -750,7 +774,7 @@ class DoctorSummaryReportController extends Controller
         }
     }
 
-    private function buildHtmlTable($title, $data)
+    private function buildHtmlTable($title, $data, $logoBase64 = null)
     {
         $html = '<!DOCTYPE html>
 <html>
@@ -856,7 +880,7 @@ class DoctorSummaryReportController extends Controller
 <body>
     <div class="hospital-header">
         <div class="hospital-logo">
-            <img src="' . public_path('st-james-logo.png') . '" alt="St. James Hospital Logo" style="width: 80px; height: 80px;">
+            <img src="' . ($logoBase64 ?? public_path('st-james-logo.png')) . '" alt="St. James Hospital Logo" style="width: 80px; height: 80px;">
         </div>
         <div class="hospital-info">
             <div class="hospital-name">St. James Hospital Clinic, Inc.</div>
@@ -871,9 +895,6 @@ class DoctorSummaryReportController extends Controller
     </div>
     
     <div class="report-title">' . $title . '</div>
-    <div style="text-align: center; margin-bottom: 20px; font-size: 12px; color: #666;">
-        Generated on: ' . now()->format('M d, Y H:i A') . '
-    </div>
     
     <table class="data-table">';
         if (!empty($data)) {

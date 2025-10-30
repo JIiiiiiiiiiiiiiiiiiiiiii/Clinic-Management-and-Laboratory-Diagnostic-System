@@ -90,7 +90,7 @@ class LaboratoryReportController extends Controller
             'completed_orders' => $completedOrders,
             'completion_rate' => $totalOrders > 0 ? round(($completedOrders / $totalOrders) * 100, 2) : 0,
             'test_summary' => $testSummary,
-            'order_details' => $orderDetails,
+            'order_details' => $orderDetails->toArray(),
             'period' => $this->getPeriodLabel($filter, $date),
             'start_date' => $startDate->format('Y-m-d'),
             'end_date' => $endDate->format('Y-m-d')
@@ -201,10 +201,27 @@ class LaboratoryReportController extends Controller
         
         $data = $this->getReportData($filter, $date);
         
-        $pdf = Pdf::loadView('reports.laboratory-pdf', [
+        // Convert logo to base64 for PDF
+        $logoPath = public_path('st-james-logo.png');
+        $logoBase64 = '';
+        if (file_exists($logoPath)) {
+            $logoData = file_get_contents($logoPath);
+            $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+        }
+        
+        $pdf = Pdf::loadView('reports.laboratory', [
             'data' => $data,
             'filter' => $filter,
-            'date' => $date
+            'date' => $date,
+            'logoBase64' => $logoBase64,
+            'dateRange' => $this->getPeriodLabel($filter, $date)
+        ]);
+        
+        $pdf->setPaper('A4', 'portrait');
+        $pdf->setOptions([
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => true,
+            'defaultFont' => 'Arial',
         ]);
         
         $filename = 'laboratory-report-' . $filter . '-' . $date . '-' . now()->format('Y-m-d-H-i-s') . '.pdf';

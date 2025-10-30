@@ -13,6 +13,21 @@
             margin: 0;
             padding: 20px;
         }
+        .container {
+            max-width: 95%;
+            margin: 0 auto;
+            padding: 0 15px;
+        }
+        .table-wrapper {
+            margin: 0 20px;
+            overflow-x: auto;
+        }
+        .summary-table, .transactions-table {
+            width: 95%;
+            max-width: 95%;
+            margin: 0 auto;
+            table-layout: fixed;
+        }
         .header {
             text-align: center;
             margin-bottom: 30px;
@@ -33,7 +48,7 @@
             margin-bottom: 30px;
         }
         .section-title {
-            background: #2563eb;
+            background: #16a34a;
             color: white;
             padding: 10px 15px;
             margin: 0 0 15px 0;
@@ -41,30 +56,26 @@
             font-weight: bold;
         }
         .summary-table {
-            margin-bottom: 20px;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .summary-table th {
+            background: #f3f4f6;
+            color: #374151;
+            padding: 12px 8px;
+            text-align: left;
+            font-weight: bold;
+            border: 1px solid #d1d5db;
         }
         .summary-table td {
-            padding: 12px 15px;
+            padding: 10px 8px;
             border: 1px solid #d1d5db;
-            vertical-align: middle;
+            vertical-align: top;
         }
-        .summary-table td:first-child,
-        .summary-table td:nth-child(3) {
-            background: #f8fafc;
-            font-weight: bold;
-            color: #374151;
-            width: 30%;
-        }
-        .summary-table td:nth-child(2),
-        .summary-table td:nth-child(4) {
-            background: #ffffff;
-            color: #059669;
-            font-weight: bold;
-            text-align: right;
-            width: 20%;
+        .summary-table tr:nth-child(even) {
+            background: #f9fafb;
         }
         .transactions-table {
-            width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
         }
@@ -148,14 +159,13 @@
         <h2>{{ $title }}</h2>
     </div>
 
-
-    <div class="summary-section">
+    <div class="container">
+        <div class="summary-section">
         <h2 class="section-title">Financial Summary</h2>
+        <div class="table-wrapper">
         <table class="summary-table">
             <thead>
                 <tr>
-                    <th>Metric</th>
-                    <th>Value</th>
                     <th>Metric</th>
                     <th>Value</th>
                 </tr>
@@ -164,28 +174,32 @@
                 <tr>
                     <td><strong>Total Revenue</strong></td>
                     <td>PHP {{ number_format($data['summary']['total_revenue'] ?? 0, 2) }}</td>
+                </tr>
+                <tr>
                     <td><strong>Total Transactions</strong></td>
                     <td>{{ $data['summary']['total_transactions'] ?? 0 }}</td>
                 </tr>
                 <tr>
                     <td><strong>Cash Total</strong></td>
                     <td>PHP {{ number_format($data['summary']['cash_total'] ?? 0, 2) }}</td>
+                </tr>
+                <tr>
                     <td><strong>HMO Total</strong></td>
                     <td>PHP {{ number_format($data['summary']['hmo_total'] ?? 0, 2) }}</td>
                 </tr>
                 <tr>
                     <td><strong>Pending Amount</strong></td>
                     <td>PHP {{ number_format($data['summary']['pending_amount'] ?? 0, 2) }}</td>
-                    <td><strong>Average Transaction</strong></td>
-                    <td>PHP {{ number_format(($data['summary']['total_transactions'] ?? 0) > 0 ? ($data['summary']['total_revenue'] ?? 0) / ($data['summary']['total_transactions'] ?? 1) : 0, 2) }}</td>
                 </tr>
             </tbody>
         </table>
+        </div>
     </div>
 
     <div class="transactions-section">
         <h2 class="section-title">Transaction Details</h2>
         @if($transactions && $transactions->count() > 0)
+            <div class="table-wrapper">
             <table class="transactions-table">
                 <thead>
                     <tr>
@@ -226,11 +240,13 @@
                     @endforeach
                 </tbody>
             </table>
+            </div>
         @else
             <div class="no-data">
                 No transactions found for the selected criteria.
             </div>
         @endif
+        </div>
     </div>
 
     <div class="footer">

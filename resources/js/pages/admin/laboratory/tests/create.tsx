@@ -109,7 +109,7 @@ export default function TestCreate(): React.ReactElement {
                             <p className="text-sm text-gray-500 mt-1">How this test will look to users when ordering</p>
                         </div>
                     </div>
-                    <Button variant="secondary" onClick={() => setPreviewMode(false)}>
+                    <Button variant="secondary" onClick={() => setPreviewMode(false)} className="bg-green-600 hover:bg-green-700 text-white">
                         <Edit className="mr-2 h-4 w-4" />
                         Edit Test
                     </Button>
@@ -193,11 +193,11 @@ export default function TestCreate(): React.ReactElement {
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
-                                    <Button variant="secondary" onClick={() => setPreviewMode(true)}>
+                                    <Button variant="secondary" onClick={() => setPreviewMode(true)} className="bg-green-600 hover:bg-green-700 text-white">
                                         <Eye className="mr-3 h-6 w-6" />
                                         Preview
                                     </Button>
-                                    <Button onClick={submit} disabled={processing}>
+                                    <Button onClick={submit} disabled={processing} className="bg-green-600 hover:bg-green-700 text-white">
                                         <Save className="mr-3 h-6 w-6" />
                                         Create Test
                                     </Button>
@@ -274,11 +274,11 @@ export default function TestCreate(): React.ReactElement {
                                                         <h4 className="text-lg font-semibold text-gray-900">Section</h4>
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        <Button variant="secondary" size="sm" onClick={() => addField(sectionKey)}>
+                                                        <Button variant="secondary" size="sm" onClick={() => addField(sectionKey)} className="bg-green-600 hover:bg-green-700 text-white">
                                                             <Plus className="mr-2 h-4 w-4" />
                                                             Add Field
                                                         </Button>
-                                                        <Button variant="ghost" size="sm" onClick={() => deleteSection(sectionKey)}>
+                                                        <Button variant="ghost" size="sm" onClick={() => deleteSection(sectionKey)} className="bg-green-600 hover:bg-green-700 text-white">
                                                             <Trash2 className="mr-2 h-4 w-4" />
                                                             Delete
                                                         </Button>
@@ -390,7 +390,7 @@ export default function TestCreate(): React.ReactElement {
                                             </div>
                                             <p className="text-lg font-semibold text-gray-700 mb-2">No sections defined yet</p>
                                             <p className="text-gray-500 mb-6">Create your first section to start building your test template</p>
-                                            <Button onClick={addSection}>
+                                            <Button onClick={addSection} className="bg-green-600 hover:bg-green-700 text-white">
                                                 <Plus className="mr-2 h-4 w-4" />
                                                 Add Your First Section
                                             </Button>

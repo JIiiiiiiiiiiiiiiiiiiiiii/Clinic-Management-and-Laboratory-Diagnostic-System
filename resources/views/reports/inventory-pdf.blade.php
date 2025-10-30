@@ -73,6 +73,24 @@
             padding: 40px;
             color: #666;
         }
+        .page-break {
+            page-break-before: always;
+        }
+        .section-break {
+            page-break-inside: avoid;
+            margin-bottom: 20px;
+        }
+        .table-break {
+            page-break-inside: avoid;
+        }
+        h3 {
+            page-break-after: avoid;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            color: #333;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 5px;
+        }
     </style>
 </head>
 <body>
@@ -124,56 +142,147 @@
 
     @if(isset($data['summary']))
         <div class="summary">
-            <h3>Summary Statistics</h3>
-            <div class="summary-grid">
-                @foreach($data['summary'] as $key => $value)
-                    <div class="summary-item">
-                        <h4>{{ ucwords(str_replace('_', ' ', $key)) }}</h4>
-                        <p>{{ $value }}</p>
-                    </div>
-                @endforeach
-            </div>
+            <h3>Report Summary</h3>
+            <table style="width: 100%; margin-top: 15px;">
+                <thead>
+                    <tr style="background-color: #f5f5f5;">
+                        <th style="padding: 8px; border: 1px solid #ddd;">Metric</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Value</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Percentage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Total Products</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ $data['summary']['total_items'] ?? 0 }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">100%</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Used Items</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ number_format($data['summary']['total_consumed'] ?? 0) }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">
+                            {{ (($data['summary']['total_consumed'] ?? 0) + ($data['summary']['total_rejected'] ?? 0)) > 0 ? 
+                                number_format((($data['summary']['total_consumed'] ?? 0) / (($data['summary']['total_consumed'] ?? 0) + ($data['summary']['total_rejected'] ?? 0))) * 100, 1) : 0 }}%
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Rejected Items</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ number_format($data['summary']['total_rejected'] ?? 0) }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">
+                            {{ (($data['summary']['total_consumed'] ?? 0) + ($data['summary']['total_rejected'] ?? 0)) > 0 ? 
+                                number_format((($data['summary']['total_rejected'] ?? 0) / (($data['summary']['total_consumed'] ?? 0) + ($data['summary']['total_rejected'] ?? 0))) * 100, 1) : 0 }}%
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Low Stock Items</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ $data['summary']['low_stock_items'] ?? 0 }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">
+                            {{ ($data['summary']['total_items'] ?? 0) > 0 ? 
+                                number_format((($data['summary']['low_stock_items'] ?? 0) / ($data['summary']['total_items'] ?? 1)) * 100, 1) : 0 }}%
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Out of Stock Items</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ $data['summary']['out_of_stock_items'] ?? 0 }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">
+                            {{ ($data['summary']['total_items'] ?? 0) > 0 ? 
+                                number_format((($data['summary']['out_of_stock_items'] ?? 0) / ($data['summary']['total_items'] ?? 1)) * 100, 1) : 0 }}%
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    @endif
+
+    @if(isset($data['category_summary']) && count($data['category_summary']) > 0)
+        <div class="summary">
+            <h3>Category Summary</h3>
+            <table style="width: 100%; margin-top: 15px;">
+                <thead>
+                    <tr style="background-color: #f5f5f5;">
+                        <th style="padding: 8px; border: 1px solid #ddd;">Category</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Count</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Used Quantity</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Rejected Quantity</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Total Quantity</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($data['category_summary'] as $category => $stats)
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>{{ ucwords(str_replace('_', ' ', $category)) }}</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ $stats['count'] ?? 0 }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ number_format($stats['used_quantity'] ?? 0) }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ number_format($stats['rejected_quantity'] ?? 0) }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ number_format(($stats['used_quantity'] ?? 0) + ($stats['rejected_quantity'] ?? 0)) }}</td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
         </div>
     @endif
 
     @if(isset($data['department_stats']))
         <div class="summary">
-            <h3>Department Statistics</h3>
-            <div class="summary-grid">
-                @foreach($data['department_stats'] as $department => $stats)
-                    <div class="summary-item">
-                        <h4>{{ ucwords(str_replace('_', ' ', $department)) }}</h4>
-                        @foreach($stats as $stat => $value)
-                            <p><strong>{{ ucwords(str_replace('_', ' ', $stat)) }}:</strong> {{ $value }}</p>
-                        @endforeach
-                    </div>
-                @endforeach
-            </div>
+            <h3>Department Summary</h3>
+            <table style="width: 100%; margin-top: 15px;">
+                <thead>
+                    <tr style="background-color: #f5f5f5;">
+                        <th style="padding: 8px; border: 1px solid #ddd;">Department</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Total Items</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Used Quantity</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Rejected Quantity</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Low Stock Items</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if(isset($data['department_stats']['doctor_nurse']))
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Doctor & Nurse</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ $data['department_stats']['doctor_nurse']['total_items'] ?? 0 }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ number_format($data['department_stats']['doctor_nurse']['total_consumed'] ?? 0) }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ number_format($data['department_stats']['doctor_nurse']['total_rejected'] ?? 0) }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ $data['department_stats']['doctor_nurse']['low_stock'] ?? 0 }}</td>
+                    </tr>
+                    @endif
+                    @if(isset($data['department_stats']['med_tech']))
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Med Tech</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ $data['department_stats']['med_tech']['total_items'] ?? 0 }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ number_format($data['department_stats']['med_tech']['total_consumed'] ?? 0) }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ number_format($data['department_stats']['med_tech']['total_rejected'] ?? 0) }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ $data['department_stats']['med_tech']['low_stock'] ?? 0 }}</td>
+                    </tr>
+                    @endif
+                </tbody>
+            </table>
         </div>
     @endif
 
     @if(isset($data['top_consumed_items']) && count($data['top_consumed_items']) > 0)
         <h3>Top Consumed Items</h3>
-        <table>
+        <table class="table-break">
             <thead>
                 <tr>
-                    <th>Item Name</th>
+                    <th>Rank</th>
+                    <th>Product Name</th>
+                    <th>Code</th>
                     <th>Category</th>
                     <th>Department</th>
-                    <th>Current Stock</th>
-                    <th>Consumed</th>
-                    <th>Status</th>
+                    <th>Quantity Consumed</th>
+                    <th>Unit</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach($data['top_consumed_items'] as $item)
+                @foreach($data['top_consumed_items'] as $index => $item)
                 <tr>
+                    <td>{{ $index + 1 }}</td>
                     <td>{{ $item['item_name'] ?? 'N/A' }}</td>
+                    <td>{{ $item['item_code'] ?? 'N/A' }}</td>
                     <td>{{ $item['category'] ?? 'N/A' }}</td>
-                    <td>{{ $item['assigned_to'] ?? 'N/A' }}</td>
-                    <td>{{ $item['stock'] ?? 0 }}</td>
-                    <td>{{ $item['consumed'] ?? 0 }}</td>
-                    <td>{{ $item['status'] ?? 'N/A' }}</td>
+                    <td>{{ $item['department'] ?? 'N/A' }}</td>
+                    <td>{{ number_format($item['quantity_consumed'] ?? 0) }}</td>
+                    <td>{{ $item['unit'] ?? 'N/A' }}</td>
                 </tr>
                 @endforeach
             </tbody>
@@ -182,26 +291,64 @@
 
     @if(isset($data['top_rejected_items']) && count($data['top_rejected_items']) > 0)
         <h3>Top Rejected Items</h3>
-        <table>
+        <table class="table-break">
             <thead>
                 <tr>
-                    <th>Item Name</th>
+                    <th>Rank</th>
+                    <th>Product Name</th>
+                    <th>Code</th>
                     <th>Category</th>
                     <th>Department</th>
-                    <th>Current Stock</th>
-                    <th>Rejected</th>
-                    <th>Status</th>
+                    <th>Quantity Rejected</th>
+                    <th>Unit</th>
+                    <th>Reason</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach($data['top_rejected_items'] as $item)
+                @foreach($data['top_rejected_items'] as $index => $item)
                 <tr>
+                    <td>{{ $index + 1 }}</td>
                     <td>{{ $item['item_name'] ?? 'N/A' }}</td>
+                    <td>{{ $item['item_code'] ?? 'N/A' }}</td>
                     <td>{{ $item['category'] ?? 'N/A' }}</td>
-                    <td>{{ $item['assigned_to'] ?? 'N/A' }}</td>
-                    <td>{{ $item['stock'] ?? 0 }}</td>
-                    <td>{{ $item['rejected'] ?? 0 }}</td>
-                    <td>{{ $item['status'] ?? 'N/A' }}</td>
+                    <td>{{ $item['department'] ?? 'N/A' }}</td>
+                    <td>{{ number_format($item['quantity_rejected'] ?? 0) }}</td>
+                    <td>{{ $item['unit'] ?? 'N/A' }}</td>
+                    <td>{{ $item['reason'] ?? 'N/A' }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
+
+    @if(isset($data['supply_details']) && count($data['supply_details']) > 0)
+        <h3>Detailed Supply Records</h3>
+        <table class="table-break">
+            <thead>
+                <tr>
+                    <th>Product Name</th>
+                    <th>Code</th>
+                    <th>Category</th>
+                    <th>Type</th>
+                    <th>Quantity</th>
+                    <th>Location</th>
+                    <th>Used By</th>
+                    <th>Date</th>
+                    <th>Reason/Remarks</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($data['supply_details'] as $supply)
+                <tr>
+                    <td>{{ $supply['name'] ?? 'N/A' }}</td>
+                    <td>{{ $supply['code'] ?? 'N/A' }}</td>
+                    <td>{{ $supply['category'] ?? 'N/A' }}</td>
+                    <td>{{ ucfirst($supply['type'] ?? 'N/A') }}</td>
+                    <td>{{ number_format($supply['quantity'] ?? 0) }}</td>
+                    <td>{{ $supply['location'] ?? 'N/A' }}</td>
+                    <td>{{ $supply['used_by'] ?? 'N/A' }}</td>
+                    <td>{{ $supply['date_used_rejected'] ?? 'N/A' }}</td>
+                    <td>{{ $supply['reason'] ?? $supply['remarks'] ?? 'N/A' }}</td>
                 </tr>
                 @endforeach
             </tbody>

@@ -42,7 +42,6 @@ interface Product {
         current_stock: number;
         available_stock: number;
         average_cost: number;
-        total_value: number;
         is_expired: boolean;
         is_near_expiry: boolean;
     }>;

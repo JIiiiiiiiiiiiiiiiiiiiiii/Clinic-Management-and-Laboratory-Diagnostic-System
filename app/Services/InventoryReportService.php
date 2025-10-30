@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\InventoryItem;
 use App\Models\InventoryMovement;
 use App\Models\InventoryReport;
+use App\Models\InventoryUsedRejectedItem;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -14,58 +15,131 @@ class InventoryReportService
     {
         $dateRange = $this->getDateRange($filters);
         
-        // Get items with consumed/rejected data
-        $items = InventoryItem::with('movements')
-            ->where(function($query) use ($dateRange) {
-                if ($dateRange['start'] && $dateRange['end']) {
-                    $query->whereHas('movements', function($q) use ($dateRange) {
-                        $q->whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
-                    });
-                }
+        // Get used/rejected items from the dedicated table
+        $startDate = $dateRange['start'] ? $dateRange['start']->startOfDay() : null;
+        $endDate = $dateRange['end'] ? $dateRange['end']->endOfDay() : null;
+        
+        // Get all items that have consumed/rejected records in the date range
+        $usedRejectedItems = InventoryUsedRejectedItem::with(['inventoryItem', 'user'])
+            ->when($startDate && $endDate, function($query) use ($startDate, $endDate) {
+                $query->whereBetween('date_used_rejected', [$startDate, $endDate]);
             })
             ->get();
+        
+        // Get unique inventory items that have consumed/rejected records
+        $itemIds = $usedRejectedItems->pluck('inventory_item_id')->unique();
+        $items = InventoryItem::whereIn('id', $itemIds)->get();
 
-        // Calculate summary data
+        // Calculate summary data from the used/rejected records
+        $consumedItems = $usedRejectedItems->where('type', 'used');
+        $rejectedItems = $usedRejectedItems->where('type', 'rejected');
+        
         $summary = [
             'total_items' => $items->count(),
-            'total_consumed' => $items->sum('consumed'),
-            'total_rejected' => $items->sum('rejected'),
+            'total_consumed' => $consumedItems->sum('quantity'),
+            'total_rejected' => $rejectedItems->sum('quantity'),
             'low_stock_items' => $items->where('status', 'Low Stock')->count(),
             'out_of_stock_items' => $items->where('status', 'Out of Stock')->count(),
         ];
 
-        // Department breakdown
+        // Department breakdown from used/rejected records
+        $doctorNurseItems = $usedRejectedItems->filter(function($item) {
+            return $item->inventoryItem && $item->inventoryItem->assigned_to === 'Doctor & Nurse';
+        });
+        $medTechItems = $usedRejectedItems->filter(function($item) {
+            return $item->inventoryItem && $item->inventoryItem->assigned_to === 'Med Tech';
+        });
+        
         $departmentStats = [
             'doctor_nurse' => [
                 'total_items' => $items->where('assigned_to', 'Doctor & Nurse')->count(),
-                'total_consumed' => $items->where('assigned_to', 'Doctor & Nurse')->sum('consumed'),
-                'total_rejected' => $items->where('assigned_to', 'Doctor & Nurse')->sum('rejected'),
+                'total_consumed' => $doctorNurseItems->where('type', 'used')->sum('quantity'),
+                'total_rejected' => $doctorNurseItems->where('type', 'rejected')->sum('quantity'),
                 'low_stock' => $items->where('assigned_to', 'Doctor & Nurse')->where('status', 'Low Stock')->count(),
             ],
             'med_tech' => [
                 'total_items' => $items->where('assigned_to', 'Med Tech')->count(),
-                'total_consumed' => $items->where('assigned_to', 'Med Tech')->sum('consumed'),
-                'total_rejected' => $items->where('assigned_to', 'Med Tech')->sum('rejected'),
+                'total_consumed' => $medTechItems->where('type', 'used')->sum('quantity'),
+                'total_rejected' => $medTechItems->where('type', 'rejected')->sum('quantity'),
                 'low_stock' => $items->where('assigned_to', 'Med Tech')->where('status', 'Low Stock')->count(),
             ],
         ];
 
-        // Top consumed items
-        $topConsumed = $items->sortByDesc('consumed')->take(10)->values();
+        // Top consumed items from used/rejected records
+        $topConsumedByItem = $consumedItems->groupBy('inventory_item_id')->map(function($group) {
+            $item = $group->first()->inventoryItem;
+            return [
+                'item_name' => $item ? $item->item_name : 'Unknown',
+                'item_code' => $item ? $item->item_code : 'N/A',
+                'category' => $item ? $item->category : 'Unknown',
+                'unit' => $item ? $item->unit : 'N/A',
+                'department' => $item ? $item->assigned_to : 'Unknown',
+                'quantity_consumed' => $group->sum('quantity'),
+            ];
+        })->sortByDesc('quantity_consumed')->take(10)->values();
 
-        // Top rejected items
-        $topRejected = $items->sortByDesc('rejected')->take(10)->values();
+        // Top rejected items from used/rejected records
+        $topRejectedByItem = $rejectedItems->groupBy('inventory_item_id')->map(function($group) {
+            $item = $group->first()->inventoryItem;
+            $latest = $group->first();
+            return [
+                'item_name' => $item ? $item->item_name : 'Unknown',
+                'item_code' => $item ? $item->item_code : 'N/A',
+                'category' => $item ? $item->category : 'Unknown',
+                'unit' => $item ? $item->unit : 'N/A',
+                'department' => $item ? $item->assigned_to : 'Unknown',
+                'quantity_rejected' => $group->sum('quantity'),
+                'reason' => $latest->reason,
+            ];
+        })->sortByDesc('quantity_rejected')->take(10)->values();
 
-        // Consumption trends by month
-        $consumptionTrends = $this->getConsumptionTrends($dateRange);
+        // Consumption trends by month from used/rejected records
+        $consumptionTrends = $this->getConsumptionTrendsFromUsedRejected($dateRange);
+
+        // Prepare supply details for web interface compatibility
+        $supplyDetails = $usedRejectedItems->map(function($item) {
+            return [
+                'id' => $item->id,
+                'item_id' => $item->inventory_item_id,
+                'name' => $item->inventoryItem ? $item->inventoryItem->item_name : 'Unknown',
+                'code' => $item->inventoryItem ? $item->inventoryItem->item_code : 'N/A',
+                'category' => $item->inventoryItem ? $item->inventoryItem->category : 'Unknown',
+                'unit_of_measure' => $item->inventoryItem ? $item->inventoryItem->unit : 'N/A',
+                'type' => $item->type,
+                'quantity' => $item->quantity,
+                'used_quantity' => $item->type === 'used' ? $item->quantity : 0,
+                'rejected_quantity' => $item->type === 'rejected' ? $item->quantity : 0,
+                'reason' => $item->reason,
+                'location' => $item->location,
+                'used_by' => $item->used_by,
+                'date_used_rejected' => $item->date_used_rejected,
+                'remarks' => $item->remarks,
+            ];
+        });
+
+        // Calculate category summary
+        $categorySummary = $supplyDetails->groupBy('category')->map(function($items, $category) {
+            return [
+                'count' => $items->count(),
+                'used_quantity' => $items->where('type', 'used')->sum('quantity'),
+                'rejected_quantity' => $items->where('type', 'rejected')->sum('quantity'),
+            ];
+        });
 
         return [
             'summary' => $summary,
             'department_stats' => $departmentStats,
-            'top_consumed_items' => $topConsumed,
-            'top_rejected_items' => $topRejected,
+            'top_consumed_items' => $topConsumedByItem->toArray(),
+            'top_rejected_items' => $topRejectedByItem->toArray(),
             'consumption_trends' => $consumptionTrends,
             'date_range' => $dateRange,
+            'supply_details' => $supplyDetails->toArray(),
+            'category_summary' => $categorySummary->toArray(),
+            'used_count' => $consumedItems->count(),
+            'rejected_count' => $rejectedItems->count(),
+            'used_quantity' => $consumedItems->sum('quantity'),
+            'rejected_quantity' => $rejectedItems->sum('quantity'),
+            'total_transactions' => $usedRejectedItems->count(),
         ];
     }
 
@@ -278,6 +352,22 @@ class InventoryReportService
             ->where('movement_type', 'OUT')
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->selectRaw('DATE_FORMAT(created_at, "%Y-%m") as month, SUM(quantity) as total_consumed')
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get();
+    }
+
+    private function getConsumptionTrendsFromUsedRejected($dateRange)
+    {
+        $startDate = $dateRange['start'] ? $dateRange['start']->format('Y-m-d') : null;
+        $endDate = $dateRange['end'] ? $dateRange['end']->format('Y-m-d') : null;
+        
+        return DB::table('inventory_used_rejected_items')
+            ->where('type', 'used')
+            ->when($startDate && $endDate, function($query) use ($startDate, $endDate) {
+                $query->whereBetween('date_used_rejected', [$startDate, $endDate]);
+            })
+            ->selectRaw('DATE_FORMAT(date_used_rejected, "%Y-%m") as month, SUM(quantity) as total_consumed')
             ->groupBy('month')
             ->orderBy('month')
             ->get();

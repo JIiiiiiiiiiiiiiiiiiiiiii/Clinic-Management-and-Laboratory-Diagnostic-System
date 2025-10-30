@@ -389,7 +389,7 @@ export default function DoctorDailyReport({
                                 <Button
                                     onClick={() => {
                                         const exportUrl = `/admin/billing/doctor-summary/export?date=${selectedDate}&format=excel&report_type=daily`;
-                                        window.open(exportUrl, '_blank');
+                                        window.location.href = exportUrl;
                                     }}
                                     className="bg-green-600 hover:bg-green-700 text-white ml-4"
                                 >
@@ -399,7 +399,7 @@ export default function DoctorDailyReport({
                                 <Button
                                     onClick={() => {
                                         const exportUrl = `/admin/billing/doctor-summary/export?date=${selectedDate}&format=pdf&report_type=daily`;
-                                        window.open(exportUrl, '_blank');
+                                        window.location.href = exportUrl;
                                     }}
                                     variant="outline"
                                     className="ml-2"

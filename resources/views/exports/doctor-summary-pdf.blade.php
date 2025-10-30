@@ -9,18 +9,17 @@
             font-family: Arial, sans-serif;
             font-size: 12px;
             line-height: 1.4;
+            color: #333;
             margin: 0;
             padding: 20px;
-            color: #333;
         }
         .header {
             text-align: center;
             margin-bottom: 30px;
-            border-bottom: 2px solid #16a34a;
             padding-bottom: 20px;
         }
         .header h1 {
-            color: #16a34a;
+            color: #2563eb;
             margin: 0;
             font-size: 24px;
         }
@@ -82,27 +81,37 @@
             font-weight: bold;
             color: #16a34a;
         }
-        .table-container {
-            margin-top: 20px;
+        .section {
+            margin-bottom: 30px;
         }
-        table {
+        .section-title {
+            background: #16a34a;
+            color: white;
+            padding: 10px 15px;
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .summary-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
+            margin-top: 20px;
         }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
+        .summary-table th {
+            background: #f3f4f6;
+            color: #374151;
+            padding: 12px 8px;
             text-align: left;
-        }
-        th {
-            background-color: #16a34a;
-            color: white;
             font-weight: bold;
-            font-size: 11px;
+            border: 1px solid #d1d5db;
         }
-        td {
-            font-size: 11px;
+        .summary-table td {
+            padding: 10px 8px;
+            border: 1px solid #d1d5db;
+            vertical-align: top;
+        }
+        .summary-table tr:nth-child(even) {
+            background: #f9fafb;
         }
         .text-right {
             text-align: right;
@@ -128,75 +137,36 @@
 </head>
 <body>
     <div class="header">
-        <h1>St. James Clinic</h1>
-        <h2>Doctor Summary Report</h2>
+        <div style="text-align: center; margin-bottom: 20px; padding: 10px 0; position: relative;">
+            <div style="position: absolute; left: 0; top: 0;">
+                <img src="{{ $logoBase64 ?? public_path('st-james-logo.png') }}" alt="St. James Hospital Logo" style="width: 80px; height: 80px;">
+            </div>
+            <div style="text-align: center; width: 100%;">
+                <div style="font-size: 24px; font-weight: bold; color: #2d5a27; margin: 0 0 5px 0;">St. James Hospital Clinic, Inc.</div>
+                <div style="font-size: 12px; color: #333; margin: 0 0 3px 0;">San Isidro City of Cabuyao Laguna</div>
+                <div style="font-size: 14px; font-style: italic; color: #1e40af; margin: 0 0 5px 0;">Santa Rosa's First in Quality Healthcare Service</div>
+                <div style="font-size: 16px; font-weight: bold; color: #2d5a27; margin: 0 0 5px 0;">PASYENTE MUNA</div>
+                <div style="font-size: 10px; color: #666; margin: 0;">Tel. Nos. 02.85844533; 049.5341254; 049.5020058; Fax No.: local 307<br>email add: info@stjameshospital.com.ph</div>
+            </div>
+        </div>
+        <h1>Doctor Summary Report</h1>
+        <h2>{{ $filters['report_type'] === 'daily' ? 'Daily Report' : ($filters['report_type'] === 'monthly' ? 'Monthly Report' : 'Yearly Report') }}</h2>
     </div>
 
-    <div class="report-info">
-        <h3>Report Information</h3>
-        <div class="info-grid">
-            <div class="info-item">
-                <span class="info-label">Report Type:</span>
-                <span class="info-value">{{ ucfirst($filters['report_type']) }}</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">Date Range:</span>
-                <span class="info-value">{{ $filters['date_from'] }} to {{ $filters['date_to'] }}</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">Doctor:</span>
-                <span class="info-value">{{ $filters['doctor_id'] === 'all' ? 'All Doctors' : 'Specific Doctor' }}</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">Status:</span>
-                <span class="info-value">{{ $filters['status'] === 'all' ? 'All Status' : ucfirst($filters['status']) }}</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">Generated:</span>
-                <span class="info-value">{{ now()->format('Y-m-d H:i:s') }}</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="summary-cards">
-        <div class="summary-card">
-            <h4>Total Payments</h4>
-            <div class="value">{{ number_format($summary['total_payments']) }}</div>
-        </div>
-        <div class="summary-card">
-            <h4>Total Amount</h4>
-            <div class="value">₱{{ number_format($summary['total_amount'], 2) }}</div>
-        </div>
-        <div class="summary-card">
-            <h4>Paid Amount</h4>
-            <div class="value">₱{{ number_format($summary['paid_amount'], 2) }}</div>
-        </div>
-        <div class="summary-card">
-            <h4>Pending Amount</h4>
-            <div class="value">₱{{ number_format($summary['pending_amount'], 2) }}</div>
-        </div>
-        <div class="summary-card">
-            <h4>Average Payment</h4>
-            <div class="value">₱{{ number_format($summary['average_payment'], 2) }}</div>
-        </div>
-    </div>
-
-    <div class="table-container">
-        <h3>Doctor Payment Details</h3>
+    <div class="section">
+        <div class="section-title">Doctor Payment Details</div>
         @if(count($reportData) > 0)
-            <table>
+            <table class="summary-table">
                 <thead>
                     <tr>
                         <th>{{ $filters['report_type'] === 'daily' ? 'Date' : ($filters['report_type'] === 'monthly' ? 'Month' : 'Year') }}</th>
                         <th>Doctor</th>
                         <th>Specialization</th>
-                        <th class="text-right">Payments</th>
-                        <th class="text-right">Basic Salary</th>
-                        <th class="text-right">Deductions</th>
-                        <th class="text-right">Holiday Pay</th>
+                        <th class="text-right">Status</th>
                         <th class="text-right">Incentives</th>
                         <th class="text-right">Net Payment</th>
-                        <th class="text-right">Average</th>
+                        <th class="text-right">Payment Date</th>
+                        <th class="text-right">Paid Date</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -213,13 +183,11 @@
                             </td>
                             <td>{{ $item['doctor_name'] }}</td>
                             <td>{{ $item['doctor_specialization'] }}</td>
-                            <td class="text-right">{{ number_format($item['payment_count']) }}</td>
-                            <td class="text-right">₱{{ number_format($item['total_basic_salary'], 2) }}</td>
-                            <td class="text-right">₱{{ number_format($item['total_deductions'], 2) }}</td>
-                            <td class="text-right">₱{{ number_format($item['total_holiday_pay'], 2) }}</td>
-                            <td class="text-right">₱{{ number_format($item['incentives'], 2) }}</td>
-                            <td class="text-right">₱{{ number_format($item['net_payment'], 2) }}</td>
-                            <td class="text-right">₱{{ number_format($item['average_payment'], 2) }}</td>
+                            <td class="text-right">{{ ucfirst($item['status']) }}</td>
+                            <td class="text-right">PHP {{ number_format($item['incentives'], 2) }}</td>
+                            <td class="text-right">PHP {{ number_format($item['net_payment'], 2) }}</td>
+                            <td class="text-right">{{ \Carbon\Carbon::parse($item['payment_date'])->format('M d, Y') }}</td>
+                            <td class="text-right">{{ $item['paid_date'] ? \Carbon\Carbon::parse($item['paid_date'])->format('M d, Y') : 'N/A' }}</td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -232,7 +200,9 @@
     </div>
 
     <div class="footer">
-        <p>Generated on {{ now()->format('F d, Y \a\t H:i:s') }} | St. James Clinic Management System</p>
+        <p>This report was generated automatically by the Clinic Management System on {{ now()->format('M d, Y H:i A') }}</p>
+        <p>Period: {{ $filters['date_from'] }} to {{ $filters['date_to'] }} | For questions or support, please contact the system administrator</p>
+        <p><strong>CONFIDENTIAL</strong> - This document contains sensitive information and should be handled with care.</p>
     </div>
 </body>
 </html>

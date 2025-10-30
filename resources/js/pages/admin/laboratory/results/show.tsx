@@ -218,8 +218,8 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between mb-4">
                                             <h5 className="text-sm font-semibold text-gray-700">Test Parameters</h5>
-                                            <div className="bg-gray-100 rounded-full border border-gray-300 shadow-sm px-3 py-1">
-                                                <span className="text-gray-700 font-semibold text-sm">
+                            <div className="bg-green-100 rounded-full border border-green-200 shadow-sm px-3 py-1">
+                                <span className="text-green-800 font-semibold text-sm">
                                                     {rows.length} parameters
                                                 </span>
                                             </div>

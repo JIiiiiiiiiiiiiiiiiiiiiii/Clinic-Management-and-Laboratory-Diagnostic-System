@@ -213,6 +213,10 @@ export default function BillingCreate({
             items: items,
         };
         
+        console.log('Submitting form data:', formData);
+        console.log('Items count:', items.length);
+        console.log('Items:', items);
+        
         post('/admin/billing', formData);
     };
 
@@ -234,7 +238,8 @@ export default function BillingCreate({
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <form onSubmit={handleSubmit}>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Main Form */}
                     <div className="lg:col-span-2 space-y-6">
                         {/* Patient & Doctor Selection */}
@@ -698,7 +703,7 @@ export default function BillingCreate({
                                 </div>
 
                                 <Button 
-                                    onClick={handleSubmit} 
+                                    type="submit"
                                     disabled={processing || items.length === 0}
                                     className="w-full h-12"
                                 >
@@ -709,6 +714,7 @@ export default function BillingCreate({
                         </Card>
                     </div>
                 </div>
+                </form>
             </div>
         </AppLayout>
     );
