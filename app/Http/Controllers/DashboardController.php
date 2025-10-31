@@ -66,10 +66,11 @@ class DashboardController extends Controller
                     'total_billing_transactions' => \App\Models\BillingTransaction::count(),
                     'pending_billing' => \App\Models\BillingTransaction::where('status', 'pending')->count(),
                     'paid_transactions' => \App\Models\BillingTransaction::where('status', 'paid')->count(),
-                    'total_revenue' => \App\Models\BillingTransaction::where('status', 'paid')->sum('total_amount'),
-                    'today_revenue' => \App\Models\BillingTransaction::where('status', 'paid')
-                        ->whereDate('transaction_date', now()->toDateString())
-                        ->sum('total_amount'),
+                    'total_revenue' => $this->sumBillingAmount(\App\Models\BillingTransaction::where('status', 'paid')),
+                    'today_revenue' => $this->sumBillingAmount(
+                        \App\Models\BillingTransaction::where('status', 'paid')
+                            ->whereDate('transaction_date', now()->toDateString())
+                    ),
                     'senior_citizens' => Patient::where('is_senior_citizen', true)->count(),
                     'low_stock_items' => \App\Models\InventoryItem::whereRaw('stock <= low_stock_alert')->count(),
                     'out_of_stock_items' => \App\Models\InventoryItem::where('stock', 0)->count(),
@@ -84,7 +85,7 @@ class DashboardController extends Controller
                     'patients_last_month' => Patient::whereMonth('created_at', now()->subMonth()->month)->count(),
                     'appointments_this_week' => Appointment::whereBetween('appointment_date', [now()->startOfWeek(), now()->endOfWeek()])->count(),
                     'appointments_last_week' => Appointment::whereBetween('appointment_date', [now()->subWeek()->startOfWeek(), now()->subWeek()->endOfWeek()])->count(),
-                    'pending_payments' => \App\Models\BillingTransaction::where('status', 'pending')->sum('total_amount'),
+                    'pending_payments' => $this->sumBillingAmount(\App\Models\BillingTransaction::where('status', 'pending')),
                     'total_inventory_value' => \App\Models\InventoryItem::sum(DB::raw('stock * unit_cost')),
                     'expiring_items' => \App\Models\InventoryItem::where('expiry_date', '<=', now()->addDays(30))->count(),
                     'expired_items' => \App\Models\InventoryItem::where('expiry_date', '<', now())->count(),
@@ -675,7 +676,12 @@ class DashboardController extends Controller
             'recent_transactions' => \App\Models\BillingTransaction::with('patient')
                 ->orderByDesc('transaction_date')
                 ->limit(5)
-                ->get(['id', 'patient_id', 'total_amount', 'transaction_date', 'status'])
+                ->get(['id', 'patient_id', 'transaction_date', 'status'])
+                ->map(function ($transaction) {
+                    return array_merge($transaction->toArray(), [
+                        'total_amount' => $transaction->total_amount ?? $transaction->amount ?? 0
+                    ]);
+                })
         ];
     }
 
@@ -754,13 +760,40 @@ class DashboardController extends Controller
             $month = $currentDate->copy()->subMonths($i);
             $months[] = [
                 'month' => $month->format('M Y'),
-                'income' => \App\Models\BillingTransaction::where('status', 'paid')
-                    ->whereYear('transaction_date', $month->year)
-                    ->whereMonth('transaction_date', $month->month)
-                    ->sum('total_amount')
+                'income' => $this->sumBillingAmount(
+                    \App\Models\BillingTransaction::where('status', 'paid')
+                        ->whereYear('transaction_date', $month->year)
+                        ->whereMonth('transaction_date', $month->month)
+                )
             ];
         }
         
         return $months;
+    }
+
+    /**
+     * Sum billing amount using the correct column name
+     */
+    private function sumBillingAmount($query)
+    {
+        try {
+            // Try total_amount first
+            if (\Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'total_amount')) {
+                return $query->sum('total_amount');
+            }
+            // Fallback to amount
+            if (\Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'amount')) {
+                return $query->sum('amount');
+            }
+            // If neither exists, return 0
+            return 0;
+        } catch (\Exception $e) {
+            // If there's an error, try the alternative column
+            try {
+                return $query->sum('amount');
+            } catch (\Exception $e2) {
+                return 0;
+            }
+        }
     }
 }
