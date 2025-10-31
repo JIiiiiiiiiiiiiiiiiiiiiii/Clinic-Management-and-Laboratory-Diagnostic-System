@@ -6,7 +6,8 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
     public function up() {
-        Schema::create('daily_transactions', function (Blueprint $table) {
+        if (!Schema::hasTable('daily_transactions')) {
+            Schema::create('daily_transactions', function (Blueprint $table) {
             $table->id();
             $table->date('transaction_date');
             $table->enum('transaction_type', ['billing','doctor_payment','expense']);
@@ -22,7 +23,8 @@ return new class extends Migration {
             $table->bigInteger('original_transaction_id')->nullable();
             $table->string('original_table', 50)->nullable();
             $table->timestamps();
-        });
+            });
+        }
     }
     public function down() {
         Schema::dropIfExists('daily_transactions');

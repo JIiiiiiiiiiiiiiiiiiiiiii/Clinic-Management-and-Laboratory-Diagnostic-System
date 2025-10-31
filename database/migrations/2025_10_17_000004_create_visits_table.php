@@ -6,7 +6,8 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
     public function up() {
-        Schema::create('visits', function (Blueprint $table) {
+        if (!Schema::hasTable('visits')) {
+            Schema::create('visits', function (Blueprint $table) {
             $table->id('visit_id');
             $table->string('visit_code', 10)->unique()->nullable();
             $table->foreignId('appointment_id')->constrained('appointments', 'appointment_id')->onDelete('cascade');
@@ -19,7 +20,8 @@ return new class extends Migration {
             $table->datetime('visit_date');
             $table->text('notes')->nullable();
             $table->timestamps();
-        });
+            });
+        }
     }
     public function down() {
         Schema::dropIfExists('visits');

@@ -6,7 +6,8 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
     public function up() {
-        Schema::create('billing_transactions', function (Blueprint $table) {
+        if (!Schema::hasTable('billing_transactions')) {
+            Schema::create('billing_transactions', function (Blueprint $table) {
             $table->id('transaction_id');
             $table->string('transaction_code', 20)->unique()->nullable();
             $table->foreignId('appointment_id')->constrained('appointments', 'appointment_id')->onDelete('cascade');
@@ -21,7 +22,8 @@ return new class extends Migration {
             $table->enum('status', ['Pending','Paid','Cancelled'])->default('Pending');
             $table->timestamp('transaction_date')->useCurrent();
             $table->timestamps();
-        });
+            });
+        }
     }
     public function down() {
         Schema::dropIfExists('billing_transactions');
