@@ -11,7 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('specialists', function (Blueprint $table) {
+        if (!Schema::hasTable('specialists')) {
+            Schema::create('specialists', function (Blueprint $table) {
             $table->id('specialist_id');
             $table->string('specialist_code', 10)->unique();
             $table->string('name', 255);
@@ -21,7 +22,8 @@ return new class extends Migration
             $table->string('email', 150)->nullable();
             $table->enum('status', ['Active', 'Inactive'])->default('Active');
             $table->timestamps();
-        });
+            });
+        }
     }
 
     /**
