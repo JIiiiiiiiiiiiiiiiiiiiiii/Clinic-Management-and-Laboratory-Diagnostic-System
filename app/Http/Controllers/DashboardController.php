@@ -653,7 +653,21 @@ class DashboardController extends Controller
             'recent_appointments' => Appointment::with(['patient', 'specialist'])
                 ->orderByDesc('appointment_date')
                 ->limit(5)
-                ->get(['id', 'patient_name', 'specialist_name', 'appointment_date', 'appointment_time', 'status']),
+                ->get()
+                ->map(function ($appointment) {
+                    return [
+                        'id' => $appointment->id,
+                        'patient_name' => $appointment->patient 
+                            ? ($appointment->patient->first_name . ' ' . $appointment->patient->last_name) 
+                            : ($appointment->patient_name ?? 'Unknown Patient'),
+                        'specialist_name' => $appointment->specialist 
+                            ? $appointment->specialist->name 
+                            : ($appointment->specialist_name ?? 'Unknown Specialist'),
+                        'appointment_date' => $appointment->appointment_date,
+                        'appointment_time' => $appointment->appointment_time,
+                        'status' => $appointment->status,
+                    ];
+                }),
             'recent_lab_results' => LabResult::with(['order.patient', 'test'])
                 ->orderByDesc('created_at')
                 ->limit(5)
