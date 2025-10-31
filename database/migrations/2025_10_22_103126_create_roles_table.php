@@ -120,6 +120,8 @@ return new class extends Migration
         // Insert roles that don't exist
         foreach ($defaultRoles as $roleName => $roleData) {
             if (!DB::table('roles')->where('name', $roleName)->exists()) {
+                // Add the name field to the role data
+                $roleData['name'] = $roleName;
                 DB::table('roles')->insert($roleData);
             }
         }
