@@ -11,7 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('notifications', function (Blueprint $table) {
+        if (!Schema::hasTable('notifications')) {
+            Schema::create('notifications', function (Blueprint $table) {
             $table->id('notification_id');
             $table->string('ref_table', 50)->nullable();
             $table->unsignedBigInteger('ref_id')->nullable();
@@ -20,7 +21,8 @@ return new class extends Migration
             $table->text('body')->nullable();
             $table->boolean('is_read')->default(false);
             $table->timestamp('created_at')->useCurrent();
-        });
+            });
+        }
     }
 
     /**

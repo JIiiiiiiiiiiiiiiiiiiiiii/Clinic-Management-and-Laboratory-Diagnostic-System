@@ -11,7 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('notifications', function (Blueprint $table) {
+        if (!Schema::hasTable('notifications')) {
+            Schema::create('notifications', function (Blueprint $table) {
             $table->id();
             $table->string('type'); // appointment, transfer, billing, etc.
             $table->string('title');
@@ -27,7 +28,8 @@ return new class extends Migration
             // Indexes
             $table->index(['user_id', 'read']);
             $table->index(['type']);
-        });
+            });
+        }
     }
 
     /**
