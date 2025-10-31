@@ -58,7 +58,7 @@ return new class extends Migration
             ->get();
 
         foreach ($appointments as $appointment) {
-            $code = 'A' . str_pad($appointment->id, 4, '0', STR_PAD_LEFT);
+            $code = 'A' . str_pad((string)$appointment->id, 4, '0', STR_PAD_LEFT);
             DB::table('appointments')
                 ->where('id', $appointment->id)
                 ->update(['appointment_code' => $code]);
