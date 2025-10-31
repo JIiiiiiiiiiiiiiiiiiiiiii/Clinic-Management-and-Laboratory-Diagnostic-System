@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -11,7 +12,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('roles', function (Blueprint $table) {
+        if (!Schema::hasTable('roles')) {
+            Schema::create('roles', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
             $table->string('display_name');
@@ -19,12 +21,12 @@ return new class extends Migration
             $table->json('permissions')->nullable(); // Store permissions as JSON
             $table->boolean('is_active')->default(true);
             $table->timestamps();
-        });
+            });
+        }
 
-        // Insert default roles
-        DB::table('roles')->insert([
-            [
-                'name' => 'admin',
+        // Insert default roles if they don't exist
+        $defaultRoles = [
+            'admin' => [
                 'display_name' => 'Administrator',
                 'description' => 'Full system access with all permissions',
                 'permissions' => json_encode([
@@ -41,8 +43,7 @@ return new class extends Migration
                 'created_at' => now(),
                 'updated_at' => now()
             ],
-            [
-                'name' => 'doctor',
+            'doctor' => [
                 'display_name' => 'Doctor',
                 'description' => 'Patient care, consultations, and medical records',
                 'permissions' => json_encode([
@@ -56,8 +57,7 @@ return new class extends Migration
                 'created_at' => now(),
                 'updated_at' => now()
             ],
-            [
-                'name' => 'nurse',
+            'nurse' => [
                 'display_name' => 'Nurse',
                 'description' => 'Patient care and consultation support',
                 'permissions' => json_encode([
@@ -69,8 +69,7 @@ return new class extends Migration
                 'created_at' => now(),
                 'updated_at' => now()
             ],
-            [
-                'name' => 'medtech',
+            'medtech' => [
                 'display_name' => 'Medical Technologist',
                 'description' => 'Laboratory diagnostics and testing',
                 'permissions' => json_encode([
@@ -83,8 +82,7 @@ return new class extends Migration
                 'created_at' => now(),
                 'updated_at' => now()
             ],
-            [
-                'name' => 'cashier',
+            'cashier' => [
                 'display_name' => 'Cashier',
                 'description' => 'Financial management and billing',
                 'permissions' => json_encode([
@@ -96,8 +94,7 @@ return new class extends Migration
                 'created_at' => now(),
                 'updated_at' => now()
             ],
-            [
-                'name' => 'hospital_staff',
+            'hospital_staff' => [
                 'display_name' => 'Hospital Staff',
                 'description' => 'Hospital operations and reporting',
                 'permissions' => json_encode([
@@ -108,8 +105,7 @@ return new class extends Migration
                 'created_at' => now(),
                 'updated_at' => now()
             ],
-            [
-                'name' => 'patient',
+            'patient' => [
                 'display_name' => 'Patient',
                 'description' => 'Patient portal access',
                 'permissions' => json_encode([
@@ -119,7 +115,14 @@ return new class extends Migration
                 'created_at' => now(),
                 'updated_at' => now()
             ]
-        ]);
+        ];
+
+        // Insert roles that don't exist
+        foreach ($defaultRoles as $roleName => $roleData) {
+            if (!DB::table('roles')->where('name', $roleName)->exists()) {
+                DB::table('roles')->insert($roleData);
+            }
+        }
     }
 
     /**
