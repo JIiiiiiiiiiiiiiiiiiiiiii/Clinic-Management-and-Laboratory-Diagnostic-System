@@ -11,7 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('billing_transactions', function (Blueprint $table) {
+        if (!Schema::hasTable('billing_transactions')) {
+            Schema::create('billing_transactions', function (Blueprint $table) {
             $table->id('transaction_id');
             $table->string('transaction_code', 20)->unique();
             $table->unsignedBigInteger('appointment_id')->unique(); // one-to-one with appointment
@@ -34,7 +35,8 @@ return new class extends Migration
             // Indexes
             $table->index('status');
             $table->index('created_at');
-        });
+            });
+        }
     }
 
     /**
