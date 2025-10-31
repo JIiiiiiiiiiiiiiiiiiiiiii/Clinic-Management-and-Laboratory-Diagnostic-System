@@ -105,8 +105,10 @@ return new class extends Migration
             FROM appointments a
             {$patientJoin}
             {$specialistJoin}
-            WHERE " . (Schema::hasColumn('appointments', 'status') ? "a.status = 'Pending'" : "1=1")
-        );
+            WHERE " . (Schema::hasColumn('appointments', 'status') ? "a.status = 'Pending'" : "1=1") . "
+        ";
+        
+        DB::statement($sql);
     }
 
     /**
