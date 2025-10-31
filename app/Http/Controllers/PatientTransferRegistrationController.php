@@ -129,11 +129,14 @@ class PatientTransferRegistrationController extends Controller
             'birthdate' => 'required|date|before:today',
             'age' => 'required|integer|min:0|max:150',
             'sex' => 'required|in:male,female',
+            'occupation' => 'nullable|string|max:255',
+            'religion' => 'nullable|string|max:255',
             'civil_status' => 'required|in:single,married,widowed,divorced,separated',
             'nationality' => 'nullable|string|max:255',
             'present_address' => 'required|string|max:500',
             'telephone_no' => 'nullable|string|max:20',
             'mobile_no' => 'required|string|max:20',
+            'email_address' => 'nullable|email|max:255',
             'informant_name' => 'nullable|string|max:255',
             'relationship' => 'nullable|string|max:255',
             'company_name' => 'nullable|string|max:255',
@@ -147,6 +150,7 @@ class PatientTransferRegistrationController extends Controller
             'family_history' => 'nullable|string|max:1000',
             'social_personal_history' => 'nullable|string|max:1000',
             'obstetrics_gynecology_history' => 'nullable|string|max:1000',
+            'reason_for_transfer' => 'nullable|string|max:1000',
         ]);
 
         if ($validator->fails()) {

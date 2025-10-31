@@ -126,8 +126,16 @@
                 {{ $title ?? 'Inventory Report' }}
             @endif
         </p>
-        @if(isset($report))
-            <p><strong>Period:</strong> {{ ucfirst($report->period) }}</p>
+        @if(isset($filters) && isset($filters['period']))
+            <p><strong>Period:</strong> {{ ucfirst($filters['period']) }}
+                @if(isset($filters['start_date']) && isset($filters['end_date']))
+                    - {{ \Carbon\Carbon::parse($filters['start_date'])->format('M d, Y') }}
+                    @if($filters['end_date'] !== $filters['start_date'])
+                        to {{ \Carbon\Carbon::parse($filters['end_date'])->format('M d, Y') }}
+                    @endif
+                @endif
+            </p>
+        @elseif(isset($report))
             @if($report->start_date)
                 <p><strong>Start Date:</strong> {{ $report->start_date->format('Y-m-d') }}</p>
             @endif

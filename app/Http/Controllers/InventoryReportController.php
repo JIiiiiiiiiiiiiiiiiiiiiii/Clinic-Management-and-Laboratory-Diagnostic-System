@@ -809,12 +809,26 @@ class InventoryReportController extends Controller
 
     public function exportInOutSupplies(Request $request)
     {
-        $filters = $request->only(['period', 'start_date', 'end_date', 'department']);
+        $filters = $request->only(['period', 'start_date', 'end_date', 'department', 'date']);
+        // Ensure default period is daily if not provided
+        if (empty($filters['period'])) {
+            $filters['period'] = 'daily';
+        }
+        // If a single date is provided, map it to start/end for daily export
+        if (!empty($filters['date']) && empty($filters['start_date']) && empty($filters['end_date'])) {
+            $filters['start_date'] = $filters['date'];
+            $filters['end_date'] = $filters['date'];
+        }
+        // Normalize when period is daily but no dates are provided – use requested date or today
+        if ($filters['period'] === 'daily' && empty($filters['start_date']) && empty($filters['end_date'])) {
+            $filters['start_date'] = $request->get('date', now()->format('Y-m-d'));
+            $filters['end_date'] = $filters['start_date'];
+        }
         $data = $this->reportService->generateInOutSuppliesReport($filters);
         $format = $request->get('format', 'pdf');
 
         if ($format === 'pdf') {
-            return $this->exportToPdf('In/Out Supplies Report', $data);
+            return $this->exportToPdf('In/Out Supplies Report', $data, $filters);
         } else {
             return $this->exportToExcel('In/Out Supplies Report', $data);
         }

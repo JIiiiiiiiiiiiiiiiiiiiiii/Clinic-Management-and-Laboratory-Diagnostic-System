@@ -86,12 +86,12 @@ const createColumns = (): ColumnDef<OrderLite>[] => [
             return (
                 <div className="flex flex-wrap gap-1">
                     {tests?.slice(0, 2).map((test, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs bg-green-100 text-green-800 border-green-200">
+                        <Badge key={index} variant="secondary" className="text-xs">
                             {test.name}
                         </Badge>
                     ))}
                     {tests?.length > 2 && (
-                        <Badge variant="outline" className="text-xs bg-green-100 text-green-800 border-green-200">
+                        <Badge variant="outline" className="text-xs">
                             +{tests.length - 2} more
                         </Badge>
                     )}
@@ -250,8 +250,8 @@ export default function LaboratoryReportsIndex({
                                         <p className="text-3xl font-bold text-gray-900">{stats.completedOrders}</p>
                                         <p className="text-sm text-gray-500">Finished tests</p>
                         </div>
-                                    <div className="p-3 bg-green-100 rounded-full">
-                                        <Activity className="h-6 w-6 text-green-600" />
+                                    <div className="p-3 rounded-full border">
+                                        <Activity className="h-6 w-6 text-gray-600" />
                                     </div>
                                 </div>
                             </CardContent>
@@ -265,8 +265,8 @@ export default function LaboratoryReportsIndex({
                                         <p className="text-3xl font-bold text-gray-900">{stats.pendingOrders}</p>
                                         <p className="text-sm text-gray-500">In progress</p>
                                     </div>
-                                    <div className="p-3 bg-orange-100 rounded-full">
-                                        <Clock className="h-6 w-6 text-orange-600" />
+                                    <div className="p-3 rounded-full border">
+                                        <Clock className="h-6 w-6 text-gray-600" />
                                     </div>
                                 </div>
                             </CardContent>
@@ -280,9 +280,9 @@ export default function LaboratoryReportsIndex({
                                         <p className="text-3xl font-bold text-gray-900">{stats.ordersThisMonth}</p>
                                         <p className="text-sm text-gray-500">New orders</p>
                                     </div>
-                                    <div className="p-3 bg-purple-100 rounded-full">
-                                        <Calendar className="h-6 w-6 text-purple-600" />
-                            </div>
+                                    <div className="p-3 rounded-full border">
+                                        <Calendar className="h-6 w-6 text-gray-600" />
+                                    </div>
                         </div>
                             </CardContent>
                         </Card>
@@ -301,7 +301,7 @@ export default function LaboratoryReportsIndex({
                                 />
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                        <Button className="bg-green-600 hover:bg-green-700 text-white ml-4">
+                                        <Button variant="outline" className="ml-4">
                                             <Download className="h-4 w-4 mr-2" />
                                     Export Data
                                 </Button>

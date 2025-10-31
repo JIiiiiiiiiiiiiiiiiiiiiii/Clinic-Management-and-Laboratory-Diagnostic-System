@@ -398,68 +398,76 @@ export default function PatientReports({ filter, date, data, patients, summary, 
                 <div className="p-6">
                     {/* Dynamic Insight Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-lg">
+                        <Card className="bg-white border border-gray-200">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-blue-100 text-sm font-medium">Filtered Patients</p>
-                                        <p className="text-3xl font-bold">{(filteredData.total_patients || 0).toLocaleString()}</p>
-                                        <p className="text-blue-100 text-xs mt-1">
+                                        <p className="text-sm font-medium text-gray-600">Filtered Patients</p>
+                                        <p className="text-3xl font-bold text-gray-900">{(filteredData.total_patients || 0).toLocaleString()}</p>
+                                        <p className="text-xs mt-1 text-gray-500">
                                             {currentFilter === 'daily' ? 'Today\'s Count' : 
                                              currentFilter === 'monthly' ? 'This Month' : 'This Year'}
                                         </p>
                                     </div>
-                                    <Users className="h-8 w-8 text-blue-200" />
+                                    <div className="p-3 rounded-full border">
+                                        <Users className="h-6 w-6 text-gray-600" />
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white border-0 shadow-lg">
+                        <Card className="bg-white border border-gray-200">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-green-100 text-sm font-medium">New Patients</p>
-                                        <p className="text-3xl font-bold">{(filteredData.new_patients || 0).toLocaleString()}</p>
-                                        <p className="text-green-100 text-xs mt-1">
+                                        <p className="text-sm font-medium text-gray-600">New Patients</p>
+                                        <p className="text-3xl font-bold text-gray-900">{(filteredData.new_patients || 0).toLocaleString()}</p>
+                                        <p className="text-xs mt-1 text-gray-500">
                                             {currentFilter === 'daily' ? 'Today\'s New' : 
                                              currentFilter === 'monthly' ? 'This Month' : 'This Year'}
                                         </p>
                                     </div>
-                                    <UserPlus className="h-8 w-8 text-green-200" />
+                                    <div className="p-3 rounded-full border">
+                                        <UserPlus className="h-6 w-6 text-gray-600" />
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0 shadow-lg">
+                        <Card className="bg-white border border-gray-200">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-purple-100 text-sm font-medium">Male Patients</p>
-                                        <p className="text-3xl font-bold">{(filteredData.male_patients || 0).toLocaleString()}</p>
-                                        <p className="text-purple-100 text-xs mt-1">
+                                        <p className="text-sm font-medium text-gray-600">Male Patients</p>
+                                        <p className="text-3xl font-bold text-gray-900">{(filteredData.male_patients || 0).toLocaleString()}</p>
+                                        <p className="text-xs mt-1 text-gray-500">
                                             {(filteredData.total_patients || 0) > 0 ? 
                                                 (((filteredData.male_patients || 0) / (filteredData.total_patients || 1)) * 100).toFixed(1) : 0
                                             }% of total
                                         </p>
                                     </div>
-                                    <TrendingUp className="h-8 w-8 text-purple-200" />
+                                    <div className="p-3 rounded-full border">
+                                        <TrendingUp className="h-6 w-6 text-gray-600" />
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-gradient-to-r from-pink-500 to-pink-600 text-white border-0 shadow-lg">
+                        <Card className="bg-white border border-gray-200">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-pink-100 text-sm font-medium">Female Patients</p>
-                                        <p className="text-3xl font-bold">{(filteredData.female_patients || 0).toLocaleString()}</p>
-                                        <p className="text-pink-100 text-xs mt-1">
+                                        <p className="text-sm font-medium text-gray-600">Female Patients</p>
+                                        <p className="text-3xl font-bold text-gray-900">{(filteredData.female_patients || 0).toLocaleString()}</p>
+                                        <p className="text-xs mt-1 text-gray-500">
                                             {(filteredData.total_patients || 0) > 0 ? 
                                                 (((filteredData.female_patients || 0) / (filteredData.total_patients || 1)) * 100).toFixed(1) : 0
                                             }% of total
                                         </p>
                                     </div>
-                                    <Users className="h-8 w-8 text-pink-200" />
+                                    <div className="p-3 rounded-full border">
+                                        <Users className="h-6 w-6 text-gray-600" />
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -661,7 +669,8 @@ export default function PatientReports({ filter, date, data, patients, summary, 
                                         <Button
                                             onClick={() => handleExport('excel')}
                                             disabled={isExporting}
-                                            className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                                            variant="outline"
+                                            className="ml-4"
                                         >
                                             <Download className="h-4 w-4 mr-2" />
                                             Export Excel

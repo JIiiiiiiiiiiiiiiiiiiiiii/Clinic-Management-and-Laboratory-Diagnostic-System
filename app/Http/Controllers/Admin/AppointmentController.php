@@ -29,6 +29,9 @@ class AppointmentController extends Controller
     {
         $query = Appointment::query();
 
+        // Exclude dummy appointments created for manual billing transactions
+        $query->where('appointment_type', '!=', 'manual_transaction');
+
         // Apply filters
         if ($request->filled('search')) {
             $search = $request->search;

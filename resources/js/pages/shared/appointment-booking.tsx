@@ -9,7 +9,7 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import AppLayout from '@/layouts/app-layout';
+import TermsAndConditionsModal from '@/components/TermsAndConditionsModal';
 import { type BreadcrumbItem } from '@/types';
 import { CreatePatientItem } from '@/types/patients';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
@@ -170,6 +171,9 @@ export default function AppointmentBooking({
         special_requirements: '',
     });
 
+    const { auth } = usePage().props as any;
+    const currentUserId = auth?.user?.id ?? 'guest';
+
     const [showMissingModal, setShowMissingModal] = useState(false);
     const [missingFields, setMissingFields] = useState<string[]>([]);
     const [currentStep, setCurrentStep] = useState(1);
@@ -178,6 +182,13 @@ export default function AppointmentBooking({
     const [appointmentPrice, setAppointmentPrice] = useState(0);
     const [isProcessing, setIsProcessing] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const storageKeyWalkin = `terms_accepted_walkin_${currentUserId}`;
+    const [showTermsModal, setShowTermsModal] = useState(() => {
+        return !sessionStorage.getItem(storageKeyWalkin);
+    });
+    const [termsAccepted, setTermsAccepted] = useState(() => {
+        return !!sessionStorage.getItem(storageKeyWalkin);
+    });
 
     const totalSteps = 6; // 5 patient steps + 1 appointment step
 
@@ -311,8 +322,8 @@ export default function AppointmentBooking({
     const submit: React.FormEventHandler = (e) => {
         e.preventDefault();
         
-        // For new patients, only validate and submit on the final step
-        if (!isExistingPatient && currentStep < totalSteps) {
+        // For all cases, if not on final step, just go to next step
+        if (currentStep < totalSteps) {
             nextStep();
             return;
         }
@@ -339,6 +350,12 @@ export default function AppointmentBooking({
             e.preventDefault();
         }
         
+        // Only run validation if we're actually on the final step
+        if (currentStep !== totalSteps) {
+            console.log('handleFinalSubmit called but not on final step', { currentStep, totalSteps });
+            return;
+        }
+        
         // Prevent multiple submissions
         if (isProcessing) {
             console.log('Form already processing, ignoring submission');
@@ -347,7 +364,7 @@ export default function AppointmentBooking({
         
         console.log('Form submission started', { data, isExistingPatient });
         
-        // Validate appointment fields
+        // Validate appointment fields (only on step 6)
         const requiredChecks = [
             { key: 'appointment_type', label: 'Appointment Type', isValid: (v: any) => Boolean(v) },
             { key: 'specialist_type', label: 'Specialist Type', isValid: (v: any) => Boolean(v) },
@@ -358,7 +375,7 @@ export default function AppointmentBooking({
 
         const missing = requiredChecks.filter((c) => !c.isValid((data as any)[c.key]));
         if (missing.length > 0) {
-            console.log('Missing fields:', missing);
+            console.log('Missing appointment fields:', missing);
             setMissingFields(missing.map((m) => m.label));
             setShowMissingModal(true);
             return;
@@ -565,14 +582,50 @@ export default function AppointmentBooking({
         },
     ];
 
+    const steps = [
+        { id: 1, title: 'Patient Information', description: 'Basic patient details' },
+        { id: 2, title: 'Contact Details', description: 'Address and contact information' },
+        { id: 3, title: 'Emergency Contact', description: 'Emergency contact information' },
+        { id: 4, title: 'Insurance & Financial', description: 'Insurance and financial details' },
+        { id: 5, title: 'Medical History', description: 'Medical history and allergies' },
+        { id: 6, title: 'Appointment Booking', description: 'Select specialist and schedule' },
+    ];
+
+    const handleTermsAccept = () => {
+        setTermsAccepted(true);
+        setShowTermsModal(false);
+    };
+
+    // Block form access if terms not accepted
+    if (!termsAccepted) {
+        return (
+            <>
+                <AppLayout breadcrumbs={breadcrumbs}>
+                    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                        <div className="text-center">
+                            <h2 className="text-2xl font-semibold text-gray-900 mb-2">Please Accept Terms and Conditions</h2>
+                            <p className="text-gray-600">You must accept the terms and conditions to continue.</p>
+                        </div>
+                    </div>
+                </AppLayout>
+                <TermsAndConditionsModal 
+                    open={showTermsModal} 
+                    onAccept={handleTermsAccept}
+                    formType="walkin"
+                    storageKey={storageKeyWalkin}
+                />
+            </>
+        );
+    }
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={isAdmin ? "Create Walk-in Appointment" : "Create New Appointment"} />
-            <div className="flex flex-1 flex-col gap-6 p-6">
-                <div className="@container/main flex flex-1 flex-col gap-6">
+            <div className="min-h-screen bg-gray-50">
+                <div className="p-6">
                     {/* Header Section - Hidden for Admin */}
                     {!isAdmin && (
-                        <div className="flex items-center justify-between">
+                        <div className="mb-6 flex items-center justify-between">
                             <div className="flex items-center gap-4">
                                 <div>
                                     <h1 className="text-4xl font-bold text-black">
@@ -602,50 +655,34 @@ export default function AppointmentBooking({
                     )}
 
                     {/* Progress Stepper */}
-                    <Card className="holographic-card shadow-lg overflow-hidden rounded-xl bg-white/70 backdrop-blur-md border border-white/50">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-gray-100 rounded-lg">
-                                    <Activity className="h-5 w-5 text-black" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-lg font-semibold text-gray-900">
-                                        {isAdmin ? 'Walk-in Appointment Progress' : 'Online Appointment Progress'}
-                                    </CardTitle>
-                                    <p className="text-sm text-gray-500 mt-1">Step {currentStep} of {totalSteps} • {getStepTitle(currentStep)}</p>
-                                </div>
-                            </div>
-                            <Badge variant="outline" className="bg-gray-50 text-black border-gray-200">
-                                    {(() => {
-                                        if (currentStep === totalSteps && (!data.appointment_type || !data.specialist_type || !data.specialist_id || !data.appointment_date || !data.appointment_time)) {
-                                            return '83% Complete';
-                                        }
-                                        return `${Math.round((currentStep / totalSteps) * 100)}% Complete`;
-                                    })()}
-                            </Badge>
-                        </CardHeader>
-                        <CardContent>
+                    <Card className="mb-6">
+                        <CardContent className="p-6">
                             <div className="flex items-center justify-between">
-                                {Array.from({ length: totalSteps }, (_, i) => i + 1).map((step) => (
-                                    <div key={step} className="flex items-center">
-                                        <div className={`
-                                            flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-300
-                                            ${step <= currentStep 
-                                                ? 'bg-gray-600 border-gray-600 text-white' 
-                                                : 'bg-white border-gray-300 text-gray-400'
-                                            }
-                                        `}>
-                                            {step < currentStep ? (
+                                {steps.map((step, index) => (
+                                    <div key={step.id} className="flex items-center">
+                                        <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+                                            currentStep >= step.id 
+                                                ? 'bg-blue-600 text-white' 
+                                                : 'bg-gray-200 text-gray-600'
+                                        }`}>
+                                            {currentStep > step.id ? (
                                                 <CheckCircle className="h-5 w-5" />
                                             ) : (
-                                                <span className="text-sm font-semibold">{step}</span>
+                                                <span className="text-sm font-medium">{step.id}</span>
                                             )}
                                         </div>
-                                        {step < totalSteps && (
-                                            <div className={`
-                                                w-16 h-1 mx-2 transition-all duration-300
-                                                ${step < currentStep ? 'bg-gray-600' : 'bg-gray-300'}
-                                            `} />
+                                        <div className="ml-3">
+                                            <p className={`text-sm font-medium ${
+                                                currentStep >= step.id ? 'text-blue-600' : 'text-gray-500'
+                                            }`}>
+                                                {step.title}
+                                            </p>
+                                            <p className="text-xs text-gray-500">{step.description}</p>
+                                        </div>
+                                        {index < steps.length - 1 && (
+                                            <div className={`w-16 h-0.5 mx-4 ${
+                                                currentStep > step.id ? 'bg-blue-600' : 'bg-gray-200'
+                                            }`} />
                                         )}
                                     </div>
                                 ))}
@@ -756,23 +793,24 @@ export default function AppointmentBooking({
                         </AlertDialogContent>
                     </AlertDialog>
 
-                    <form onSubmit={submit} className="space-y-6">
-                        {/* Step 1: Personal Information */}
-                        {currentStep === 1 && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        {getStepIcon(1)}
-                                        Personal Information
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                <div className="space-y-6">
-                                    {/* Name Section */}
-                                    <div className="space-y-3">
-                                        <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Full Name</h3>
-                                        <div className="grid gap-4 md:grid-cols-3">
-                                            <div className="space-y-2">
+                    {/* Form */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <UserPlus className="h-5 w-5" />
+                                {steps[currentStep - 1].title}
+                            </CardTitle>
+                            <CardDescription>
+                                {steps[currentStep - 1].description}
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <form onSubmit={submit}>
+                                {/* Step 1: Personal Information */}
+                                {currentStep === 1 && (
+                                    <div className="space-y-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
                                                 <Label htmlFor="last_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                     <User className="h-4 w-4" />
                                                     Last Name *
@@ -783,12 +821,12 @@ export default function AppointmentBooking({
                                                     autoComplete="family-name"
                                                     value={data.last_name}
                                                     onChange={(e) => setData('last_name', e.target.value)}
-                                                    className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.last_name ? 'border-gray-500' : ''}`}
-                                                    placeholder="Enter last name"
+                                                    className="mt-1"
+                                                    required
                                                 />
-                                                {errors.last_name && <p className="text-sm text-black">{errors.last_name}</p>}
+                                                {errors.last_name && <p className="text-red-500 text-sm mt-1">{errors.last_name}</p>}
                                             </div>
-                                            <div className="space-y-2">
+                                            <div>
                                                 <Label htmlFor="first_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                     <User className="h-4 w-4" />
                                                     First Name *
@@ -799,12 +837,14 @@ export default function AppointmentBooking({
                                                     autoComplete="given-name"
                                                     value={data.first_name}
                                                     onChange={(e) => setData('first_name', e.target.value)}
-                                                    className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.first_name ? 'border-gray-500' : ''}`}
-                                                    placeholder="Enter first name"
+                                                    className="mt-1"
+                                                    required
                                                 />
-                                                {errors.first_name && <p className="text-sm text-black">{errors.first_name}</p>}
+                                                {errors.first_name && <p className="text-red-500 text-sm mt-1">{errors.first_name}</p>}
                                             </div>
-                                            <div className="space-y-2">
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
                                                 <Label htmlFor="middle_name" className="text-sm font-semibold text-gray-700">Middle Name</Label>
                                                 <Input
                                                     id="middle_name"
@@ -812,74 +852,57 @@ export default function AppointmentBooking({
                                                     autoComplete="additional-name"
                                                     value={data.middle_name}
                                                     onChange={(e) => setData('middle_name', e.target.value)}
-                                                    className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
-                                                    placeholder="Enter middle name"
+                                                    className="mt-1"
                                                 />
                                             </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Personal Details Section */}
-                                    <div className="space-y-3">
-                                        <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Personal Details</h3>
-                                        <div className="grid gap-4 md:grid-cols-3">
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-2">
-                                                    <Calendar className="h-4 w-4 text-gray-700" />
-                                                    <span className="text-sm font-semibold text-gray-700">Birthdate *</span>
-                                                </div>
+                                            <div>
+                                                <Label htmlFor="birthdate" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                    <Calendar className="h-4 w-4" />
+                                                    Date of Birth *
+                                                </Label>
                                                 <Input
                                                     type="date"
                                                     value={data.birthdate}
                                                     onChange={(e) => onBirthdateChange(e.target.value)}
-                                                    className={`w-full ${errors.birthdate ? 'border-red-500' : ''}`}
+                                                    className="mt-1"
+                                                    required
                                                 />
-                                                {errors.birthdate && <p className="text-sm text-black">{errors.birthdate}</p>}
+                                                {errors.birthdate && <p className="text-red-500 text-sm mt-1">{errors.birthdate}</p>}
                                             </div>
-                                            <div className="space-y-2 flex flex-col w-full">
-                                                <Label htmlFor="age" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                    <Heart className="h-4 w-4" />
-                                                    Age *
-                                                </Label>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <Label htmlFor="age" className="text-sm font-semibold text-gray-700">Age *</Label>
                                                 <Input
                                                     id="age"
                                                     name="age"
                                                     type="number"
                                                     value={data.age}
                                                     onChange={(e) => setData('age', Number(e.target.value))}
-                                                    className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.age ? 'border-gray-500' : ''}`}
-                                                    placeholder="Enter age"
-                                                    style={{ width: '100%', minWidth: '0' }}
+                                                    className="mt-1"
+                                                    required
                                                 />
-                                                {errors.age && <p className="text-sm text-black">{errors.age}</p>}
+                                                {errors.age && <p className="text-red-500 text-sm mt-1">{errors.age}</p>}
                                             </div>
-                                            <div className="space-y-2 flex flex-col w-full">
+                                            <div>
                                                 <Label htmlFor="sex" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                     <Heart className="h-4 w-4" />
                                                     Sex *
                                                 </Label>
-                                                <Select 
-                                                    value={data.sex} 
-                                                    onValueChange={(value: 'male' | 'female') => setData('sex', value)}
-                                                >
-                                                    <SelectTrigger id="sex" className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.sex ? 'border-gray-500' : ''}`} style={{ width: '100%', minWidth: '0' }}>
-                                                        <SelectValue placeholder="Select sex" />
+                                                <Select value={data.sex} onValueChange={(value: 'male' | 'female') => setData('sex', value)}>
+                                                    <SelectTrigger className="mt-1">
+                                                        <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="male">Male</SelectItem>
                                                         <SelectItem value="female">Female</SelectItem>
                                                     </SelectContent>
                                                 </Select>
-                                                {errors.sex && <p className="text-sm text-black">{errors.sex}</p>}
+                                                {errors.sex && <p className="text-red-500 text-sm mt-1">{errors.sex}</p>}
                                             </div>
                                         </div>
-                                    </div>
-
-                                    {/* Demographics Section */}
-                                    <div className="space-y-3">
-                                        <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Demographics</h3>
-                                        <div className="grid gap-4 md:grid-cols-3">
-                                            <div className="space-y-2">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
                                                 <Label htmlFor="occupation" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                     <Briefcase className="h-4 w-4" />
                                                     Occupation
@@ -890,13 +913,13 @@ export default function AppointmentBooking({
                                                     autoComplete="organization-title"
                                                     value={data.occupation}
                                                     onChange={(e) => setData('occupation', e.target.value)}
-                                                    className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                                    className="mt-1"
                                                     placeholder="Enter occupation"
                                                 />
                                             </div>
-                                            <div className="space-y-2">
+                                            <div>
                                                 <Label htmlFor="religion" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                    <Heart className="h-4 w-4" />
+                                                    <Globe className="h-4 w-4" />
                                                     Religion
                                                 </Label>
                                                 <Input
@@ -904,11 +927,29 @@ export default function AppointmentBooking({
                                                     name="religion"
                                                     value={data.religion}
                                                     onChange={(e) => setData('religion', e.target.value)}
-                                                    className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                                    className="mt-1"
                                                     placeholder="Enter religion"
                                                 />
                                             </div>
-                                            <div className="space-y-2">
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <Label htmlFor="civil_status" className="text-sm font-semibold text-gray-700">Civil Status *</Label>
+                                                <Select value={data.civil_status} onValueChange={(value: 'single' | 'married' | 'widowed' | 'divorced' | 'separated') => setData('civil_status', value)}>
+                                                    <SelectTrigger className="mt-1">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="single">Single</SelectItem>
+                                                        <SelectItem value="married">Married</SelectItem>
+                                                        <SelectItem value="widowed">Widowed</SelectItem>
+                                                        <SelectItem value="divorced">Divorced</SelectItem>
+                                                        <SelectItem value="separated">Separated</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                {errors.civil_status && <p className="text-red-500 text-sm mt-1">{errors.civil_status}</p>}
+                                            </div>
+                                            <div>
                                                 <Label htmlFor="nationality" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                     <Globe className="h-4 w-4" />
                                                     Nationality
@@ -919,56 +960,18 @@ export default function AppointmentBooking({
                                                     autoComplete="country-name"
                                                     value={data.nationality}
                                                     onChange={(e) => setData('nationality', e.target.value)}
-                                                    className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                                    className="mt-1"
                                                     placeholder="Enter nationality"
                                                 />
                                             </div>
                                         </div>
-                                        <div className="grid gap-4 md:grid-cols-1">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="civil_status" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                    <Heart className="h-4 w-4" />
-                                                    Civil Status *
-                                                </Label>
-                                                <Select 
-                                                    value={data.civil_status} 
-                                                    onValueChange={(value: 'single' | 'married' | 'widowed' | 'divorced' | 'separated') => setData('civil_status', value)}
-                                                >
-                                                    <SelectTrigger id="civil_status" className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.civil_status ? 'border-gray-500' : ''}`}>
-                                                        <SelectValue placeholder="Select civil status" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="single">Single</SelectItem>
-                                                        <SelectItem value="married">Married</SelectItem>
-                                                        <SelectItem value="widowed">Widowed</SelectItem>
-                                                        <SelectItem value="divorced">Divorced</SelectItem>
-                                                        <SelectItem value="separated">Separated</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                                {errors.civil_status && <p className="text-sm text-black">{errors.civil_status}</p>}
-                                            </div>
-                                        </div>
                                     </div>
-                                </div>
-                                </CardContent>
-                            </Card>
-                        )}
+                                )}
 
-                        {/* Step 2: Contact Details */}
-                        {currentStep === 2 && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        {getStepIcon(2)}
-                                        Contact Details
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                <div className="space-y-6">
-                                    {/* Address Section */}
-                                    <div className="space-y-3">
-                                        <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Address Information</h3>
-                                        <div className="space-y-2">
+                                {/* Step 2: Contact Details */}
+                                {currentStep === 2 && (
+                                    <div className="space-y-6">
+                                        <div>
                                             <Label htmlFor="present_address" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                 <MapPin className="h-4 w-4" />
                                                 Present Address *
@@ -979,21 +982,17 @@ export default function AppointmentBooking({
                                                 autoComplete="street-address"
                                                 value={data.present_address}
                                                 onChange={(e) => setData('present_address', e.target.value)}
-                                                placeholder="Enter complete address"
-                                                className={`min-h-[100px] border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.present_address ? 'border-gray-500' : ''}`}
+                                                className="mt-1"
+                                                rows={3}
+                                                required
                                             />
-                                            {errors.present_address && <p className="text-sm text-black">{errors.present_address}</p>}
+                                            {errors.present_address && <p className="text-red-500 text-sm mt-1">{errors.present_address}</p>}
                                         </div>
-                                    </div>
-
-                                    {/* Contact Numbers Section */}
-                                    <div className="space-y-3">
-                                        <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Contact Information</h3>
-                                        <div className="grid gap-4 md:grid-cols-2">
-                                            <div className="space-y-2">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
                                                 <Label htmlFor="telephone_no" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                     <Phone className="h-4 w-4" />
-                                                    Telephone No.
+                                                    Telephone Number
                                                 </Label>
                                                 <Input
                                                     id="telephone_no"
@@ -1001,14 +1000,14 @@ export default function AppointmentBooking({
                                                     autoComplete="tel"
                                                     value={data.telephone_no}
                                                     onChange={(e) => setData('telephone_no', e.target.value)}
-                                                    className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                                    className="mt-1"
                                                     placeholder="Enter telephone number"
                                                 />
                                             </div>
-                                            <div className="space-y-2">
+                                            <div>
                                                 <Label htmlFor="mobile_no" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                     <Phone className="h-4 w-4" />
-                                                    Mobile No. *
+                                                    Mobile Number *
                                                 </Label>
                                                 <Input
                                                     id="mobile_no"
@@ -1016,13 +1015,14 @@ export default function AppointmentBooking({
                                                     autoComplete="tel"
                                                     value={data.mobile_no}
                                                     onChange={(e) => setData('mobile_no', e.target.value)}
-                                                    className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.mobile_no ? 'border-gray-500' : ''}`}
+                                                    className="mt-1"
                                                     placeholder="Enter mobile number"
+                                                    required
                                                 />
-                                                {errors.mobile_no && <p className="text-sm text-black">{errors.mobile_no}</p>}
+                                                {errors.mobile_no && <p className="text-red-500 text-sm mt-1">{errors.mobile_no}</p>}
                                             </div>
                                         </div>
-                                        <div className="space-y-2">
+                                        <div>
                                             <Label htmlFor="email_address" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                 <Mail className="h-4 w-4" />
                                                 Email Address
@@ -1034,267 +1034,199 @@ export default function AppointmentBooking({
                                                 autoComplete="email"
                                                 value={data.email_address}
                                                 onChange={(e) => setData('email_address', e.target.value)}
-                                                className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                                className="mt-1"
                                                 placeholder="Enter email address"
                                             />
                                         </div>
                                     </div>
-                                </div>
-                                </CardContent>
-                            </Card>
-                        )}
+                                )}
 
-                        {/* Step 3: Emergency Contact */}
-                        {currentStep === 3 && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        {getStepIcon(3)}
-                                        Emergency Contact
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                <div className="space-y-6">
-                                    {/* Emergency Contact Information */}
-                                    <div className="space-y-3">
-                                        <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Emergency Contact Information</h3>
-                                        <div className="grid gap-4 md:grid-cols-2">
-                                            <div className="space-y-2">
+                                {/* Step 3: Emergency Contact */}
+                                {currentStep === 3 && (
+                                    <div className="space-y-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
                                                 <Label htmlFor="informant_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                    <UserCheck className="h-4 w-4" />
-                                                    Informant Name *
+                                                    <User className="h-4 w-4" />
+                                                    Emergency Contact Name
                                                 </Label>
                                                 <Input
                                                     id="informant_name"
                                                     value={data.informant_name}
                                                     onChange={(e) => setData('informant_name', e.target.value)}
-                                                    className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.informant_name ? 'border-gray-500' : ''}`}
+                                                    className="mt-1"
                                                     placeholder="Enter informant name"
                                                 />
-                                                {errors.informant_name && <p className="text-sm text-black">{errors.informant_name}</p>}
+                                                {errors.informant_name && <p className="text-red-500 text-sm mt-1">{errors.informant_name}</p>}
                                             </div>
-                                            <div className="space-y-2">
-                                                <Label htmlFor="relationship" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                    <Heart className="h-4 w-4" />
-                                                    Relationship *
-                                                </Label>
+                                            <div>
+                                                <Label htmlFor="relationship" className="text-sm font-semibold text-gray-700">Relationship</Label>
                                                 <Input
                                                     id="relationship"
                                                     value={data.relationship}
                                                     onChange={(e) => setData('relationship', e.target.value)}
-                                                    className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.relationship ? 'border-gray-500' : ''}`}
+                                                    className="mt-1"
                                                     placeholder="Enter relationship"
                                                 />
-                                                {errors.relationship && <p className="text-sm text-black">{errors.relationship}</p>}
+                                                {errors.relationship && <p className="text-red-500 text-sm mt-1">{errors.relationship}</p>}
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                                </CardContent>
-                            </Card>
-                        )}
+                                )}
 
-                        {/* Step 4: Insurance & Financial */}
-                        {currentStep === 4 && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        {getStepIcon(4)}
-                                        Insurance & Financial
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                <div className="grid gap-6 md:grid-cols-2">
-                                    <div className="space-y-3">
-                                        <Label htmlFor="company_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                            <Building className="h-4 w-4" />
-                                            Company Name
-                                        </Label>
-                                        <Input
-                                            id="company_name"
-                                            name="company_name"
-                                            value={data.company_name}
-                                            onChange={(e) => setData('company_name', e.target.value)}
-                                            className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
-                                            placeholder="Enter company name"
-                                        />
-                                    </div>
-                                    <div className="space-y-3">
-                                        <Label htmlFor="hmo_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                            <Shield className="h-4 w-4" />
-                                            HMO Name
-                                        </Label>
-                                        <Input
-                                            id="hmo_name"
-                                            name="hmo_name"
-                                            value={data.hmo_name}
-                                            onChange={(e) => setData('hmo_name', e.target.value)}
-                                            className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
-                                            placeholder="Enter HMO name"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="mt-6 grid gap-6 md:grid-cols-3">
-                                    <div className="space-y-3">
-                                        <Label htmlFor="hmo_company_id_no" className="text-sm font-semibold text-gray-700">HMO/Company ID No.</Label>
-                                        <Input
-                                            id="hmo_company_id_no"
-                                            name="hmo_company_id_no"
-                                            value={data.hmo_company_id_no}
-                                            onChange={(e) => setData('hmo_company_id_no', e.target.value)}
-                                            className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
-                                            placeholder="Enter ID number"
-                                        />
-                                    </div>
-                                    <div className="space-y-3">
-                                        <Label htmlFor="validation_approval_code" className="text-sm font-semibold text-gray-700">Validation/Approval Code</Label>
-                                        <Input
-                                            id="validation_approval_code"
-                                            name="validation_approval_code"
-                                            value={data.validation_approval_code}
-                                            onChange={(e) => setData('validation_approval_code', e.target.value)}
-                                            className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
-                                            placeholder="Enter approval code"
-                                        />
-                                    </div>
-                                    <div className="space-y-3">
-                                        <Label htmlFor="validity" className="text-sm font-semibold text-gray-700">Validity</Label>
-                                        <Input
-                                            id="validity"
-                                            name="validity"
-                                            value={data.validity}
-                                            onChange={(e) => setData('validity', e.target.value)}
-                                            className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
-                                            placeholder="Enter validity period"
-                                        />
-                                    </div>
-                                </div>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {/* Step 5: Medical History */}
-                        {currentStep === 5 && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        {getStepIcon(5)}
-                                        Medical History
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                <div className="space-y-6">
-                                    <div className="grid gap-6 md:grid-cols-2">
-                                        <div className="space-y-3">
-                                            <Label htmlFor="drug_allergies" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <AlertCircle className="h-4 w-4" />
-                                                Drug Allergies
-                                            </Label>
-                                            <Input
-                                                id="drug_allergies"
-                                                name="drug_allergies"
-                                                value={data.drug_allergies}
-                                                onChange={(e) => setData('drug_allergies', e.target.value)}
-                                                className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
-                                                placeholder="Enter allergies or NONE"
-                                            />
+                                {/* Step 4: Insurance & Financial */}
+                                {currentStep === 4 && (
+                                    <div className="space-y-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <Label htmlFor="company_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                    <Building className="h-4 w-4" />
+                                                    Company Name
+                                                </Label>
+                                                <Input
+                                                    id="company_name"
+                                                    name="company_name"
+                                                    value={data.company_name}
+                                                    onChange={(e) => setData('company_name', e.target.value)}
+                                                    className="mt-1"
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="hmo_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                    <Shield className="h-4 w-4" />
+                                                    HMO Name
+                                                </Label>
+                                                <Input
+                                                    id="hmo_name"
+                                                    name="hmo_name"
+                                                    value={data.hmo_name}
+                                                    onChange={(e) => setData('hmo_name', e.target.value)}
+                                                    className="mt-1"
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="space-y-3">
-                                            <Label htmlFor="food_allergies" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <AlertCircle className="h-4 w-4" />
-                                                Food Allergies
-                                            </Label>
-                                            <Input
-                                                id="food_allergies"
-                                                name="food_allergies"
-                                                value={data.food_allergies}
-                                                onChange={(e) => setData('food_allergies', e.target.value)}
-                                                className="h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
-                                                placeholder="Enter allergies or NONE"
-                                            />
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <Label htmlFor="hmo_company_id_no" className="text-sm font-semibold text-gray-700">HMO ID Number</Label>
+                                                <Input
+                                                    id="hmo_company_id_no"
+                                                    name="hmo_company_id_no"
+                                                    value={data.hmo_company_id_no}
+                                                    onChange={(e) => setData('hmo_company_id_no', e.target.value)}
+                                                    className="mt-1"
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="validation_approval_code" className="text-sm font-semibold text-gray-700">Approval Code</Label>
+                                                <Input
+                                                    id="validation_approval_code"
+                                                    name="validation_approval_code"
+                                                    value={data.validation_approval_code}
+                                                    onChange={(e) => setData('validation_approval_code', e.target.value)}
+                                                    className="mt-1"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
+                                )}
 
-                                    <div className="space-y-3">
-                                        <Label htmlFor="past_medical_history" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                            <History className="h-4 w-4" />
-                                            Past Medical History
-                                        </Label>
-                                        <Textarea
-                                            id="past_medical_history"
-                                            name="past_medical_history"
-                                            value={data.past_medical_history}
-                                            onChange={(e) => setData('past_medical_history', e.target.value)}
-                                            placeholder="Previous medical conditions, surgeries, hospitalizations"
-                                            className="min-h-[100px] border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
-                                        />
+                                {/* Step 5: Medical History */}
+                                {currentStep === 5 && (
+                                    <div className="space-y-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <Label htmlFor="drug_allergies" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                    <AlertCircle className="h-4 w-4" />
+                                                    Drug Allergies
+                                                </Label>
+                                                <Input
+                                                    id="drug_allergies"
+                                                    name="drug_allergies"
+                                                    value={data.drug_allergies}
+                                                    onChange={(e) => setData('drug_allergies', e.target.value)}
+                                                    className="mt-1"
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="food_allergies" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                    <AlertCircle className="h-4 w-4" />
+                                                    Food Allergies
+                                                </Label>
+                                                <Input
+                                                    id="food_allergies"
+                                                    name="food_allergies"
+                                                    value={data.food_allergies}
+                                                    onChange={(e) => setData('food_allergies', e.target.value)}
+                                                    className="mt-1"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="past_medical_history" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                <FileText className="h-4 w-4" />
+                                                Past Medical History
+                                            </Label>
+                                            <Textarea
+                                                id="past_medical_history"
+                                                name="past_medical_history"
+                                                value={data.past_medical_history}
+                                                onChange={(e) => setData('past_medical_history', e.target.value)}
+                                                className="mt-1"
+                                                rows={3}
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="family_history" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                <Users className="h-4 w-4" />
+                                                Family History
+                                            </Label>
+                                            <Textarea
+                                                id="family_history"
+                                                name="family_history"
+                                                value={data.family_history}
+                                                onChange={(e) => setData('family_history', e.target.value)}
+                                                className="mt-1"
+                                                rows={3}
+                                                placeholder="Family medical history, hereditary conditions"
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="social_personal_history" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                <Briefcase className="h-4 w-4" />
+                                                Social/Personal History
+                                            </Label>
+                                            <Textarea
+                                                id="social_personal_history"
+                                                name="social_personal_history"
+                                                value={data.social_personal_history}
+                                                onChange={(e) => setData('social_personal_history', e.target.value)}
+                                                className="mt-1"
+                                                rows={3}
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="obstetrics_gynecology_history" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                <Heart className="h-4 w-4" />
+                                                Obstetrics & Gynecology History
+                                            </Label>
+                                            <Textarea
+                                                id="obstetrics_gynecology_history"
+                                                name="obstetrics_gynecology_history"
+                                                value={data.obstetrics_gynecology_history}
+                                                onChange={(e) => setData('obstetrics_gynecology_history', e.target.value)}
+                                                className="mt-1"
+                                                rows={3}
+                                            />
+                                        </div>
                                     </div>
+                                )}
 
-                                    <div className="space-y-3">
-                                        <Label htmlFor="family_history" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                            <Users className="h-4 w-4" />
-                                            Family History
-                                        </Label>
-                                        <Textarea
-                                            id="family_history"
-                                            name="family_history"
-                                            value={data.family_history}
-                                            onChange={(e) => setData('family_history', e.target.value)}
-                                            placeholder="Family medical history, hereditary conditions"
-                                            className="min-h-[100px] border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        <Label htmlFor="social_personal_history" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                            <Briefcase className="h-4 w-4" />
-                                            Social/Personal History
-                                        </Label>
-                                        <Textarea
-                                            id="social_personal_history"
-                                            name="social_personal_history"
-                                            value={data.social_personal_history}
-                                            onChange={(e) => setData('social_personal_history', e.target.value)}
-                                            placeholder="Lifestyle, habits, occupation, social factors"
-                                            className="min-h-[100px] border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        <Label htmlFor="obstetrics_gynecology_history" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                            <Heart className="h-4 w-4" />
-                                            Obstetrics & Gynecology History (Female Patients)
-                                        </Label>
-                                        <Textarea
-                                            id="obstetrics_gynecology_history"
-                                            name="obstetrics_gynecology_history"
-                                            value={data.obstetrics_gynecology_history}
-                                            onChange={(e) => setData('obstetrics_gynecology_history', e.target.value)}
-                                            placeholder="Pregnancy history, menstrual history, gynecological conditions"
-                                            className="min-h-[100px] border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
-                                        />
-                                    </div>
-                                </div>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {/* Step 6: Appointment Booking */}
-                        {currentStep === 6 && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        {getStepIcon(6)}
-                                        Appointment Booking
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                <div className="space-y-6">
-                                    {/* Appointment Type Selection */}
-                                    <div className="space-y-3">
-                                        <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Appointment Type</h3>
-                                        <div className="grid gap-4 md:grid-cols-2">
-                                            <div className="space-y-2">
+                                {/* Step 6: Appointment Booking */}
+                                {currentStep === 6 && (
+                                    <div className="space-y-6">
+                                        {/* Appointment Type Selection */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
                                                 <Label htmlFor="appointment_type" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                     <Stethoscope className="h-4 w-4" />
                                                     Appointment Type *
@@ -1303,7 +1235,7 @@ export default function AppointmentBooking({
                                                     value={data.appointment_type} 
                                                     onValueChange={(value) => setData('appointment_type', value)}
                                                 >
-                                                    <SelectTrigger id="appointment_type" className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.appointment_type ? 'border-gray-500' : ''}`}>
+                                                    <SelectTrigger id="appointment_type" className={`mt-1 ${errors.appointment_type ? 'border-red-500' : ''}`}>
                                                         <SelectValue placeholder="Select appointment type" />
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -1312,14 +1244,14 @@ export default function AppointmentBooking({
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
-                                                {errors.appointment_type && <p className="text-sm text-black">{errors.appointment_type}</p>}
+                                                {errors.appointment_type && <p className="text-red-500 text-sm mt-1">{errors.appointment_type}</p>}
                                             </div>
-                                            <div className="space-y-2">
+                                            <div>
                                                 <Label htmlFor="specialist_type" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                     <User className="h-4 w-4" />
                                                     Specialist Type *
                                                 </Label>
-                                                <div className="w-full h-12 border border-gray-300 rounded-xl shadow-sm bg-gray-50 flex items-center px-3">
+                                                <div className="w-full border border-gray-300 rounded bg-gray-50 flex items-center px-3 py-2 mt-1">
                                                     <span className="text-gray-700 font-medium">
                                                         {data.specialist_type === 'doctor' ? 'Doctor' : data.specialist_type === 'medtech' ? 'Medical Technologist' : 'Select appointment type first'}
                                                     </span>
@@ -1329,11 +1261,8 @@ export default function AppointmentBooking({
                                                 </p>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    {/* Specialist Selection - Checkbox Style */}
-                                    <div className="space-y-3">
-                                        <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Select Specialist</h3>
+                                        {/* Specialist Selection - Checkbox Style */}
                                         <div className="space-y-4">
                                             <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                 <User className="h-4 w-4" />
@@ -1404,15 +1333,12 @@ export default function AppointmentBooking({
                                                 })}
                                             </div>
                                             
-                                            {errors.specialist_id && <p className="text-sm text-red-600">{errors.specialist_id}</p>}
+                                            {errors.specialist_id && <p className="text-red-500 text-sm mt-1">{errors.specialist_id}</p>}
                                         </div>
-                                    </div>
 
-                                    {/* Date and Time Selection */}
-                                    <div className="space-y-3">
-                                        <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Schedule</h3>
-                                        <div className="grid gap-4 md:grid-cols-2">
-                                            <div className="space-y-2">
+                                        {/* Date and Time Selection */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
                                                 <Label htmlFor="appointment_date" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                     <Calendar className="h-4 w-4" />
                                                     Appointment Date *
@@ -1424,11 +1350,11 @@ export default function AppointmentBooking({
                                                     onChange={(e) => setData('appointment_date', e.target.value)}
                                                     min={getMinDate()}
                                                     max={getMaxDate()}
-                                                    className={`h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.appointment_date ? 'border-gray-500' : ''}`}
+                                                    className={`mt-1 ${errors.appointment_date ? 'border-red-500' : ''}`}
                                                 />
-                                                {errors.appointment_date && <p className="text-sm text-black">{errors.appointment_date}</p>}
+                                                {errors.appointment_date && <p className="text-red-500 text-sm mt-1">{errors.appointment_date}</p>}
                                             </div>
-                                            <div className="space-y-2">
+                                            <div>
                                                 <Label htmlFor="appointment_time" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                     <Clock3 className="h-4 w-4" />
                                                     Appointment Time *
@@ -1437,7 +1363,7 @@ export default function AppointmentBooking({
                                                     value={data.appointment_time} 
                                                     onValueChange={(value) => setData('appointment_time', value)}
                                                 >
-                                                    <SelectTrigger id="appointment_time" className={`w-full h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm ${errors.appointment_time ? 'border-gray-500' : ''}`}>
+                                                    <SelectTrigger id="appointment_time" className={`mt-1 ${errors.appointment_time ? 'border-red-500' : ''}`}>
                                                         <SelectValue placeholder="Select time" />
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -1446,16 +1372,13 @@ export default function AppointmentBooking({
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
-                                                {errors.appointment_time && <p className="text-sm text-black">{errors.appointment_time}</p>}
+                                                {errors.appointment_time && <p className="text-red-500 text-sm mt-1">{errors.appointment_time}</p>}
                                             </div>
                                         </div>
-                                    </div>
 
-                                    {/* Additional Information */}
-                                    <div className="space-y-3">
-                                        <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">Additional Information</h3>
-                                        <div className="space-y-4">
-                                            <div className="space-y-2">
+                                        {/* Additional Information */}
+                                        <div className="space-y-6">
+                                            <div>
                                                 <Label htmlFor="notes" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                     <FileText className="h-4 w-4" />
                                                     Notes
@@ -1465,10 +1388,11 @@ export default function AppointmentBooking({
                                                     value={data.notes}
                                                     onChange={(e) => setData('notes', e.target.value)}
                                                     placeholder="Any additional notes or concerns"
-                                                    className="min-h-[80px] border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                                    className="mt-1"
+                                                    rows={3}
                                                 />
                                             </div>
-                                            <div className="space-y-2">
+                                            <div>
                                                 <Label htmlFor="special_requirements" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                     <AlertCircle className="h-4 w-4" />
                                                     Special Requirements
@@ -1478,11 +1402,11 @@ export default function AppointmentBooking({
                                                     value={data.special_requirements}
                                                     onChange={(e) => setData('special_requirements', e.target.value)}
                                                     placeholder="Any special requirements or accommodations needed"
-                                                    className="min-h-[80px] border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
+                                                    className="mt-1"
+                                                    rows={3}
                                                 />
                                             </div>
                                         </div>
-                                    </div>
 
                                     {/* Price Summary */}
                                     {appointmentPrice > 0 && (
@@ -1498,70 +1422,58 @@ export default function AppointmentBooking({
                                                 Payment will be collected at the clinic on the day of your appointment.
                                             </p>
                                         </div>
-                                    )}
-                                </div>
-                                </CardContent>
-                            </Card>
-                        )}
+                                        )}
+                                    </div>
+                                )}
 
-                        {/* Navigation Buttons */}
-                        <div className="flex items-center justify-between pt-6">
-                            <div className="flex items-center gap-3">
-                                {currentStep > 1 && (
+                                <Separator className="my-6" />
+                                
+                                <div className="flex justify-between">
                                     <Button
                                         type="button"
                                         variant="outline"
                                         onClick={prevStep}
-                                        className="px-6 py-3 h-12 border-gray-300 hover:bg-gray-50 rounded-xl text-lg font-semibold"
+                                        disabled={currentStep === 1}
                                     >
-                                        <ArrowLeft className="mr-2 h-5 w-5" />
+                                        <ChevronLeft className="mr-2 h-4 w-4" />
                                         Previous
                                     </Button>
-                                )}
-                            </div>
-                            
-                            <div className="flex items-center gap-3">
-                                {(() => {
-                                    // If not on final step, show Next Step button
-                                    if (currentStep < totalSteps) {
-                                        return (
-                                            <Button
-                                                type="button"
-                                                onClick={nextStep}
-                                                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 h-12 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold"
-                                            >
-                                                Next Step
-                                                <ArrowRight className="ml-2 h-5 w-5" />
-                                            </Button>
-                                        );
-                                    }
                                     
-                                    // If on final step but appointment fields are not filled, show a helpful message
-                                    if (currentStep === totalSteps && (!data.appointment_type || !data.specialist_type || !data.specialist_id || !data.appointment_date || !data.appointment_time)) {
-                                        return (
-                                            <div className="flex items-center gap-3">
-                                                <div className="text-sm text-gray-600 bg-yellow-50 px-4 py-2 rounded-lg border border-yellow-200">
-                                                    Please fill out all appointment fields above to continue
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-                                    
-                                    // Show complete button when all fields are filled
-                                    return (
-                                        <Button 
-                                            disabled={isProcessing} 
-                                            type="submit"
-                                            className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 h-12 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold"
+                                    {currentStep < totalSteps ? (
+                                        <Button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                nextStep();
+                                            }}
                                         >
-                                            <Save className="mr-3 h-6 w-6" />
-                                            {isProcessing ? 'Submitting Request...' : (isAdmin ? 'Create Walk-in Appointment' : 'Submit Online Appointment Request')}
+                                            Next
+                                            <ChevronRight className="ml-2 h-4 w-4" />
                                         </Button>
-                                    );
-                                })()}
-                            </div>
-                        </div>
-                    </form>
+                                    ) : (
+                                        <Button
+                                            type="submit"
+                                            disabled={isProcessing}
+                                            className="bg-blue-600 hover:bg-blue-700"
+                                        >
+                                            {isProcessing ? (
+                                                <>
+                                                    <Activity className="mr-2 h-4 w-4 animate-spin" />
+                                                    Submitting...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Save className="mr-2 h-4 w-4" />
+                                                    {isAdmin ? 'Create Walk-in Appointment' : 'Submit Online Appointment Request'}
+                                                </>
+                                            )}
+                                        </Button>
+                                    )}
+                                </div>
+                            </form>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </AppLayout>

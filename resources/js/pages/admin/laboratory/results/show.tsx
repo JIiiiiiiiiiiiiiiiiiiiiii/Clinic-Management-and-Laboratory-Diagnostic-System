@@ -1,10 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, Download, Edit, FileText, Pencil } from 'lucide-react';
+import { ArrowLeft, FileText } from 'lucide-react';
 
 type Result = {
     id: number;
@@ -90,86 +89,11 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                                 </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                            <div className="counter-card text-white rounded-xl shadow-lg border-0 px-6 py-4 w-52 h-20 flex items-center overflow-hidden">
-                                <div className="flex items-center gap-3">
-                                    <div className="counter-icon p-2 rounded-lg border border-white/60">
-                                        <FileText className="h-6 w-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <div className="text-3xl font-bold whitespace-nowrap leading-tight">{(results || []).length}</div>
-                                        <div className="text-gray-100 text-sm font-medium whitespace-nowrap">Total Results</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        {/* removed Total Results counter */}
                     </div>
                 </div>
 
-                {/* Action Buttons */}
-                <Card className="shadow-lg mb-8">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-gray-100 rounded-lg">
-                                <FileText className="h-6 w-6 text-black" />
-                            </div>
-                            <div>
-                                <CardTitle className="text-lg font-semibold text-gray-900">Actions</CardTitle>
-                                <p className="text-sm text-gray-500 mt-1">Edit results, download reports, and export data</p>
-                            </div>
-                        </div>
-                                <div className="flex items-center gap-2">
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={() => router.visit(`/admin/laboratory/orders/${order.id}/results`)}
-                                    >
-                                        <Pencil className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Edit Results</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="outline" size="icon" onClick={() => router.visit(`/admin/laboratory/orders/${order.id}/report`)}>
-                                        <FileText className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Download PDF</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={() => router.visit(`/admin/laboratory/orders/${order.id}/export.xlsx`)}
-                                    >
-                                        <Download className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Download Excel</TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <Button variant="outline" onClick={() => router.visit(`/admin/laboratory/orders/${order.id}/results/entry`)}>
-                                        <Edit className="mr-2 h-4 w-4" />
-                                        Edit Results
-                                    </Button>
-                                    <Button variant="outline" onClick={() => window.open(`/admin/laboratory/orders/${order.id}/report`, '_blank')}>
-                                        <FileText className="mr-2 h-4 w-4" />
-                                        Generate Report
-                                    </Button>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                {/* removed Actions card */}
 
                 {/* Results Cards */}
                 <div className="space-y-8">

@@ -27,7 +27,7 @@ interface Notification {
 interface RealtimeNotificationBellProps {
   initialNotifications?: Notification[];
   unreadCount?: number;
-  userRole: 'admin' | 'patient';
+  userRole: 'admin' | 'patient' | 'doctor' | 'nurse';
 }
 
 export default function RealtimeNotificationBell({ 
@@ -46,7 +46,10 @@ export default function RealtimeNotificationBell({
     const pollForUpdates = async () => {
       try {
         setIsLoading(true);
-        const routeName = userRole === 'admin' ? 'admin.realtime.notifications' : 'patient.realtime.notifications';
+        // Admin, doctor, and nurse all use the same admin notification route
+        const routeName = (userRole === 'admin' || userRole === 'doctor' || userRole === 'nurse') 
+          ? 'admin.realtime.notifications' 
+          : 'patient.realtime.notifications';
         const response = await axios.get(route(routeName));
         const { notifications: newNotifications, unread_count, timestamp } = response.data;
         
@@ -83,7 +86,9 @@ export default function RealtimeNotificationBell({
 
   const markAsRead = async (notificationId: number) => {
     try {
-      const routeName = userRole === 'admin' ? 'admin.realtime.notifications.mark-read' : 'patient.realtime.notifications.mark-read';
+      const routeName = (userRole === 'admin' || userRole === 'doctor' || userRole === 'nurse') 
+        ? 'admin.realtime.notifications.mark-read' 
+        : 'patient.realtime.notifications.mark-read';
       await axios.post(route(routeName, notificationId));
       
       setNotifications(prev => 
@@ -99,7 +104,9 @@ export default function RealtimeNotificationBell({
 
   const markAllAsRead = async () => {
     try {
-      const routeName = userRole === 'admin' ? 'admin.realtime.notifications.mark-all-read' : 'patient.realtime.notifications.mark-all-read';
+      const routeName = (userRole === 'admin' || userRole === 'doctor' || userRole === 'nurse') 
+        ? 'admin.realtime.notifications.mark-all-read' 
+        : 'patient.realtime.notifications.mark-all-read';
       await axios.post(route(routeName));
       
       setNotifications(prev => 
@@ -119,8 +126,8 @@ export default function RealtimeNotificationBell({
       await markAsRead(notification.id);
     }
     
-    // For admin users, always redirect to pending appointments for appointment_request notifications
-    if (userRole === 'admin' && notification.type === 'appointment_request') {
+    // For admin, doctor, and nurse users, always redirect to pending appointments for appointment_request notifications
+    if ((userRole === 'admin' || userRole === 'doctor' || userRole === 'nurse') && notification.type === 'appointment_request') {
       // Try to get the specific pending appointment ID
       const pendingId = notification.data?.pending_appointment_id;
       console.log('Notification data:', notification.data);
@@ -170,7 +177,7 @@ export default function RealtimeNotificationBell({
       userRole
     });
     
-    if (userRole === 'admin') {
+    if (userRole === 'admin' || userRole === 'doctor' || userRole === 'nurse') {
       switch (notification.type) {
         case 'appointment':
           return `/admin/appointments/${notification.data?.appointment_id}`;
@@ -194,6 +201,7 @@ export default function RealtimeNotificationBell({
     } else {
       switch (notification.type) {
         case 'appointment':
+        case 'appointment_approved':
           return `/patient/appointments/${notification.data?.appointment_id}`;
         default:
           return '/patient/appointments';
@@ -215,7 +223,9 @@ export default function RealtimeNotificationBell({
   const refreshNotifications = async () => {
     try {
       setIsLoading(true);
-      const routeName = userRole === 'admin' ? 'admin.realtime.notifications' : 'patient.realtime.notifications';
+      const routeName = (userRole === 'admin' || userRole === 'doctor' || userRole === 'nurse') 
+        ? 'admin.realtime.notifications' 
+        : 'patient.realtime.notifications';
       const response = await axios.get(route(routeName));
       const { notifications: newNotifications, unread_count, timestamp } = response.data;
       
@@ -312,7 +322,7 @@ export default function RealtimeNotificationBell({
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href={userRole === 'admin' ? "/admin/notifications" : "/patient/appointments"} className="text-center">
+              <Link href={(userRole === 'admin' || userRole === 'doctor' || userRole === 'nurse') ? "/admin/notifications" : "/patient/appointments"} className="text-center">
                 View all notifications
               </Link>
             </DropdownMenuItem>

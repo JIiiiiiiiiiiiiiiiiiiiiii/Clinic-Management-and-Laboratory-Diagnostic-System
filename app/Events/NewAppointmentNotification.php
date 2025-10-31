@@ -32,6 +32,24 @@ class NewAppointmentNotification implements ShouldBroadcast
      */
     public function broadcastOn(): array
     {
+        // Get user to determine role for channel naming
+        $user = \App\Models\User::find($this->userId);
+        
+        if ($user) {
+            // Use role-specific channel naming
+            $roleChannel = match($user->role) {
+                'admin' => 'admin.notifications.',
+                'doctor' => 'doctor.notifications.',
+                'nurse' => 'nurse.notifications.',
+                default => 'admin.notifications.',
+            };
+            
+            return [
+                new PrivateChannel($roleChannel . $this->userId),
+            ];
+        }
+        
+        // Fallback to admin channel
         return [
             new PrivateChannel('admin.notifications.' . $this->userId),
         ];

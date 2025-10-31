@@ -219,7 +219,9 @@
                     @foreach($transactions as $transaction)
                         <tr>
                             <td>{{ $transaction->transaction_id }}</td>
-                            <td>{{ $transaction->patient->name ?? 'N/A' }}</td>
+                            <td>
+                                {{ optional(method_exists($transaction, 'getPatientInfo') ? $transaction->getPatientInfo() : $transaction->patient)->full_name ?? 'N/A' }}
+                            </td>
                             <td>{{ $transaction->doctor->name ?? ($transaction->appointment->specialist->name ?? 'N/A') }}</td>
                             <td>PHP {{ number_format($transaction->total_amount, 2) }}</td>
                             <td>PHP {{ number_format($transaction->original_amount ?? $transaction->total_amount, 2) }}</td>

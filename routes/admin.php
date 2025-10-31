@@ -728,9 +728,7 @@ Route::get('/test-movement', [App\Http\Controllers\InventoryController::class, '
             // Category-specific pages (must come before {id} routes)
             Route::get('/supply-items', [App\Http\Controllers\InventoryController::class, 'supplyItems'])->name('supply-items');
             
-            // Consume and Reject functionality
-            Route::post('/{id}/consume', [App\Http\Controllers\InventoryController::class, 'consumeItem'])->name('consume');
-            Route::post('/{id}/reject', [App\Http\Controllers\InventoryController::class, 'rejectItem'])->name('reject');
+            // Consume and Reject functionality (deprecated endpoints removed to avoid duplication)
             
             // Products management routes
             Route::prefix('products')->name('products.')->group(function () {
