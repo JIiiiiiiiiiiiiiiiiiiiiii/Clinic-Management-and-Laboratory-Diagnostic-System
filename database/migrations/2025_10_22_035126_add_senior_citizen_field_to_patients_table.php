@@ -12,8 +12,23 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('patients', function (Blueprint $table) {
-            $table->boolean('is_senior_citizen')->default(false)->after('birthdate');
-            $table->string('senior_citizen_id')->nullable()->after('is_senior_citizen');
+            if (!Schema::hasColumn('patients', 'is_senior_citizen')) {
+                $afterColumn = Schema::hasColumn('patients', 'birthdate') ? 'birthdate' : null;
+                if ($afterColumn) {
+                    $table->boolean('is_senior_citizen')->default(false)->after($afterColumn);
+                } else {
+                    $table->boolean('is_senior_citizen')->default(false);
+                }
+            }
+            
+            if (!Schema::hasColumn('patients', 'senior_citizen_id')) {
+                $afterColumn = Schema::hasColumn('patients', 'is_senior_citizen') ? 'is_senior_citizen' : (Schema::hasColumn('patients', 'birthdate') ? 'birthdate' : null);
+                if ($afterColumn) {
+                    $table->string('senior_citizen_id')->nullable()->after($afterColumn);
+                } else {
+                    $table->string('senior_citizen_id')->nullable();
+                }
+            }
         });
     }
 
@@ -23,7 +38,17 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('patients', function (Blueprint $table) {
-            $table->dropColumn(['is_senior_citizen', 'senior_citizen_id']);
+            $columnsToDrop = [];
+            if (Schema::hasColumn('patients', 'is_senior_citizen')) {
+                $columnsToDrop[] = 'is_senior_citizen';
+            }
+            if (Schema::hasColumn('patients', 'senior_citizen_id')) {
+                $columnsToDrop[] = 'senior_citizen_id';
+            }
+            
+            if (!empty($columnsToDrop)) {
+                $table->dropColumn($columnsToDrop);
+            }
         });
     }
 };
