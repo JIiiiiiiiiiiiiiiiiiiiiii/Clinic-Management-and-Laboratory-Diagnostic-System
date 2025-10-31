@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Head, useForm, Link } from '@inertiajs/react';
+import { route } from 'ziggy-js';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,6 +20,8 @@ import {
     LineChart, Calendar, CalendarDays, ChevronDown
 } from 'lucide-react';
 import { type BreadcrumbItem } from '@/types';
+import TermsAndConditionsModal from '@/components/TermsAndConditionsModal';
+import { usePage } from '@inertiajs/react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -43,6 +46,16 @@ interface Props {
 export default function CreatePatientTransfer({ registrationType, userRole }: Props) {
     const [currentStep, setCurrentStep] = useState(1);
     const totalSteps = 6;
+    const { auth } = usePage().props as any;
+    const currentUserId = auth?.user?.id ?? 'guest';
+    const storageKeyTransfer = `terms_accepted_transfer_${currentUserId}`;
+    const [showTermsModal, setShowTermsModal] = useState(() => {
+        // Check if terms were already accepted in this session for this user
+        return !sessionStorage.getItem(storageKeyTransfer);
+    });
+    const [termsAccepted, setTermsAccepted] = useState(() => {
+        return !!sessionStorage.getItem(storageKeyTransfer);
+    });
 
     const { data, setData, processing, errors, post } = useForm({
         // Patient Identification
@@ -63,6 +76,7 @@ export default function CreatePatientTransfer({ registrationType, userRole }: Pr
         present_address: '',
         telephone_no: '',
         mobile_no: '',
+        email_address: '',
 
         // Emergency Contact
         informant_name: '',
@@ -86,6 +100,21 @@ export default function CreatePatientTransfer({ registrationType, userRole }: Pr
         // Transfer Information
         reason_for_transfer: '',
     });
+
+    // Compute age from birthdate
+    const onBirthdateChange = (value: string) => {
+        setData('birthdate', value);
+        if (value) {
+            const today = new Date();
+            const b = new Date(value);
+            let age = today.getFullYear() - b.getFullYear();
+            const m = today.getMonth() - b.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < b.getDate())) age--;
+            setData('age', Math.max(0, age));
+        } else {
+            setData('age', 0);
+        }
+    };
 
     const steps = [
         { id: 1, title: 'Patient Information', description: 'Basic patient details' },
@@ -167,7 +196,7 @@ export default function CreatePatientTransfer({ registrationType, userRole }: Pr
                                     id="birthdate"
                                     type="date"
                                     value={data.birthdate}
-                                    onChange={(e) => setData('birthdate', e.target.value)}
+                                    onChange={(e) => onBirthdateChange(e.target.value)}
                                     className="mt-1"
                                     required
                                 />
@@ -206,6 +235,34 @@ export default function CreatePatientTransfer({ registrationType, userRole }: Pr
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
+                                <Label htmlFor="occupation" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <Briefcase className="h-4 w-4" />
+                                    Occupation
+                                </Label>
+                                <Input
+                                    id="occupation"
+                                    value={data.occupation}
+                                    onChange={(e) => setData('occupation', e.target.value)}
+                                    className="mt-1"
+                                    placeholder="Enter occupation"
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="religion" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <Globe className="h-4 w-4" />
+                                    Religion
+                                </Label>
+                                <Input
+                                    id="religion"
+                                    value={data.religion}
+                                    onChange={(e) => setData('religion', e.target.value)}
+                                    className="mt-1"
+                                    placeholder="Enter religion"
+                                />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
                                 <Label htmlFor="civil_status" className="text-sm font-semibold text-gray-700">Civil Status *</Label>
                                 <Select value={data.civil_status} onValueChange={(value: 'single' | 'married' | 'widowed' | 'divorced' | 'separated') => setData('civil_status', value)}>
                                     <SelectTrigger className="mt-1">
@@ -222,12 +279,16 @@ export default function CreatePatientTransfer({ registrationType, userRole }: Pr
                                 {errors.civil_status && <p className="text-red-500 text-sm mt-1">{errors.civil_status}</p>}
                             </div>
                             <div>
-                                <Label htmlFor="nationality" className="text-sm font-semibold text-gray-700">Nationality</Label>
+                                <Label htmlFor="nationality" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <Globe className="h-4 w-4" />
+                                    Nationality
+                                </Label>
                                 <Input
                                     id="nationality"
                                     value={data.nationality}
                                     onChange={(e) => setData('nationality', e.target.value)}
                                     className="mt-1"
+                                    placeholder="Enter nationality"
                                 />
                             </div>
                         </div>
@@ -263,6 +324,7 @@ export default function CreatePatientTransfer({ registrationType, userRole }: Pr
                                     value={data.telephone_no}
                                     onChange={(e) => setData('telephone_no', e.target.value)}
                                     className="mt-1"
+                                    placeholder="Enter telephone number"
                                 />
                             </div>
                             <div>
@@ -275,10 +337,25 @@ export default function CreatePatientTransfer({ registrationType, userRole }: Pr
                                     value={data.mobile_no}
                                     onChange={(e) => setData('mobile_no', e.target.value)}
                                     className="mt-1"
+                                    placeholder="Enter mobile number"
                                     required
                                 />
                                 {errors.mobile_no && <p className="text-red-500 text-sm mt-1">{errors.mobile_no}</p>}
                             </div>
+                        </div>
+                        <div>
+                            <Label htmlFor="email_address" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                <Mail className="h-4 w-4" />
+                                Email Address
+                            </Label>
+                            <Input
+                                id="email_address"
+                                type="email"
+                                value={data.email_address}
+                                onChange={(e) => setData('email_address', e.target.value)}
+                                className="mt-1"
+                                placeholder="Enter email address"
+                            />
                         </div>
                     </div>
                 );
@@ -417,6 +494,35 @@ export default function CreatePatientTransfer({ registrationType, userRole }: Pr
                                 onChange={(e) => setData('family_history', e.target.value)}
                                 className="mt-1"
                                 rows={3}
+                                placeholder="Family medical history, hereditary conditions"
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor="social_personal_history" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                <Briefcase className="h-4 w-4" />
+                                Social/Personal History
+                            </Label>
+                            <Textarea
+                                id="social_personal_history"
+                                value={data.social_personal_history}
+                                onChange={(e) => setData('social_personal_history', e.target.value)}
+                                className="mt-1"
+                                rows={3}
+                                placeholder="Lifestyle, habits, occupation, social factors"
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor="obstetrics_gynecology_history" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                <Heart className="h-4 w-4" />
+                                Obstetrics & Gynecology History (Female Patients)
+                            </Label>
+                            <Textarea
+                                id="obstetrics_gynecology_history"
+                                value={data.obstetrics_gynecology_history}
+                                onChange={(e) => setData('obstetrics_gynecology_history', e.target.value)}
+                                className="mt-1"
+                                rows={3}
+                                placeholder="Pregnancy history, menstrual history, gynecological conditions"
                             />
                         </div>
                     </div>
@@ -448,6 +554,33 @@ export default function CreatePatientTransfer({ registrationType, userRole }: Pr
                 return null;
         }
     };
+
+    const handleTermsAccept = () => {
+        setTermsAccepted(true);
+        setShowTermsModal(false);
+    };
+
+    // Block form access if terms not accepted
+    if (!termsAccepted) {
+        return (
+            <>
+                <AppLayout breadcrumbs={breadcrumbs}>
+                    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                        <div className="text-center">
+                            <h2 className="text-2xl font-semibold text-gray-900 mb-2">Please Accept Terms and Conditions</h2>
+                            <p className="text-gray-600">You must accept the terms and conditions to continue.</p>
+                        </div>
+                    </div>
+                </AppLayout>
+                <TermsAndConditionsModal 
+                    open={showTermsModal} 
+                    onAccept={handleTermsAccept}
+                    formType="transfer"
+                    storageKey={storageKeyTransfer}
+                />
+            </>
+        );
+    }
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>

@@ -36,9 +36,9 @@ export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: Breadcrum
                 <Breadcrumbs breadcrumbs={breadcrumbs} />
             </div>
             <div className="flex items-center space-x-2">
-                {/* Show notification bell for admin users */}
-                {auth.user.role === 'admin' && (
-                    <RealtimeNotificationBell userRole="admin" />
+                {/* Show notification bell for admin, doctor, and nurse users */}
+                {(auth.user.role === 'admin' || auth.user.role === 'doctor' || auth.user.role === 'nurse') && (
+                    <RealtimeNotificationBell userRole={auth.user.role} />
                 )}
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>

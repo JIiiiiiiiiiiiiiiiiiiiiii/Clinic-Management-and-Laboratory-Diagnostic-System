@@ -1232,12 +1232,17 @@ class InventoryController extends Controller
 
         $validated = $request->validate([
             'quantity' => 'required|integer|min:1|max:' . $item->stock,
+            // Accept either 'notes' or 'reason' from different UIs
             'notes' => 'nullable|string|max:255',
+            'reason' => 'nullable|string|max:500',
             'handled_by' => 'nullable|string|max:100',
         ]);
 
+        // Normalize reason field across UIs
+        $reasonText = $validated['notes'] ?? $validated['reason'] ?? 'No reason provided';
+
         // Update stock using model method (which creates movement record)
-        $item->removeStock($validated['quantity'], true, 'Rejected: ' . ($validated['notes'] ?? 'No reason provided'), $validated['handled_by'] ?? auth()->user()->name ?? 'System');
+        $item->removeStock($validated['quantity'], true, 'Rejected: ' . $reasonText, $validated['handled_by'] ?? auth()->user()->name ?? 'System');
 
         // Force refresh the item from database
         $item = InventoryItem::findOrFail($id);

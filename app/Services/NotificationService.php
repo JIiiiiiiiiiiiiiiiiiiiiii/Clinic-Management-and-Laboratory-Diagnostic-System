@@ -18,7 +18,7 @@ class NotificationService
     }
 
     /**
-     * Notify admin about new appointment request
+     * Notify admin, doctors, and nurses about new appointment request
      */
     public function notifyNewAppointment(Appointment $appointment): void
     {
@@ -53,10 +53,45 @@ class NotificationService
                 ]);
             }
         }
+
+        // Get all doctor and nurse users
+        $doctorAndNurseUsers = User::whereIn('role', ['doctor', 'nurse'])
+            ->where('is_active', true)
+            ->get();
+
+        foreach ($doctorAndNurseUsers as $user) {
+            $notification = Notification::create([
+                'type' => 'appointment',
+                'title' => 'New Appointment Request',
+                'message' => "New appointment request from {$appointment->patient_name} for {$appointment->appointment_type} on {$appointment->appointment_date} at {$appointment->appointment_time}",
+                'data' => [
+                    'appointment_id' => $appointment->id,
+                    'patient_name' => $appointment->patient_name,
+                    'appointment_type' => $appointment->appointment_type,
+                    'appointment_date' => $appointment->appointment_date,
+                    'appointment_time' => $appointment->appointment_time,
+                ],
+                'user_id' => $user->id,
+                'related_id' => $appointment->id,
+                'related_type' => 'Appointment',
+            ]);
+
+            // Broadcast real-time notification to doctor/nurse
+            try {
+                broadcast(new \App\Events\NewAppointmentNotification($notification, $user->id));
+            } catch (\Exception $e) {
+                \Log::error('Failed to broadcast notification to doctor/nurse', [
+                    'user_id' => $user->id,
+                    'user_role' => $user->role,
+                    'notification_id' => $notification->id,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
     }
 
     /**
-     * Notify admin about new pending appointment request
+     * Notify admin, doctors, and nurses about new pending appointment request
      */
     public function notifyNewPendingAppointment(\App\Models\PendingAppointment $pendingAppointment): void
     {
@@ -86,6 +121,41 @@ class NotificationService
             } catch (\Exception $e) {
                 \Log::error('Failed to broadcast notification to admin', [
                     'admin_id' => $admin->id,
+                    'notification_id' => $notification->id,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+
+        // Get all doctor and nurse users
+        $doctorAndNurseUsers = User::whereIn('role', ['doctor', 'nurse'])
+            ->where('is_active', true)
+            ->get();
+
+        foreach ($doctorAndNurseUsers as $user) {
+            $notification = Notification::create([
+                'type' => 'appointment_request',
+                'title' => 'New Pending Appointment Request',
+                'message' => "New appointment request from {$pendingAppointment->patient_name} for {$pendingAppointment->appointment_type} on {$pendingAppointment->appointment_date} at {$pendingAppointment->appointment_time} - Requires approval",
+                'data' => [
+                    'pending_appointment_id' => $pendingAppointment->id,
+                    'patient_name' => $pendingAppointment->patient_name,
+                    'appointment_type' => $pendingAppointment->appointment_type,
+                    'appointment_date' => $pendingAppointment->appointment_date,
+                    'appointment_time' => $pendingAppointment->appointment_time,
+                ],
+                'user_id' => $user->id,
+                'related_id' => $pendingAppointment->id,
+                'related_type' => 'PendingAppointment',
+            ]);
+
+            // Broadcast real-time notification to doctor/nurse
+            try {
+                broadcast(new \App\Events\NewAppointmentNotification($notification, $user->id));
+            } catch (\Exception $e) {
+                \Log::error('Failed to broadcast notification to doctor/nurse', [
+                    'user_id' => $user->id,
+                    'user_role' => $user->role,
                     'notification_id' => $notification->id,
                     'error' => $e->getMessage()
                 ]);

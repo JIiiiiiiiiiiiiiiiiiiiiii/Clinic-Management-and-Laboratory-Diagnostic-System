@@ -88,10 +88,21 @@ class PatientAppointmentController extends Controller
             // A duplicate is when we have the same appointment in both pending and confirmed
             $allAppointments = $pendingAppointments->concat($confirmedAppointments);
             
-            // Remove duplicates based on appointment date, time, and type
-            $uniqueAppointments = $allAppointments->unique(function ($appointment) {
+            // Remove duplicates - prioritize confirmed appointments over pending ones
+            // Group by appointment date, time, and type, then keep only the confirmed one if both exist
+            $groupedAppointments = $allAppointments->groupBy(function ($appointment) {
                 return $appointment['appointment_date'] . '|' . $appointment['appointment_time'] . '|' . $appointment['appointment_type'];
             });
+            
+            $uniqueAppointments = $groupedAppointments->map(function ($group) {
+                // If there's a confirmed appointment in the group, prefer it over pending
+                $confirmed = $group->where('source', 'confirmed')->first();
+                if ($confirmed) {
+                    return $confirmed;
+                }
+                // Otherwise, return the first pending one
+                return $group->first();
+            })->values();
             
             // Sort by creation date
             $allAppointments = $uniqueAppointments->sortByDesc('created_at');
@@ -377,8 +388,8 @@ class PatientAppointmentController extends Controller
         $user = auth()->user();
         $patient = Patient::where('user_id', $user->id)->first();
 
-        // Verify ownership - use patient_id (integer) for Appointment model
-        if (!$patient || $appointment->patient_id !== $patient->patient_id) {
+        // Verify ownership - Appointment.patient_id relates to Patient.id (not patient_id or patient_no)
+        if (!$patient || $appointment->patient_id !== $patient->id) {
             abort(403, 'Access denied.');
         }
 
