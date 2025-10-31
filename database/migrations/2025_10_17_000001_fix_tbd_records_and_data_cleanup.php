@@ -37,10 +37,15 @@ return new class extends Migration
             ->get();
 
         foreach ($patients as $patient) {
-            $code = 'P' . str_pad($patient->id, 4, '0', STR_PAD_LEFT);
-            DB::table('patients')
-                ->where('id', $patient->id)
-                ->update(['patient_code' => $code]);
+            // Use patient_id if it exists, otherwise use id
+            $patientId = $patient->patient_id ?? $patient->id ?? null;
+            if ($patientId) {
+                $code = 'P' . str_pad($patientId, 4, '0', STR_PAD_LEFT);
+                $whereColumn = isset($patient->patient_id) ? 'patient_id' : 'id';
+                DB::table('patients')
+                    ->where($whereColumn, $patientId)
+                    ->update(['patient_code' => $code]);
+            }
         }
 
         // Fix appointment codes
@@ -132,43 +137,52 @@ return new class extends Migration
      */
     private function fixForeignKeys()
     {
-        // Update appointments to use correct patient_id
-        $appointments = DB::table('appointments')
-            ->whereNotNull('patient_id_fk')
-            ->get();
+        // Update appointments to use correct patient_id (if column exists)
+        if (Schema::hasColumn('appointments', 'patient_id') && Schema::hasColumn('appointments', 'patient_id_fk')) {
+            $appointments = DB::table('appointments')
+                ->whereNotNull('patient_id_fk')
+                ->get();
 
-        foreach ($appointments as $appointment) {
-            DB::table('appointments')
-                ->where('id', $appointment->id)
-                ->update(['patient_id' => $appointment->patient_id_fk]);
+            foreach ($appointments as $appointment) {
+                DB::table('appointments')
+                    ->where('id', $appointment->id)
+                    ->update(['patient_id' => $appointment->patient_id_fk]);
+            }
         }
 
-        // Update appointments to use correct specialist_id
-        $appointments = DB::table('appointments')
-            ->whereNotNull('specialist_id_fk')
-            ->get();
+        // Update appointments to use correct specialist_id (if column exists)
+        if (Schema::hasColumn('appointments', 'specialist_id') && Schema::hasColumn('appointments', 'specialist_id_fk')) {
+            $appointments = DB::table('appointments')
+                ->whereNotNull('specialist_id_fk')
+                ->get();
 
-        foreach ($appointments as $appointment) {
-            DB::table('appointments')
-                ->where('id', $appointment->id)
-                ->update(['specialist_id' => $appointment->specialist_id_fk]);
+            foreach ($appointments as $appointment) {
+                DB::table('appointments')
+                    ->where('id', $appointment->id)
+                    ->update(['specialist_id' => $appointment->specialist_id_fk]);
+            }
         }
 
         // Update visits to use correct patient_id
-        $visits = DB::table('visits')
-            ->whereNotNull('patient_id')
-            ->get();
+        if (Schema::hasColumn('visits', 'patient_id')) {
+            $visits = DB::table('visits')
+                ->whereNotNull('appointment_id')
+                ->get();
 
-        foreach ($visits as $visit) {
-            // Get patient_id from appointment
-            $appointment = DB::table('appointments')
-                ->where('id', $visit->appointment_id)
-                ->first();
+            foreach ($visits as $visit) {
+                // Get patient_id from appointment (check both patient_id_fk and patient_id)
+                $appointment = DB::table('appointments')
+                    ->where('id', $visit->appointment_id)
+                    ->first();
 
-            if ($appointment && $appointment->patient_id) {
-                DB::table('visits')
-                    ->where('id', $visit->id)
-                    ->update(['patient_id' => $appointment->patient_id]);
+                if ($appointment) {
+                    $patientId = $appointment->patient_id_fk ?? $appointment->patient_id ?? null;
+                    if ($patientId) {
+                        DB::table('visits')
+                            ->where('id', $visit->id)
+                            ->update(['patient_id' => $patientId]);
+                    }
+                }
             }
         }
 
@@ -186,38 +200,48 @@ return new class extends Migration
         }
 
         // Update billing_transactions to use correct patient_id
-        $transactions = DB::table('billing_transactions')
-            ->whereNotNull('patient_id')
-            ->get();
+        if (Schema::hasColumn('billing_transactions', 'patient_id') && Schema::hasColumn('billing_transactions', 'appointment_id')) {
+            $transactions = DB::table('billing_transactions')
+                ->whereNotNull('appointment_id')
+                ->get();
 
-        foreach ($transactions as $transaction) {
-            // Get patient_id from appointment
-            $appointment = DB::table('appointments')
-                ->where('id', $transaction->appointment_id)
-                ->first();
+            foreach ($transactions as $transaction) {
+                // Get patient_id from appointment (check both patient_id_fk and patient_id)
+                $appointment = DB::table('appointments')
+                    ->where('id', $transaction->appointment_id)
+                    ->first();
 
-            if ($appointment && $appointment->patient_id) {
-                DB::table('billing_transactions')
-                    ->where('id', $transaction->id)
-                    ->update(['patient_id' => $appointment->patient_id]);
+                if ($appointment) {
+                    $patientId = $appointment->patient_id_fk ?? $appointment->patient_id ?? null;
+                    if ($patientId) {
+                        DB::table('billing_transactions')
+                            ->where('id', $transaction->id)
+                            ->update(['patient_id' => $patientId]);
+                    }
+                }
             }
         }
 
         // Update billing_transactions to use correct specialist_id
-        $transactions = DB::table('billing_transactions')
-            ->whereNotNull('specialist_id')
-            ->get();
+        if (Schema::hasColumn('billing_transactions', 'specialist_id') && Schema::hasColumn('billing_transactions', 'appointment_id')) {
+            $transactions = DB::table('billing_transactions')
+                ->whereNotNull('appointment_id')
+                ->get();
 
-        foreach ($transactions as $transaction) {
-            // Get specialist_id from appointment
-            $appointment = DB::table('appointments')
-                ->where('id', $transaction->appointment_id)
-                ->first();
+            foreach ($transactions as $transaction) {
+                // Get specialist_id from appointment (check both specialist_id_fk and specialist_id)
+                $appointment = DB::table('appointments')
+                    ->where('id', $transaction->appointment_id)
+                    ->first();
 
-            if ($appointment && $appointment->specialist_id) {
-                DB::table('billing_transactions')
-                    ->where('id', $transaction->id)
-                    ->update(['specialist_id' => $appointment->specialist_id]);
+                if ($appointment) {
+                    $specialistId = $appointment->specialist_id_fk ?? $appointment->specialist_id ?? null;
+                    if ($specialistId) {
+                        DB::table('billing_transactions')
+                            ->where('id', $transaction->id)
+                            ->update(['specialist_id' => $specialistId]);
+                    }
+                }
             }
         }
     }
