@@ -6,7 +6,8 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
     public function up() {
-        Schema::create('patients', function (Blueprint $table) {
+        if (!Schema::hasTable('patients')) {
+            Schema::create('patients', function (Blueprint $table) {
             $table->id('patient_id');
             $table->string('patient_code', 10)->unique()->nullable();
             $table->string('last_name', 100);
@@ -35,7 +36,8 @@ return new class extends Migration {
             $table->text('obgyn_history')->nullable();
             $table->enum('status', ['Active','Inactive'])->default('Active');
             $table->timestamps();
-        });
+            });
+        }
     }
     public function down() {
         Schema::dropIfExists('patients');
