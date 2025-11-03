@@ -161,10 +161,13 @@ class ManualTransactionController extends Controller
             
             // Service pricing
             $servicePrices = [
-                'general_consultation' => 300,
-                'cbc' => 500,
-                'fecalysis_test' => 500,
-                'urinarysis_test' => 500,
+                'general_consultation' => 350,
+                'consultation' => 350,
+                'cbc' => 245,
+                'fecalysis_test' => 90,
+                'fecalysis' => 90,
+                'urinarysis_test' => 140,
+                'urinalysis' => 140,
             ];
             
             // If no selected services, create single transaction with provided data
@@ -252,20 +255,30 @@ class ManualTransactionController extends Controller
                 if ($request->amount >= 1800) {
                     // Mixed transaction (consultation + 3 lab tests)
                     $items = [
-                        ['type' => 'consultation', 'name' => 'General Consultation', 'price' => 300],
-                        ['type' => 'laboratory', 'name' => 'Complete Blood Count (CBC)', 'price' => 500],
-                        ['type' => 'laboratory', 'name' => 'Fecalysis Test', 'price' => 500],
-                        ['type' => 'laboratory', 'name' => 'Urinarysis Test', 'price' => 500],
+                        ['type' => 'consultation', 'name' => 'Consultation', 'price' => 350],
+                        ['type' => 'laboratory', 'name' => 'Complete Blood Count (CBC)', 'price' => 245],
+                        ['type' => 'laboratory', 'name' => 'Fecalysis Test', 'price' => 90],
+                        ['type' => 'laboratory', 'name' => 'Urinalysis Test', 'price' => 140],
                     ];
-                } elseif ($request->amount == 300) {
-                    // Consultation only
+                } elseif ($request->amount == 350 || $request->amount == 300) {
+                    // Consultation only (keeping 300 for backward compatibility)
                     $items = [
-                        ['type' => 'consultation', 'name' => 'General Consultation', 'price' => 300],
+                        ['type' => 'consultation', 'name' => 'Consultation', 'price' => $request->amount == 350 ? 350 : 350],
                     ];
-                } elseif ($request->amount == 500) {
-                    // Lab test only
+                } elseif ($request->amount == 245) {
+                    // CBC lab test only
                     $items = [
-                        ['type' => 'laboratory', 'name' => 'Complete Blood Count (CBC)', 'price' => 500],
+                        ['type' => 'laboratory', 'name' => 'Complete Blood Count (CBC)', 'price' => 245],
+                    ];
+                } elseif ($request->amount == 140) {
+                    // Urinalysis test only
+                    $items = [
+                        ['type' => 'laboratory', 'name' => 'Urinalysis Test', 'price' => 140],
+                    ];
+                } elseif ($request->amount == 90) {
+                    // Fecalysis test only
+                    $items = [
+                        ['type' => 'laboratory', 'name' => 'Fecalysis Test', 'price' => 90],
                     ];
                 }
                 

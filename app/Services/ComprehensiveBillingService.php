@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\BillingTransaction;
+use App\Models\BillingTransactionItem;
 use App\Models\AppointmentBillingLink;
 use App\Models\Appointment;
 use App\Models\Patient;
@@ -24,6 +25,9 @@ class ComprehensiveBillingService
                 $doctorId = $appointment->specialist_id;
             }
             
+            // Use final_total_amount if available (includes lab tests), otherwise use price
+            $totalAmount = $appointment->final_total_amount ?? $appointment->price;
+            
             // Generate transaction ID
             $nextId = BillingTransaction::max("id") + 1;
             $transactionId = "TXN-" . str_pad($nextId, 6, "0", STR_PAD_LEFT);
@@ -34,8 +38,8 @@ class ComprehensiveBillingService
                 "patient_id" => $appointment->patient_id,
                 "doctor_id" => $doctorId,
                 "payment_type" => $options["payment_type"] ?? "cash",
-                "total_amount" => $appointment->price,
-                "amount" => $appointment->price,
+                "total_amount" => $totalAmount,
+                "amount" => $totalAmount,
                 "discount_amount" => $options["discount_amount"] ?? 0,
                 "payment_method" => $options["payment_method"] ?? "cash",
                 "status" => $options["status"] ?? "pending",
@@ -45,6 +49,7 @@ class ComprehensiveBillingService
                 "transaction_date_only" => now()->toDateString(),
                 "transaction_time_only" => now()->toTimeString(),
                 "created_by" => auth()->id() ?? 1,
+                "is_itemized" => true, // Always itemize for proper breakdown
             ]);
             
             // Create appointment billing link
@@ -56,14 +61,64 @@ class ComprehensiveBillingService
                 "status" => "pending",
             ]);
             
+            // Create itemized billing transaction items
+            // 1. Get base consultation price using calculatePrice() method
+            $appointmentTypeLabel = $appointment->appointment_type === 'general_consultation' ? 'Consultation' : ucfirst($appointment->appointment_type);
+            
+            // SPECIAL HANDLING: For "manual_transaction" appointments, use ₱350 if price >= 350
+            $baseConsultationPrice = $appointment->calculatePrice();
+            if ($appointment->appointment_type === 'manual_transaction' && $appointment->price >= 350) {
+                $baseConsultationPrice = 350.00;
+            }
+            
+            // Create consultation item with base price (not inflated price that includes lab tests)
+            BillingTransactionItem::create([
+                'billing_transaction_id' => $transaction->id,
+                'item_type' => 'consultation',
+                'item_name' => $appointmentTypeLabel . ' Appointment',
+                'item_description' => "Appointment for {$appointment->patient_name} on " . ($appointment->appointment_date ? $appointment->appointment_date->format('M d, Y') : 'N/A') . " at " . ($appointment->appointment_time ? $appointment->appointment_time->format('g:i A') : 'N/A'),
+                'quantity' => 1,
+                'unit_price' => $baseConsultationPrice,
+                'total_price' => $baseConsultationPrice
+            ]);
+            
+            // 2. CRITICAL: Directly query appointment_lab_tests table to ensure we get ALL lab tests
+            $appointmentLabTests = \App\Models\AppointmentLabTest::where('appointment_id', $appointment->id)
+                ->with('labTest')
+                ->get();
+            
+            // Create lab test items if they exist
+            if ($appointmentLabTests->isNotEmpty()) {
+                foreach ($appointmentLabTests as $appointmentLabTest) {
+                    if ($appointmentLabTest->labTest) {
+                        $unitPrice = $appointmentLabTest->unit_price ?? $appointmentLabTest->labTest->price ?? 0;
+                        $totalPrice = $appointmentLabTest->total_price ?? $appointmentLabTest->labTest->price ?? 0;
+                        
+                        BillingTransactionItem::create([
+                            'billing_transaction_id' => $transaction->id,
+                            'item_type' => 'laboratory',
+                            'lab_test_id' => $appointmentLabTest->lab_test_id,
+                            'item_name' => $appointmentLabTest->labTest->name,
+                            'item_description' => "Lab test: {$appointmentLabTest->labTest->name}",
+                            'quantity' => 1,
+                            'unit_price' => $unitPrice,
+                            'total_price' => $totalPrice
+                        ]);
+                    }
+                }
+            }
+            
             // Update appointment billing status
             $appointment->update(["billing_status" => "in_transaction"]);
             
-            Log::info("Billing transaction created from appointment", [
+            Log::info("Billing transaction created from appointment with itemized items", [
                 "transaction_id" => $transaction->id,
                 "appointment_id" => $appointment->id,
                 "patient_id" => $appointment->patient_id,
-                "amount" => $appointment->price
+                "total_amount" => $totalAmount,
+                "appointment_price" => $appointment->price,
+                "lab_amount" => $appointment->total_lab_amount ?? 0,
+                "items_count" => $transaction->items()->count()
             ]);
             
             return $transaction;
@@ -84,7 +139,10 @@ class ComprehensiveBillingService
                 throw new \Exception("No valid pending appointments found");
             }
             
-            $totalAmount = $appointments->sum("price");
+            // Calculate total including lab tests
+            $totalAmount = $appointments->sum(function($apt) {
+                return $apt->final_total_amount ?? $apt->price;
+            });
             $firstAppointment = $appointments->first();
             
             // Get doctor ID from first appointment
@@ -114,10 +172,12 @@ class ComprehensiveBillingService
                 "transaction_date_only" => now()->toDateString(),
                 "transaction_time_only" => now()->toTimeString(),
                 "created_by" => auth()->id() ?? 1,
+                "is_itemized" => true, // Always itemize for proper breakdown
             ]);
             
-            // Create appointment billing links
+            // Create appointment billing links and itemized items
             foreach ($appointments as $appointment) {
+                $appointment->refresh(); // Refresh to get latest data
                 AppointmentBillingLink::create([
                     "appointment_id" => $appointment->id,
                     "billing_transaction_id" => $transaction->id,
@@ -125,6 +185,52 @@ class ComprehensiveBillingService
                     "appointment_price" => $appointment->price,
                     "status" => "pending",
                 ]);
+                
+                // Get base consultation price using calculatePrice() method
+                $appointmentTypeLabel = $appointment->appointment_type === 'general_consultation' ? 'Consultation' : ucfirst($appointment->appointment_type);
+                
+                // SPECIAL HANDLING: For "manual_transaction" appointments, use ₱350 if price >= 350
+                $baseConsultationPrice = $appointment->calculatePrice();
+                if ($appointment->appointment_type === 'manual_transaction' && $appointment->price >= 350) {
+                    $baseConsultationPrice = 350.00;
+                }
+                
+                // Create consultation item with base price (not inflated price that includes lab tests)
+                BillingTransactionItem::create([
+                    'billing_transaction_id' => $transaction->id,
+                    'item_type' => 'consultation',
+                    'item_name' => $appointmentTypeLabel . ' Appointment',
+                    'item_description' => "Appointment for {$appointment->patient_name} on " . ($appointment->appointment_date ? $appointment->appointment_date->format('M d, Y') : 'N/A') . " at " . ($appointment->appointment_time ? $appointment->appointment_time->format('g:i A') : 'N/A'),
+                    'quantity' => 1,
+                    'unit_price' => $baseConsultationPrice,
+                    'total_price' => $baseConsultationPrice
+                ]);
+                
+                // CRITICAL: Directly query appointment_lab_tests table to ensure we get ALL lab tests
+                $appointmentLabTests = \App\Models\AppointmentLabTest::where('appointment_id', $appointment->id)
+                    ->with('labTest')
+                    ->get();
+                
+                // Create lab test items if they exist
+                if ($appointmentLabTests->isNotEmpty()) {
+                    foreach ($appointmentLabTests as $appointmentLabTest) {
+                        if ($appointmentLabTest->labTest) {
+                            $unitPrice = $appointmentLabTest->unit_price ?? $appointmentLabTest->labTest->price ?? 0;
+                            $totalPrice = $appointmentLabTest->total_price ?? $appointmentLabTest->labTest->price ?? 0;
+                            
+                            BillingTransactionItem::create([
+                                'billing_transaction_id' => $transaction->id,
+                                'item_type' => 'laboratory',
+                                'lab_test_id' => $appointmentLabTest->lab_test_id,
+                                'item_name' => $appointmentLabTest->labTest->name,
+                                'item_description' => "Lab test: {$appointmentLabTest->labTest->name}",
+                                'quantity' => 1,
+                                'unit_price' => $unitPrice,
+                                'total_price' => $totalPrice
+                            ]);
+                        }
+                    }
+                }
                 
                 // Update appointment billing status
                 $appointment->update(["billing_status" => "in_transaction"]);

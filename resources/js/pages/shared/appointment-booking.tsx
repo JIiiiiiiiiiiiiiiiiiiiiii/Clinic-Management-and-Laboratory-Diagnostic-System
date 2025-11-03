@@ -210,10 +210,13 @@ export default function AppointmentBooking({
     // Price calculation based on appointment type
     const calculatePrice = (type: string) => {
         const prices: Record<string, number> = {
-            'general_consultation': 300,
-            'cbc': 500,
-            'fecalysis_test': 500,
-            'urinarysis_test': 500,
+            'general_consultation': 350,
+            'consultation': 350,
+            'cbc': 245,
+            'fecalysis_test': 90,
+            'fecalysis': 90,
+            'urinarysis_test': 140,
+            'urinalysis': 140,
         };
         return prices[type] || 300;
     };

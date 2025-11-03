@@ -100,7 +100,7 @@ const sourceOptions = [
 ];
 
 const appointmentTypeOptions = [
-    { value: 'general_consultation', label: 'General Consultation' },
+    { value: 'general_consultation', label: 'Consultation' },
     { value: 'follow_up', label: 'Follow-up' },
     { value: 'emergency', label: 'Emergency' },
     { value: 'check_up', label: 'Check-up' },

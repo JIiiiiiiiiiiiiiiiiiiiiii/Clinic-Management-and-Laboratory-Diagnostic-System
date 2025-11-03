@@ -61,8 +61,11 @@ class AppointmentLabService
                     ]);
                 }
 
+                // Get AppointmentLabTest records (not just LabTest models)
+                $appointmentLabTests = $appointment->labTests()->with('labTest')->get();
+                
                 // Update billing transaction with lab tests (if it exists)
-                $billingTransaction = $this->updateBillingTransactionIfExists($appointment, $labTests);
+                $billingTransaction = $this->updateBillingTransactionIfExists($appointment, $appointmentLabTests);
 
                 // Create lab order
                 $labOrder = $this->createLabOrder($appointment, $labTests, $addedBy, $notes);
@@ -103,19 +106,26 @@ class AppointmentLabService
     /**
      * Update billing transaction with lab tests (if it exists)
      */
-    private function updateBillingTransactionIfExists(Appointment $appointment, $labTests): ?BillingTransaction
+    private function updateBillingTransactionIfExists(Appointment $appointment, $appointmentLabTests): ?BillingTransaction
     {
-        // Get existing billing transaction
+        // Get existing billing transaction through appointment billing links
         $billingTransaction = $appointment->billingTransactions()->first();
 
         if (!$billingTransaction) {
             // No existing billing transaction - this is fine, it will be created later
             Log::info('No existing billing transaction found for appointment. Lab tests added, transaction will be created later.', [
                 'appointment_id' => $appointment->id,
-                'lab_tests_count' => $labTests->count()
+                'lab_tests_count' => $appointmentLabTests->count()
             ]);
             return null;
         }
+
+        Log::info('Updating existing billing transaction with lab tests', [
+            'billing_transaction_id' => $billingTransaction->id,
+            'appointment_id' => $appointment->id,
+            'appointment_lab_tests_count' => $appointmentLabTests->count(),
+            'final_total_amount' => $appointment->final_total_amount
+        ]);
 
         // Update transaction total
         $billingTransaction->update([
@@ -125,35 +135,66 @@ class AppointmentLabService
         ]);
 
         // Clear existing lab test items (keep appointment items)
-        $billingTransaction->items()->where('item_type', 'laboratory')->delete();
+        $deletedCount = $billingTransaction->items()->where('item_type', 'laboratory')->delete();
+        Log::info("Deleted {$deletedCount} existing lab test items");
 
-        // Ensure consultation item exists
+        // Ensure consultation item exists with proper label
         $consultationItem = $billingTransaction->items()->where('item_type', 'consultation')->first();
         if (!$consultationItem) {
+            $appointmentTypeLabel = $appointment->appointment_type === 'general_consultation' ? 'Consultation' : ucfirst($appointment->appointment_type);
             BillingTransactionItem::create([
                 'billing_transaction_id' => $billingTransaction->id,
                 'item_type' => 'consultation',
-                'item_name' => ucfirst($appointment->appointment_type),
-                'item_description' => "Appointment: {$appointment->appointment_type}",
+                'item_name' => $appointmentTypeLabel . ' Appointment',
+                'item_description' => "Appointment for {$appointment->patient_name} on " . ($appointment->appointment_date ? $appointment->appointment_date->format('M d, Y') : 'N/A') . " at " . ($appointment->appointment_time ? $appointment->appointment_time->format('g:i A') : 'N/A'),
                 'quantity' => 1,
                 'unit_price' => $appointment->price,
                 'total_price' => $appointment->price
             ]);
+            Log::info('Created consultation item for billing transaction');
+        } else {
+            // Update existing consultation item if needed
+            $appointmentTypeLabel = $appointment->appointment_type === 'general_consultation' ? 'Consultation' : ucfirst($appointment->appointment_type);
+            if (!str_contains($consultationItem->item_name, $appointmentTypeLabel)) {
+                $consultationItem->update([
+                    'item_name' => $appointmentTypeLabel . ' Appointment',
+                ]);
+            }
         }
 
-        // Add lab test items to transaction
-        foreach ($labTests as $labTest) {
-            BillingTransactionItem::create([
-                'billing_transaction_id' => $billingTransaction->id,
-                'item_type' => 'laboratory',
-                'lab_test_id' => $labTest->id,
-                'item_name' => $labTest->name,
-                'item_description' => "Lab test: {$labTest->name}",
-                'quantity' => 1,
-                'unit_price' => $labTest->price,
-                'total_price' => $labTest->price
-            ]);
+        // Add lab test items to transaction using AppointmentLabTest records
+        $itemsCreated = 0;
+        foreach ($appointmentLabTests as $appointmentLabTest) {
+            // Ensure labTest relationship is loaded
+            if (!$appointmentLabTest->relationLoaded('labTest')) {
+                $appointmentLabTest->load('labTest');
+            }
+            
+            if ($appointmentLabTest->labTest) {
+                BillingTransactionItem::create([
+                    'billing_transaction_id' => $billingTransaction->id,
+                    'item_type' => 'laboratory',
+                    'lab_test_id' => $appointmentLabTest->lab_test_id,
+                    'item_name' => $appointmentLabTest->labTest->name,
+                    'item_description' => "Lab test: {$appointmentLabTest->labTest->name}",
+                    'quantity' => 1,
+                    'unit_price' => $appointmentLabTest->unit_price ?? $appointmentLabTest->labTest->price,
+                    'total_price' => $appointmentLabTest->total_price ?? $appointmentLabTest->labTest->price
+                ]);
+                $itemsCreated++;
+                Log::info("Created billing item for lab test: {$appointmentLabTest->labTest->name}", [
+                    'unit_price' => $appointmentLabTest->unit_price ?? $appointmentLabTest->labTest->price,
+                    'total_price' => $appointmentLabTest->total_price ?? $appointmentLabTest->labTest->price
+                ]);
+            } else {
+                Log::warning("AppointmentLabTest {$appointmentLabTest->id} has no labTest relationship");
+            }
         }
+
+        Log::info("Successfully updated billing transaction with {$itemsCreated} lab test items", [
+            'billing_transaction_id' => $billingTransaction->id,
+            'total_items' => $billingTransaction->items()->count()
+        ]);
 
         return $billingTransaction;
     }

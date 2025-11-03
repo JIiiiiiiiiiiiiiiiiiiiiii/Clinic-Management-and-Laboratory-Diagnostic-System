@@ -134,7 +134,7 @@ Route::prefix('admin')
         // Laboratory Routes - Lab staff, doctors, and admin
         Route::prefix('laboratory')->name('laboratory.')->middleware(['module.access:laboratory'])->group(function () {
             Route::get('/', function () {
-                return Inertia::render('admin/laboratory/index');
+                return redirect()->route('admin.laboratory.orders.all');
             })->name('index');
 
             // Manage lab tests (admin and medtech only)
