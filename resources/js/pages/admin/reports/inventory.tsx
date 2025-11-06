@@ -40,7 +40,7 @@ import {
     TrendingUp,
     XCircle,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type Supply = {
     id: number;
@@ -223,7 +223,7 @@ const createColumns = (reportType: string): ColumnDef<Supply>[] => {
                             {isLowStock && !isOutOfStock && <AlertCircle className="h-4 w-4 text-orange-500" />}
                         </div>
                     );
-                }
+                },
             },
             {
                 accessorKey: 'minimum_stock_level',
@@ -371,7 +371,6 @@ export default function InventoryReports({
     const [currentReportType, setCurrentReportType] = useState(reportType || 'all');
     const [isLoading, setIsLoading] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
-
 
     // TanStack Table state
     const [sorting, setSorting] = useState<SortingState>([]);
@@ -552,7 +551,6 @@ export default function InventoryReports({
                 usedCount,
                 rejectedCount,
 
-
                 totalTransactions,
                 backendUsedCount: data?.used_count,
                 backendRejectedCount: data?.rejected_count,
@@ -603,7 +601,7 @@ export default function InventoryReports({
             supply_details: data?.supply_details || [],
             period: data?.period || 'Loading...',
             start_date: data?.start_date || currentDate,
-    end_date: data?.end_date || currentDate,
+            end_date: data?.end_date || currentDate,
 
             used_count: data?.used_count || 0,
             rejected_count: data?.rejected_count || 0,
@@ -626,8 +624,6 @@ export default function InventoryReports({
         setIsLoading(true);
         console.log('Filter change - sending:', {
             filter: newFilter,
-
-
         });
         router.get(
             '/admin/reports/inventory',
@@ -696,8 +692,6 @@ export default function InventoryReports({
 
             if (format === 'excel') {
                 window.location.href = `/admin/reports/export?type=inventory&format=excel&${params}`;
-
-
             }
 
             setTimeout(() => {
@@ -1378,8 +1372,7 @@ export default function InventoryReports({
                                                                     e.preventDefault();
                                                                 }}
                                                             >
-
-                                                               {column.id}
+                                                                {column.id}
                                                             </DropdownMenuCheckboxItem>
                                                         );
                                                     })}
@@ -1510,4 +1503,3 @@ export default function InventoryReports({
         </AppLayout>
     );
 }
-

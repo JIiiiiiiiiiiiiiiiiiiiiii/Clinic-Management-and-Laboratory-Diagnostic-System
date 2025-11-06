@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\OtpController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
@@ -31,12 +32,24 @@ Route::middleware('guest')->group(function () {
         ->middleware('throttle:6,1')
         ->name('password.email');
 
-    Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])
+    Route::get('reset-password', [NewPasswordController::class, 'create'])
         ->name('password.reset');
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
         ->middleware('throttle:6,1')
         ->name('password.store');
+
+    // OTP Verification Routes
+    Route::get('verify-otp', [OtpController::class, 'show'])
+        ->name('otp.show');
+
+    Route::post('verify-otp', [OtpController::class, 'verify'])
+        ->middleware('throttle:10,1')
+        ->name('otp.verify');
+
+    Route::post('resend-otp', [OtpController::class, 'resend'])
+        ->middleware('throttle:3,1')
+        ->name('otp.resend');
 });
 
 // Authenticated routes - Only authenticated users can access
