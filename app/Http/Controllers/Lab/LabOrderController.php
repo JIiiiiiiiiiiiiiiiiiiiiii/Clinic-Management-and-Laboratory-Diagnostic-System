@@ -7,6 +7,7 @@ use App\Models\LabOrder;
 use App\Models\LabResult;
 use App\Models\LabTest;
 use App\Models\Patient;
+use App\Services\LabTestAnalyticsService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -27,8 +28,13 @@ class LabOrderController extends Controller
             return $o;
         });
 
+        // Get analytics data
+        $analyticsService = new LabTestAnalyticsService();
+        $analytics = $analyticsService->getAnalyticsSummary(5, 5);
+
         return Inertia::render('admin/laboratory/orders/index', [
             'orders' => $normalized,
+            'analytics' => $analytics,
         ]);
     }
 
@@ -46,7 +52,7 @@ class LabOrderController extends Controller
     {
         $orders = LabOrder::with(['patient:id,first_name,last_name', 'results.test:id,name,code'])
             ->latest()
-            ->get(['id', 'patient_id', 'created_at']);
+            ->get(['id', 'patient_id', 'status', 'created_at']);
         $tests = LabTest::orderBy('name')->get(['id', 'name', 'code']);
 
         $normalized = $orders->map(function ($o) {
@@ -57,9 +63,25 @@ class LabOrderController extends Controller
             return $o;
         });
 
+        // Get analytics data
+        $analyticsService = new LabTestAnalyticsService();
+        $analytics = $analyticsService->getAnalyticsSummary(5, 5);
+
+        // Calculate statistics
+        $statistics = [
+            'total_orders' => $orders->count(),
+            'completed_orders' => $orders->where('status', 'completed')->count(),
+            'pending_orders' => $orders->whereIn('status', ['ordered', 'processing'])->count(),
+            'orders_this_month' => $orders->whereMonth('created_at', now()->month)
+                ->whereYear('created_at', now()->year)
+                ->count(),
+        ];
+
         return Inertia::render('admin/laboratory/reports/index', [
             'orders' => $normalized,
             'tests' => $tests,
+            'statistics' => $statistics,
+            'analytics' => $analytics,
         ]);
     }
 
@@ -119,8 +141,8 @@ class LabOrderController extends Controller
     public function show(LabOrder $order)
     {
         $order->load([
-            'patient', 
-            'results.test', 
+            'patient',
+            'results.test',
             'results.values',
             'orderedBy'
         ]);

@@ -25,19 +25,20 @@ class LabTestController extends Controller
         try {
             // Log the incoming request data for debugging
             \Log::info('Lab test creation request data:', $request->all());
-            
+
             $validated = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
                 'code' => ['required', 'string', 'max:64', 'unique:lab_tests,code'],
+                'description' => ['nullable', 'string'],
                 'fields_schema' => ['nullable', 'array'],
                 'is_active' => ['boolean'],
             ]);
 
             \Log::info('Validated data:', $validated);
-            
+
             $labTest = LabTest::create($validated);
             \Log::info('Lab test created successfully', ['id' => $labTest->id]);
-            
+
             return back()->with('success', 'Laboratory test created successfully!');
         } catch (\Throwable $e) {
             \Log::error('Lab test creation failed:', [
