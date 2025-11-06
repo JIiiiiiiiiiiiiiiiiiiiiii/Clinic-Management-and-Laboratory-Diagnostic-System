@@ -166,8 +166,8 @@ return new class extends Migration
                 if (!$this->indexExists('appointment_billing_links', 'appointment_billing_links_appointment_id_index')) {
                     $table->index('appointment_id', 'appointment_billing_links_appointment_id_index');
                 }
-                if (!$this->indexExists('appointment_billing_links', 'appointment_billing_links_transaction_id_index')) {
-                    $table->index('transaction_id', 'appointment_billing_links_transaction_id_index');
+                if (!$this->indexExists('appointment_billing_links', 'appointment_billing_links_billing_transaction_id_index')) {
+                    $table->index('billing_transaction_id', 'appointment_billing_links_billing_transaction_id_index');
                 }
             });
         }
