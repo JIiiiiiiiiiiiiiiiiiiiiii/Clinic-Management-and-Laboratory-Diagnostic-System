@@ -20,39 +20,39 @@ return new class extends Migration
         if (Schema::hasTable('appointments')) {
             Schema::table('appointments', function (Blueprint $table) {
                 // Single column indexes
-                if (!$this->indexExists('appointments', 'appointments_patient_id_index')) {
+                if (Schema::hasColumn('appointments', 'patient_id') && !$this->indexExists('appointments', 'appointments_patient_id_index')) {
                     $table->index('patient_id', 'appointments_patient_id_index');
                 }
-                if (!$this->indexExists('appointments', 'appointments_specialist_id_index')) {
+                if (Schema::hasColumn('appointments', 'specialist_id') && !$this->indexExists('appointments', 'appointments_specialist_id_index')) {
                     $table->index('specialist_id', 'appointments_specialist_id_index');
                 }
-                if (!$this->indexExists('appointments', 'appointments_status_index')) {
+                if (Schema::hasColumn('appointments', 'status') && !$this->indexExists('appointments', 'appointments_status_index')) {
                     $table->index('status', 'appointments_status_index');
                 }
-                if (!$this->indexExists('appointments', 'appointments_appointment_date_index')) {
+                if (Schema::hasColumn('appointments', 'appointment_date') && !$this->indexExists('appointments', 'appointments_appointment_date_index')) {
                     $table->index('appointment_date', 'appointments_appointment_date_index');
                 }
-                if (!$this->indexExists('appointments', 'appointments_appointment_type_index')) {
+                if (Schema::hasColumn('appointments', 'appointment_type') && !$this->indexExists('appointments', 'appointments_appointment_type_index')) {
                     $table->index('appointment_type', 'appointments_appointment_type_index');
                 }
-                if (!$this->indexExists('appointments', 'appointments_source_index')) {
+                if (Schema::hasColumn('appointments', 'source') && !$this->indexExists('appointments', 'appointments_source_index')) {
                     $table->index('source', 'appointments_source_index');
                 }
-                if (!$this->indexExists('appointments', 'appointments_billing_status_index')) {
+                if (Schema::hasColumn('appointments', 'billing_status') && !$this->indexExists('appointments', 'appointments_billing_status_index')) {
                     $table->index('billing_status', 'appointments_billing_status_index');
                 }
 
                 // Composite indexes for common query patterns
-                if (!$this->indexExists('appointments', 'appointments_patient_id_status_index')) {
+                if (Schema::hasColumn('appointments', 'patient_id') && Schema::hasColumn('appointments', 'status') && !$this->indexExists('appointments', 'appointments_patient_id_status_index')) {
                     $table->index(['patient_id', 'status'], 'appointments_patient_id_status_index');
                 }
-                if (!$this->indexExists('appointments', 'appointments_appointment_date_status_index')) {
+                if (Schema::hasColumn('appointments', 'appointment_date') && Schema::hasColumn('appointments', 'status') && !$this->indexExists('appointments', 'appointments_appointment_date_status_index')) {
                     $table->index(['appointment_date', 'status'], 'appointments_appointment_date_status_index');
                 }
-                if (!$this->indexExists('appointments', 'appointments_specialist_id_date_index')) {
+                if (Schema::hasColumn('appointments', 'specialist_id') && Schema::hasColumn('appointments', 'appointment_date') && !$this->indexExists('appointments', 'appointments_specialist_id_date_index')) {
                     $table->index(['specialist_id', 'appointment_date'], 'appointments_specialist_id_date_index');
                 }
-                if (!$this->indexExists('appointments', 'appointments_date_status_type_index')) {
+                if (Schema::hasColumn('appointments', 'appointment_date') && Schema::hasColumn('appointments', 'status') && Schema::hasColumn('appointments', 'appointment_type') && !$this->indexExists('appointments', 'appointments_date_status_type_index')) {
                     $table->index(['appointment_date', 'status', 'appointment_type'], 'appointments_date_status_type_index');
                 }
             });
@@ -101,19 +101,19 @@ return new class extends Migration
         // ============================================
         if (Schema::hasTable('pending_appointments')) {
             Schema::table('pending_appointments', function (Blueprint $table) {
-                if (!$this->indexExists('pending_appointments', 'pending_appointments_patient_id_index')) {
+                if (Schema::hasColumn('pending_appointments', 'patient_id') && !$this->indexExists('pending_appointments', 'pending_appointments_patient_id_index')) {
                     $table->index('patient_id', 'pending_appointments_patient_id_index');
                 }
-                if (!$this->indexExists('pending_appointments', 'pending_appointments_specialist_id_index')) {
+                if (Schema::hasColumn('pending_appointments', 'specialist_id') && !$this->indexExists('pending_appointments', 'pending_appointments_specialist_id_index')) {
                     $table->index('specialist_id', 'pending_appointments_specialist_id_index');
                 }
-                if (!$this->indexExists('pending_appointments', 'pending_appointments_status_approval_index')) {
+                if (Schema::hasColumn('pending_appointments', 'status_approval') && !$this->indexExists('pending_appointments', 'pending_appointments_status_approval_index')) {
                     $table->index('status_approval', 'pending_appointments_status_approval_index');
                 }
-                if (!$this->indexExists('pending_appointments', 'pending_appointments_appointment_date_index')) {
+                if (Schema::hasColumn('pending_appointments', 'appointment_date') && !$this->indexExists('pending_appointments', 'pending_appointments_appointment_date_index')) {
                     $table->index('appointment_date', 'pending_appointments_appointment_date_index');
                 }
-                if (!$this->indexExists('pending_appointments', 'pending_appointments_patient_status_index')) {
+                if (Schema::hasColumn('pending_appointments', 'patient_id') && Schema::hasColumn('pending_appointments', 'status_approval') && !$this->indexExists('pending_appointments', 'pending_appointments_patient_status_index')) {
                     $table->index(['patient_id', 'status_approval'], 'pending_appointments_patient_status_index');
                 }
             });
@@ -124,17 +124,17 @@ return new class extends Migration
         // ============================================
         if (Schema::hasTable('patients')) {
             Schema::table('patients', function (Blueprint $table) {
-                if (!$this->indexExists('patients', 'patients_user_id_index')) {
+                if (Schema::hasColumn('patients', 'user_id') && !$this->indexExists('patients', 'patients_user_id_index')) {
                     $table->index('user_id', 'patients_user_id_index');
                 }
-                if (!$this->indexExists('patients', 'patients_patient_no_index')) {
+                if (Schema::hasColumn('patients', 'patient_no') && !$this->indexExists('patients', 'patients_patient_no_index')) {
                     $table->index('patient_no', 'patients_patient_no_index');
                 }
-                if (!$this->indexExists('patients', 'patients_status_index')) {
+                if (Schema::hasColumn('patients', 'status') && !$this->indexExists('patients', 'patients_status_index')) {
                     $table->index('status', 'patients_status_index');
                 }
                 // Composite index for patient lookup
-                if (!$this->indexExists('patients', 'patients_first_last_name_index')) {
+                if (Schema::hasColumn('patients', 'first_name') && Schema::hasColumn('patients', 'last_name') && !$this->indexExists('patients', 'patients_first_last_name_index')) {
                     $table->index(['first_name', 'last_name'], 'patients_first_last_name_index');
                 }
             });
@@ -145,14 +145,14 @@ return new class extends Migration
         // ============================================
         if (Schema::hasTable('users')) {
             Schema::table('users', function (Blueprint $table) {
-                if (!$this->indexExists('users', 'users_role_index')) {
+                if (Schema::hasColumn('users', 'role') && !$this->indexExists('users', 'users_role_index')) {
                     $table->index('role', 'users_role_index');
                 }
-                if (!$this->indexExists('users', 'users_is_active_index')) {
+                if (Schema::hasColumn('users', 'is_active') && !$this->indexExists('users', 'users_is_active_index')) {
                     $table->index('is_active', 'users_is_active_index');
                 }
                 // Composite for common role + active queries
-                if (!$this->indexExists('users', 'users_role_active_index')) {
+                if (Schema::hasColumn('users', 'role') && Schema::hasColumn('users', 'is_active') && !$this->indexExists('users', 'users_role_active_index')) {
                     $table->index(['role', 'is_active'], 'users_role_active_index');
                 }
             });
@@ -163,10 +163,10 @@ return new class extends Migration
         // ============================================
         if (Schema::hasTable('appointment_billing_links')) {
             Schema::table('appointment_billing_links', function (Blueprint $table) {
-                if (!$this->indexExists('appointment_billing_links', 'appointment_billing_links_appointment_id_index')) {
+                if (Schema::hasColumn('appointment_billing_links', 'appointment_id') && !$this->indexExists('appointment_billing_links', 'appointment_billing_links_appointment_id_index')) {
                     $table->index('appointment_id', 'appointment_billing_links_appointment_id_index');
                 }
-                if (!$this->indexExists('appointment_billing_links', 'appointment_billing_links_billing_transaction_id_index')) {
+                if (Schema::hasColumn('appointment_billing_links', 'billing_transaction_id') && !$this->indexExists('appointment_billing_links', 'appointment_billing_links_billing_transaction_id_index')) {
                     $table->index('billing_transaction_id', 'appointment_billing_links_billing_transaction_id_index');
                 }
             });
@@ -177,13 +177,14 @@ return new class extends Migration
         // ============================================
         if (Schema::hasTable('daily_transactions')) {
             Schema::table('daily_transactions', function (Blueprint $table) {
-                if (!$this->indexExists('daily_transactions', 'daily_transactions_date_index')) {
+                // Check if 'date' column exists (might be 'transaction_date' or 'created_at' instead)
+                if (Schema::hasColumn('daily_transactions', 'date') && !$this->indexExists('daily_transactions', 'daily_transactions_date_index')) {
                     $table->index('date', 'daily_transactions_date_index');
                 }
-                if (!$this->indexExists('daily_transactions', 'daily_transactions_status_index')) {
+                if (Schema::hasColumn('daily_transactions', 'status') && !$this->indexExists('daily_transactions', 'daily_transactions_status_index')) {
                     $table->index('status', 'daily_transactions_status_index');
                 }
-                if (!$this->indexExists('daily_transactions', 'daily_transactions_date_status_index')) {
+                if (Schema::hasColumn('daily_transactions', 'date') && Schema::hasColumn('daily_transactions', 'status') && !$this->indexExists('daily_transactions', 'daily_transactions_date_status_index')) {
                     $table->index(['date', 'status'], 'daily_transactions_date_status_index');
                 }
             });
@@ -194,10 +195,10 @@ return new class extends Migration
         // ============================================
         if (Schema::hasTable('lab_tests')) {
             Schema::table('lab_tests', function (Blueprint $table) {
-                if (!$this->indexExists('lab_tests', 'lab_tests_status_index')) {
+                if (Schema::hasColumn('lab_tests', 'status') && !$this->indexExists('lab_tests', 'lab_tests_status_index')) {
                     $table->index('status', 'lab_tests_status_index');
                 }
-                if (!$this->indexExists('lab_tests', 'lab_tests_category_index')) {
+                if (Schema::hasColumn('lab_tests', 'category') && !$this->indexExists('lab_tests', 'lab_tests_category_index')) {
                     $table->index('category', 'lab_tests_category_index');
                 }
             });
@@ -208,17 +209,17 @@ return new class extends Migration
         // ============================================
         if (Schema::hasTable('notifications')) {
             Schema::table('notifications', function (Blueprint $table) {
-                if (!$this->indexExists('notifications', 'notifications_user_id_index')) {
+                if (Schema::hasColumn('notifications', 'user_id') && !$this->indexExists('notifications', 'notifications_user_id_index')) {
                     $table->index('user_id', 'notifications_user_id_index');
                 }
-                if (!$this->indexExists('notifications', 'notifications_read_index')) {
+                if (Schema::hasColumn('notifications', 'read') && !$this->indexExists('notifications', 'notifications_read_index')) {
                     $table->index('read', 'notifications_read_index');
                 }
-                if (!$this->indexExists('notifications', 'notifications_type_index')) {
+                if (Schema::hasColumn('notifications', 'type') && !$this->indexExists('notifications', 'notifications_type_index')) {
                     $table->index('type', 'notifications_type_index');
                 }
                 // Composite for common notification queries
-                if (!$this->indexExists('notifications', 'notifications_user_read_index')) {
+                if (Schema::hasColumn('notifications', 'user_id') && Schema::hasColumn('notifications', 'read') && !$this->indexExists('notifications', 'notifications_user_read_index')) {
                     $table->index(['user_id', 'read'], 'notifications_user_read_index');
                 }
             });
@@ -229,16 +230,16 @@ return new class extends Migration
         // ============================================
         if (Schema::hasTable('patient_transfers')) {
             Schema::table('patient_transfers', function (Blueprint $table) {
-                if (!$this->indexExists('patient_transfers', 'patient_transfers_patient_id_index')) {
+                if (Schema::hasColumn('patient_transfers', 'patient_id') && !$this->indexExists('patient_transfers', 'patient_transfers_patient_id_index')) {
                     $table->index('patient_id', 'patient_transfers_patient_id_index');
                 }
-                if (!$this->indexExists('patient_transfers', 'patient_transfers_status_index')) {
+                if (Schema::hasColumn('patient_transfers', 'status') && !$this->indexExists('patient_transfers', 'patient_transfers_status_index')) {
                     $table->index('status', 'patient_transfers_status_index');
                 }
-                if (!$this->indexExists('patient_transfers', 'patient_transfers_approval_status_index')) {
+                if (Schema::hasColumn('patient_transfers', 'approval_status') && !$this->indexExists('patient_transfers', 'patient_transfers_approval_status_index')) {
                     $table->index('approval_status', 'patient_transfers_approval_status_index');
                 }
-                if (!$this->indexExists('patient_transfers', 'patient_transfers_requested_by_index')) {
+                if (Schema::hasColumn('patient_transfers', 'requested_by') && !$this->indexExists('patient_transfers', 'patient_transfers_requested_by_index')) {
                     $table->index('requested_by', 'patient_transfers_requested_by_index');
                 }
             });
