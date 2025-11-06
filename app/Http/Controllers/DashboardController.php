@@ -686,12 +686,13 @@ class DashboardController extends Controller
                 ->limit(5)
                 ->get(['id', 'lab_order_id', 'lab_test_id', 'results', 'verified_at', 'created_at']),
             'recent_transactions' => \App\Models\BillingTransaction::with('patient')
-                ->orderByDesc('transaction_date')
+                ->orderByDesc('created_at')
                 ->limit(5)
-                ->get(['id', 'patient_id', 'transaction_date', 'status'])
+                ->get(['id', 'patient_id', 'created_at', 'status'])
                 ->map(function ($transaction) {
                     return array_merge($transaction->toArray(), [
-                        'total_amount' => $transaction->total_amount ?? $transaction->amount ?? 0
+                        'total_amount' => $transaction->total_amount ?? $transaction->amount ?? 0,
+                        'transaction_date' => $transaction->created_at // Use created_at as transaction_date
                     ]);
                 })
         ];
@@ -768,14 +769,19 @@ class DashboardController extends Controller
         $months = [];
         $currentDate = now();
         
+        // Check if transaction_date column exists, otherwise use created_at
+        $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+            ? 'transaction_date' 
+            : 'created_at';
+        
         for ($i = 11; $i >= 0; $i--) {
             $month = $currentDate->copy()->subMonths($i);
             $months[] = [
                 'month' => $month->format('M Y'),
                 'income' => $this->sumBillingAmount(
                     \App\Models\BillingTransaction::where('status', 'paid')
-                        ->whereYear('transaction_date', $month->year)
-                        ->whereMonth('transaction_date', $month->month)
+                        ->whereYear($dateColumn, $month->year)
+                        ->whereMonth($dateColumn, $month->month)
                 )
             ];
         }
