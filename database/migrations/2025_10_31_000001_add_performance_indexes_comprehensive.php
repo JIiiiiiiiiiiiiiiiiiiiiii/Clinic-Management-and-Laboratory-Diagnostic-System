@@ -64,33 +64,33 @@ return new class extends Migration
         if (Schema::hasTable('billing_transactions')) {
             Schema::table('billing_transactions', function (Blueprint $table) {
                 // Single column indexes
-                if (!$this->indexExists('billing_transactions', 'billing_transactions_patient_id_index')) {
+                if (Schema::hasColumn('billing_transactions', 'patient_id') && !$this->indexExists('billing_transactions', 'billing_transactions_patient_id_index')) {
                     $table->index('patient_id', 'billing_transactions_patient_id_index');
                 }
-                if (!$this->indexExists('billing_transactions', 'billing_transactions_doctor_id_index')) {
+                if (Schema::hasColumn('billing_transactions', 'doctor_id') && !$this->indexExists('billing_transactions', 'billing_transactions_doctor_id_index')) {
                     $table->index('doctor_id', 'billing_transactions_doctor_id_index');
                 }
-                if (!$this->indexExists('billing_transactions', 'billing_transactions_status_index')) {
+                if (Schema::hasColumn('billing_transactions', 'status') && !$this->indexExists('billing_transactions', 'billing_transactions_status_index')) {
                     $table->index('status', 'billing_transactions_status_index');
                 }
-                if (!$this->indexExists('billing_transactions', 'billing_transactions_payment_method_index')) {
+                if (Schema::hasColumn('billing_transactions', 'payment_method') && !$this->indexExists('billing_transactions', 'billing_transactions_payment_method_index')) {
                     $table->index('payment_method', 'billing_transactions_payment_method_index');
                 }
-                if (!$this->indexExists('billing_transactions', 'billing_transactions_transaction_date_index')) {
+                if (Schema::hasColumn('billing_transactions', 'transaction_date') && !$this->indexExists('billing_transactions', 'billing_transactions_transaction_date_index')) {
                     $table->index('transaction_date', 'billing_transactions_transaction_date_index');
                 }
-                if (!$this->indexExists('billing_transactions', 'billing_transactions_appointment_id_index')) {
+                if (Schema::hasColumn('billing_transactions', 'appointment_id') && !$this->indexExists('billing_transactions', 'billing_transactions_appointment_id_index')) {
                     $table->index('appointment_id', 'billing_transactions_appointment_id_index');
                 }
 
                 // Composite indexes for filtering and reporting
-                if (!$this->indexExists('billing_transactions', 'billing_transactions_date_status_index')) {
+                if (Schema::hasColumn('billing_transactions', 'transaction_date') && Schema::hasColumn('billing_transactions', 'status') && !$this->indexExists('billing_transactions', 'billing_transactions_date_status_index')) {
                     $table->index(['transaction_date', 'status'], 'billing_transactions_date_status_index');
                 }
-                if (!$this->indexExists('billing_transactions', 'billing_transactions_doctor_date_index')) {
+                if (Schema::hasColumn('billing_transactions', 'doctor_id') && Schema::hasColumn('billing_transactions', 'transaction_date') && !$this->indexExists('billing_transactions', 'billing_transactions_doctor_date_index')) {
                     $table->index(['doctor_id', 'transaction_date'], 'billing_transactions_doctor_date_index');
                 }
-                if (!$this->indexExists('billing_transactions', 'billing_transactions_status_method_index')) {
+                if (Schema::hasColumn('billing_transactions', 'status') && Schema::hasColumn('billing_transactions', 'payment_method') && !$this->indexExists('billing_transactions', 'billing_transactions_status_method_index')) {
                     $table->index(['status', 'payment_method'], 'billing_transactions_status_method_index');
                 }
             });
