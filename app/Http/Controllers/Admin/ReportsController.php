@@ -99,7 +99,11 @@ class ReportsController extends Controller
             
             // Get paginated transactions for the table
             $query = BillingTransaction::query();
-            $this->applyDateRangeFilter($query, $filter, $date, 'transaction_date');
+            // Check if transaction_date column exists, otherwise use created_at
+            $dateField = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+                ? 'transaction_date' 
+                : 'created_at';
+            $this->applyDateRangeFilter($query, $filter, $date, $dateField);
             
             // Apply report type filtering
             if ($reportType === 'cash') {
@@ -121,8 +125,9 @@ class ReportsController extends Controller
                 $query->where('hmo_provider', $request->hmo_provider);
             }
 
+            // Use the same date field for ordering
             $transactions = $query->with(['patient', 'doctor'])
-                ->orderBy('transaction_date', 'desc')
+                ->orderBy($dateField, 'desc')
                 ->paginate(20);
 
             // Debug: Log the count of transactions
@@ -832,8 +837,13 @@ class ReportsController extends Controller
     private function calculateRevenueGrowthRate()
     {
         try {
-            $currentMonth = BillingTransaction::where('transaction_date', '>=', now()->startOfMonth())->sum('amount') ?? 0;
-            $lastMonth = BillingTransaction::whereBetween('transaction_date', [
+            // Check if transaction_date column exists, otherwise use created_at
+            $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+                ? 'transaction_date' 
+                : 'created_at';
+            
+            $currentMonth = BillingTransaction::where($dateColumn, '>=', now()->startOfMonth())->sum('amount') ?? 0;
+            $lastMonth = BillingTransaction::whereBetween($dateColumn, [
                 now()->subMonth()->startOfMonth(),
                 now()->subMonth()->endOfMonth()
             ])->sum('amount') ?? 0;
@@ -1316,9 +1326,14 @@ class ReportsController extends Controller
             $startDate = $this->getStartDate($filter, $date);
             $endDate = $this->getEndDate($filter, $date);
             
+            // Check if transaction_date column exists, otherwise use created_at
+            $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+                ? 'transaction_date' 
+                : 'created_at';
+            
             // Get transactions for the period
             $query = BillingTransaction::with(['patient', 'doctor'])
-                ->whereBetween('transaction_date', [$startDate, $endDate]);
+                ->whereBetween($dateColumn, [$startDate, $endDate]);
             
             // Apply report type filtering
             if ($reportType === 'cash') {
@@ -1342,7 +1357,7 @@ class ReportsController extends Controller
                 })->toArray();
             
             // Get transaction details
-            $transactionDetails = $transactions->map(function ($transaction) {
+            $transactionDetails = $transactions->map(function ($transaction) use ($dateColumn) {
                 return [
                     'id' => $transaction->id,
                     'patient_name' => $transaction->patient ? 
@@ -1356,7 +1371,7 @@ class ReportsController extends Controller
                     'discount_amount' => $transaction->discount_amount ?? 0,
                     'senior_discount_amount' => $transaction->senior_discount_amount ?? 0,
                     'payment_method' => $transaction->payment_method,
-                    'transaction_date' => $transaction->transaction_date,
+                    'transaction_date' => $transaction->{$dateColumn} ?? $transaction->created_at,
                     'status' => $transaction->status,
                 ];
             });
@@ -1414,8 +1429,13 @@ class ReportsController extends Controller
     private function getFinancialReportDataLegacy(Request $request)
     {
         try {
+            // Check if transaction_date column exists, otherwise use created_at
+            $dateField = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+                ? 'transaction_date' 
+                : 'created_at';
+            
             $query = BillingTransaction::query();
-            $this->applyCommonFilters($query, $request, 'transaction_date');
+            $this->applyCommonFilters($query, $request, $dateField);
 
             if ($request->filled('doctor_id')) {
                 $query->where('doctor_id', $request->doctor_id);
@@ -1430,11 +1450,11 @@ class ReportsController extends Controller
             }
 
             $transactions = $query->with(['patient', 'doctor'])
-                ->orderBy('transaction_date', 'desc')
+                ->orderBy($dateField, 'desc')
                 ->get();
 
             // Transform data to match frontend expectations (same as main page)
-            $transformedTransactions = $transactions->map(function ($transaction) {
+            $transformedTransactions = $transactions->map(function ($transaction) use ($dateField) {
                 return [
                     'id' => $transaction->id,
                     'patient_name' => $transaction->patient ? 
@@ -1448,7 +1468,7 @@ class ReportsController extends Controller
                     'discount_amount' => $transaction->discount_amount ?? 0,
                     'senior_discount_amount' => $transaction->senior_discount_amount ?? 0,
                     'payment_method' => $transaction->payment_method,
-                    'transaction_date' => $transaction->transaction_date,
+                    'transaction_date' => $transaction->{$dateField} ?? $transaction->created_at,
                     'status' => $transaction->status,
                 ];
             });
@@ -2854,7 +2874,11 @@ class ReportsController extends Controller
             }
             
             // Get transactions data
-            $transactions = BillingTransaction::whereBetween('transaction_date', [$dateFrom, $dateTo])->get();
+            // Check if transaction_date column exists, otherwise use created_at
+            $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+                ? 'transaction_date' 
+                : 'created_at';
+            $transactions = BillingTransaction::whereBetween($dateColumn, [$dateFrom, $dateTo])->get();
             foreach ($transactions as $transaction) {
                 $exportData[] = [
                     'Type' => 'Transaction',
@@ -2974,8 +2998,13 @@ class ReportsController extends Controller
             $data = $this->getFinancialReportData($filter, $date, $reportType);
             
             // Get transactions for export
+            // Check if transaction_date column exists, otherwise use created_at
+            $dateField = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+                ? 'transaction_date' 
+                : 'created_at';
+            
             $query = BillingTransaction::query();
-            $this->applyDateRangeFilter($query, $filter, $date, 'transaction_date');
+            $this->applyDateRangeFilter($query, $filter, $date, $dateField);
             
             // Apply report type filtering
             if ($reportType === 'cash') {
@@ -2985,7 +3014,7 @@ class ReportsController extends Controller
             }
             
             $transactions = $query->with(['patient', 'doctor', 'appointment.specialist'])
-                ->orderBy('transaction_date', 'desc')
+                ->orderBy($dateField, 'desc')
                 ->get();
             
             $filename = 'financial_report_' . $filter . '_' . $date . '_' . $reportType . '_' . now()->format('Ymd_His');
@@ -3011,8 +3040,13 @@ class ReportsController extends Controller
             $data = $this->getFinancialReportData($filter, $date, $reportType);
             
             // Get transactions for export
+            // Check if transaction_date column exists, otherwise use created_at
+            $dateField = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+                ? 'transaction_date' 
+                : 'created_at';
+            
             $query = BillingTransaction::query();
-            $this->applyDateRangeFilter($query, $filter, $date, 'transaction_date');
+            $this->applyDateRangeFilter($query, $filter, $date, $dateField);
             
             // Apply report type filtering
             if ($reportType === 'cash') {
@@ -3022,7 +3056,7 @@ class ReportsController extends Controller
             }
             
             $transactions = $query->with(['patient', 'doctor', 'appointment.specialist'])
-                ->orderBy('transaction_date', 'desc')
+                ->orderBy($dateField, 'desc')
                 ->get();
             
             $filename = 'financial_report_' . $filter . '_' . $date . '_' . $reportType . '_' . now()->format('Ymd_His');
