@@ -1060,18 +1060,23 @@ class ReportsController extends Controller
     private function getFinancialChartData(Request $request)
     {
         try {
+            // Check if transaction_date column exists, otherwise use created_at
+            $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+                ? 'transaction_date' 
+                : 'created_at';
+            
             $dateFrom = $request->get('date_from', now()->startOfMonth());
             $dateTo = $request->get('date_to', now()->endOfMonth());
 
             // Monthly revenue trend
-            $monthlyData = BillingTransaction::whereBetween('transaction_date', [$dateFrom, $dateTo])
-                ->selectRaw('DATE_FORMAT(transaction_date, "%Y-%m") as month, SUM(amount) as revenue')
+            $monthlyData = BillingTransaction::whereBetween($dateColumn, [$dateFrom, $dateTo])
+                ->selectRaw("DATE_FORMAT(`{$dateColumn}`, '%Y-%m') as month, SUM(amount) as revenue")
                 ->groupBy('month')
                 ->orderBy('month')
                 ->get();
 
             // Payment method distribution
-            $paymentMethods = BillingTransaction::whereBetween('transaction_date', [$dateFrom, $dateTo])
+            $paymentMethods = BillingTransaction::whereBetween($dateColumn, [$dateFrom, $dateTo])
                 ->selectRaw('payment_method, COUNT(*) as count, SUM(amount) as amount')
                 ->groupBy('payment_method')
                 ->get();
@@ -2554,12 +2559,17 @@ class ReportsController extends Controller
     private function getChartData()
     {
         try {
+            // Check if transaction_date column exists, otherwise use created_at
+            $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+                ? 'transaction_date' 
+                : 'created_at';
+            
             // Monthly revenue data for the last 12 months
             $monthlyRevenue = [];
             for ($i = 11; $i >= 0; $i--) {
                 $date = now()->subMonths($i);
-                $revenue = BillingTransaction::whereYear('transaction_date', $date->year)
-                    ->whereMonth('transaction_date', $date->month)
+                $revenue = BillingTransaction::whereYear($dateColumn, $date->year)
+                    ->whereMonth($dateColumn, $date->month)
                     ->sum('amount') ?? 0;
 
                 $appointments = Appointment::whereYear('appointment_date', $date->year)
