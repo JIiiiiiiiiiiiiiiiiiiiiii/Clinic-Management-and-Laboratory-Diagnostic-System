@@ -257,9 +257,14 @@ class ReportsController extends Controller
                 }
             }
 
-            $patients = $query->withCount(['appointments', 'labOrders'])
-                ->orderBy('created_at', 'desc')
-                ->paginate(20);
+            $patientsQuery = $query->withCount(['appointments', 'labOrders'])
+                ->orderBy('created_at', 'desc');
+            
+            // Get all patients for summary calculations (not paginated)
+            $allPatients = $patientsQuery->get();
+            
+            // Get paginated patients for the table
+            $patients = $patientsQuery->paginate(20);
 
             // Transform data to match frontend expectations
             $transformedData = $patients->getCollection()->map(function ($patient) {
@@ -291,11 +296,11 @@ class ReportsController extends Controller
             );
 
             $summary = [
-                'total_patients' => $patients->count(),
-                'new_patients' => $patients->where('created_at', '>=', now()->startOfMonth())->count(),
-                'male_patients' => $patients->where('sex', 'male')->count(),
-                'female_patients' => $patients->where('sex', 'female')->count(),
-                'age_groups' => $this->getAgeGroupDistribution($patients),
+                'total_patients' => $allPatients->count(),
+                'new_patients' => $allPatients->where('created_at', '>=', now()->startOfMonth())->count(),
+                'male_patients' => $allPatients->where('sex', 'male')->count(),
+                'female_patients' => $allPatients->where('sex', 'female')->count(),
+                'age_groups' => $this->getAgeGroupDistribution($allPatients),
             ];
 
             // Get chart data
@@ -1153,11 +1158,24 @@ class ReportsController extends Controller
     private function getAgeGroupDistribution($patients)
     {
         try {
+            // Ensure we have a collection
+            if (is_array($patients)) {
+                $patients = collect($patients);
+            }
+            
+            // Convert to collection if it's not already
+            if (!$patients instanceof \Illuminate\Support\Collection) {
+                $patients = collect($patients);
+            }
+            
             return $patients->groupBy(function($patient) {
-                if ($patient->age < 18) return '0-17';
-                if ($patient->age <= 30) return '18-30';
-                if ($patient->age <= 50) return '31-50';
-                if ($patient->age <= 70) return '51-70';
+                // Handle both object and array access
+                $age = is_object($patient) ? ($patient->age ?? $patient->getAge() ?? 0) : ($patient['age'] ?? 0);
+                
+                if ($age < 18) return '0-17';
+                if ($age <= 30) return '18-30';
+                if ($age <= 50) return '31-50';
+                if ($age <= 70) return '51-70';
                 return '70+';
             })->map->count();
         } catch (\Exception $e) {
