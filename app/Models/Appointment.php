@@ -118,19 +118,19 @@ class Appointment extends Model
     public function calculatePrice()
     {
         return match($this->appointment_type) {
-            'consultation' => 300.00,
-            'general_consultation' => 300.00,
+            'consultation' => 350.00,
+            'general_consultation' => 350.00, // Keep for backward compatibility
             'checkup' => 300.00,
-            'fecalysis' => 500.00,
-            'fecalysis_test' => 500.00,
-            'cbc' => 500.00,
-            'urinalysis' => 500.00,
-            'urinarysis_test' => 500.00,
+            'fecalysis' => 90.00,
+            'fecalysis_test' => 90.00,
+            'cbc' => 245.00,
+            'urinalysis' => 140.00,
+            'urinarysis_test' => 140.00, // Keep for backward compatibility
             'x-ray' => 700.00,
             'ultrasound' => 800.00,
-            'follow-up' => 240.00, // 20% discount for follow-up
-            'check-up' => 360.00, // 20% premium for check-up
-            'emergency' => 450.00, // 50% premium for emergency
+            'follow-up' => 280.00, // 20% discount for follow-up
+            'check-up' => 420.00, // 20% premium for check-up
+            'emergency' => 525.00, // 50% premium for emergency
             default => 300.00,
         };
     }

@@ -91,10 +91,13 @@ export default function BillingTransactionModal({
 
     // Transaction types with pricing (same as online appointment system)
     const transactionTypes = {
-        'general_consultation': { name: 'General Consultation', price: 300, type: 'consultation' },
-        'cbc': { name: 'Complete Blood Count (CBC)', price: 500, type: 'laboratory' },
-        'fecalysis_test': { name: 'Fecalysis Test', price: 500, type: 'laboratory' },
-        'urinarysis_test': { name: 'Urinarysis Test', price: 500, type: 'laboratory' },
+        'general_consultation': { name: 'Consultation', price: 350, type: 'consultation' },
+        'consultation': { name: 'Consultation', price: 350, type: 'consultation' },
+        'cbc': { name: 'Complete Blood Count (CBC)', price: 245, type: 'laboratory' },
+        'fecalysis_test': { name: 'Fecalysis Test', price: 90, type: 'laboratory' },
+        'fecalysis': { name: 'Fecalysis Test', price: 90, type: 'laboratory' },
+        'urinarysis_test': { name: 'Urinalysis Test', price: 140, type: 'laboratory' },
+        'urinalysis': { name: 'Urinalysis Test', price: 140, type: 'laboratory' },
     };
 
     const { data, setData, post, processing, errors, reset } = useForm({

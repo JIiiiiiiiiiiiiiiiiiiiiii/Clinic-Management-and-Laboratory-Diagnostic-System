@@ -897,11 +897,14 @@ class AppointmentController extends Controller
     private function calculatePrice($appointmentType)
     {
         $prices = [
-            'consultation' => 500.00,
+            'consultation' => 350.00,
+            'general_consultation' => 350.00,
             'checkup' => 300.00,
-            'fecalysis' => 150.00,
-            'cbc' => 200.00,
-            'urinalysis' => 100.00,
+            'fecalysis' => 90.00,
+            'fecalysis_test' => 90.00,
+            'cbc' => 245.00,
+            'urinalysis' => 140.00,
+            'urinarysis_test' => 140.00,
             'Follow-up' => 400.00,
         ];
 

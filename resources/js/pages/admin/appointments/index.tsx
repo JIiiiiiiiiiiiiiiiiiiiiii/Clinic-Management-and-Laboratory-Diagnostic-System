@@ -472,11 +472,14 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
     // Calculate price based on appointment type
     const calculatePrice = (appointmentType: string) => {
         const prices: { [key: string]: number } = {
-            'consultation': 300,
+            'consultation': 350,
+            'general_consultation': 350,
             'checkup': 300,
-            'fecalysis': 500,
-            'cbc': 500,
-            'urinalysis': 500,
+            'fecalysis': 90,
+            'fecalysis_test': 90,
+            'cbc': 245,
+            'urinalysis': 140,
+            'urinarysis_test': 140,
             'x-ray': 700,
             'ultrasound': 800,
         };

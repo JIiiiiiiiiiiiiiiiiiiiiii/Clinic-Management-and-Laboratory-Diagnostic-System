@@ -169,14 +169,14 @@ class OnlineAppointmentService
     public function getAppointmentTypes(): array
     {
         return [
-            'consultation' => ['label' => 'General Consultation', 'price' => 300, 'specialist_type' => 'Doctor'],
-            'general_consultation' => ['label' => 'General Consultation', 'price' => 300, 'specialist_type' => 'Doctor'],
+            'consultation' => ['label' => 'Consultation', 'price' => 350, 'specialist_type' => 'Doctor'],
+            'general_consultation' => ['label' => 'Consultation', 'price' => 350, 'specialist_type' => 'Doctor'], // Keep for backward compatibility
             'checkup' => ['label' => 'Checkup', 'price' => 300, 'specialist_type' => 'Doctor'],
-            'fecalysis' => ['label' => 'Fecalysis Test', 'price' => 500, 'specialist_type' => 'MedTech'],
-            'fecalysis_test' => ['label' => 'Fecalysis Test', 'price' => 500, 'specialist_type' => 'MedTech'],
-            'cbc' => ['label' => 'Complete Blood Count', 'price' => 500, 'specialist_type' => 'MedTech'],
-            'urinalysis' => ['label' => 'Urinalysis Test', 'price' => 500, 'specialist_type' => 'MedTech'],
-            'urinarysis_test' => ['label' => 'Urinalysis Test', 'price' => 500, 'specialist_type' => 'MedTech'],
+            'fecalysis' => ['label' => 'Fecalysis Test', 'price' => 90, 'specialist_type' => 'MedTech'],
+            'fecalysis_test' => ['label' => 'Fecalysis Test', 'price' => 90, 'specialist_type' => 'MedTech'],
+            'cbc' => ['label' => 'Complete Blood Count', 'price' => 245, 'specialist_type' => 'MedTech'],
+            'urinalysis' => ['label' => 'Urinalysis Test', 'price' => 140, 'specialist_type' => 'MedTech'],
+            'urinarysis_test' => ['label' => 'Urinalysis Test', 'price' => 140, 'specialist_type' => 'MedTech'], // Keep for backward compatibility
             'x-ray' => ['label' => 'X-Ray', 'price' => 700, 'specialist_type' => 'MedTech'],
             'ultrasound' => ['label' => 'Ultrasound', 'price' => 800, 'specialist_type' => 'MedTech'],
         ];

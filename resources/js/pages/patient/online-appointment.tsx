@@ -225,14 +225,14 @@ export default function OnlineAppointment({
     // Price calculation based on appointment type
     const calculatePrice = (type: string) => {
         const prices: Record<string, number> = {
-            'general_consultation': 300,
-            'consultation': 300,
+            'general_consultation': 350,
+            'consultation': 350,
             'checkup': 300,
-            'fecalysis': 500,
-            'fecalysis_test': 500,
-            'cbc': 500,
-            'urinalysis': 500,
-            'urinarysis_test': 500,
+            'fecalysis': 90,
+            'fecalysis_test': 90,
+            'cbc': 245,
+            'urinalysis': 140,
+            'urinarysis_test': 140,
             'x-ray': 700,
             'ultrasound': 800,
         };

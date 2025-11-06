@@ -58,7 +58,7 @@ class DashboardController extends Controller
                     'bedroom_usage' => 68, // Placeholder for bedroom usage
                     'consultation_total' => Appointment::where('appointment_type', 'like', '%consultation%')->count(),
                     // New meaningful statistics
-                    'new_patients_today' => Patient::whereDate('created_at', now()->toDateString())->count(),
+                    'new_patients_today' => Patient::whereDate('created_at', now()->startOfDay())->count(),
                     'pending_lab_results' => \App\Models\LabResult::whereNull('verified_at')->count(),
                     'completed_lab_results' => \App\Models\LabResult::whereNotNull('verified_at')->count(),
                     'total_lab_orders' => \App\Models\LabOrder::count(),
@@ -69,10 +69,23 @@ class DashboardController extends Controller
                     'total_revenue' => $this->sumBillingAmount(\App\Models\BillingTransaction::where('status', 'paid')),
                     'today_revenue' => $this->sumBillingAmount(
                         \App\Models\BillingTransaction::where('status', 'paid')
-                            ->whereDate('transaction_date', now()->toDateString())
+                            ->where(function($query) {
+                                $today = now()->toDateString();
+                                // Check transaction_date_only first (date field), then transaction_date (datetime), then created_at as fallback
+                                $query->whereDate('transaction_date_only', $today)
+                                      ->orWhere(function($q) use ($today) {
+                                          $q->whereNull('transaction_date_only')
+                                            ->whereDate('transaction_date', $today);
+                                      })
+                                      ->orWhere(function($q) use ($today) {
+                                          $q->whereNull('transaction_date_only')
+                                            ->whereNull('transaction_date')
+                                            ->whereDate('created_at', $today);
+                                      });
+                            })
                     ),
                     'senior_citizens' => Patient::where('is_senior_citizen', true)->count(),
-                    'low_stock_items' => \App\Models\InventoryItem::whereRaw('stock <= low_stock_alert')->count(),
+                    'low_stock_items' => \App\Models\InventoryItem::lowStock()->count(),
                     'out_of_stock_items' => \App\Models\InventoryItem::where('stock', 0)->count(),
                     // Additional meaningful statistics
                     'total_doctors' => User::where('role', 'doctor')->where('is_active', true)->count(),
@@ -229,8 +242,7 @@ class DashboardController extends Controller
             default: // admin
                 $stats = [
                     'total_doctors' => User::where('role', 'doctor')->where('is_active', true)->count(),
-                    'low_stock_items' => \App\Models\InventoryItem::lowStock()->count(),
-                    'total_revenue' => 0, // Placeholder for revenue
+                    // low_stock_items is already calculated in baseStats correctly
                 ];
                 break;
         }

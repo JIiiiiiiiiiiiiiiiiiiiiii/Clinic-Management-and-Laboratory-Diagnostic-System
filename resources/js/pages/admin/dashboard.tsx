@@ -203,10 +203,10 @@ export default function Dashboard() {
                                     <TestTube className="h-5 w-5 text-green-600" />
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="text-3xl font-bold text-green-900">{stats.completed_lab_results || 0}</div>
+                                    <div className="text-3xl font-bold text-green-900">{stats.pending_lab_results || 0}</div>
                                     <p className="text-xs text-green-700 mt-1">
                                         <TrendingUp className="inline h-3 w-3 mr-1" />
-                                        {stats.pending_lab_results || 0} pending verification
+                                        {stats.completed_lab_results || 0} total verified
                                     </p>
                                 </CardContent>
                             </Card>
