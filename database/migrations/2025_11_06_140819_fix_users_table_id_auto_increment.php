@@ -13,7 +13,8 @@ return new class extends Migration
     {
         // Fix the id column to ensure it has AUTO_INCREMENT
         // This fixes the issue where "Field 'id' doesn't have a default value"
-        \Illuminate\Support\Facades\DB::statement('ALTER TABLE users MODIFY COLUMN id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY');
+        // Note: Don't add PRIMARY KEY if it already exists
+        \Illuminate\Support\Facades\DB::statement('ALTER TABLE users MODIFY COLUMN id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT');
     }
 
     /**
