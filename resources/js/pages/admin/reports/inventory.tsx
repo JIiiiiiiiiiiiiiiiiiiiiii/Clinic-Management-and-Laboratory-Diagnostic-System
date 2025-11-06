@@ -28,8 +28,8 @@ import {
     AlertTriangle,
     ArrowUpDown,
     CheckCircle,
-    ChevonDown,
-    ChevronLft,
+    ChevronDown,
+    ChevronLeft,
     ChevronRight,
     ChevronsLeft,
     ChevronsRight,
@@ -223,7 +223,7 @@ const createColumns = (reportType: string): ColumnDef<Supply>[] => {
                             {isLowStock && !isOutOfStock && <AlertCircle className="h-4 w-4 text-orange-500" />}
                         </div>
                     );
-
+                }
             },
             {
                 accessorKey: 'minimum_stock_level',
@@ -319,7 +319,7 @@ const createColumns = (reportType: string): ColumnDef<Supply>[] => {
                     return (
                         <div className="max-w-xs truncate text-sm text-gray-600" title={remarksValue}>
                             {remarksValue}
-
+                        </div>
                     );
                 },
             },
@@ -370,6 +370,7 @@ export default function InventoryReports({
     const [currentDate, setCurrentDate] = useState(date || new Date().toISOString().split('T')[0]);
     const [currentReportType, setCurrentReportType] = useState(reportType || 'all');
     const [isLoading, setIsLoading] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
 
 
     // TanStack Table state
@@ -380,7 +381,7 @@ export default function InventoryReports({
     const [globalFilter, setGlobalFilter] = useState('');
 
     // Dynamic data calculation
-
+    const calculatedData = useMemo(() => {
         // Use data.supply_details for the main data (from backend filtering)
         // Use supplies.data for pagination in the table
         const currentSupplies = data?.supply_details || [];
@@ -405,7 +406,7 @@ export default function InventoryReports({
                 period: 'No data available',
                 start_date: currentDate,
                 end_date: currentDate,
-
+            };
         }
 
         // Calculate totals based on report type
@@ -413,7 +414,7 @@ export default function InventoryReports({
         let lowStock = 0;
         let outOfStock = 0;
 
-
+        if (currentReportType === 'used_rejected') {
             // For used/rejected reports, count unique items from supply_details
             const uniqueItems = new Set(currentSupplies.map((s) => s.item_id || s.id));
             total = uniqueItems.size;
@@ -428,12 +429,12 @@ export default function InventoryReports({
         }
 
         const categorySummary = currentSupplies.reduce(
-
+            (acc, supply) => {
                 const category = supply.category;
                 if (!acc[category]) {
                     acc[category] = {
                         count: 0,
-
+                        low_stock: 0,
                         out_of_stock: 0,
                         used_quantity: 0,
                         rejected_quantity: 0,
@@ -447,7 +448,7 @@ export default function InventoryReports({
                         acc[category].low_stock += 1;
                     }
                     if (supply.current_stock <= 0) {
-
+                        acc[category].out_of_stock += 1;
                     }
                 }
 
@@ -460,7 +461,7 @@ export default function InventoryReports({
                     } else if (supply.used_quantity > 0) {
                         acc[category].used_quantity += supply.used_quantity;
                     } else if (supply.rejected_quantity > 0) {
-
+                        acc[category].rejected_quantity += supply.rejected_quantity;
                     }
                 }
 
@@ -470,7 +471,7 @@ export default function InventoryReports({
         );
 
         // Calculate movement statistics for in_out report type
-
+        let incomingCount = 0;
         let outgoingCount = 0;
         let incomingQuantity = 0;
         let outgoingQuantity = 0;
@@ -483,7 +484,7 @@ export default function InventoryReports({
         let usedQuantity = 0;
         let rejectedQuantity = 0;
 
-
+        if (currentReportType === 'in_out') {
             // Count movements from the supply_details (which contains movement data for in_out)
             console.log('Calculating movement stats for in_out report type');
             console.log('Current supplies for movement calculation:', currentSupplies.slice(0, 3));
@@ -505,7 +506,7 @@ export default function InventoryReports({
                 incomingCount,
                 outgoingCount,
                 incomingQuantity,
-
+                outgoingQuantity,
                 totalTransactions,
                 netQuantity,
             });
@@ -515,11 +516,10 @@ export default function InventoryReports({
             console.log('Current supplies for used/rejected calculation:', currentSupplies.slice(0, 3));
 
             // Count from supply_details table - each record represents one transaction
-
+            currentSupplies.forEach((supply) => {
                 // Check type field first (from inventory_used_rejected_items)
                 if (supply.type === 'used' || (supply.movement_type === 'used' && !supply.type)) {
-
-
+                    usedCount++;
                     usedQuantity += supply.quantity || supply.used_quantity || 0;
                 } else if (supply.type === 'rejected' || (supply.movement_type === 'rejected' && !supply.type)) {
                     rejectedCount++;
@@ -531,8 +531,8 @@ export default function InventoryReports({
                     usedQuantity += supply.used_quantity;
                 } else if (supply.rejected_quantity > 0) {
                     rejectedCount++;
-
-
+                    rejectedQuantity += supply.rejected_quantity;
+                }
             });
 
             // Use backend-provided values if they're more accurate (backend counts all records)
@@ -563,8 +563,7 @@ export default function InventoryReports({
             total_products: total,
             low_stock_items: lowStock,
             out_of_stock: outOfStock,
-
-
+            incoming_count: incomingCount,
             outgoing_count: outgoingCount,
             incoming_quantity: incomingQuantity,
             outgoing_quantity: outgoingQuantity,
@@ -586,6 +585,8 @@ export default function InventoryReports({
                       : currentFilter === 'monthly'
                         ? `Monthly Report - ${new Date(currentDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}`
                         : `Yearly Report - ${new Date(currentDate).getFullYear()}`),
+            start_date: data?.start_date || currentDate,
+            end_date: data?.end_date || currentDate,
         };
 
         console.log('getFilteredData - result:', result);
@@ -617,8 +618,8 @@ export default function InventoryReports({
 
     useEffect(() => {
         console.log('Data prop changed, updating filtered data');
-        setFilteredData(getFilteredData());
-    }, [data, supplies, currentFilter, currentDate, currentReportType]);
+        setFilteredData(calculatedData);
+    }, [calculatedData]);
 
     const handleFilterChange = (newFilter: string) => {
         setCurrentFilter(newFilter);
@@ -713,12 +714,11 @@ export default function InventoryReports({
 
     // Debug table data
     const tableData = filteredData.supply_details || data?.supply_details || supplies?.data || [];
-for', reportType, ':', tableData.slice(0, 2));
+    console.log('Table data for', reportType, ':', tableData.slice(0, 2));
 
     const table = useReactTable({
         data: tableData,
-
-
+        columns,
         onColumnFiltersChange: setColumnFilters,
         getCoreRowModel: getCoreRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
@@ -951,8 +951,8 @@ for', reportType, ':', tableData.slice(0, 2));
                                     </CardContent>
                                 </Card>
                             </>
-
-
+                        ) : null}
+                    </div>
 
                     {/* Analytics Cards - Most Used & Least Used Supplies */}
                     <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -964,17 +964,17 @@ for', reportType, ':', tableData.slice(0, 2));
                                     Most Frequently Used Supplies
                                 </CardTitle>
                             </CardHeader>
-
-
+                            <CardContent>
+                                {analytics?.most_used_supplies && analytics.most_used_supplies.length > 0 ? (
                                     <div className="space-y-3">
                                         {analytics.most_used_supplies.map((supply, index) => (
                                             <div key={supply.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
                                                 <div className="flex items-center gap-3">
                                                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">
-                            {index + 1}
+                                                        {index + 1}
                                                     </div>
-
-
+                                                    <div>
+                                                        <p className="font-medium text-gray-900">{supply.name}</p>
                                                         <p className="text-xs text-gray-500">{supply.code}</p>
                                                     </div>
                                                 </div>
@@ -984,7 +984,7 @@ for', reportType, ':', tableData.slice(0, 2));
                                                         {supply.count} {supply.count === 1 ? 'time' : 'times'} used
                                                     </p>
                                                 </div>
-</div>
+                                            </div>
                                         ))}
                                     </div>
                                 ) : (
@@ -993,8 +993,8 @@ for', reportType, ':', tableData.slice(0, 2));
                             </CardContent>
                         </Card>
 
-ies */}
-                        <Card className="border0 bg-white shadow-sm">
+                        {/* Least Used Supplies */}
+                        <Card className="border border-gray-200 bg-white shadow-sm">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
                                     <TrendingDown className="h-5 w-5 text-orange-600" />
@@ -1014,7 +1014,7 @@ ies */}
                                                         <p className="font-medium text-gray-900">{supply.name}</p>
                                                         <p className="text-xs text-gray-500">{supply.code}</p>
                                                     </div>
-                                               </div>
+                                                </div>
                                                 <div className="text-right">
                                                     <p className="font-bold text-gray-900">{supply.quantity.toLocaleString()}</p>
                                                     <p className="text-xs text-gray-500">
@@ -1363,8 +1363,7 @@ ies */}
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
-                                                {table
-                                                    .getAllColumns()
+                                                {(table.getAllColumns() || [])
                                                     .filter((column) => column.getCanHide())
                                                     .map((column) => {
                                                         return (
