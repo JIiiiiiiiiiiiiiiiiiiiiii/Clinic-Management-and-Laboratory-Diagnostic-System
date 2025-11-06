@@ -73,7 +73,63 @@ class AuthenticatedSessionController extends Controller
                 ]);
             }
             
-            // If password is valid, send OTP and redirect to verification
+            // Determine user role for OTP bypass logic
+            $userRole = null;
+            if ($user) {
+                $userRole = $user->getMappedRole();
+            } else {
+                // For temporary credentials, get role from email mapping
+                $roleMap = [
+                    'admin@clinic.com' => 'admin',
+                    'doctor@clinic.com' => 'doctor',
+                    'labtech@clinic.com' => 'laboratory_technologist',
+                    'medtech@clinic.com' => 'medtech',
+                    'cashier@clinic.com' => 'cashier',
+                    'patient@clinic.com' => 'patient',
+                    'ron@patient.com' => 'patient',
+                    'hospital@stjames.com' => 'admin',
+                ];
+                $userRole = $roleMap[$email] ?? 'patient';
+            }
+            
+            // Skip OTP verification for admin and staff (only require for patients)
+            $staffRoles = [
+                'admin',
+                'doctor',
+                'medtech',
+                'cashier',
+                'laboratory_technologist',
+                'nurse',
+                'hospital_admin',
+                'hospital_staff'
+            ];
+            
+            $isStaff = in_array($userRole, $staffRoles);
+            
+            if ($isStaff) {
+                // Direct login for staff/admin - no OTP required
+                $remember = $request->boolean('remember');
+                
+                if ($user) {
+                    // Login real user
+                    Auth::login($user, $remember);
+                } else {
+                    // Create temporary session for development credentials
+                    $tempUser = $this->createTemporaryUser($email);
+                    $request->session()->put('auth.user', $tempUser);
+                    $request->session()->put('auth.login', true);
+                    $request->session()->regenerate();
+                }
+                
+                // Redirect based on role
+                if ($userRole === 'patient') {
+                    return redirect()->route('home');
+                } else {
+                    return redirect()->route('admin.dashboard');
+                }
+            }
+            
+            // For patients, require OTP verification
             $otpService = new \App\Services\OtpService();
             $otp = $otpService->createAndSendOtp($email, 'login', $request->ip());
             
