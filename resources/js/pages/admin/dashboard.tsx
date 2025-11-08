@@ -105,7 +105,7 @@ export default function Dashboard() {
             { title: 'Billing', href: '/admin/billing', icon: Receipt, color: 'bg-red-500' },
             { title: 'Reports', href: '/admin/reports', icon: BarChart3, color: 'bg-purple-500' },
             { title: 'Lab Results', href: '/admin/lab-results', icon: FlaskConical, color: 'bg-indigo-500' },
-            { title: 'Transactions', href: '/admin/transactions', icon: DollarSign, color: 'bg-emerald-500' },
+            { title: 'Transactions', href: '/admin/transactions', icon: Coins, color: 'bg-emerald-500' },
             { title: 'Notifications', href: '/admin/notifications', icon: Bell, color: 'bg-yellow-500' },
             { title: 'System Health', href: '/admin/system-health', icon: Shield, color: 'bg-gray-500' },
         ];
@@ -141,7 +141,7 @@ export default function Dashboard() {
             case 'cashier':
                 return [
                     { title: 'Billing', href: '/admin/billing', icon: Receipt, color: 'bg-red-500' },
-                    { title: 'Transactions', href: '/admin/transactions', icon: DollarSign, color: 'bg-green-500' },
+                    { title: 'Transactions', href: '/admin/transactions', icon: Coins, color: 'bg-green-500' },
                     { title: 'Payments', href: '/admin/payments', icon: ShoppingCart, color: 'bg-orange-500' },
                 ];
             case 'hospital_admin':
