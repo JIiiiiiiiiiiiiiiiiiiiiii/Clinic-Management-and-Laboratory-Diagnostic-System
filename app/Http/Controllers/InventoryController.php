@@ -356,10 +356,38 @@ class InventoryController extends Controller
             ->orderBy('name')
             ->get();
 
+        // Get all IN movements for all items
+        $batchMovements = InventoryMovement::where('movement_type', 'IN')
+            ->with(['inventoryItem' => function($query) {
+                $query->select('id', 'item_name', 'item_code', 'unit');
+            }])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->filter(function($movement) {
+                // Filter out movements where inventory item doesn't exist
+                return $movement->inventoryItem !== null;
+            })
+            ->map(function($movement) {
+                return [
+                    'id' => $movement->id,
+                    'item_id' => $movement->inventory_id,
+                    'item_name' => $movement->inventoryItem->item_name ?? 'N/A',
+                    'item_code' => $movement->inventoryItem->item_code ?? 'N/A',
+                    'unit' => $movement->inventoryItem->unit ?? 'pieces',
+                    'quantity' => $movement->quantity,
+                    'expiry_date' => $movement->expiry_date ? $movement->expiry_date->format('Y-m-d') : null,
+                    'remarks' => $movement->remarks,
+                    'created_at' => $movement->created_at->format('Y-m-d H:i:s'),
+                    'created_by' => $movement->created_by,
+                ];
+            })
+            ->values(); // Re-index array after filter
+
         return Inertia::render('Inventory/SupplyItems', [
             'doctorNurseItems' => $doctorNurseItems,
             'medTechItems' => $medTechItems,
             'consumedRejectedItems' => $consumedRejectedItems,
+            'batchMovements' => $batchMovements,
             'stats' => $stats,
             'staffMembers' => $staffMembers,
         ]);
@@ -382,9 +410,8 @@ class InventoryController extends Controller
         $request->validate([
             'movement_type' => 'required|in:IN,OUT',
             'quantity' => 'required|integer|min:1',
-            'date' => 'required|date',
-            'handled_by' => 'required|string|max:100',
-            'reason' => 'nullable|string|max:500',
+            'remarks' => 'nullable|string|max:500',
+            'expiry_date' => 'nullable|date',
         ]);
 
         $item = InventoryItem::findOrFail($id);
@@ -393,11 +420,24 @@ class InventoryController extends Controller
             return back()->withErrors(['quantity' => 'Insufficient stock available.']);
         }
 
+        // Get the current user or default to system
+        $createdBy = auth()->user() ? auth()->user()->name : 'System';
+
         // Update item stock using model methods (which create movement records)
         if ($request->movement_type === 'IN') {
-            $item->addStock($request->quantity, $request->reason, $request->handled_by);
+            $item->addStock(
+                $request->quantity, 
+                $request->remarks ?? 'Stock Added', 
+                $createdBy,
+                $request->expiry_date
+            );
         } else {
-            $item->removeStock($request->quantity, false, $request->reason, $request->handled_by);
+            $item->removeStock(
+                $request->quantity, 
+                false, 
+                $request->remarks ?? 'Stock Removed', 
+                $createdBy
+            );
         }
 
         return redirect()->route('admin.inventory.supply-items')->with('success', 'Movement recorded successfully!');
@@ -439,6 +479,33 @@ class InventoryController extends Controller
         $item->removeStock($request->quantity, true, 'Rejected: ' . $request->reason, auth()->user()->name ?? 'System');
 
         return redirect()->route('admin.inventory.supply-items')->with('success', 'Item rejected successfully!');
+    }
+
+    public function getItemMovements($id)
+    {
+        $item = InventoryItem::findOrFail($id);
+        
+        // Get all IN movements (stock additions) with expiry dates
+        $movements = InventoryMovement::where('inventory_id', $id)
+            ->where('movement_type', 'IN')
+            ->whereNotNull('expiry_date')
+            ->orderBy('expiry_date', 'asc')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function($movement) {
+                return [
+                    'id' => $movement->id,
+                    'quantity' => $movement->quantity,
+                    'expiry_date' => $movement->expiry_date ? $movement->expiry_date->format('Y-m-d') : null,
+                    'remarks' => $movement->remarks,
+                    'created_at' => $movement->created_at->format('Y-m-d H:i:s'),
+                    'created_by' => $movement->created_by,
+                ];
+            });
+
+        return response()->json([
+            'movements' => $movements,
+        ]);
     }
 
     public function reports(Request $request)
@@ -1026,6 +1093,7 @@ class InventoryController extends Controller
             'movement_type' => 'required|in:IN,OUT',
             'quantity' => 'required|integer|min:1',
             'remarks' => 'nullable|string',
+            'expiry_date' => 'nullable|date',
         ]);
 
         $item = InventoryItem::findOrFail($id);
@@ -1076,6 +1144,7 @@ class InventoryController extends Controller
                 'quantity' => $request->quantity,
                 'remarks' => $request->remarks,
                 'created_by' => auth()->user()->name ?? 'System',
+                'expiry_date' => $request->expiry_date ?? null,
             ]);
 
             // Update item stock and rejected/consumed simultaneously using direct database update

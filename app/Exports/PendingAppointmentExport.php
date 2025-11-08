@@ -72,9 +72,9 @@ class PendingAppointmentExport implements WithMultipleSheets, WithEvents
             ['WALK-IN APPOINTMENTS', $walkInAppointments],
             ['PHONE APPOINTMENTS', $phoneAppointments],
             ['', ''],
-            ['TOTAL CONSULTATION REVENUE', 'PHP ' . number_format($totalRevenue, 2)],
-            ['TOTAL LAB TEST AMOUNT', 'PHP ' . number_format($totalLabAmount, 2)],
-            ['TOTAL FINAL AMOUNT', 'PHP ' . number_format($totalFinalAmount, 2)],
+            ['TOTAL CONSULTATION REVENUE', '₱' . number_format($totalRevenue, 2)],
+            ['TOTAL LAB TEST AMOUNT', '₱' . number_format($totalLabAmount, 2)],
+            ['TOTAL FINAL AMOUNT', '₱' . number_format($totalFinalAmount, 2)],
         ];
     }
 
@@ -118,9 +118,9 @@ class PendingAppointmentExport implements WithMultipleSheets, WithEvents
                 $appointment->duration ?? '30 min',
                 ucfirst($appointment->status),
                 ucfirst($appointment->source ?? 'online'),
-                'PHP ' . number_format($appointment->price, 2),
-                'PHP ' . number_format($appointment->total_lab_amount ?? 0, 2),
-                'PHP ' . number_format($appointment->final_total_amount ?? $appointment->price, 2),
+                '₱' . number_format($appointment->price, 2),
+                '₱' . number_format($appointment->total_lab_amount ?? 0, 2),
+                '₱' . number_format($appointment->final_total_amount ?? $appointment->price, 2),
                 ucfirst($appointment->billing_status ?? 'not_billed'),
                 $appointment->notes ?? '',
                 $appointment->special_requirements ?? '',

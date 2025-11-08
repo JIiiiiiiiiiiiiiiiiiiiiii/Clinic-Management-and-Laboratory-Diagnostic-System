@@ -37,6 +37,7 @@ class TransactionController extends Controller
             'movement_type' => 'required|in:IN,OUT',
             'quantity' => 'required|integer|min:1',
             'remarks' => 'nullable|string|max:255',
+            'expiry_date' => 'nullable|date',
         ]);
 
         $inventoryItem = InventoryItem::findOrFail($request->inventory_id);
@@ -48,6 +49,7 @@ class TransactionController extends Controller
             'quantity' => $request->quantity,
             'remarks' => $request->remarks,
             'created_by' => auth()->user()->name ?? 'System',
+            'expiry_date' => $request->expiry_date ?? null,
         ]);
 
         // Update inventory stock

@@ -9,10 +9,13 @@ class LabTest extends Model
 {
     use HasFactory;
 
+    public $incrementing = false; // Set to false to allow manual ID assignment
+    protected $keyType = 'int';
+
     protected $fillable = [
+        'id',
         'name',
         'code',
-        'description',
         'price',
         'fields_schema',
         'is_active',

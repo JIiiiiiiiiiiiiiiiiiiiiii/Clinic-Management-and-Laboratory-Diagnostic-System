@@ -157,7 +157,7 @@
                                 <td>{{ ucfirst(str_replace('_', ' ', $key)) }}</td>
                                 <td>
                                     @if($key === 'total_revenue')
-                                        PHP {{ number_format($value, 2) }}
+                                        ₱{{ number_format($value, 2) }}
                                     @elseif($key === 'total_transactions')
                                         {{ $value }}
                                     @else
@@ -195,7 +195,7 @@
                             <td>{{ $transaction['id'] }}</td>
                             <td>{{ $transaction['patient_name'] }}</td>
                             <td>{{ $transaction['doctor_name'] }}</td>
-                            <td>PHP {{ number_format($transaction['total_amount'], 2) }}</td>
+                            <td>₱{{ number_format($transaction['total_amount'], 2) }}</td>
                             <td>{{ $transaction['payment_method'] }}</td>
                             <td>{{ \Carbon\Carbon::parse($transaction['transaction_date'])->format('M d, Y') }}</td>
                             <td>{{ $transaction['status'] }}</td>

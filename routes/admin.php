@@ -811,6 +811,7 @@ Route::get('/test-movement', [App\Http\Controllers\InventoryController::class, '
             // Movement routes (must come before {id} routes)
             Route::get('/{id}/movement', [App\Http\Controllers\InventoryController::class, 'addMovement'])->name('add-movement');
             Route::post('/{id}/movement', [App\Http\Controllers\InventoryController::class, 'storeMovement'])->name('store-movement');
+            Route::get('/{id}/movements', [App\Http\Controllers\InventoryController::class, 'getItemMovements'])->name('get-movements');
             
             // Consume and Reject routes
             Route::post('/{id}/consume', [App\Http\Controllers\InventoryController::class, 'consume'])->name('consume');

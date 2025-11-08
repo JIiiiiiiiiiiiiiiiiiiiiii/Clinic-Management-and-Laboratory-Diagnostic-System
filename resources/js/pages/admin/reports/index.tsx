@@ -3,24 +3,22 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import { Head } from '@inertiajs/react';
+import { type BreadcrumbItem } from '@/types';
 import {
     Activity,
     ArrowDownRight,
     ArrowUpRight,
     BarChart3,
     Calendar,
-    DollarSign,
-    Download,
+    Coins,
     FlaskConical,
     Package,
     TrendingUp,
     UserCheck,
     Users,
 } from 'lucide-react';
-import { useState } from 'react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
 
 interface ReportData {
@@ -84,76 +82,6 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function ReportsDashboard({ summary, recentReports, filterOptions, user, metadata, chartData }: Props) {
-    const [activeTab, setActiveTab] = useState('overview');
-
-
-    const reportSections = [
-        {
-            id: 'patients',
-            title: 'Patient Reports',
-            description: 'Patient demographics, registration trends, and visit reports',
-            icon: Users,
-            color: '',
-            href: '/admin/reports/patients',
-            stats: {
-                total: summary?.total_patients || 0,
-                new: Math.floor((summary?.total_patients || 0) * 0.15),
-                active: Math.floor((summary?.total_patients || 0) * 0.85),
-            },
-        },
-        {
-            id: 'laboratory',
-            title: 'Laboratory Reports',
-            description: 'Lab orders, test results, and diagnostic reports',
-            icon: FlaskConical,
-            color: '',
-            href: '/admin/reports/laboratory',
-            stats: {
-                total: summary?.total_lab_orders || 0,
-                pending: Math.floor((summary?.total_lab_orders || 0) * 0.2),
-                completed: Math.floor((summary?.total_lab_orders || 0) * 0.8),
-            },
-        },
-        {
-            id: 'appointments',
-            title: 'Consultation/Appointment Reports',
-            description: 'Appointment scheduling, doctor availability, and consultation reports',
-            icon: Calendar,
-            color: '',
-            href: '/admin/reports/appointments',
-            stats: {
-                total: summary?.total_appointments || 0,
-                scheduled: Math.floor((summary?.total_appointments || 0) * 0.7),
-                completed: Math.floor((summary?.total_appointments || 0) * 0.3),
-            },
-        },
-        {
-            id: 'inventory',
-            title: 'Inventory Reports',
-            description: 'Stock levels, supply usage, and inventory management',
-            icon: Package,
-            color: '',
-            href: '/admin/reports/inventory',
-            stats: {
-                total: summary?.total_products || 0,
-                low_stock: Math.floor((summary?.total_products || 0) * 0.1),
-                in_stock: Math.floor((summary?.total_products || 0) * 0.9),
-            },
-        },
-        {
-            id: 'financial',
-            title: 'Financial Reports',
-            description: 'Revenue, expenses, billing, and financial reports',
-            icon: DollarSign,
-            color: '',
-            href: '/admin/reports/financial',
-            stats: {
-                revenue: summary?.total_revenue || 0,
-                expenses: summary?.total_expenses || 0,
-                profit: (summary?.total_revenue || 0) - (summary?.total_expenses || 0),
-            },
-        },
-    ];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs as any}>
@@ -161,14 +89,8 @@ export default function ReportsDashboard({ summary, recentReports, filterOptions
             <div className="min-h-screen bg-gray-50">
                 <div className="p-6">
 
-                    {/* Report Sections */}
-                    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-3">
-                            <TabsTrigger value="overview">Overview</TabsTrigger>
-                            <TabsTrigger value="reports">Report Modules</TabsTrigger>
-                        </TabsList>
-
-                        <TabsContent value="overview" className="space-y-6">
+                    {/* Overview Section */}
+                    <div className="space-y-6">
                             {/* Summary Cards */}
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
                                 <Card>
@@ -190,7 +112,7 @@ export default function ReportsDashboard({ summary, recentReports, filterOptions
                                 <Card>
                                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                         <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                                        <Coins className="h-4 w-4 text-muted-foreground" />
                                     </CardHeader>
                                     <CardContent>
                                         <div className="text-2xl font-bold">₱{(summary?.total_revenue || 0).toLocaleString()}</div>
@@ -481,7 +403,7 @@ export default function ReportsDashboard({ summary, recentReports, filterOptions
                                 <Card>
                                     <CardHeader>
                                         <CardTitle className="flex items-center gap-2">
-                                            <DollarSign className="h-5 w-5 text-green-600" />
+                                            <Coins className="h-5 w-5 text-green-600" />
                                             Payment Methods
                                         </CardTitle>
                                         <CardDescription>Distribution of payment methods used</CardDescription>
@@ -520,75 +442,7 @@ export default function ReportsDashboard({ summary, recentReports, filterOptions
                                     </CardContent>
                                 </Card>
                         </div>
-
-                            {/* Recent Reports */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Recent Reports</CardTitle>
-                                    <CardDescription>Recently generated reports and their status</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Report Name</TableHead>
-                                                <TableHead>Type</TableHead>
-                                                <TableHead>Date Range</TableHead>
-                                                <TableHead>Generated By</TableHead>
-                                                <TableHead>Status</TableHead>
-                                                <TableHead>Last Generated</TableHead>
-                                                <TableHead>Actions</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {(recentReports || []).map((report) => (
-                                                <TableRow key={report.id}>
-                                                    <TableCell className="font-medium">{report.name}</TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="secondary">{report.type}</Badge>
-                                                    </TableCell>
-                                                    <TableCell>{report.dateRange}</TableCell>
-                                                    <TableCell>{report.generatedBy}</TableCell>
-                                                    <TableCell>
-                                                        <Badge variant={report.status === 'Generated' ? 'default' : 'secondary'}>
-                                                            {report.status}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>{report.lastGenerated}</TableCell>
-                                                    <TableCell>
-                                                        <Button variant="outline" size="sm">
-                                                            <Download className="h-4 w-4" />
-                                                        </Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                    </TableBody>
-                                </Table>
-                        </CardContent>
-                    </Card>
-                        </TabsContent>
-
-                        <TabsContent value="reports" className="space-y-6">
-                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                                {reportSections.map((section) => (
-                                    <Card key={section.id} className="transition-shadow hover:shadow-lg">
-                                        <CardHeader>
-                                            <CardTitle>
-                                                {section.title}
-                            </CardTitle>
-                        </CardHeader>
-                                        <CardContent>
-                                            <div className="flex gap-2">
-                                                <Button asChild className="flex-1 bg-green-600 hover:bg-green-700 text-white">
-                                                    <a href={section.href}>View Report</a>
-                                                </Button>
-                                </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
-                                </div>
-                        </TabsContent>
-                    </Tabs>
+                    </div>
 
                 </div>
             </div>

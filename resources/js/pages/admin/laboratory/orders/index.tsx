@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
@@ -17,7 +17,7 @@ import {
     SortingState,
     useReactTable,
 } from '@tanstack/react-table';
-import { AlertCircle, ArrowUpDown, CheckCircle, Clock, Download, Eye, FileText, FlaskConical, Link as LinkIcon, Plus, XCircle } from 'lucide-react';
+import { AlertCircle, ArrowUpDown, CheckCircle, Clock, Download, Eye, FileText, FlaskConical, Link as LinkIcon, MoreHorizontal, PlayCircle, Plus, XCircle } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
 type Order = {
@@ -38,6 +38,18 @@ type Order = {
         name: string;
         code: string;
     }>;
+    visit?: {
+        id: number;
+        notes?: string;
+        attending_staff?: {
+            id: number;
+            name: string;
+        } | null;
+    } | null;
+    ordered_by?: {
+        id: number;
+        name: string;
+    } | null;
 };
 
 type AnalyticsData = {
@@ -180,44 +192,68 @@ export default function LabOrdersIndex({
                 },
             },
             {
+                accessorKey: 'ordered_by',
+                header: 'Requested By',
+                cell: ({ row }) => {
+                    const order = row.original;
+                    const orderedBy = order.ordered_by;
+                    return (
+                        <div className="text-sm">
+                            {orderedBy ? (
+                                <span className="font-medium text-gray-900">{orderedBy.name}</span>
+                            ) : (
+                                <span className="text-gray-400">—</span>
+                            )}
+                        </div>
+                    );
+                },
+            },
+            {
                 id: 'actions',
-                header: 'Actions',
+                enableHiding: false,
                 cell: ({ row }) => {
                     const order = row.original;
                     return (
-                        <div className="flex gap-2">
-                            <Button asChild className="bg-green-600 text-white hover:bg-green-700">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                    <span className="sr-only">Open menu</span>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuItem asChild>
                                 <Link href={`/admin/laboratory/orders/${order.id}`}>
-                                    <Eye className="mr-1 h-4 w-4" />
+                                        <Eye className="mr-2 h-4 w-4" />
                                     View Order
                                 </Link>
-                            </Button>
-                            <Button
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
                                 onClick={() => handleEnterResults(order.id)}
                                 disabled={order.status === 'cancelled'}
-                                className="bg-green-600 text-white hover:bg-green-700"
                             >
-                                <FileText className="mr-1 h-4 w-4" />
-                                Results
-                            </Button>
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Enter Results
+                                </DropdownMenuItem>
                             {order.status === 'ordered' && (
-                                <Button
-                                    variant="outline"
+                                    <DropdownMenuItem
                                     onClick={() => handleUpdateStatus(order.id, 'processing')}
-                                    className="bg-green-600 text-white hover:bg-green-700"
-                                >
-                                    Start
-                                </Button>
+                                    >
+                                        <PlayCircle className="mr-2 h-4 w-4" />
+                                        Start Processing
+                                    </DropdownMenuItem>
                             )}
                             {order.status === 'processing' && (
-                                <Button
+                                    <DropdownMenuItem
                                     onClick={() => handleUpdateStatus(order.id, 'completed')}
-                                    className="bg-green-600 text-white hover:bg-green-700"
                                 >
-                                    Complete
-                                </Button>
+                                        <CheckCircle className="mr-2 h-4 w-4" />
+                                        Mark Complete
+                                    </DropdownMenuItem>
                             )}
-                        </div>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     );
                 },
             },

@@ -60,6 +60,7 @@ type Supply = {
     quantity?: number;
     created_by?: string;
     remarks?: string;
+    expiry_date?: string | null;
     item_id?: number;
 };
 
@@ -307,6 +308,35 @@ const createColumns = (reportType: string): ColumnDef<Supply>[] => {
                         );
                     } catch (error) {
                         return <div className="text-sm text-gray-600">Invalid Date</div>;
+                    }
+                },
+            },
+            {
+                accessorKey: 'expiry_date',
+                header: 'Expiry Date',
+                cell: ({ row }) => {
+                    const expiryDate = row.getValue('expiry_date') as string | undefined | null;
+                    if (!expiryDate) return <div className="text-sm text-gray-400">N/A</div>;
+                    
+                    try {
+                        const dateObj = new Date(expiryDate);
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        dateObj.setHours(0, 0, 0, 0);
+                        
+                        const isExpired = dateObj < today;
+                        const daysUntilExpiry = Math.ceil((dateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                        const isNearExpiry = daysUntilExpiry <= 30 && daysUntilExpiry >= 0;
+                        
+                        return (
+                            <div className={`text-sm ${isExpired ? 'text-red-600 font-semibold' : isNearExpiry ? 'text-orange-600 font-medium' : 'text-gray-600'}`}>
+                                {dateObj.toLocaleDateString()}
+                                {isExpired && <span className="ml-1 text-xs">(Expired)</span>}
+                                {isNearExpiry && !isExpired && <span className="ml-1 text-xs">({daysUntilExpiry}d left)</span>}
+                            </div>
+                        );
+                    } catch (error) {
+                        return <div className="text-sm text-gray-400">Invalid</div>;
                     }
                 },
             },

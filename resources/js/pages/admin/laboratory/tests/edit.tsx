@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
@@ -14,7 +13,6 @@ type Test = {
     id: number;
     name: string;
     code: string;
-    description?: string;
     is_active: boolean;
     fields_schema: any;
 };
@@ -27,7 +25,6 @@ export default function TestEdit({ test }: TestEditProps): React.ReactElement {
     const [data, setData] = useState({
         name: test.name || '',
         code: test.code || '',
-        description: test.description || '',
         is_active: test.is_active ?? true,
     });
 
@@ -57,7 +54,6 @@ export default function TestEdit({ test }: TestEditProps): React.ReactElement {
         setData({
             name: test.name || '',
             code: test.code || '',
-            description: test.description || '',
             is_active: test.is_active ?? true,
         });
         setSchema(initializeSchema(test.fields_schema));
@@ -136,7 +132,6 @@ export default function TestEdit({ test }: TestEditProps): React.ReactElement {
             {
                 name: data.name,
                 code: data.code,
-                description: data.description,
                 is_active: data.is_active,
                 fields_schema: schema,
             },
@@ -220,8 +215,7 @@ export default function TestEdit({ test }: TestEditProps): React.ReactElement {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-6">
                             <div>
-                                <h1 className="mb-2 text-4xl font-bold text-black">Edit Test Template</h1>
-                                <p className="text-lg text-gray-600">{test.name}</p>
+                                <h1 className="mb-2 text-4xl font-bold text-black">Edit Test</h1>
                             </div>
                         </div>
                     </div>
@@ -283,23 +277,11 @@ export default function TestEdit({ test }: TestEditProps): React.ReactElement {
                                             />
                                         </div>
                                     </div>
-                                    <div>
-                                        <Label htmlFor="description" className="mb-2 block text-sm font-semibold text-gray-700">
-                                            Description
-                                        </Label>
-                                        <Textarea
-                                            id="description"
-                                            value={data.description}
-                                            onChange={(e) => setDataAny('description', e.target.value)}
-                                            className="rounded-xl border-gray-300 shadow-sm focus:border-gray-500 focus:ring-gray-500"
-                                            rows={3}
-                                        />
-                                    </div>
                                     <div className="flex items-center space-x-2">
                                         <Checkbox
                                             id="is_active"
                                             checked={data.is_active}
-                                            onChange={(e) => setDataAny('is_active', e.target.checked)}
+                                            onCheckedChange={(checked) => setDataAny('is_active', checked === true)}
                                             className="h-4 w-4 rounded border-gray-300 text-black focus:ring-gray-500"
                                         />
                                         <Label htmlFor="is_active" className="text-sm font-semibold text-gray-700">

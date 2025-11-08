@@ -62,6 +62,7 @@ type RecentMovement = {
     quantity: number;
     remarks: string;
     created_at: string;
+    expiry_date?: string | null;
     inventory_item: {
         item_name: string;
         item_code: string;

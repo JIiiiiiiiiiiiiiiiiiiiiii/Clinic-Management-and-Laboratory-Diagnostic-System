@@ -55,7 +55,7 @@ class SummarySheet implements FromCollection, WithHeadings, WithStyles, WithTitl
             ['Pending Appointments', $this->summary['pending_appointments']],
             ['Confirmed Appointments', $this->summary['confirmed_appointments']],
             ['Cancelled Appointments', $this->summary['cancelled_appointments']],
-            ['Total Revenue', 'PHP ' . number_format($this->summary['total_revenue'], 2)],
+            ['Total Revenue', '₱' . number_format($this->summary['total_revenue'], 2)],
             ['Online Appointments', $this->summary['online_appointments']],
             ['Walk-in Appointments', $this->summary['walk_in_appointments']],
         ]);

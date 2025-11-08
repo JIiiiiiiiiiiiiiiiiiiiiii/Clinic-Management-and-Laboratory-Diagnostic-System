@@ -69,7 +69,7 @@ class InventoryItem extends Model
         $this->save();
     }
 
-    public function addStock($quantity, $remarks = 'Stock Added', $createdBy = null)
+    public function addStock($quantity, $remarks = 'Stock Added', $createdBy = null, $expiryDate = null)
     {
         // Update stock
         $this->stock += $quantity;
@@ -86,14 +86,23 @@ class InventoryItem extends Model
         // Save all changes atomically
         $this->save();
         
+        // Get next ID for movement
+        $nextId = \DB::table('inventory_movements')->max('id') ?? 0;
+        $nextId = $nextId + 1;
+        $itemId = $this->id;
+        
         // Create movement record
-        InventoryMovement::create([
-            'inventory_id' => $this->id,
-            'movement_type' => 'IN',
-            'quantity' => $quantity,
-            'remarks' => $remarks,
-            'created_by' => $createdBy ?? auth()->id() ?? 1, // Default to user 1 if no auth
-        ]);
+        \DB::transaction(function() use ($quantity, $remarks, $createdBy, $expiryDate, $nextId, $itemId) {
+            InventoryMovement::create([
+                'id' => $nextId,
+                'inventory_id' => $itemId,
+                'movement_type' => 'IN',
+                'quantity' => $quantity,
+                'remarks' => $remarks,
+                'created_by' => $createdBy ?? auth()->id() ?? 1, // Default to user 1 if no auth
+                'expiry_date' => $expiryDate,
+            ]);
+        });
         
         // Log the update for debugging
         \Log::info('InventoryItem addStock completed:', [
@@ -128,15 +137,23 @@ class InventoryItem extends Model
         // Save all changes atomically
         $this->save();
         
+        // Get next ID for movement
+        $nextId = \DB::table('inventory_movements')->max('id') ?? 0;
+        $nextId = $nextId + 1;
+        $itemId = $this->id;
+        
         // Create movement record
         $movementRemarks = $remarks ?? ($isRejected ? 'Item Rejected' : 'Item Consumed');
-        InventoryMovement::create([
-            'inventory_id' => $this->id,
-            'movement_type' => 'OUT',
-            'quantity' => $quantity,
-            'remarks' => $movementRemarks,
-            'created_by' => $createdBy ?? auth()->id() ?? 1, // Default to user 1 if no auth
-        ]);
+        \DB::transaction(function() use ($quantity, $movementRemarks, $createdBy, $nextId, $itemId) {
+            InventoryMovement::create([
+                'id' => $nextId,
+                'inventory_id' => $itemId,
+                'movement_type' => 'OUT',
+                'quantity' => $quantity,
+                'remarks' => $movementRemarks,
+                'created_by' => $createdBy ?? auth()->id() ?? 1, // Default to user 1 if no auth
+            ]);
+        });
         
         // Extract reason and parse createdBy
         $reason = null;
@@ -167,19 +184,28 @@ class InventoryItem extends Model
             $userId = auth()->id() ?? 1;
         }
         
+        // Get next ID for used/rejected item record
+        $nextUsedRejectedId = \DB::table('inventory_used_rejected_items')->max('id') ?? 0;
+        $nextUsedRejectedId = $nextUsedRejectedId + 1;
+        $itemId = $this->id;
+        $location = $this->location ?? $this->assigned_to ?? null;
+        
         // Create record in inventory_used_rejected_items table
-        InventoryUsedRejectedItem::create([
-            'inventory_item_id' => $this->id,
-            'type' => $isRejected ? 'rejected' : 'used',
-            'quantity' => $quantity,
-            'reason' => $reason,
-            'location' => $this->location ?? $this->assigned_to ?? null,
-            'used_by' => $usedBy,
-            'user_id' => $userId,
-            'date_used_rejected' => now()->toDateString(),
-            'remarks' => $movementRemarks,
-            'reference_number' => null, // Can be set when related to specific transactions
-        ]);
+        \DB::transaction(function() use ($isRejected, $quantity, $reason, $location, $usedBy, $userId, $movementRemarks, $nextUsedRejectedId, $itemId) {
+            InventoryUsedRejectedItem::create([
+                'id' => $nextUsedRejectedId,
+                'inventory_item_id' => $itemId,
+                'type' => $isRejected ? 'rejected' : 'used',
+                'quantity' => $quantity,
+                'reason' => $reason,
+                'location' => $location,
+                'used_by' => $usedBy,
+                'user_id' => $userId,
+                'date_used_rejected' => now()->toDateString(),
+                'remarks' => $movementRemarks,
+                'reference_number' => null, // Can be set when related to specific transactions
+            ]);
+        });
         
         // Log the update for debugging
         \Log::info('InventoryItem removeStock completed:', [

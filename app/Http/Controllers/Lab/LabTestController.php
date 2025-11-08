@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Lab;
 use App\Http\Controllers\Controller;
 use App\Models\LabTest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class LabTestController extends Controller
@@ -29,14 +30,26 @@ class LabTestController extends Controller
             $validated = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
                 'code' => ['required', 'string', 'max:64', 'unique:lab_tests,code'],
-                'description' => ['nullable', 'string'],
                 'fields_schema' => ['nullable', 'array'],
-                'is_active' => ['boolean'],
+                'is_active' => ['nullable', 'boolean'],
             ]);
+
+            // Ensure is_active defaults to true if not provided
+            $validated['is_active'] = $validated['is_active'] ?? true;
+            $validated['version'] = 1; // Set default version
 
             \Log::info('Validated data:', $validated);
 
-            $labTest = LabTest::create($validated);
+            // Workaround for ID auto-increment issue: manually get next ID
+            // Use database transaction to prevent race conditions
+            $labTest = DB::transaction(function () use ($validated) {
+                // Get the next ID safely
+                $maxId = DB::table('lab_tests')->max('id');
+                $nextId = ($maxId ?? 0) + 1;
+                $validated['id'] = $nextId;
+
+                return LabTest::create($validated);
+            });
             \Log::info('Lab test created successfully', ['id' => $labTest->id]);
 
             return back()->with('success', 'Laboratory test created successfully!');
@@ -64,8 +77,11 @@ class LabTestController extends Controller
                 'name' => ['required', 'string', 'max:255'],
                 'code' => ['required', 'string', 'max:64', 'unique:lab_tests,code,'.$labTest->id],
                 'fields_schema' => ['nullable', 'array'],
-                'is_active' => ['boolean'],
+                'is_active' => ['nullable', 'boolean'],
             ]);
+
+            // Ensure is_active is set properly
+            $validated['is_active'] = $validated['is_active'] ?? false;
 
             $labTest->update($validated);
             return back()->with('success', 'Laboratory test updated successfully!');

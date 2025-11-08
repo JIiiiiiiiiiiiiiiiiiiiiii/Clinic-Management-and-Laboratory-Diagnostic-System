@@ -17,7 +17,7 @@ import {
     FlaskConical, 
     Package2,
     Stethoscope,
-    DollarSign,
+    Coins,
     TrendingUp,
     TrendingDown,
     Clock,
@@ -214,7 +214,7 @@ export default function Dashboard() {
                             <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-all duration-300">
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                     <CardTitle className="text-sm font-medium text-purple-800">Revenue Today</CardTitle>
-                                    <DollarSign className="h-5 w-5 text-purple-600" />
+                                    <Coins className="h-5 w-5 text-purple-600" />
                                 </CardHeader>
                                 <CardContent>
                                     <div className="text-3xl font-bold text-purple-900">₱{(stats.today_revenue || 0).toLocaleString()}</div>

@@ -9,16 +9,22 @@ class InventoryMovement extends Model
 {
     use HasFactory;
 
+    public $incrementing = false;
+    protected $keyType = 'int';
+
     protected $fillable = [
+        'id',
         'inventory_id',
         'movement_type',
         'quantity',
         'remarks',
         'created_by',
+        'expiry_date',
     ];
 
     protected $casts = [
         'quantity' => 'integer',
+        'expiry_date' => 'date',
     ];
 
     public function inventoryItem()

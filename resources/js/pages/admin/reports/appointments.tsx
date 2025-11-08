@@ -32,7 +32,7 @@ import {
     VisibilityState,
 } from '@tanstack/react-table';
 import { 
-    Calendar as CalendarIcon, DollarSign, Download, FileText, MoreHorizontal, TrendingUp,
+    Calendar as CalendarIcon, Coins, Download, FileText, MoreHorizontal, TrendingUp,
     ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, FileDown,
     Users, Clock, CheckCircle, XCircle, AlertCircle, UserCheck, UserX, Globe, MapPin, Stethoscope, Phone, User
 } from 'lucide-react';
@@ -744,7 +744,7 @@ export default function AppointmentReports({
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
                                                 </p>
                                             </div>
-										<DollarSign className="h-8 w-8 text-gray-400" />
+										<Coins className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -810,7 +810,7 @@ export default function AppointmentReports({
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
                                                 </p>
                                             </div>
-										<DollarSign className="h-8 w-8 text-gray-400" />
+										<Coins className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>

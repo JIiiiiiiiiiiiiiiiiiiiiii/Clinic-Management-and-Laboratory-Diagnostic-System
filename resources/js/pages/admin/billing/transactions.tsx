@@ -23,7 +23,7 @@ import {
     XCircle, 
     CreditCard,
     Receipt,
-    DollarSign,
+    Coins,
     Filter,
     Edit,
     ArrowUpDown,
@@ -479,7 +479,7 @@ export default function BillingTransactions({
                                         <p className="text-sm text-gray-500">From paid transactions</p>
                                     </div>
                                     <div className="p-3 bg-green-100 rounded-full">
-                                        <DollarSign className="h-6 w-6 text-green-600" />
+                                        <Coins className="h-6 w-6 text-green-600" />
                                     </div>
                                 </div>
                             </CardContent>

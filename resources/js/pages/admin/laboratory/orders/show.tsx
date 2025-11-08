@@ -72,6 +72,18 @@ type LabOrder = {
         id: number;
         name: string;
     };
+    visit?: {
+        id: number;
+        notes?: string;
+        attending_staff?: {
+            id: number;
+            name: string;
+        } | null;
+        attendingStaff?: {
+            id: number;
+            name: string;
+        } | null;
+    } | null;
 };
 
 type LabOrderShowProps = {
@@ -283,6 +295,36 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                             <p className="text-sm font-medium text-gray-900">Last Updated</p>
                                             <p className="text-sm text-gray-600">{formatDate(order.updated_at)}</p>
                                         </div>
+                                    </div>
+
+                                    {/* Doctor's Remarks Section */}
+                                    <Separator className="my-4" />
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <FileText className="h-4 w-4 text-gray-500" />
+                                            <p className="text-sm font-semibold text-gray-900">Doctor's Remarks</p>
+                                            {order.visit?.attending_staff?.name && (
+                                                <span className="text-xs text-gray-500">
+                                                    (Dr. {order.visit.attending_staff.name})
+                                                </span>
+                                            )}
+                                            {!order.visit?.attending_staff?.name && order.visit?.attendingStaff?.name && (
+                                                <span className="text-xs text-gray-500">
+                                                    (Dr. {order.visit.attendingStaff.name})
+                                                </span>
+                                            )}
+                                        </div>
+                                        {order.visit?.notes ? (
+                                            <div className="bg-blue-50 rounded-lg border border-blue-200 p-3 mt-2">
+                                                <p className="text-sm text-gray-800 whitespace-pre-wrap">{order.visit.notes}</p>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 mt-2">
+                                                <p className="text-sm text-gray-500 italic">
+                                                    {order.visit ? 'No remarks available for this visit.' : 'This lab order is not linked to a patient visit. No doctor remarks available.'}
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </CardContent>

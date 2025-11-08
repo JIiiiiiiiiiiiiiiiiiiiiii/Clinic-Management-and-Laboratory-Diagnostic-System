@@ -2365,8 +2365,8 @@ class BillingController extends Controller
                         <td>' . $transaction->transaction_id . '</td>
                         <td>' . ($transaction->patient ? $transaction->patient->first_name . ' ' . $transaction->patient->last_name : 'N/A') . '</td>
                         <td>' . ($transaction->doctor ? $transaction->doctor->name : 'N/A') . '</td>
-                        <td class="amount">PHP ' . number_format($transaction->total_amount, 2) . '</td>
-                        <td class="amount">PHP ' . number_format($transaction->amount ?? $transaction->total_amount, 2) . '</td>
+                        <td class="amount">₱' . number_format($transaction->total_amount, 2) . '</td>
+                        <td class="amount">₱' . number_format($transaction->amount ?? $transaction->total_amount, 2) . '</td>
                         <td>' . ucfirst($transaction->payment_method ?? 'N/A') . '</td>
                         <td class="' . $statusClass . '">' . ucfirst($transaction->status) . '</td>
                         <td>' . ($transaction->transaction_date ? $transaction->transaction_date->format('M d, Y H:i') : 'N/A') . '</td>
@@ -2554,9 +2554,9 @@ class BillingController extends Controller
                         <td>' . ($appointment->appointment_time ? $appointment->appointment_time->format('g:i A') : 'N/A') . '</td>
                         <td class="' . $statusClass . '">' . ucfirst($appointment->status) . '</td>
                         <td>' . ucfirst($appointment->source ?? 'online') . '</td>
-                        <td class="amount">PHP ' . number_format($appointment->price, 2) . '</td>
-                        <td class="amount">PHP ' . number_format($appointment->total_lab_amount ?? 0, 2) . '</td>
-                        <td class="amount">PHP ' . number_format($appointment->final_total_amount ?? $appointment->price, 2) . '</td>
+                        <td class="amount">₱' . number_format($appointment->price, 2) . '</td>
+                        <td class="amount">₱' . number_format($appointment->total_lab_amount ?? 0, 2) . '</td>
+                        <td class="amount">₱' . number_format($appointment->final_total_amount ?? $appointment->price, 2) . '</td>
                     </tr>';
         }
 

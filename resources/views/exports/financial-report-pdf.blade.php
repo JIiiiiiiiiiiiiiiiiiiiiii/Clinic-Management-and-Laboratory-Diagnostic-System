@@ -173,7 +173,7 @@
             <tbody>
                 <tr>
                     <td><strong>Total Revenue</strong></td>
-                    <td>PHP {{ number_format($data['summary']['total_revenue'] ?? 0, 2) }}</td>
+                    <td>₱{{ number_format($data['summary']['total_revenue'] ?? 0, 2) }}</td>
                 </tr>
                 <tr>
                     <td><strong>Total Transactions</strong></td>
@@ -181,15 +181,15 @@
                 </tr>
                 <tr>
                     <td><strong>Cash Total</strong></td>
-                    <td>PHP {{ number_format($data['summary']['cash_total'] ?? 0, 2) }}</td>
+                    <td>₱{{ number_format($data['summary']['cash_total'] ?? 0, 2) }}</td>
                 </tr>
                 <tr>
                     <td><strong>HMO Total</strong></td>
-                    <td>PHP {{ number_format($data['summary']['hmo_total'] ?? 0, 2) }}</td>
+                    <td>₱{{ number_format($data['summary']['hmo_total'] ?? 0, 2) }}</td>
                 </tr>
                 <tr>
                     <td><strong>Pending Amount</strong></td>
-                    <td>PHP {{ number_format($data['summary']['pending_amount'] ?? 0, 2) }}</td>
+                    <td>₱{{ number_format($data['summary']['pending_amount'] ?? 0, 2) }}</td>
                 </tr>
             </tbody>
         </table>
@@ -223,10 +223,10 @@
                                 {{ optional(method_exists($transaction, 'getPatientInfo') ? $transaction->getPatientInfo() : $transaction->patient)->full_name ?? 'N/A' }}
                             </td>
                             <td>{{ $transaction->doctor->name ?? ($transaction->appointment->specialist->name ?? 'N/A') }}</td>
-                            <td>PHP {{ number_format($transaction->total_amount, 2) }}</td>
-                            <td>PHP {{ number_format($transaction->original_amount ?? $transaction->total_amount, 2) }}</td>
-                            <td>PHP {{ number_format($transaction->discount_amount ?? 0, 2) }}</td>
-                            <td>PHP {{ number_format($transaction->senior_discount_amount ?? 0, 2) }}</td>
+                            <td>₱{{ number_format($transaction->total_amount, 2) }}</td>
+                            <td>₱{{ number_format($transaction->original_amount ?? $transaction->total_amount, 2) }}</td>
+                            <td>₱{{ number_format($transaction->discount_amount ?? 0, 2) }}</td>
+                            <td>₱{{ number_format($transaction->senior_discount_amount ?? 0, 2) }}</td>
                             <td>
                                 <span class="payment-method {{ strtolower($transaction->payment_method) }}">
                                     {{ ucfirst($transaction->payment_method) }}

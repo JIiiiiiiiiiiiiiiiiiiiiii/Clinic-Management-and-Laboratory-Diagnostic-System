@@ -22,7 +22,7 @@ import {
     Scan,
     Calendar,
     User,
-    DollarSign
+    Coins
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -211,7 +211,7 @@ export default function ManualTransactionsIndex({
                                     <p className="text-sm font-medium text-gray-600">Total Revenue</p>
                                     <p className="text-2xl font-bold text-green-600">₱{summary.total_revenue.toLocaleString()}</p>
                                 </div>
-                                <DollarSign className="h-8 w-8 text-green-600" />
+                                <Coins className="h-8 w-8 text-green-600" />
                             </div>
                         </CardContent>
                     </Card>

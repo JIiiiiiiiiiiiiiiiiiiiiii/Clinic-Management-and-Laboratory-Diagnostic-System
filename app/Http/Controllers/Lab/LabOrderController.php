@@ -15,7 +15,7 @@ class LabOrderController extends Controller
 {
     public function allOrders()
     {
-        $orders = LabOrder::with(['patient', 'results.test'])
+        $orders = LabOrder::with(['patient', 'results.test', 'visit.attendingStaff', 'orderedBy'])
             ->latest()
             ->get();
 
@@ -87,7 +87,10 @@ class LabOrderController extends Controller
 
     public function index(Request $request, Patient $patient)
     {
-        $orders = LabOrder::with(['results.test'])->where('patient_id', $patient->id)->latest()->get();
+        $orders = LabOrder::with(['results.test', 'visit.attendingStaff', 'orderedBy'])
+            ->where('patient_id', $patient->id)
+            ->latest()
+            ->get();
         $labTests = LabTest::where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'is_active']);
 
         $normalizedPatientOrders = $orders->map(function ($o) {
@@ -144,7 +147,8 @@ class LabOrderController extends Controller
             'patient',
             'results.test',
             'results.values',
-            'orderedBy'
+            'orderedBy',
+            'visit.attendingStaff'
         ]);
 
         // Get lab tests through results

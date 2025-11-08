@@ -3,18 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { ArrowLeft, Edit, Eye, Plus, Save, TestTube, Trash2 } from 'lucide-react';
+import { Edit, Eye, Plus, Save, TestTube, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
 
 export default function TestCreate(): React.ReactElement {
     const [data, setData] = useState({
         name: '',
         code: '',
-        description: '',
         is_active: true,
     });
 
@@ -95,7 +93,6 @@ export default function TestCreate(): React.ReactElement {
             {
                 name: data.name,
                 code: data.code,
-                description: data.description,
                 is_active: data.is_active,
                 fields_schema: schema,
             },
@@ -177,14 +174,8 @@ export default function TestCreate(): React.ReactElement {
             <div className="min-h-screen bg-gray-50 p-6">
                 <div className="mb-8">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-6">
-                            <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-gray-300 hover:bg-gray-50">
-                                <ArrowLeft className="h-4 w-4" />
-                            </Button>
-                            <div>
-                                <h1 className="mb-2 text-4xl font-bold text-black">Create New Lab Test</h1>
-                                <p className="text-lg text-gray-600">Design a new laboratory diagnostic test template</p>
-                            </div>
+                        <div>
+                            <h1 className="mb-2 text-4xl font-bold text-black">Create New Lab Test</h1>
                         </div>
                     </div>
                 </div>
@@ -245,23 +236,11 @@ export default function TestCreate(): React.ReactElement {
                                             />
                                         </div>
                                     </div>
-                                    <div>
-                                        <Label htmlFor="description" className="mb-2 block text-sm font-semibold text-gray-700">
-                                            Description
-                                        </Label>
-                                        <Textarea
-                                            id="description"
-                                            value={data.description}
-                                            onChange={(e) => setDataAny('description', e.target.value)}
-                                            className="rounded-xl border-gray-300 shadow-sm focus:border-gray-500 focus:ring-gray-500"
-                                            rows={3}
-                                        />
-                                    </div>
                                     <div className="flex items-center space-x-2">
                                         <Checkbox
                                             id="is_active"
                                             checked={data.is_active}
-                                            onChange={(e) => setDataAny('is_active', e.target.checked)}
+                                            onCheckedChange={(checked) => setDataAny('is_active', checked === true)}
                                             className="h-4 w-4 rounded border-gray-300 text-black focus:ring-gray-500"
                                         />
                                         <Label htmlFor="is_active" className="text-sm font-semibold text-gray-700">
@@ -283,7 +262,7 @@ export default function TestCreate(): React.ReactElement {
                                         <p className="mt-1 text-sm text-gray-500">Define test sections and fields for data collection</p>
                                     </div>
                                 </div>
-                                <Button onClick={addSection}>
+                                <Button onClick={addSection} className="bg-green-600 text-white hover:bg-green-700">
                                     <Plus className="mr-3 h-6 w-6" />
                                     Add Section
                                 </Button>

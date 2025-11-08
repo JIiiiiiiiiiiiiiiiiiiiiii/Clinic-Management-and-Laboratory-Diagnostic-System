@@ -184,8 +184,8 @@
                             <td>{{ $item['doctor_name'] }}</td>
                             <td>{{ $item['doctor_specialization'] }}</td>
                             <td class="text-right">{{ ucfirst($item['status']) }}</td>
-                            <td class="text-right">PHP {{ number_format($item['incentives'], 2) }}</td>
-                            <td class="text-right">PHP {{ number_format($item['net_payment'], 2) }}</td>
+                            <td class="text-right">₱{{ number_format($item['incentives'], 2) }}</td>
+                            <td class="text-right">₱{{ number_format($item['net_payment'], 2) }}</td>
                             <td class="text-right">{{ \Carbon\Carbon::parse($item['payment_date'])->format('M d, Y') }}</td>
                             <td class="text-right">{{ $item['paid_date'] ? \Carbon\Carbon::parse($item['paid_date'])->format('M d, Y') : 'N/A' }}</td>
                         </tr>

@@ -32,7 +32,7 @@ import {
     VisibilityState,
 } from '@tanstack/react-table';
 import { 
-    Calendar as CalendarIcon, DollarSign, Download, FileText, MoreHorizontal, TrendingUp,
+    Calendar as CalendarIcon, Coins, Download, FileText, MoreHorizontal, TrendingUp,
     ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, FileDown,
     Users
 } from 'lucide-react';
@@ -559,7 +559,7 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
                                                 </p>
                                             </div>
-                                            <DollarSign className="h-8 w-8 text-gray-400" />
+                                            <Coins className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -625,7 +625,7 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
                                                 </p>
                                             </div>
-                                            <DollarSign className="h-8 w-8 text-gray-400" />
+                                            <Coins className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -691,7 +691,7 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
                                                 </p>
                                             </div>
-                                            <DollarSign className="h-8 w-8 text-gray-400" />
+                                            <Coins className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -998,7 +998,7 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                         {(filteredData.transaction_details || []).length === 0 ? (
                             <div className="py-16 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
                                 <div className="text-gray-400 mb-4">
-                                    <DollarSign className="h-12 w-12 mx-auto" />
+                                    <Coins className="h-12 w-12 mx-auto" />
                                 </div>
                                 <p className="text-lg font-semibold text-gray-700 mb-2">No transactions found</p>
                                 <p className="text-gray-500">No financial transactions found for the selected period</p>
