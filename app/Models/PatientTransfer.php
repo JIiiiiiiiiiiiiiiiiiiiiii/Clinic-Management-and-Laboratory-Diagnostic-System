@@ -12,6 +12,7 @@ class PatientTransfer extends Model
 
     protected $fillable = [
         'patient_id',
+        'visit_id',
         'from_hospital',
         'to_clinic',
         'transfer_reason',
@@ -45,6 +46,11 @@ class PatientTransfer extends Model
     public function patient()
     {
         return $this->belongsTo(Patient::class);
+    }
+
+    public function visit()
+    {
+        return $this->belongsTo(Visit::class);
     }
 
     public function transferredBy()

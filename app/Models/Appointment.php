@@ -66,6 +66,11 @@ class Appointment extends Model
         return $this->hasOne(Visit::class, "appointment_id", "id");
     }
 
+    public function visits()
+    {
+        return $this->hasMany(Visit::class, "appointment_id", "id");
+    }
+
     public function billingLinks()
     {
         return $this->hasMany(AppointmentBillingLink::class, "appointment_id", "id");

@@ -422,10 +422,11 @@ class DashboardController extends Controller
                     ->pluck('count', 'appointment_type')
                     ->toArray();
 
-                // Get lab test data for diagnosis correlation
+                // Get lab test data for diagnosis correlation (dynamically fetches all active test templates)
                 $labTestStats = DB::table('lab_orders')
                     ->join('lab_results', 'lab_orders.id', '=', 'lab_results.lab_order_id')
                     ->join('lab_tests', 'lab_results.lab_test_id', '=', 'lab_tests.id')
+                    ->where('lab_tests.is_active', true) // Only active test templates
                     ->select('lab_tests.name', DB::raw('COUNT(*) as count'))
                     ->where('lab_orders.created_at', '>=', now()->subMonths(6))
                     ->groupBy('lab_tests.name')
@@ -470,10 +471,11 @@ class DashboardController extends Controller
                         ->pluck('count', 'appointment_type')
                         ->toArray();
 
-                    // Get lab test data for the month
+                    // Get lab test data for the month (dynamically fetches all active test templates)
                     $labMonthlyStats = DB::table('lab_orders')
                         ->join('lab_results', 'lab_orders.id', '=', 'lab_results.lab_order_id')
                         ->join('lab_tests', 'lab_results.lab_test_id', '=', 'lab_tests.id')
+                        ->where('lab_tests.is_active', true) // Only active test templates
                         ->select('lab_tests.name', DB::raw('COUNT(*) as count'))
                         ->whereBetween('lab_orders.created_at', [$monthStart, $monthEnd])
                         ->groupBy('lab_tests.name')
@@ -529,13 +531,18 @@ class DashboardController extends Controller
             return $monthlyData;
         }
 
+        /**
+         * Get consultation data - dynamically fetches all active lab tests and appointment types
+         * This method automatically detects newly added test templates by staff
+         */
         private function getConsultationData()
         {
             try {
-                // Get real lab test data from lab_orders and lab_results
+                // Dynamically fetch all active lab tests from database (auto-detects new templates)
                 $labTestStats = DB::table('lab_orders')
                     ->join('lab_results', 'lab_orders.id', '=', 'lab_results.lab_order_id')
                     ->join('lab_tests', 'lab_results.lab_test_id', '=', 'lab_tests.id')
+                    ->where('lab_tests.is_active', true) // Only active test templates
                     ->select('lab_tests.name', DB::raw('COUNT(*) as count'))
                     ->where('lab_orders.created_at', '>=', now()->subMonths(3))
                     ->groupBy('lab_tests.name')
@@ -552,6 +559,7 @@ class DashboardController extends Controller
                 $appointmentStats = DB::table('appointments')
                     ->select('appointment_type', DB::raw('COUNT(*) as count'))
                     ->where('created_at', '>=', now()->subMonths(3))
+                    ->whereNotNull('appointment_type')
                     ->groupBy('appointment_type')
                     ->get()
                     ->pluck('count', 'appointment_type')
@@ -561,47 +569,114 @@ class DashboardController extends Controller
                 $appointmentStats = [];
             }
 
-            // Create meaningful consultation data from real database
-            $consultationTypes = [
-                'Blood Tests' => $labTestStats['Complete Blood Count'] ?? $labTestStats['CBC'] ?? $labTestStats['Blood Test'] ?? 0,
-                'Urinalysis' => $labTestStats['Urinalysis'] ?? $labTestStats['Urine Test'] ?? 0,
-                'X-Ray' => $labTestStats['Chest X-Ray'] ?? $labTestStats['X-Ray'] ?? $labTestStats['Chest X-Ray'] ?? 0,
-                'ECG' => $labTestStats['ECG'] ?? $labTestStats['Electrocardiogram'] ?? $labTestStats['Heart Test'] ?? 0,
-                'Consultation' => $appointmentStats['general_consultation'] ?? $appointmentStats['consultation'] ?? $appointmentStats['General Consultation'] ?? 0,
-                'Follow-up' => $appointmentStats['follow_up'] ?? $appointmentStats['follow-up'] ?? $appointmentStats['Follow Up'] ?? 0,
-            ];
+            // Dynamically build consultation data from actual database results
+            // This automatically includes all active lab tests, not just hardcoded ones
+            $consultationTypes = [];
+            
+            // Add all lab tests dynamically (auto-detects newly added templates)
+            foreach ($labTestStats as $testName => $count) {
+                $consultationTypes[$testName] = $count;
+            }
+            
+            // Add appointment types
+            foreach ($appointmentStats as $appointmentType => $count) {
+                $formattedType = ucfirst(str_replace('_', ' ', $appointmentType));
+                $consultationTypes[$formattedType] = $count;
+            }
 
             return $consultationTypes;
         }
 
         private function getPatientDemographics()
         {
-            // Get patient age groups
-            $ageGroups = [
-                '0-17' => Patient::whereBetween('age', [0, 17])->count(),
-                '18-30' => Patient::whereBetween('age', [18, 30])->count(),
-                '31-50' => Patient::whereBetween('age', [31, 50])->count(),
-                '51-65' => Patient::whereBetween('age', [51, 65])->count(),
-                '65+' => Patient::where('age', '>', 65)->count(),
+            $totalPatients = Patient::count();
+            
+            // Get patient age groups with enhanced data
+            $ageGroupsData = [
+                ['min' => 0, 'max' => 17, 'name' => '0-17'],
+                ['min' => 18, 'max' => 30, 'name' => '18-30'],
+                ['min' => 31, 'max' => 50, 'name' => '31-50'],
+                ['min' => 51, 'max' => 65, 'name' => '51-65'],
+                ['min' => 66, 'max' => 999, 'name' => '65+'],
+            ];
+            
+            $ageGroupsChart = [];
+            foreach ($ageGroupsData as $group) {
+                $count = Patient::whereBetween('age', [$group['min'], $group['max']])->count();
+                $percentage = $totalPatients > 0 ? round(($count / $totalPatients) * 100, 1) : 0;
+                
+                // Get this month's registrations for this age group
+                $thisMonth = Patient::whereBetween('age', [$group['min'], $group['max']])
+                    ->whereMonth('created_at', now()->month)
+                    ->whereYear('created_at', now()->year)
+                    ->count();
+                
+                $ageGroupsChart[] = [
+                    'name' => $group['name'],
+                    'value' => $count,
+                    'percentage' => $percentage,
+                    'thisMonth' => $thisMonth,
+                ];
+            }
+
+            // Get patient gender distribution with enhanced data
+            $maleCount = Patient::where('sex', 'Male')->count();
+            $femaleCount = Patient::where('sex', 'Female')->count();
+            $totalGender = $maleCount + $femaleCount;
+            
+            $malePercentage = $totalGender > 0 ? round(($maleCount / $totalGender) * 100, 1) : 0;
+            $femalePercentage = $totalGender > 0 ? round(($femaleCount / $totalGender) * 100, 1) : 0;
+            
+            // Get this month's registrations by gender
+            $maleThisMonth = Patient::where('sex', 'Male')
+                ->whereMonth('created_at', now()->month)
+                ->whereYear('created_at', now()->year)
+                ->count();
+            $femaleThisMonth = Patient::where('sex', 'Female')
+                ->whereMonth('created_at', now()->month)
+                ->whereYear('created_at', now()->year)
+                ->count();
+            
+            $genderDistributionChart = [
+                [
+                    'name' => 'Male',
+                    'value' => $maleCount,
+                    'percentage' => $malePercentage,
+                    'thisMonth' => $maleThisMonth,
+                ],
+                [
+                    'name' => 'Female',
+                    'value' => $femaleCount,
+                    'percentage' => $femalePercentage,
+                    'thisMonth' => $femaleThisMonth,
+                ],
             ];
 
-            // Get patient gender distribution
-            $genderDistribution = [
-                'Male' => Patient::where('sex', 'Male')->count(),
-                'Female' => Patient::where('sex', 'Female')->count(),
-            ];
-
-            // Get patient status distribution
+            // Get patient status distribution (for backward compatibility)
             $statusDistribution = [
                 'Active' => Patient::where('status', 'Active')->count(),
                 'Inactive' => Patient::where('status', 'Inactive')->count(),
                 'Discharged' => Patient::where('status', 'Discharged')->count(),
             ];
 
+            // Backward compatibility format
+            $ageGroups = array_combine(
+                array_column($ageGroupsChart, 'name'),
+                array_column($ageGroupsChart, 'value')
+            );
+            
+            $genderDistribution = [
+                'Male' => $maleCount,
+                'Female' => $femaleCount,
+            ];
+
             return [
                 'ageGroups' => $ageGroups,
                 'genderDistribution' => $genderDistribution,
                 'statusDistribution' => $statusDistribution,
+                'ageGroupsChart' => $ageGroupsChart,
+                'genderDistributionChart' => $genderDistributionChart,
+                'totalPatients' => $totalPatients,
             ];
         }
 
@@ -644,12 +719,32 @@ class DashboardController extends Controller
      */
     private function getAnalyticsData()
     {
+        $demographics = $this->getPatientDemographics();
+        
+        $appointmentTypes = $this->getAppointmentTypesDistribution();
+        $labTests = $this->getLabTestPerformance();
+        $appointmentSources = $this->getAppointmentSourceDistribution();
+        
         return [
             'patient_registration_trend' => $this->getPatientRegistrationTrend(),
             'appointments_summary' => $this->getAppointmentsSummary(),
             'laboratory_activity' => $this->getLaboratoryActivity(),
             'inventory_status' => $this->getInventoryStatus(),
-            'income_overview' => $this->getIncomeOverview()
+            'income_overview' => $this->getIncomeOverview(),
+            'revenue_trends' => $this->getRevenueTrends(),
+            'appointment_types_distribution' => $appointmentTypes['data'] ?? [],
+            'appointment_types_total' => $appointmentTypes['total'] ?? 0,
+            'visit_status_trends' => $this->getVisitStatusTrends(),
+            'patient_demographics' => $demographics,
+            'patient_age_groups' => $demographics['ageGroupsChart'] ?? [],
+            'patient_gender_distribution' => $demographics['genderDistributionChart'] ?? [],
+            'patient_total' => $demographics['totalPatients'] ?? 0,
+            'lab_test_performance' => $labTests['data'] ?? [],
+            'lab_test_total' => $labTests['total'] ?? 0,
+            'appointment_source_distribution' => $appointmentSources['data'] ?? [],
+            'appointment_source_total' => $appointmentSources['total'] ?? 0,
+            'monthly_appointments_trend' => $this->getMonthlyAppointmentsTrend(),
+            'inventory_transaction_trends' => $this->getInventoryTransactionTrends(),
         ];
     }
 
@@ -659,10 +754,18 @@ class DashboardController extends Controller
     private function getMiniTables()
     {
         return [
-            'recent_patients' => Patient::with('user')
-                ->orderByDesc('created_at')
+            'recent_patients' => Patient::orderByDesc('created_at')
                 ->limit(5)
-                ->get(['id', 'first_name', 'last_name', 'created_at', 'user_id']),
+                ->get(['id', 'first_name', 'last_name', 'created_at', 'user_id'])
+                ->map(function ($patient) {
+                    return [
+                        'id' => $patient->id,
+                        'first_name' => $patient->first_name,
+                        'last_name' => $patient->last_name,
+                        'created_at' => $patient->created_at,
+                        'user_id' => $patient->user_id,
+                    ];
+                }),
             'recent_appointments' => Appointment::with(['patient', 'specialist'])
                 ->orderByDesc('appointment_date')
                 ->limit(5)
@@ -699,7 +802,7 @@ class DashboardController extends Controller
     }
 
     /**
-     * Get patient registration trend data
+     * Get patient registration trend data with male and female breakdown
      */
     private function getPatientRegistrationTrend()
     {
@@ -708,11 +811,24 @@ class DashboardController extends Controller
         
         for ($i = 11; $i >= 0; $i--) {
             $month = $currentDate->copy()->subMonths($i);
+            $monthStart = $month->copy()->startOfMonth();
+            $monthEnd = $month->copy()->endOfMonth();
+            
+            $maleCount = Patient::whereYear('created_at', $month->year)
+                ->whereMonth('created_at', $month->month)
+                ->where('sex', 'male')
+                ->count();
+            
+            $femaleCount = Patient::whereYear('created_at', $month->year)
+                ->whereMonth('created_at', $month->month)
+                ->where('sex', 'female')
+                ->count();
+            
             $months[] = [
                 'month' => $month->format('M Y'),
-                'patients' => Patient::whereYear('created_at', $month->year)
-                    ->whereMonth('created_at', $month->month)
-                    ->count()
+                'patients' => $maleCount + $femaleCount, // Keep total for backward compatibility
+                'male' => $maleCount,
+                'female' => $femaleCount,
             ];
         }
         
@@ -759,6 +875,50 @@ class DashboardController extends Controller
                     'value' => $item->stock * $item->unit_cost
                 ];
             });
+    }
+
+    /**
+     * Get inventory transaction trends (In vs Out) for the last 6 months
+     */
+    private function getInventoryTransactionTrends()
+    {
+        try {
+            // Check if inventory_movements table exists
+            if (!\Schema::hasTable('inventory_movements')) {
+                return [];
+            }
+
+            $months = [];
+            $currentDate = now();
+            
+            for ($i = 5; $i >= 0; $i--) {
+                $month = $currentDate->copy()->subMonths($i);
+                $monthStart = $month->copy()->startOfMonth();
+                $monthEnd = $month->copy()->endOfMonth();
+                
+                // Count movements by type using InventoryMovement model
+                $inCount = \App\Models\InventoryMovement::whereBetween('created_at', [$monthStart, $monthEnd])
+                    ->where('movement_type', 'IN')
+                    ->count();
+                
+                $outCount = \App\Models\InventoryMovement::whereBetween('created_at', [$monthStart, $monthEnd])
+                    ->where('movement_type', 'OUT')
+                    ->count();
+                
+                $months[] = [
+                    'month' => $month->format('M Y'),
+                    'in' => $inCount,
+                    'out' => $outCount,
+                ];
+            }
+            
+            return $months;
+        } catch (\Exception $e) {
+            \Log::error('Error fetching inventory transaction trends: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return [];
+        }
     }
 
     /**
@@ -813,5 +973,306 @@ class DashboardController extends Controller
                 return 0;
             }
         }
+    }
+
+    /**
+     * Get revenue trends for the last 6 months
+     */
+    private function getRevenueTrends()
+    {
+        $months = [];
+        $currentDate = now();
+        
+        $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+            ? 'transaction_date' 
+            : 'created_at';
+        
+        for ($i = 5; $i >= 0; $i--) {
+            $month = $currentDate->copy()->subMonths($i);
+            $monthStart = $month->copy()->startOfMonth();
+            $monthEnd = $month->copy()->endOfMonth();
+            
+            $revenue = $this->sumBillingAmount(
+                \App\Models\BillingTransaction::where('status', 'paid')
+                    ->whereBetween($dateColumn, [$monthStart, $monthEnd])
+            );
+            
+            $months[] = [
+                'month' => $month->format('M'),
+                'revenue' => round($revenue, 2),
+            ];
+        }
+        
+        return $months;
+    }
+
+    /**
+     * Get appointment types distribution with enhanced data
+     */
+    private function getAppointmentTypesDistribution()
+    {
+        $total = Appointment::whereNotNull('appointment_type')->count();
+        
+        $types = Appointment::select('appointment_type', DB::raw('COUNT(*) as count'))
+            ->whereNotNull('appointment_type')
+            ->groupBy('appointment_type')
+            ->get()
+            ->map(function ($item) use ($total) {
+                $percentage = $total > 0 ? round(($item->count / $total) * 100, 1) : 0;
+                
+                // Get average price for this appointment type
+                $avgPrice = Appointment::where('appointment_type', $item->appointment_type)
+                    ->whereNotNull('price')
+                    ->avg('price') ?? 0;
+                
+                // Get this month's count
+                $thisMonth = Appointment::where('appointment_type', $item->appointment_type)
+                    ->whereMonth('created_at', now()->month)
+                    ->whereYear('created_at', now()->year)
+                    ->count();
+                
+                // Get last month's count
+                $lastMonth = Appointment::where('appointment_type', $item->appointment_type)
+                    ->whereMonth('created_at', now()->subMonth()->month)
+                    ->whereYear('created_at', now()->subMonth()->year)
+                    ->count();
+                
+                $trend = $lastMonth > 0 ? round((($thisMonth - $lastMonth) / $lastMonth) * 100, 1) : ($thisMonth > 0 ? 100 : 0);
+                
+                return [
+                    'name' => ucfirst(str_replace('_', ' ', $item->appointment_type)),
+                    'value' => $item->count,
+                    'percentage' => $percentage,
+                    'avgPrice' => round($avgPrice, 2),
+                    'thisMonth' => $thisMonth,
+                    'lastMonth' => $lastMonth,
+                    'trend' => $trend,
+                ];
+            })
+            ->sortByDesc('value')
+            ->values()
+            ->toArray();
+        
+        return [
+            'data' => $types,
+            'total' => $total,
+        ];
+    }
+
+    /**
+     * Get visit status trends for the last 6 months
+     */
+    private function getVisitStatusTrends()
+    {
+        $months = [];
+        $currentDate = now();
+        
+        for ($i = 5; $i >= 0; $i--) {
+            $month = $currentDate->copy()->subMonths($i);
+            $monthStart = $month->copy()->startOfMonth();
+            $monthEnd = $month->copy()->endOfMonth();
+            
+            $visits = \App\Models\Visit::whereBetween('created_at', [$monthStart, $monthEnd])
+                ->select('status', DB::raw('COUNT(*) as count'))
+                ->groupBy('status')
+                ->get()
+                ->pluck('count', 'status')
+                ->toArray();
+            
+            $months[] = [
+                'month' => $month->format('M'),
+                'scheduled' => $visits['scheduled'] ?? 0,
+                'in_progress' => $visits['in_progress'] ?? 0,
+                'completed' => $visits['completed'] ?? 0,
+                'cancelled' => $visits['cancelled'] ?? 0,
+            ];
+        }
+        
+        return $months;
+    }
+
+
+    /**
+     * Get lab test performance (most requested tests) with enhanced data
+     * Dynamically fetches all active test templates from the database
+     */
+    private function getLabTestPerformance()
+    {
+        try {
+            // Get all active lab tests from the database (dynamically detects newly added templates)
+            $activeTests = DB::table('lab_tests')
+                ->where('is_active', true)
+                ->select('id', 'name', 'code')
+                ->get();
+            
+            if ($activeTests->isEmpty()) {
+                return ['data' => [], 'total' => 0];
+            }
+            
+            // Calculate total tests performed in the last 6 months
+            $totalTests = DB::table('lab_orders')
+                ->join('lab_results', 'lab_orders.id', '=', 'lab_results.lab_order_id')
+                ->where('lab_orders.created_at', '>=', now()->subMonths(6))
+                ->whereIn('lab_results.lab_test_id', $activeTests->pluck('id'))
+                ->count();
+            
+            // Get performance data for each active test template
+            $tests = $activeTests->map(function ($test) use ($totalTests) {
+                // Count total requests for this test in the last 6 months
+                $count = DB::table('lab_orders')
+                    ->join('lab_results', 'lab_orders.id', '=', 'lab_results.lab_order_id')
+                    ->where('lab_results.lab_test_id', $test->id)
+                    ->where('lab_orders.created_at', '>=', now()->subMonths(6))
+                    ->count();
+                
+                $percentage = $totalTests > 0 ? round(($count / $totalTests) * 100, 1) : 0;
+                
+                // Get this month's count
+                $thisMonth = DB::table('lab_orders')
+                    ->join('lab_results', 'lab_orders.id', '=', 'lab_results.lab_order_id')
+                    ->where('lab_results.lab_test_id', $test->id)
+                    ->whereMonth('lab_orders.created_at', now()->month)
+                    ->whereYear('lab_orders.created_at', now()->year)
+                    ->count();
+                
+                // Get last month's count
+                $lastMonth = DB::table('lab_orders')
+                    ->join('lab_results', 'lab_orders.id', '=', 'lab_results.lab_order_id')
+                    ->where('lab_results.lab_test_id', $test->id)
+                    ->whereMonth('lab_orders.created_at', now()->subMonth()->month)
+                    ->whereYear('lab_orders.created_at', now()->subMonth()->year)
+                    ->count();
+                
+                $trend = $lastMonth > 0 ? round((($thisMonth - $lastMonth) / $lastMonth) * 100, 1) : ($thisMonth > 0 ? 100 : 0);
+                
+                return [
+                    'id' => $test->id,
+                    'name' => $test->name,
+                    'code' => $test->code,
+                    'count' => $count,
+                    'percentage' => $percentage,
+                    'thisMonth' => $thisMonth,
+                    'lastMonth' => $lastMonth,
+                    'trend' => $trend,
+                ];
+            })
+            ->filter(function ($test) {
+                // Only include tests that have been requested at least once
+                return $test['count'] > 0;
+            })
+            ->sortByDesc('count')
+            ->values()
+            ->take(15) // Show top 15 most requested tests (increased from 10 to show more)
+            ->toArray();
+            
+            return [
+                'data' => $tests,
+                'total' => $totalTests,
+                'totalActiveTests' => $activeTests->count(),
+            ];
+        } catch (\Exception $e) {
+            \Log::error('Error fetching lab test performance: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return ['data' => [], 'total' => 0, 'totalActiveTests' => 0];
+        }
+    }
+
+    /**
+     * Get appointment source distribution (Online vs Walk-in) with enhanced data
+     */
+    private function getAppointmentSourceDistribution()
+    {
+        $sources = Appointment::select('source', DB::raw('COUNT(*) as count'))
+            ->whereNotNull('source')
+            ->groupBy('source')
+            ->get();
+        
+        // If no source data, try appointment_source column
+        if ($sources->isEmpty()) {
+            $sources = Appointment::select('appointment_source as source', DB::raw('COUNT(*) as count'))
+                ->whereNotNull('appointment_source')
+                ->groupBy('appointment_source')
+                ->get();
+        }
+        
+        $total = $sources->sum('count');
+        
+        $sourcesData = $sources->map(function ($item) use ($total) {
+            $percentage = $total > 0 ? round(($item->count / $total) * 100, 1) : 0;
+            $sourceName = ucfirst(str_replace(['_', '-'], ' ', $item->source));
+            
+            // Get this month's count
+            $thisMonth = Appointment::where('source', $item->source)
+                ->orWhere('appointment_source', $item->source)
+                ->whereMonth('created_at', now()->month)
+                ->whereYear('created_at', now()->year)
+                ->count();
+            
+            // Get last month's count
+            $lastMonth = Appointment::where('source', $item->source)
+                ->orWhere('appointment_source', $item->source)
+                ->whereMonth('created_at', now()->subMonth()->month)
+                ->whereYear('created_at', now()->subMonth()->year)
+                ->count();
+            
+            $trend = $lastMonth > 0 ? round((($thisMonth - $lastMonth) / $lastMonth) * 100, 1) : ($thisMonth > 0 ? 100 : 0);
+            
+            // Get average revenue per appointment for this source
+            $avgRevenue = Appointment::where(function($q) use ($item) {
+                    $q->where('source', $item->source)
+                      ->orWhere('appointment_source', $item->source);
+                })
+                ->whereNotNull('price')
+                ->avg('price') ?? 0;
+            
+            return [
+                'name' => $sourceName,
+                'value' => $item->count,
+                'percentage' => $percentage,
+                'thisMonth' => $thisMonth,
+                'lastMonth' => $lastMonth,
+                'trend' => $trend,
+                'avgRevenue' => round($avgRevenue, 2),
+            ];
+        })->toArray();
+        
+        return [
+            'data' => $sourcesData,
+            'total' => $total,
+        ];
+    }
+
+    /**
+     * Get monthly appointments trend
+     */
+    private function getMonthlyAppointmentsTrend()
+    {
+        $months = [];
+        $currentDate = now();
+        
+        for ($i = 5; $i >= 0; $i--) {
+            $month = $currentDate->copy()->subMonths($i);
+            $monthStart = $month->copy()->startOfMonth();
+            $monthEnd = $month->copy()->endOfMonth();
+            
+            $total = Appointment::whereBetween('created_at', [$monthStart, $monthEnd])->count();
+            $completed = Appointment::whereBetween('created_at', [$monthStart, $monthEnd])
+                ->where('status', 'completed')->count();
+            $pending = Appointment::whereBetween('created_at', [$monthStart, $monthEnd])
+                ->where('status', 'pending')->count();
+            $confirmed = Appointment::whereBetween('created_at', [$monthStart, $monthEnd])
+                ->where('status', 'confirmed')->count();
+            
+            $months[] = [
+                'month' => $month->format('M'),
+                'total' => $total,
+                'completed' => $completed,
+                'pending' => $pending,
+                'confirmed' => $confirmed,
+            ];
+        }
+        
+        return $months;
     }
 }

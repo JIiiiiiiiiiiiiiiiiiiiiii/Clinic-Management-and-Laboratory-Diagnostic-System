@@ -184,6 +184,40 @@ class HospitalPatientController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
 
+        // Validate: Patient must have existing visit records (consultation/appointment records)
+        // This ensures the patient has been seen/consulted before
+        $hasVisits = $patient->visits()
+            ->whereNotNull('appointment_id')
+            ->exists();
+        
+        if (!$hasVisits) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'transfer_reason' => 'This patient has no visit records. A patient must have at least one consultation/visit record before they can be transferred.'
+                ])
+                ->with('error', 'Patient must have existing visit records before transfer.');
+        }
+
+        // Validate: Patient must have been consulted by a doctor (attending physician)
+        // Check if patient has visits linked to appointments with specialist_type = 'doctor' or 'Doctor'
+        // The visit must have an appointment_id (existing appointment record)
+        $hasDoctorConsultation = $patient->visits()
+            ->whereNotNull('appointment_id')
+            ->whereHas('appointment', function ($query) {
+                $query->whereIn('specialist_type', ['doctor', 'Doctor']);
+            })
+            ->exists();
+
+        if (!$hasDoctorConsultation) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'transfer_reason' => 'This patient has not been consulted by an attending physician (doctor). A patient must be consulted by a doctor before they can be transferred.'
+                ])
+                ->with('error', 'Patient must be consulted by an attending physician before transfer.');
+        }
+
         $transfer = PatientTransfer::create([
             'patient_id' => $patient->id,
             'from_hospital' => true,

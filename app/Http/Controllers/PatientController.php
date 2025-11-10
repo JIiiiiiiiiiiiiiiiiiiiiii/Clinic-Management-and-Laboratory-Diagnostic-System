@@ -172,37 +172,14 @@ class PatientController extends Controller
             // Validate the request data
             $validated = $request->validated();
 
-            // Instead of creating patient directly, create a transfer record
-            $user = auth()->user();
-            
-            // Determine registration type based on user role for cross-approval system
-            // Hospital users create hospital registrations (for admin approval)
-            // Admin users create admin registrations (for hospital approval)
-            $registrationType = in_array($user->role, ['hospital_admin', 'hospital_staff']) ? 'hospital' : 'admin';
-            
-            $transfer = \App\Models\PatientTransfer::create([
-                'patient_id' => null, // Will be set when approved
-                'patient_data' => $validated,
-                'registration_type' => $registrationType,
-                'approval_status' => 'pending',
-                'requested_by' => $user->id,
-                'transfer_reason' => $registrationType === 'hospital' ? 'Hospital patient registration request' : 'Admin patient registration request',
-                'priority' => 'medium',
-                'status' => 'pending',
-                'transferred_by' => $user->id,
-                'transfer_date' => now(),
-            ]);
+            // Create patient directly using PatientService
+            $patient = $patientService->createPatient($validated);
 
-            // Create history record
-            $historyMessage = $registrationType === 'hospital' ? 'Hospital patient registration request created' : 'Admin patient registration request created';
-            $transfer->createHistoryRecord('created', $user->id, $historyMessage);
-
-            $approvalMessage = $registrationType === 'hospital' ? 'Waiting for admin approval.' : 'Waiting for hospital approval.';
-            return redirect()->route('admin.patient.transfer.registrations.index')
-                ->with('success', 'Patient registration request submitted successfully. ' . $approvalMessage);
+            return redirect()->route('admin.patient.show', $patient)
+                ->with('success', 'Patient created successfully.');
         } catch (\Throwable $e) {
             return back()
-                ->with('error', 'Failed to create patient registration request: '.($e->getMessage()))
+                ->with('error', 'Failed to create patient: '.($e->getMessage()))
                 ->withInput();
         }
     }

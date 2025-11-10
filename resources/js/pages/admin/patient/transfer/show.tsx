@@ -29,6 +29,21 @@ interface PatientTransfer {
         last_name: string;
         patient_no: string;
     };
+    visit?: {
+        id: number;
+        visit_code: string;
+        visit_date_time: string;
+        appointment?: {
+            appointment_date: string;
+            appointment_time: string;
+            specialist?: {
+                name: string;
+            };
+        };
+        reason_for_consult?: string;
+        assessment_diagnosis?: string;
+        plan_management?: string;
+    };
     transfer_reason: string;
     priority: 'low' | 'medium' | 'high' | 'urgent';
     status: 'pending' | 'completed' | 'cancelled';
@@ -80,21 +95,20 @@ export default function PatientTransferShow({ transfer }: Props) {
     });
 
     const breadcrumbs: BreadcrumbItem[] = [
-        { label: 'Dashboard', href: '/admin/dashboard' },
-        { label: 'Patient Management', href: '/admin/patient' },
-        { label: 'Patient Transfers', href: '/admin/patient-transfers' },
-        { label: `Transfer #${transfer.id}`, href: `/admin/patient-transfers/${transfer.id}` },
+        { title: 'Patient Management', href: '/admin/patient' },
+        { title: 'Patient Transfer', href: '/admin/patient-transfers/transfers' },
+        { title: `Transfer #${transfer.id}`, href: `/admin/patient-transfers/transfers/${transfer.id}` },
     ];
 
     const handleUpdate = (e: React.FormEvent) => {
         e.preventDefault();
-        put(`/admin/patient-transfers/${transfer.id}`, {
+        put(`/admin/patient-transfers/transfers/${transfer.id}`, {
             onSuccess: () => setIsEditing(false),
         });
     };
 
     const handleDelete = () => {
-        destroy(`/admin/patient-transfers/${transfer.id}`, {
+        destroy(`/admin/patient-transfers/transfers/${transfer.id}`, {
             onSuccess: () => {
                 // Redirect will be handled by the controller
             },
@@ -102,11 +116,11 @@ export default function PatientTransferShow({ transfer }: Props) {
     };
 
     const handleComplete = () => {
-        put(`/admin/patient-transfers/${transfer.id}/complete`);
+        post(`/admin/patient-transfers/transfers/${transfer.id}/complete`);
     };
 
     const handleCancel = () => {
-        put(`/admin/patient-transfers/${transfer.id}/cancel`);
+        post(`/admin/patient-transfers/transfers/${transfer.id}/cancel`);
     };
 
     const StatusIcon = statusIcons[transfer.status];
@@ -120,7 +134,7 @@ export default function PatientTransferShow({ transfer }: Props) {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Link
-                            href="/admin/patient-transfers"
+                            href="/admin/patient-transfers/transfers"
                             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
                         >
                             <ArrowLeft className="w-4 h-4" />
@@ -293,6 +307,67 @@ export default function PatientTransferShow({ transfer }: Props) {
                                 </div>
                             </CardContent>
                         </Card>
+
+                        {/* Consultation/Visit Information */}
+                        {transfer.visit && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <FileText className="w-5 h-5" />
+                                        Consultation/Visit Information
+                                    </CardTitle>
+                                    <CardDescription>
+                                        The visit/consultation that led to this transfer decision
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div>
+                                        <label className="text-sm font-medium text-gray-500">Visit Code</label>
+                                        <p className="text-gray-900">{transfer.visit.visit_code}</p>
+                                    </div>
+                                    {transfer.visit.appointment && (
+                                        <>
+                                            <div>
+                                                <label className="text-sm font-medium text-gray-500">Appointment Date</label>
+                                                <p className="text-gray-900">
+                                                    {new Date(transfer.visit.appointment.appointment_date).toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                            {transfer.visit.appointment.appointment_time && (
+                                                <div>
+                                                    <label className="text-sm font-medium text-gray-500">Appointment Time</label>
+                                                    <p className="text-gray-900">{transfer.visit.appointment.appointment_time}</p>
+                                                </div>
+                                            )}
+                                            {transfer.visit.appointment.specialist && (
+                                                <div>
+                                                    <label className="text-sm font-medium text-gray-500">Attending Physician</label>
+                                                    <p className="text-gray-900">{transfer.visit.appointment.specialist.name}</p>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                    {transfer.visit.reason_for_consult && (
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-500">Reason for Consultation</label>
+                                            <p className="text-gray-900">{transfer.visit.reason_for_consult}</p>
+                                        </div>
+                                    )}
+                                    {transfer.visit.assessment_diagnosis && (
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-500">Assessment/Diagnosis</label>
+                                            <p className="text-gray-900">{transfer.visit.assessment_diagnosis}</p>
+                                        </div>
+                                    )}
+                                    {transfer.visit.plan_management && (
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-500">Plan/Management</label>
+                                            <p className="text-gray-900">{transfer.visit.plan_management}</p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
 
                         {/* Transfer Details */}
                         <Card>

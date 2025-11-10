@@ -188,28 +188,27 @@ class VisitController extends Controller
 
     public function show(Visit $visit)
     {
-        $visit->load(['patient', 'doctor', 'nurse', 'medtech', 'appointment']);
+        $visit->load(['patient', 'attendingStaff', 'appointment']);
 
         // Transform visit data for frontend compatibility
-        $visit->id = $visit->visit_id;
+        $visit->id = $visit->id ?? $visit->visit_id;
         
-        // Map doctor/medtech to staff
-        if ($visit->doctor) {
-            $visit->staff = $visit->doctor;
-        } elseif ($visit->medtech) {
-            $visit->staff = $visit->medtech;
-        } elseif ($visit->nurse) {
-            $visit->staff = $visit->nurse;
+        // Map attending staff
+        if ($visit->attendingStaff) {
+            $visit->staff = $visit->attendingStaff;
         }
         
-        // Add visit_type based on purpose (since visit_type column doesn't exist)
-        $visit->visit_type = 'initial'; // Default to initial
+        // Add visit_type if not set
+        if (!$visit->visit_type) {
+            $visit->visit_type = 'initial'; // Default to initial
+        }
         
         // Ensure visit_date is properly set for frontend
         $visit->visit_date = $visit->visit_date_time_time ?? $visit->visit_date_time ?? $visit->created_at;
 
         return Inertia::render('admin/visits/show', [
-            'visit' => $visit
+            'visit' => $visit,
+            'patient' => $visit->patient // Pass full patient data for display
         ]);
     }
 
@@ -217,13 +216,65 @@ class VisitController extends Controller
     {
         $visit->load(['patient', 'attendingStaff', 'appointment']);
 
-        // Get staff for dropdown
-        $staff = \App\Models\User::whereIn('role', ['doctor', 'admin', 'nurse'])
+        // Get staff for dropdown (doctors only for attending physician)
+        $staff = \App\Models\User::whereIn('role', ['doctor', 'admin'])
             ->orderBy('name')
             ->get(['id', 'name', 'role']);
 
-        return Inertia::render('admin/visits/edit', [
-            'visit' => $visit,
+        // Helper function to format time fields (handle both string and datetime)
+        $formatTime = function($time) {
+            if (!$time) return null;
+            if (is_string($time)) {
+                // If it's already a string, extract HH:mm format
+                if (preg_match('/(\d{2}):(\d{2})/', $time, $matches)) {
+                    return $matches[1] . ':' . $matches[2];
+                }
+                return $time;
+            }
+            if ($time instanceof \DateTime || $time instanceof \Carbon\Carbon) {
+                return $time->format('H:i');
+            }
+            return $time;
+        };
+
+        // Format visit data to ensure all fields are properly passed
+        $visitData = [
+            'id' => $visit->id,
+            'visit_date_time_time' => $visit->visit_date_time_time ? $visit->visit_date_time_time->format('Y-m-d\TH:i:s') : null,
+            'purpose' => $visit->purpose,
+            'notes' => $visit->notes,
+            'status' => $visit->status,
+            'visit_type' => $visit->visit_type,
+            // Clinical fields - ensure they're properly formatted
+            'arrival_date' => $visit->arrival_date ? ($visit->arrival_date instanceof \DateTime || $visit->arrival_date instanceof \Carbon\Carbon ? $visit->arrival_date->format('Y-m-d') : $visit->arrival_date) : null,
+            'arrival_time' => $formatTime($visit->arrival_time),
+            'mode_of_arrival' => $visit->mode_of_arrival,
+            'blood_pressure' => $visit->blood_pressure,
+            'heart_rate' => $visit->heart_rate,
+            'respiratory_rate' => $visit->respiratory_rate,
+            'temperature' => $visit->temperature,
+            'weight_kg' => $visit->weight_kg,
+            'height_cm' => $visit->height_cm,
+            'pain_assessment_scale' => $visit->pain_assessment_scale,
+            'oxygen_saturation' => $visit->oxygen_saturation,
+            'reason_for_consult' => $visit->reason_for_consult,
+            'time_seen' => $formatTime($visit->time_seen),
+            'history_of_present_illness' => $visit->history_of_present_illness,
+            'pertinent_physical_findings' => $visit->pertinent_physical_findings,
+            'assessment_diagnosis' => $visit->assessment_diagnosis,
+            'plan_management' => $visit->plan_management,
+            'transfer_required' => $visit->transfer_required ?? false,
+            'transfer_reason_notes' => $visit->transfer_reason_notes,
+            'attending_staff' => $visit->attendingStaff ? [
+                'id' => $visit->attendingStaff->id,
+                'name' => $visit->attendingStaff->name,
+                'role' => $visit->attendingStaff->role,
+            ] : null,
+        ];
+
+        return Inertia::render('admin/visits/edit-consultation', [
+            'visit' => $visitData,
+            'patient' => $visit->patient, // Pass full patient data for read-only display
             'staff' => $staff,
             'status_options' => [
                 'scheduled' => 'Scheduled',
@@ -237,9 +288,39 @@ class VisitController extends Controller
     public function update(Request $request, Visit $visit)
     {
         $validator = Validator::make($request->all(), [
-            'visit_date' => 'required|date',
-            'purpose' => 'required|string|max:255',
-            'doctor_id' => 'required|exists:users,id',
+            // Arrival Information
+            'arrival_date' => 'nullable|date',
+            'arrival_time' => 'nullable|date_format:H:i',
+            'mode_of_arrival' => 'nullable|string|max:100',
+            
+            // Attending Physician
+            'attending_staff_id' => 'required|exists:users,id',
+            
+            // Vital Signs
+            'blood_pressure' => 'nullable|string|max:20',
+            'heart_rate' => 'nullable|string|max:20',
+            'respiratory_rate' => 'nullable|string|max:20',
+            'temperature' => 'nullable|string|max:20',
+            'weight_kg' => 'nullable|numeric|min:0|max:500',
+            'height_cm' => 'nullable|numeric|min:0|max:300',
+            'pain_assessment_scale' => 'nullable|string|max:20',
+            'oxygen_saturation' => 'nullable|string|max:20',
+            
+            // Clinical Information
+            'reason_for_consult' => 'nullable|string',
+            'time_seen' => 'nullable|date_format:H:i',
+            'history_of_present_illness' => 'nullable|string',
+            'pertinent_physical_findings' => 'nullable|string',
+            'assessment_diagnosis' => 'nullable|string',
+            'plan_management' => 'nullable|string',
+            
+            // Transfer Information
+            'transfer_required' => 'nullable|boolean',
+            'transfer_reason_notes' => 'nullable|string|required_if:transfer_required,1',
+            
+            // Basic Visit Info
+            'visit_date_time_time' => 'nullable|date',
+            'purpose' => 'nullable|string|max:255',
             'status' => 'required|in:scheduled,in_progress,completed,cancelled',
             'notes' => 'nullable|string',
         ]);
@@ -249,16 +330,91 @@ class VisitController extends Controller
         }
 
         try {
-            $visit->update([
-                'visit_date_time_time' => $request->visit_date,
-                'purpose' => $request->purpose,
-                'attending_staff_id' => $request->doctor_id,
+            $updateData = [
+                'attending_staff_id' => $request->attending_staff_id,
                 'status' => $request->status,
-                'notes' => $request->notes,
-            ]);
+            ];
+            
+            // Arrival Information
+            if ($request->filled('arrival_date')) {
+                $updateData['arrival_date'] = $request->arrival_date;
+            }
+            if ($request->filled('arrival_time')) {
+                $updateData['arrival_time'] = $request->arrival_time;
+            }
+            if ($request->filled('mode_of_arrival')) {
+                $updateData['mode_of_arrival'] = $request->mode_of_arrival;
+            }
+            
+            // Vital Signs
+            if ($request->filled('blood_pressure')) {
+                $updateData['blood_pressure'] = $request->blood_pressure;
+            }
+            if ($request->filled('heart_rate')) {
+                $updateData['heart_rate'] = $request->heart_rate;
+            }
+            if ($request->filled('respiratory_rate')) {
+                $updateData['respiratory_rate'] = $request->respiratory_rate;
+            }
+            if ($request->filled('temperature')) {
+                $updateData['temperature'] = $request->temperature;
+            }
+            if ($request->filled('weight_kg')) {
+                $updateData['weight_kg'] = $request->weight_kg;
+            }
+            if ($request->filled('height_cm')) {
+                $updateData['height_cm'] = $request->height_cm;
+            }
+            if ($request->filled('pain_assessment_scale')) {
+                $updateData['pain_assessment_scale'] = $request->pain_assessment_scale;
+            }
+            if ($request->filled('oxygen_saturation')) {
+                $updateData['oxygen_saturation'] = $request->oxygen_saturation;
+            }
+            
+            // Clinical Information
+            if ($request->filled('reason_for_consult')) {
+                $updateData['reason_for_consult'] = $request->reason_for_consult;
+            }
+            if ($request->filled('time_seen')) {
+                $updateData['time_seen'] = $request->time_seen;
+            }
+            if ($request->filled('history_of_present_illness')) {
+                $updateData['history_of_present_illness'] = $request->history_of_present_illness;
+            }
+            if ($request->filled('pertinent_physical_findings')) {
+                $updateData['pertinent_physical_findings'] = $request->pertinent_physical_findings;
+            }
+            if ($request->filled('assessment_diagnosis')) {
+                $updateData['assessment_diagnosis'] = $request->assessment_diagnosis;
+            }
+            if ($request->filled('plan_management')) {
+                $updateData['plan_management'] = $request->plan_management;
+            }
+            
+            // Transfer Information
+            $updateData['transfer_required'] = $request->boolean('transfer_required', false);
+            if ($request->filled('transfer_reason_notes')) {
+                $updateData['transfer_reason_notes'] = $request->transfer_reason_notes;
+            } else {
+                $updateData['transfer_reason_notes'] = null;
+            }
+            
+            // Basic Visit Info
+            if ($request->filled('visit_date_time_time')) {
+                $updateData['visit_date_time_time'] = $request->visit_date_time_time;
+            }
+            if ($request->filled('purpose')) {
+                $updateData['purpose'] = $request->purpose;
+            }
+            if ($request->filled('notes')) {
+                $updateData['notes'] = $request->notes;
+            }
+            
+            $visit->update($updateData);
 
             return redirect()->route('admin.visits.show', $visit)
-                ->with('success', 'Visit updated successfully!');
+                ->with('success', 'Visit consultation updated successfully!');
         } catch (\Exception $e) {
             return back()
                 ->with('error', 'Failed to update visit: ' . $e->getMessage())

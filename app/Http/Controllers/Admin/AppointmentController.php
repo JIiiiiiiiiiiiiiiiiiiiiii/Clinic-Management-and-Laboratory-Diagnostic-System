@@ -514,8 +514,9 @@ class AppointmentController extends Controller
             }),
         ];
 
-        // Return JSON for API requests (modals)
-        if (request()->wantsJson() || request()->ajax()) {
+        // Return JSON for API requests (modals) - but not for Inertia requests
+        // Inertia requests have X-Inertia header, so we check for that
+        if ((request()->wantsJson() || request()->ajax()) && !request()->header('X-Inertia')) {
             \Log::info('Returning JSON response for appointment', [
                 'appointment_id' => $appointment->id,
                 'formatted_data' => $formattedAppointment

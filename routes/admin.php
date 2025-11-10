@@ -72,6 +72,8 @@ Route::prefix('admin')
                 Route::get('/transfers', [PatientTransferController::class, 'index'])->name('transfers.index');
                 Route::get('/transfers/create', [PatientTransferController::class, 'create'])->name('transfers.create');
                 Route::post('/transfers', [PatientTransferController::class, 'store'])->name('transfers.store');
+                // IMPORTANT: This route must come BEFORE /transfers/{transfer} to avoid route conflicts
+                Route::get('/transfers/visits', [PatientTransferController::class, 'getPatientVisits'])->name('transfers.visits');
                 Route::get('/transfers/{transfer}', [PatientTransferController::class, 'show'])->name('transfers.show');
                 Route::put('/transfers/{transfer}', [PatientTransferController::class, 'update'])->name('transfers.update');
                 Route::delete('/transfers/{transfer}', [PatientTransferController::class, 'destroy'])->name('transfers.destroy');

@@ -8,6 +8,7 @@ use App\Models\Patient;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,26 +23,83 @@ class PatientTransferRegistrationController extends Controller
         $user = auth()->user();
         
         // Build the base query - only show pending transfers by default to prevent double approval
+        // Eager load relationships
         $query = PatientTransfer::with(['patient', 'requestedBy', 'approvedBy']);
 
         // Filter based on user role for cross-approval system
+        // Also include transfers without registration_type (existing patient transfers)
         if ($user->role === 'admin') {
             // Admin sees hospital registrations (from hospital admin) that need approval
-            $query->byRegistrationType('hospital');
+            // Also show existing patient transfers (those without registration_type)
+            $query->where(function ($q) {
+                $q->where('registration_type', 'hospital')
+                  ->orWhereNull('registration_type'); // Include existing patient transfers
+            });
         } elseif (in_array($user->role, ['hospital_admin', 'hospital_staff'])) {
             // Hospital sees admin registrations (from admin) that need approval
-            $query->byRegistrationType('admin');
-        }
-
-        // Apply status filter - default to pending only to prevent double approval
-        if ($request->filled('status') && $request->status !== 'all') {
-            $query->where('approval_status', $request->status);
+            // Also show existing patient transfers (those without registration_type)
+            $query->where(function ($q) {
+                $q->where('registration_type', 'admin')
+                  ->orWhereNull('registration_type'); // Include existing patient transfers
+            });
         } else {
-            // Default to showing only pending transfers to prevent double approval
-            $query->where('approval_status', 'pending');
+            // For other roles, show all transfers including those without registration_type
+            $query->where(function ($q) {
+                $q->whereNotNull('registration_type')
+                  ->orWhereNull('registration_type');
+            });
         }
 
+        // Apply status filter
+        if ($request->filled('status') && $request->status !== 'all') {
+            // Filter by specific status
+            $query->where(function ($q) use ($request) {
+                $q->where('approval_status', $request->status)
+                  ->orWhere(function ($subQ) use ($request) {
+                      // For transfers without approval_status, use status field
+                      $subQ->whereNull('approval_status')
+                           ->where('status', $request->status);
+                  });
+            });
+        }
+        // If status === 'all' or no status is provided, don't apply any status filter (show all transfers)
+
+        // Debug: Log the query SQL before pagination
+        \Log::info('Patient Transfer Query', [
+            'sql' => $query->toSql(), 
+            'bindings' => $query->getBindings(),
+            'status_param' => $request->status,
+            'status_filled' => $request->filled('status'),
+        ]);
+        
         $transfers = $query->orderBy('created_at', 'desc')->paginate(15);
+
+        // Debug: Log the count and IDs
+        \Log::info('Patient Transfers Found', [
+            'count' => $transfers->count(),
+            'total' => $transfers->total(),
+            'ids' => $transfers->pluck('id')->toArray(),
+            'patient_ids' => $transfers->pluck('patient_id')->toArray(),
+            'registration_types' => $transfers->pluck('registration_type')->toArray(),
+            'statuses' => $transfers->pluck('status')->toArray(),
+            'approval_statuses' => $transfers->pluck('approval_status')->toArray(),
+        ]);
+        
+        // Also check all transfers with patient_id=1 to debug
+        $allTransfersForPatient1 = PatientTransfer::where('patient_id', 1)->get();
+        \Log::info('All transfers for patient_id=1', [
+            'count' => $allTransfersForPatient1->count(),
+            'transfers' => $allTransfersForPatient1->map(function($t) {
+                return [
+                    'id' => $t->id,
+                    'patient_id' => $t->patient_id,
+                    'registration_type' => $t->registration_type,
+                    'approval_status' => $t->approval_status,
+                    'status' => $t->status,
+                    'created_at' => $t->created_at,
+                ];
+            })->toArray(),
+        ]);
 
         // Calculate statistics for the user's role
         $allTransfers = PatientTransfer::query();
@@ -60,9 +118,24 @@ class PatientTransferRegistrationController extends Controller
 
         // Transform the data to ensure patient_data is properly formatted
         $transfers->getCollection()->transform(function ($transfer) {
-            return [
-                'id' => $transfer->id,
-                'patient_data' => $transfer->patient_data ?: [
+            // For existing patient transfers, use the patient relationship
+            // For new patient registrations, use patient_data JSON field
+            $patientData = null;
+            if ($transfer->patient) {
+                // Existing patient transfer - use relationship
+                $patientData = [
+                    'first_name' => $transfer->patient->first_name ?? 'N/A',
+                    'last_name' => $transfer->patient->last_name ?? 'N/A',
+                    'middle_name' => $transfer->patient->middle_name ?? '',
+                    'birthdate' => $transfer->patient->birthdate ?? null,
+                    'age' => $transfer->patient->age ?? null,
+                    'sex' => $transfer->patient->sex ?? 'N/A',
+                    'mobile_no' => $transfer->patient->mobile_no ?? 'N/A',
+                    'patient_no' => $transfer->patient->patient_no ?? 'N/A',
+                ];
+            } else {
+                // New patient registration - use JSON field
+                $patientData = $transfer->patient_data ?: [
                     'first_name' => 'N/A',
                     'last_name' => 'N/A',
                     'middle_name' => '',
@@ -70,14 +143,36 @@ class PatientTransferRegistrationController extends Controller
                     'age' => null,
                     'sex' => 'N/A',
                     'mobile_no' => 'N/A',
-                ],
+                ];
+            }
+
+            // Determine transfer direction
+            $transferDirection = null;
+            if ($transfer->from_hospital && $transfer->to_clinic) {
+                $transferDirection = 'hospital_to_clinic';
+            } elseif (!$transfer->from_hospital && !$transfer->to_clinic) {
+                $transferDirection = 'clinic_to_hospital';
+            } elseif ($transfer->from_hospital && !$transfer->to_clinic) {
+                $transferDirection = 'hospital_to_hospital';
+            } elseif (!$transfer->from_hospital && $transfer->to_clinic) {
+                $transferDirection = 'clinic_to_clinic';
+            }
+
+            return [
+                'id' => $transfer->id,
+                'patient_data' => $patientData,
+                'patient_id' => $transfer->patient_id, // Include patient_id for existing transfers
                 'registration_type' => $transfer->registration_type,
-                'approval_status' => $transfer->approval_status,
-                'requested_by' => [
+                'approval_status' => $transfer->approval_status ?? $transfer->status, // Fallback to status if no approval_status
+                'status' => $transfer->status, // Include status for existing transfers
+                'from_hospital' => $transfer->from_hospital,
+                'to_clinic' => $transfer->to_clinic,
+                'transfer_direction' => $transferDirection,
+                'requested_by' => $transfer->requestedBy ? [
                     'id' => $transfer->requestedBy->id,
                     'name' => $transfer->requestedBy->name,
                     'role' => $transfer->requestedBy->role,
-                ],
+                ] : null,
                 'approved_by' => $transfer->approvedBy ? [
                     'id' => $transfer->approvedBy->id,
                     'name' => $transfer->approvedBy->name,
@@ -86,6 +181,9 @@ class PatientTransferRegistrationController extends Controller
                 'created_at' => $transfer->created_at,
                 'approval_date' => $transfer->approval_date,
                 'approval_notes' => $transfer->approval_notes,
+                'transfer_reason' => $transfer->transfer_reason, // Include for existing transfers
+                'priority' => $transfer->priority, // Include for existing transfers
+                'transfer_date' => $transfer->transfer_date, // Include for existing transfers
             ];
         });
 
@@ -93,6 +191,7 @@ class PatientTransferRegistrationController extends Controller
             'transfers' => $transfers,
             'userRole' => $user->role,
             'statistics' => $statistics,
+            'filters' => $request->only(['status']), // Pass current filters to frontend
         ]);
     }
 
