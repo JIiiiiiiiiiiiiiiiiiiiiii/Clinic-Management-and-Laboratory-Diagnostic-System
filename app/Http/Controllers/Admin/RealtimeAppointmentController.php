@@ -166,6 +166,15 @@ class RealtimeAppointmentController extends Controller
     {
         $user = auth()->user();
         
+        // Check if user is authenticated
+        if (!$user) {
+            return response()->json([
+                'notifications' => [],
+                'unread_count' => 0,
+                'timestamp' => now()->toISOString()
+            ], 401);
+        }
+        
         $notifications = Notification::where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->limit(20)

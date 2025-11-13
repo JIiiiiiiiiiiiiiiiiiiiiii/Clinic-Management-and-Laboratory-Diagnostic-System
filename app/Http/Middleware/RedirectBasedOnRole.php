@@ -13,6 +13,12 @@ class RedirectBasedOnRole
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // Allow public routes to pass through without any role-based redirects
+        $publicRoutes = ['/', '/about', '/services', '/testimonials', '/contact'];
+        if (in_array($request->path(), $publicRoutes)) {
+            return $next($request);
+        }
+
         $user = $request->user();
 
         if ($user && method_exists($user, 'getMappedRole')) {

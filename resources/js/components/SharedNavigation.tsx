@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import RealtimeNotificationBell from '@/components/RealtimeNotificationBell';
-import { 
-    Menu, 
-    X, 
-    User, 
-    LogIn, 
-    LogOut, 
+import {
+    Menu,
+    X,
+    User,
+    LogIn,
+    LogOut,
     Stethoscope,
     ChevronDown,
     Calendar,
@@ -15,7 +15,8 @@ import {
     TestTube,
     Phone,
     Shield,
-    Heart
+    Heart,
+    Receipt
 } from 'lucide-react';
 
 interface SharedNavigationProps {
@@ -63,11 +64,11 @@ export default function SharedNavigation({ user, currentPath = '/', notification
     };
 
     const navigation = [
-        { name: 'Home', href: '/patient/home', current: currentPath === '/patient/home' || currentPath === '/' },
-        { name: 'About Us', href: '/patient/about', current: currentPath === '/patient/about' },
-        { name: 'Services', href: '/patient/services', current: currentPath === '/patient/services' },
-        { name: 'Testimonials', href: '/patient/testimonials', current: currentPath === '/patient/testimonials' },
-        { name: 'Contact Us', href: '/patient/contact', current: currentPath === '/patient/contact' },
+        { name: 'Home', href: '/', current: currentPath === '/' || currentPath === '/patient/home' },
+        { name: 'About Us', href: '/about', current: currentPath === '/about' || currentPath === '/patient/about' },
+        { name: 'Services', href: '/services', current: currentPath === '/services' || currentPath === '/patient/services' },
+        { name: 'Testimonials', href: '/testimonials', current: currentPath === '/testimonials' || currentPath === '/patient/testimonials' },
+        { name: 'Contact Us', href: '/contact', current: currentPath === '/contact' || currentPath === '/patient/contact' },
     ];
 
     const patientDropdownItems = [
@@ -107,6 +108,13 @@ export default function SharedNavigation({ user, currentPath = '/', notification
             category: 'records'
         },
         {
+            name: 'Billing History',
+            href: '/patient/billing',
+            icon: Receipt,
+            description: 'View your billing history & receipts',
+            category: 'records'
+        },
+        {
             name: 'Profile',
             href: '/patient/profile',
             icon: User,
@@ -121,7 +129,7 @@ export default function SharedNavigation({ user, currentPath = '/', notification
                 <div className="flex justify-between items-center h-16">
                     {/* Logo */}
                     <div className="flex items-center">
-                        <Link href="/patient/home" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+                        <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
                             <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
                                 <Stethoscope className="h-6 w-6 text-white" />
                             </div>
@@ -136,8 +144,8 @@ export default function SharedNavigation({ user, currentPath = '/', notification
                                 key={item.name}
                                 href={item.href}
                                 className={`px-3 py-2 text-sm font-medium transition-colors ${
-                                    item.current 
-                                        ? 'text-green-600 border-b-2 border-green-600' 
+                                    item.current
+                                        ? 'text-green-600 border-b-2 border-green-600'
                                         : 'text-gray-700 hover:text-green-600'
                                 }`}
                             >
@@ -151,11 +159,11 @@ export default function SharedNavigation({ user, currentPath = '/', notification
                         {isLoggedIn ? (
                             <>
                                 {/* Notification Bell */}
-                                <RealtimeNotificationBell 
+                                <RealtimeNotificationBell
                                     initialNotifications={notifications}
                                     userRole="patient"
                                 />
-                                
+
                                 {/* User Avatar */}
                                 <div className="relative" ref={dropdownRef}>
                                 <Button
@@ -307,8 +315,8 @@ export default function SharedNavigation({ user, currentPath = '/', notification
                                 key={item.name}
                                 href={item.href}
                                 className={`block px-3 py-2 text-base font-medium rounded-md transition-colors ${
-                                    item.current 
-                                        ? 'text-green-600 bg-green-50' 
+                                    item.current
+                                        ? 'text-green-600 bg-green-50'
                                         : 'text-gray-700 hover:text-green-600 hover:bg-gray-50'
                                 }`}
                                 onClick={() => setIsMenuOpen(false)}
@@ -316,7 +324,7 @@ export default function SharedNavigation({ user, currentPath = '/', notification
                                 {item.name}
                             </Link>
                         ))}
-                        
+
                         <div className="pt-4 pb-3 border-t border-gray-200">
                             <div className="flex flex-col space-y-2 px-3">
                                 {isLoggedIn ? (
@@ -333,7 +341,7 @@ export default function SharedNavigation({ user, currentPath = '/', notification
                                                 </div>
                                             </div>
                                         </div>
-                                        
+
                                         {/* Mobile Quick Actions */}
                                         <div className="space-y-1">
                                             <div className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -387,9 +395,9 @@ export default function SharedNavigation({ user, currentPath = '/', notification
                                                 </Link>
                                             ))}
                                         </div>
-                                        
-                                        <Button 
-                                            variant="outline" 
+
+                                        <Button
+                                            variant="outline"
                                             size="sm"
                                             onClick={handleLogout}
                                             className="w-full border-red-300 text-red-600 hover:bg-red-50"

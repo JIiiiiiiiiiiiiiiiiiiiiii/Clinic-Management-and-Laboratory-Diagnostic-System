@@ -3,11 +3,15 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 use Inertia\Inertia as InertiaResponse;
 use App\Models\User;
 use App\Models\Patient;
 use App\Models\Notification;
 
+// Public routes - accessible without authentication
+// These routes are explicitly excluded from authentication middleware
+Route::withoutMiddleware(['auth', 'auth:session'])->group(function () {
 Route::get('/', function () {
     $user = auth()->user();
     $patient = null;
@@ -38,6 +42,127 @@ Route::get('/', function () {
 Route::get('/patient/home', function () {
     return redirect('/');
 })->name('patient.home');
+
+// Public About Us page
+Route::get('/about', function () {
+    $user = auth()->user();
+    $patient = null;
+    $notifications = [];
+    $unreadCount = 0;
+    
+    if ($user) {
+        $patient = Patient::where('user_id', $user->id)->first();
+        $notifications = Notification::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+        $unreadCount = Notification::where('user_id', $user->id)
+            ->where('read', false)
+            ->count();
+    }
+    
+    return Inertia::render('patient/about', [
+        'user' => $user,
+        'patient' => $patient,
+        'notifications' => $notifications,
+        'unreadCount' => $unreadCount,
+    ]);
+})->name('about');
+
+// Public Services page
+Route::get('/services', function () {
+    $user = auth()->user();
+    $patient = null;
+    $notifications = [];
+    $unreadCount = 0;
+    
+    if ($user) {
+        $patient = Patient::where('user_id', $user->id)->first();
+        $notifications = Notification::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+        $unreadCount = Notification::where('user_id', $user->id)
+            ->where('read', false)
+            ->count();
+    }
+    
+    return Inertia::render('patient/services', [
+        'user' => $user,
+        'patient' => $patient,
+        'notifications' => $notifications,
+        'unreadCount' => $unreadCount,
+    ]);
+})->name('services');
+
+// Public Testimonials page
+Route::get('/testimonials', function () {
+    $user = auth()->user();
+    $patient = null;
+    $notifications = [];
+    $unreadCount = 0;
+    
+    if ($user) {
+        $patient = Patient::where('user_id', $user->id)->first();
+        $notifications = Notification::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+        $unreadCount = Notification::where('user_id', $user->id)
+            ->where('read', false)
+            ->count();
+    }
+    
+    return Inertia::render('patient/testimonials', [
+        'user' => $user,
+        'patient' => $patient,
+        'notifications' => $notifications,
+        'unreadCount' => $unreadCount,
+    ]);
+})->name('testimonials');
+
+// Public Contact Us page
+Route::get('/contact', function () {
+    $user = auth()->user();
+    $patient = null;
+    $notifications = [];
+    $unreadCount = 0;
+    
+    if ($user) {
+        $patient = Patient::where('user_id', $user->id)->first();
+        $notifications = Notification::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+        $unreadCount = Notification::where('user_id', $user->id)
+            ->where('read', false)
+            ->count();
+    }
+    
+    return Inertia::render('patient/contact', [
+        'user' => $user,
+        'patient' => $patient,
+        'notifications' => $notifications,
+        'unreadCount' => $unreadCount,
+    ]);
+})->name('contact');
+
+// Contact form submission (public)
+Route::post('/contact', function (Request $request) {
+    $request->validate([
+        'name' => 'required|string|max:255',
+        'email' => 'required|email|max:255',
+        'subject' => 'required|string|max:255',
+        'message' => 'required|string|max:1000',
+        'priority' => 'required|in:low,normal,high,emergency'
+    ]);
+
+    // Here you would typically send an email or store the message
+    // For now, we'll just return a success response
+    
+    return redirect()->route('contact')->with('success', 'Your message has been sent successfully!');
+})->name('contact.store');
+}); // End of public routes group
 
 // API endpoints (using web routes for proper session handling)
 Route::middleware(['auth:session'])->post('/api/appointments/online', [App\Http\Controllers\Api\OnlineAppointmentController::class, 'store']);

@@ -28,20 +28,20 @@ import {
 } from 'lucide-react';
 
 interface PatientAboutProps {
-    user: {
+    user?: {
         id: number;
         name: string;
         email: string;
         role: string;
         created_at: string;
-    };
+    } | null;
     patient?: {
         id: number;
         first_name: string;
         last_name: string;
         patient_no: string;
     };
-    notifications: Array<{
+    notifications?: Array<{
         id: number;
         type: string;
         title: string;
@@ -50,7 +50,7 @@ interface PatientAboutProps {
         created_at: string;
         data: any;
     }>;
-    unreadCount: number;
+    unreadCount?: number;
 }
 
 export default function PatientAbout({ 
@@ -142,7 +142,7 @@ export default function PatientAbout({
             <Head title="About Us - SJHI Industrial Clinic" />
             
             {/* Shared Navigation */}
-            <SharedNavigation user={user} currentPath="/patient/about" />
+            <SharedNavigation user={user || undefined} currentPath="/about" notifications={notifications || []} unreadCount={unreadCount || 0} />
             
             {/* Hero Section */}
             <section className="bg-gradient-to-br from-green-50 via-white to-blue-50 py-20">

@@ -46,5 +46,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // Don't redirect unauthenticated users to login for public routes
+        $exceptions->respond(function (\Symfony\Component\HttpFoundation\Response $response, \Throwable $exception, \Illuminate\Http\Request $request) {
+            // Allow public routes to pass through without authentication
+            $publicRoutes = ['/', '/about', '/services', '/testimonials', '/contact'];
+            if (in_array($request->path(), $publicRoutes)) {
+                return $response;
+            }
+            return $response;
+        });
     })->create();

@@ -9,6 +9,34 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
+// Public redirect routes - accessible without authentication
+// These redirect to the public routes defined in web.php
+Route::prefix('patient')->name('patient.')->group(function () {
+    // Home - redirect to main home page
+    Route::get('/home', function () {
+        return redirect('/');
+    })->name('home');
+
+    // Services (also accessible via public route /services)
+    Route::get('/services', function () {
+        return redirect()->route('services');
+    })->name('services');
+
+    // Contact (also accessible via public route /contact)
+    Route::get('/contact', function () {
+        return redirect()->route('contact');
+    })->name('contact');
+
+    // About (also accessible via public route /about)
+    Route::get('/about', function () {
+        return redirect()->route('about');
+    })->name('about');
+
+    // Testimonials (also accessible via public route /testimonials)
+    Route::get('/testimonials', function () {
+        return redirect()->route('testimonials');
+    })->name('testimonials');
+});
 
 // Patient routes - Only authenticated patients can access
 Route::middleware(['auth'])
@@ -63,6 +91,12 @@ Route::middleware(['auth'])
 
         // Test Results
         Route::get('/test-results', [PatientTestResultController::class, 'index'])->name('test-results');
+
+        // Billing History & Receipts
+        Route::prefix('billing')->name('billing.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Patient\PatientBillingController::class, 'index'])->name('index');
+            Route::get('/{transaction}/receipt', [\App\Http\Controllers\Patient\PatientBillingController::class, 'show'])->name('receipt');
+        });
 
 
         // Profile
@@ -136,106 +170,6 @@ Route::middleware(['auth'])
 
             return redirect()->route('patient.profile')->with('success', 'Profile updated successfully!');
         })->name('profile.update');
-
-        // Home - redirect to main home page
-        Route::get('/home', function () {
-            return redirect('/');
-        })->name('home');
-
-        // Services
-        Route::get('/services', function () {
-            $user = auth()->user();
-            $patient = \App\Models\Patient::where('user_id', $user->id)->first();
-            $notifications = \App\Models\Notification::where('user_id', $user->id)
-                ->orderBy('created_at', 'desc')
-                ->limit(10)
-                ->get();
-            $unreadCount = \App\Models\Notification::where('user_id', $user->id)
-                ->where('read', false)
-                ->count();
-
-            return Inertia::render('patient/services', [
-                'user' => $user,
-                'patient' => $patient,
-                'notifications' => $notifications,
-                'unreadCount' => $unreadCount,
-            ]);
-        })->name('services');
-
-        // Contact
-        Route::get('/contact', function () {
-            $user = auth()->user();
-            $patient = \App\Models\Patient::where('user_id', $user->id)->first();
-            $notifications = \App\Models\Notification::where('user_id', $user->id)
-                ->orderBy('created_at', 'desc')
-                ->limit(10)
-                ->get();
-            $unreadCount = \App\Models\Notification::where('user_id', $user->id)
-                ->where('read', false)
-                ->count();
-
-            return Inertia::render('patient/contact', [
-                'user' => $user,
-                'patient' => $patient,
-                'notifications' => $notifications,
-                'unreadCount' => $unreadCount,
-            ]);
-        })->name('contact');
-
-        Route::post('/contact', function (Request $request) {
-            $request->validate([
-                'name' => 'required|string|max:255',
-                'email' => 'required|email|max:255',
-                'subject' => 'required|string|max:255',
-                'message' => 'required|string|max:1000',
-                'priority' => 'required|in:low,normal,high,emergency'
-            ]);
-
-            // Here you would typically send an email or store the message
-            // For now, we'll just return a success response
-            
-            return redirect()->route('patient.contact')->with('success', 'Your message has been sent successfully!');
-        })->name('contact.store');
-
-        // About
-        Route::get('/about', function () {
-            $user = auth()->user();
-            $patient = \App\Models\Patient::where('user_id', $user->id)->first();
-            $notifications = \App\Models\Notification::where('user_id', $user->id)
-                ->orderBy('created_at', 'desc')
-                ->limit(10)
-                ->get();
-            $unreadCount = \App\Models\Notification::where('user_id', $user->id)
-                ->where('read', false)
-                ->count();
-
-            return Inertia::render('patient/about', [
-                'user' => $user,
-                'patient' => $patient,
-                'notifications' => $notifications,
-                'unreadCount' => $unreadCount,
-            ]);
-        })->name('about');
-
-        // Testimonials
-        Route::get('/testimonials', function () {
-            $user = auth()->user();
-            $patient = \App\Models\Patient::where('user_id', $user->id)->first();
-            $notifications = \App\Models\Notification::where('user_id', $user->id)
-                ->orderBy('created_at', 'desc')
-                ->limit(10)
-                ->get();
-            $unreadCount = \App\Models\Notification::where('user_id', $user->id)
-                ->where('read', false)
-                ->count();
-
-            return Inertia::render('patient/testimonials', [
-                'user' => $user,
-                'patient' => $patient,
-                'notifications' => $notifications,
-                'unreadCount' => $unreadCount,
-            ]);
-        })->name('testimonials');
 
         // Privacy Policy
         Route::get('/privacy', function () {

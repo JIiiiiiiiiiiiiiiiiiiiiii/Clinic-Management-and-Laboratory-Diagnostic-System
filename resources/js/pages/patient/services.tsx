@@ -28,18 +28,18 @@ import {
 } from 'lucide-react';
 
 interface PatientServicesProps {
-    user: {
+    user?: {
         name: string;
         email: string;
         role: string;
-    };
+    } | null;
     patient?: {
         id: number;
         first_name: string;
         last_name: string;
         patient_no: string;
     };
-    notifications: Array<{
+    notifications?: Array<{
         id: number;
         type: string;
         title: string;
@@ -48,7 +48,7 @@ interface PatientServicesProps {
         created_at: string;
         data: any;
     }>;
-    unreadCount: number;
+    unreadCount?: number;
 }
 
 export default function PatientServices({ 
@@ -158,7 +158,7 @@ export default function PatientServices({
             <Head title="Our Services - SJHI Industrial Clinic" />
             
             {/* Shared Navigation */}
-            <SharedNavigation user={user} currentPath="/patient/services" />
+            <SharedNavigation user={user || undefined} currentPath="/services" notifications={notifications || []} unreadCount={unreadCount || 0} />
             
             {/* Hero Section */}
             <div className="bg-gradient-to-r from-green-600 to-green-700 text-white">

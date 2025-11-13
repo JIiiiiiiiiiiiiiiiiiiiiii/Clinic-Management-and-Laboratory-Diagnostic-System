@@ -36,6 +36,7 @@ class Patient extends Model
         'address',
         'telephone_no',
         'mobile_no',
+        'email',
         'emergency_name',
         'emergency_relation',
         'informant_name',

@@ -26,19 +26,19 @@ import {
 import { useState } from 'react';
 
 interface PatientContactProps {
-    user: {
+    user?: {
         id: number;
         name: string;
         email: string;
         role: string;
-    };
+    } | null;
     patient?: {
         id: number;
         first_name: string;
         last_name: string;
         patient_no: string;
     };
-    notifications: Array<{
+    notifications?: Array<{
         id: number;
         type: string;
         title: string;
@@ -47,7 +47,7 @@ interface PatientContactProps {
         created_at: string;
         data: any;
     }>;
-    unreadCount: number;
+    unreadCount?: number;
 }
 
 export default function PatientContact({ 
@@ -59,8 +59,8 @@ export default function PatientContact({
     const [isSubmitted, setIsSubmitted] = useState(false);
     
     const { data, setData, post, processing, errors } = useForm({
-        name: user.name || '',
-        email: user.email || '',
+        name: user?.name || '',
+        email: user?.email || '',
         phone: '',
         subject: '',
         message: '',
@@ -69,7 +69,7 @@ export default function PatientContact({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post('/patient/contact', {
+        post('/contact', {
             onSuccess: () => {
                 setIsSubmitted(true);
             }
@@ -145,7 +145,7 @@ export default function PatientContact({
                 <Head title="Contact Us - Message Sent" />
                 
                 {/* Shared Navigation */}
-                <SharedNavigation user={user} currentPath="/patient/contact" notifications={notifications} unreadCount={unreadCount} />
+                <SharedNavigation user={user || undefined} currentPath="/contact" notifications={notifications || []} unreadCount={unreadCount || 0} />
                 <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
                     <Card className="bg-green-50 border-green-200">
                         <CardContent className="p-8 text-center">
@@ -183,7 +183,7 @@ export default function PatientContact({
             <Head title="Contact Us - SJHI Industrial Clinic" />
             
             {/* Shared Navigation */}
-            <SharedNavigation user={user} currentPath="/patient/contact" />
+            <SharedNavigation user={user || undefined} currentPath="/contact" notifications={notifications || []} unreadCount={unreadCount || 0} />
             
             {/* Hero Section */}
             <div className="bg-gradient-to-r from-green-600 to-green-700 text-white">
