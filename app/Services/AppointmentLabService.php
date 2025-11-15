@@ -29,6 +29,11 @@ class AppointmentLabService
 
         // Allow lab tests to be added to appointments without requiring existing billing transactions
         // The billing transaction will be created later with the complete total including lab tests
+        
+        // Load visit relationship to get patient_id if appointment doesn't have it
+        if (!$appointment->relationLoaded('visit')) {
+            $appointment->load('visit');
+        }
 
         return DB::transaction(function () use ($appointment, $labTestIds, $addedBy, $notes) {
             try {
@@ -70,11 +75,13 @@ class AppointmentLabService
                 // Create lab order
                 $labOrder = $this->createLabOrder($appointment, $labTests, $addedBy, $notes);
 
-                // Link appointment to lab order
-                AppointmentLabOrder::create([
-                    'appointment_id' => $appointment->id,
-                    'lab_order_id' => $labOrder->id
-                ]);
+                // Link appointment to lab order (use firstOrCreate to prevent duplicates)
+                AppointmentLabOrder::firstOrCreate(
+                    [
+                        'appointment_id' => $appointment->id,
+                        'lab_order_id' => $labOrder->id
+                    ]
+                );
 
                 Log::info('Lab tests added to appointment', [
                     'appointment_id' => $appointment->id,
@@ -205,8 +212,16 @@ class AppointmentLabService
      */
     private function createLabOrder(Appointment $appointment, $labTests, int $orderedBy, string $notes = null): LabOrder
     {
+        // Get patient_id from appointment or fall back to visit
+        // This handles cases where appointment.patient_id is NULL but visit.patient_id exists
+        $patientId = $appointment->patient_id ?? $appointment->visit?->patient_id;
+        
+        if (!$patientId) {
+            throw new \Exception('Cannot create lab order: patient_id is required but not found in appointment or visit');
+        }
+        
         $labOrder = LabOrder::create([
-            'patient_id' => $appointment->patient_id,
+            'patient_id' => $patientId,
             'patient_visit_id' => $appointment->visit?->id,
             'ordered_by' => $orderedBy,
             'status' => 'ordered',

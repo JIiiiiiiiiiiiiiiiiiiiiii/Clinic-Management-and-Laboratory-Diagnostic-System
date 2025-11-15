@@ -160,9 +160,11 @@ export default function TransactionEditModal({
                 setTransaction(transactionData);
                 
                 // Set form data with safe conversions
+                // Use specialist_id if doctor_id is not available (for backward compatibility)
+                const doctorId = transactionData.doctor_id || transactionData.specialist_id;
                 setData({
                     patient_id: transactionData.patient_id ? transactionData.patient_id.toString() : '',
-                    doctor_id: transactionData.doctor_id ? transactionData.doctor_id.toString() : '',
+                    doctor_id: doctorId ? doctorId.toString() : '',
                     payment_type: transactionData.payment_type || 'cash',
                     total_amount: transactionData.total_amount || 0,
                     amount: transactionData.total_amount || 0,
@@ -187,8 +189,9 @@ export default function TransactionEditModal({
                 setItems(transactionData.items || []);
 
                 // Set selected patient and doctor
+                // Reuse doctorId from above (already declared on line 164)
                 const patient = patients.find(p => p.id === transactionData.patient_id);
-                const doctor = doctors.find(d => d.specialist_id === transactionData.doctor_id);
+                const doctor = doctors.find(d => d.specialist_id === doctorId);
                 setSelectedPatient(patient || null);
                 setSelectedDoctor(doctor || null);
             } else {

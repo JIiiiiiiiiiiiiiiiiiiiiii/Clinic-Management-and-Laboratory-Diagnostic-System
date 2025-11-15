@@ -124,10 +124,29 @@ export default function TransactionViewModal({
             });
             if (response.ok) {
                 const data = await response.json();
-                setTransaction(data.transaction);
+                console.log('Transaction response:', data);
+                if (data.transaction) {
+                    console.log('Setting transaction:', data.transaction);
+                    setTransaction(data.transaction);
+                } else {
+                    console.error('Transaction data not found in response:', data);
+                    setTransaction(null);
+                }
+            } else {
+                const errorText = await response.text();
+                console.error('Failed to fetch transaction:', response.status, errorText);
+                let errorData;
+                try {
+                    errorData = JSON.parse(errorText);
+                } catch {
+                    errorData = { message: 'Transaction not found' };
+                }
+                console.error('Error data:', errorData);
+                setTransaction(null);
             }
         } catch (error) {
             console.error('Failed to fetch transaction:', error);
+            setTransaction(null);
         } finally {
             setLoading(false);
         }
@@ -312,7 +331,7 @@ export default function TransactionViewModal({
                                                 {transaction.doctor ? (
                                                     <div className="space-y-3 text-sm">
                                                         <div className="flex justify-between"><span className="font-medium text-gray-600">Name:</span> <span className="text-gray-900">{transaction.doctor.name}</span></div>
-                                                        <div className="flex justify-between"><span className="font-medium text-gray-600">Type:</span> <span className="text-gray-900">{transaction.doctor.role === 'doctor' ? 'Doctor' : 'Med Tech Specialist'}</span></div>
+                                                        <div className="flex justify-between"><span className="font-medium text-gray-600">Type:</span> <span className="text-gray-900">{transaction.doctor.role && (transaction.doctor.role.toLowerCase() === 'doctor' || transaction.doctor.role === 'Doctor') ? 'Doctor' : transaction.doctor.role || 'N/A'}</span></div>
                                                     </div>
                                                 ) : (
                                                     <p className="text-gray-500">No specialist assigned</p>
@@ -403,11 +422,11 @@ export default function TransactionViewModal({
                                             </div>
                                             <div className="flex justify-between items-center py-2 border-b border-gray-100">
                                                 <span className="font-medium text-gray-600">Payment Method:</span>
-                                                {getPaymentMethodBadge(transaction.payment_method)}
-                                            </div>
-                                            <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                                                <span className="font-medium text-gray-600">Payment Type:</span>
-                                                <span className="capitalize text-gray-900">{transaction.payment_type.replace('_', ' ')}</span>
+                                                {transaction.payment_method ? (
+                                                    <span className="capitalize text-gray-900">{(transaction.payment_method || '').replace(/_/g, ' ')}</span>
+                                                ) : (
+                                                    <span className="text-gray-400">N/A</span>
+                                                )}
                                             </div>
                                             {transaction.payment_reference && (
                                                 <div className="flex justify-between items-center py-2 border-b border-gray-100">

@@ -1183,18 +1183,11 @@ class DashboardController extends Controller
      */
     private function getAppointmentSourceDistribution()
     {
+        // Use only 'source' column which exists in the appointments table
         $sources = Appointment::select('source', DB::raw('COUNT(*) as count'))
             ->whereNotNull('source')
             ->groupBy('source')
             ->get();
-        
-        // If no source data, try appointment_source column
-        if ($sources->isEmpty()) {
-            $sources = Appointment::select('appointment_source as source', DB::raw('COUNT(*) as count'))
-                ->whereNotNull('appointment_source')
-                ->groupBy('appointment_source')
-                ->get();
-        }
         
         $total = $sources->sum('count');
         
@@ -1202,27 +1195,22 @@ class DashboardController extends Controller
             $percentage = $total > 0 ? round(($item->count / $total) * 100, 1) : 0;
             $sourceName = ucfirst(str_replace(['_', '-'], ' ', $item->source));
             
-            // Get this month's count
+            // Get this month's count - use only 'source' column
             $thisMonth = Appointment::where('source', $item->source)
-                ->orWhere('appointment_source', $item->source)
                 ->whereMonth('created_at', now()->month)
                 ->whereYear('created_at', now()->year)
                 ->count();
             
-            // Get last month's count
+            // Get last month's count - use only 'source' column
             $lastMonth = Appointment::where('source', $item->source)
-                ->orWhere('appointment_source', $item->source)
                 ->whereMonth('created_at', now()->subMonth()->month)
                 ->whereYear('created_at', now()->subMonth()->year)
                 ->count();
             
             $trend = $lastMonth > 0 ? round((($thisMonth - $lastMonth) / $lastMonth) * 100, 1) : ($thisMonth > 0 ? 100 : 0);
             
-            // Get average revenue per appointment for this source
-            $avgRevenue = Appointment::where(function($q) use ($item) {
-                    $q->where('source', $item->source)
-                      ->orWhere('appointment_source', $item->source);
-                })
+            // Get average revenue per appointment for this source - use only 'source' column
+            $avgRevenue = Appointment::where('source', $item->source)
                 ->whereNotNull('price')
                 ->avg('price') ?? 0;
             

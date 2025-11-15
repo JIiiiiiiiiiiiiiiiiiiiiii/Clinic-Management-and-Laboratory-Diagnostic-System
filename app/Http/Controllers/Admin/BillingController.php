@@ -29,7 +29,8 @@ class BillingController extends Controller
             if ($request->filled('search')) {
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
-                    $q->where('transaction_id', 'like', "%{$search}%")
+                    // Use transaction_code which exists in database (transaction_id is an accessor)
+                    $q->where('transaction_code', 'like', "%{$search}%")
                       ->orWhereHas('patient', function ($patientQuery) use ($search) {
                           $patientQuery->where('first_name', 'like', "%{$search}%")
                                       ->orWhere('last_name', 'like', "%{$search}%");
@@ -45,12 +46,62 @@ class BillingController extends Controller
                 $query->where('payment_method', $request->payment_method);
             }
 
+            // Use specialist_id which exists in database (not doctor_id)
             if ($request->filled('doctor_id') && $request->doctor_id !== 'all') {
-                $query->where('doctor_id', $request->doctor_id);
+                $query->where('specialist_id', $request->doctor_id);
             }
 
             // Get transactions with pagination
             $transactions = $query->orderBy('created_at', 'desc')->paginate(15);
+            
+            // Manually transform transactions to ensure doctor relationship is always included
+            // This ensures the data structure matches what the frontend expects
+            $transformedData = $transactions->getCollection()->map(function ($transaction) {
+                // Ensure doctor relationship is loaded
+                if (!$transaction->relationLoaded('doctor')) {
+                    $transaction->load('doctor');
+                }
+                
+                // Get the base array representation
+                $data = $transaction->toArray();
+                
+                // ALWAYS explicitly set doctor in the array to ensure it's present
+                // This is critical because Laravel's toArray() may not include null relationships
+                if ($transaction->doctor) {
+                    $data['doctor'] = [
+                        'specialist_id' => $transaction->doctor->specialist_id,
+                        'name' => $transaction->doctor->name,
+                        'role' => $transaction->doctor->role ?? 'Doctor',
+                    ];
+                } else {
+                    // Explicitly set to null so frontend knows the field exists
+                    $data['doctor'] = null;
+                }
+                
+                return $data;
+            });
+            
+            // Create a new paginated result with transformed data
+            $transactions = new \Illuminate\Pagination\LengthAwarePaginator(
+                $transformedData,
+                $transactions->total(),
+                $transactions->perPage(),
+                $transactions->currentPage(),
+                [
+                    'path' => $transactions->url($transactions->currentPage()),
+                    'pageName' => 'page',
+                ]
+            );
+            
+            // Debug: Log first transaction to verify doctor is included
+            if ($transformedData->isNotEmpty()) {
+                $firstTransaction = $transformedData->first();
+                \Log::info('First transaction doctor data', [
+                    'transaction_id' => $firstTransaction['id'] ?? 'N/A',
+                    'has_doctor' => isset($firstTransaction['doctor']),
+                    'doctor' => $firstTransaction['doctor'] ?? 'NULL',
+                ]);
+            }
             
             // Get doctors for filter dropdown
             $doctors = \App\Models\Specialist::where('role', 'doctor')->get(['specialist_id', 'name']);
@@ -66,9 +117,9 @@ class BillingController extends Controller
                 ->orderBy('name')
                 ->get();
 
-            // Get HMO providers for the modal
-            $hmoProviders = \App\Models\HmoProvider::select('id', 'name', 'code', 'is_active')
-                ->where('is_active', true)
+            // Get HMO providers for the modal - use 'status' column which exists in database
+            $hmoProviders = \App\Models\HmoProvider::select('id', 'name', 'code', 'status')
+                ->where('status', 'active')
                 ->orderBy('name')
                 ->get();
 
@@ -95,48 +146,209 @@ class BillingController extends Controller
             $source = $request->get('source');
 
             // Build the query - only get appointments that are pending billing
+            // Use LEFT JOIN to get patient and specialist data directly from database
+            // Check all possible specialist sources (appointments.specialist_id, visits.doctor_id, visits.nurse_id, visits.medtech_id, visits.attending_staff_id)
             $query = \App\Models\Appointment::query()
-                ->with(['patient', 'specialist'])
+                ->leftJoin('visits', 'appointments.id', '=', 'visits.appointment_id')
+                ->leftJoin('patients as appointment_patients', 'appointments.patient_id', '=', 'appointment_patients.id')
+                ->leftJoin('patients as visit_patients', 'visits.patient_id', '=', 'visit_patients.id')
+                ->leftJoin('specialists', 'appointments.specialist_id', '=', 'specialists.specialist_id')
+                ->leftJoin('specialists as visit_doctor_specialists', 'visits.doctor_id', '=', 'visit_doctor_specialists.specialist_id')
+                ->leftJoin('specialists as visit_nurse_specialists', 'visits.nurse_id', '=', 'visit_nurse_specialists.specialist_id')
+                ->leftJoin('specialists as visit_medtech_specialists', 'visits.medtech_id', '=', 'visit_medtech_specialists.specialist_id')
+                ->leftJoin('specialists as visit_attending_specialists', 'visits.attending_staff_id', '=', 'visit_attending_specialists.specialist_id')
+                ->select(
+                    'appointments.*',
+                    DB::raw('COALESCE(appointment_patients.first_name, visit_patients.first_name) as patient_first_name'),
+                    DB::raw('COALESCE(appointment_patients.last_name, visit_patients.last_name) as patient_last_name'),
+                    DB::raw('COALESCE(appointment_patients.middle_name, visit_patients.middle_name) as patient_middle_name'),
+                    DB::raw('COALESCE(appointment_patients.patient_no, visit_patients.patient_no) as patient_no'),
+                    DB::raw('COALESCE(appointment_patients.mobile_no, visit_patients.mobile_no) as patient_mobile_no'),
+                    DB::raw('COALESCE(appointment_patients.telephone_no, visit_patients.telephone_no) as patient_telephone_no'),
+                    DB::raw('COALESCE(
+                        specialists.name, 
+                        visit_doctor_specialists.name, 
+                        visit_nurse_specialists.name, 
+                        visit_medtech_specialists.name, 
+                        visit_attending_specialists.name
+                    ) as specialist_name_from_table'),
+                    DB::raw('COALESCE(
+                        specialists.role, 
+                        visit_doctor_specialists.role, 
+                        visit_nurse_specialists.role, 
+                        visit_medtech_specialists.role, 
+                        visit_attending_specialists.role
+                    ) as specialist_role')
+                )
                 ->where(function($q) {
-                    $q->whereNull('billing_status')
-                      ->orWhere('billing_status', 'pending')
-                      ->orWhere('billing_status', 'not_billed');
+                    $q->whereNull('appointments.billing_status')
+                      ->orWhere('appointments.billing_status', 'pending')
+                      ->orWhere('appointments.billing_status', 'not_billed');
                 });
 
-            // Apply filters
+            // Apply filters - use joined columns instead of non-existent text fields
             if ($search) {
                 $query->where(function ($q) use ($search) {
-                    $q->where('patient_name', 'like', "%{$search}%")
-                      ->orWhere('patient_id', 'like', "%{$search}%")
-                      ->orWhere('appointment_type', 'like', "%{$search}%")
-                      ->orWhere('specialist_name', 'like', "%{$search}%");
+                    $q->where(DB::raw('CONCAT(COALESCE(appointment_patients.first_name, visit_patients.first_name, ""), " ", COALESCE(appointment_patients.last_name, visit_patients.last_name, ""))'), 'like', "%{$search}%")
+                      ->orWhere('appointments.patient_id', 'like', "%{$search}%")
+                      ->orWhere('appointments.appointment_type', 'like', "%{$search}%")
+                      ->orWhere(DB::raw('COALESCE(
+                          specialists.name, 
+                          visit_doctor_specialists.name, 
+                          visit_nurse_specialists.name, 
+                          visit_medtech_specialists.name, 
+                          visit_attending_specialists.name
+                      )'), 'like', "%{$search}%");
                 });
             }
 
             if ($status && $status !== 'all') {
-                $query->where('billing_status', $status);
+                $query->where('appointments.billing_status', $status);
             }
 
             if ($specialistId && $specialistId !== 'all') {
-                $query->where('specialist_id', $specialistId);
+                $query->where('appointments.specialist_id', $specialistId);
             }
 
             if ($source && $source !== 'all') {
-                $query->where('source', $source);
+                $query->where('appointments.source', $source);
             }
 
-            // Get pending appointments with relationships
-            $pendingAppointments = $query->with(['patient', 'specialist'])
-                ->orderBy('appointment_date', 'asc')
+            // Get pending appointments - eager load relationships for patient/specialist data
+            $pendingAppointments = $query->orderBy('appointments.appointment_date', 'asc')
                 ->get()
                 ->map(function ($appointment) {
+                    // Access joined columns from attributes (they should be preserved)
+                    $attributes = $appointment->getAttributes();
+                    
+                    // Get patient name from joined data
+                    $patientName = 'Unknown Patient';
+                    $patientFirstName = $attributes['patient_first_name'] ?? $appointment->patient_first_name ?? null;
+                    $patientMiddleName = $attributes['patient_middle_name'] ?? $appointment->patient_middle_name ?? null;
+                    $patientLastName = $attributes['patient_last_name'] ?? $appointment->patient_last_name ?? null;
+                    
+                    if ($patientFirstName || $patientLastName) {
+                        $firstName = $patientFirstName ?? '';
+                        $middleName = $patientMiddleName ?? '';
+                        $lastName = $patientLastName ?? '';
+                        $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+                    }
+                    
+                    // If still empty, try to load patient relationship as fallback
+                    if (empty(trim($patientName)) && $appointment->patient_id) {
+                        if (!$appointment->relationLoaded('patient')) {
+                            $appointment->load('patient');
+                        }
+                        if ($appointment->patient) {
+                            $firstName = $appointment->patient->first_name ?? '';
+                            $middleName = $appointment->patient->middle_name ?? '';
+                            $lastName = $appointment->patient->last_name ?? '';
+                            $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+                        }
+                    }
+                    
+                    if (empty(trim($patientName))) {
+                        $patientName = 'Unknown Patient';
+                    }
+                    
+                    // Get patient ID display (patient_no like P0001) from joined data
+                    $patientIdDisplay = $attributes['patient_no'] ?? $appointment->patient_no ?? 'N/A';
+                    
+                    // Get contact number from joined data
+                    $contactNumber = $attributes['patient_mobile_no'] ?? $appointment->patient_mobile_no ?? $attributes['patient_telephone_no'] ?? $appointment->patient_telephone_no ?? 'N/A';
+                    
+                    // Get specialist name from joined data - check both attributes and direct property access
+                    $specialistName = $attributes['specialist_name_from_table'] ?? $appointment->specialist_name_from_table ?? null;
+                    
+                    // If still null, try to get from relationships as fallback
+                    if (empty($specialistName) || $specialistName === 'NULL') {
+                        // Try appointment specialist relationship
+                        if ($appointment->specialist_id) {
+                            if (!$appointment->relationLoaded('specialist')) {
+                                $appointment->load('specialist');
+                            }
+                            if ($appointment->specialist) {
+                                $specialistName = $appointment->specialist->name;
+                            }
+                        }
+                        
+                        // Try visit relationships (check all possible specialist fields)
+                        if (empty($specialistName) && $appointment->relationLoaded('visit') && $appointment->visit) {
+                            $visit = $appointment->visit;
+                            // Check doctor_id
+                            if (empty($specialistName) && $visit->doctor_id) {
+                                $visitDoctor = \App\Models\Specialist::find($visit->doctor_id);
+                                if ($visitDoctor) {
+                                    $specialistName = $visitDoctor->name;
+                                }
+                            }
+                            // Check nurse_id
+                            if (empty($specialistName) && $visit->nurse_id) {
+                                $visitNurse = \App\Models\Specialist::find($visit->nurse_id);
+                                if ($visitNurse) {
+                                    $specialistName = $visitNurse->name;
+                                }
+                            }
+                            // Check medtech_id
+                            if (empty($specialistName) && $visit->medtech_id) {
+                                $visitMedtech = \App\Models\Specialist::find($visit->medtech_id);
+                                if ($visitMedtech) {
+                                    $specialistName = $visitMedtech->name;
+                                }
+                            }
+                            // Check attending_staff_id
+                            if (empty($specialistName) && $visit->attending_staff_id) {
+                                $visitAttending = \App\Models\Specialist::find($visit->attending_staff_id);
+                                if ($visitAttending) {
+                                    $specialistName = $visitAttending->name;
+                                }
+                            }
+                        }
+                        
+                        // If visit is not loaded, try to load it and check
+                        if (empty($specialistName) && !$appointment->relationLoaded('visit')) {
+                            $visit = \App\Models\Visit::where('appointment_id', $appointment->id)->first();
+                            if ($visit) {
+                                if ($visit->doctor_id) {
+                                    $visitDoctor = \App\Models\Specialist::find($visit->doctor_id);
+                                    if ($visitDoctor) {
+                                        $specialistName = $visitDoctor->name;
+                                    }
+                                }
+                                if (empty($specialistName) && $visit->nurse_id) {
+                                    $visitNurse = \App\Models\Specialist::find($visit->nurse_id);
+                                    if ($visitNurse) {
+                                        $specialistName = $visitNurse->name;
+                                    }
+                                }
+                                if (empty($specialistName) && $visit->medtech_id) {
+                                    $visitMedtech = \App\Models\Specialist::find($visit->medtech_id);
+                                    if ($visitMedtech) {
+                                        $specialistName = $visitMedtech->name;
+                                    }
+                                }
+                                if (empty($specialistName) && $visit->attending_staff_id) {
+                                    $visitAttending = \App\Models\Specialist::find($visit->attending_staff_id);
+                                    if ($visitAttending) {
+                                        $specialistName = $visitAttending->name;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Final fallback
+                    if (empty($specialistName) || $specialistName === 'NULL') {
+                        $specialistName = 'Unknown Specialist';
+                    }
+                    
                     return [
                         'id' => $appointment->id,
-                        'patient_name' => $appointment->patient_name,
+                        'patient_name' => $patientName,
                         'patient_id' => $appointment->patient_id,
-                        'contact_number' => $appointment->contact_number ?? '',
+                        'contact_number' => $contactNumber,
                         'appointment_type' => $appointment->appointment_type,
-                        'specialist_name' => $appointment->specialist_name,
+                        'specialist_name' => $specialistName,
                         'specialist_id' => $appointment->specialist_id,
                         'specialist_type' => $appointment->specialist_type ?? 'doctor',
                         'appointment_date' => $appointment->appointment_date,
@@ -149,25 +361,25 @@ class BillingController extends Controller
                         'billing_status' => $appointment->billing_status,
                         'source' => $appointment->source ?? 'online',
                         'lab_tests_count' => 0, // Simplified for now
-                        'notes' => $appointment->notes,
-                        'special_requirements' => $appointment->special_requirements,
+                        'notes' => $appointment->additional_info ?? null,
+                        'special_requirements' => null, // This column doesn't exist in appointments table
                         'created_at' => $appointment->created_at,
                         'updated_at' => $appointment->updated_at,
-                        'patient' => $appointment->patient ? [
-                            'id' => $appointment->patient->id,
-                            'first_name' => $appointment->patient->first_name,
-                            'last_name' => $appointment->patient->last_name,
-                            'patient_no' => $appointment->patient->patient_no,
-                            'present_address' => $appointment->patient->present_address ?? '',
-                            'mobile_no' => $appointment->patient->mobile_no ?? '',
-                            'birth_date' => $appointment->patient->birth_date ?? '',
-                            'gender' => $appointment->patient->gender ?? '',
+                        'patient' => $appointment->patient_id ? [
+                            'id' => $appointment->patient_id,
+                            'first_name' => $appointment->patient_first_name ?? '',
+                            'last_name' => $appointment->patient_last_name ?? '',
+                            'patient_no' => $patientIdDisplay,
+                            'present_address' => null, // Would need to join to get this
+                            'mobile_no' => $contactNumber,
+                            'birth_date' => null, // Would need to join to get this
+                            'gender' => null, // Would need to join to get this
                         ] : null,
-                        'specialist' => $appointment->specialist ? [
-                            'id' => $appointment->specialist->specialist_id,
-                            'name' => $appointment->specialist->name,
-                            'role' => $appointment->specialist->role,
-                            'employee_id' => $appointment->specialist->specialist_code ?? '',
+                        'specialist' => $appointment->specialist_id ? [
+                            'id' => $appointment->specialist_id,
+                            'name' => $specialistName,
+                            'role' => $appointment->specialist_type ?? 'doctor',
+                            'employee_id' => null, // Would need to join specialists table to get specialist_code
                         ] : null,
                         'labTests' => [], // Simplified for now
                     ];
@@ -184,9 +396,9 @@ class BillingController extends Controller
                 ->orderBy('first_name')
                 ->get();
 
-            // Get HMO providers for payment modal
-            $hmoProviders = \App\Models\HmoProvider::where('is_active', true)
-                ->select('id', 'name', 'code', 'is_active')
+            // Get HMO providers for payment modal - use 'status' column which exists in database
+            $hmoProviders = \App\Models\HmoProvider::where('status', 'active')
+                ->select('id', 'name', 'code', 'status')
                 ->orderBy('name')
                 ->get();
 
@@ -239,11 +451,10 @@ class BillingController extends Controller
         ]);
 
         try {
+            // Create appointment without non-existent columns (patient_name, specialist_name, notes, special_requirements)
             $appointment = Appointment::create([
-                'patient_name' => $request->patient_name,
                 'patient_id' => $request->patient_id,
                 'appointment_type' => $request->appointment_type,
-                'specialist_name' => $request->specialist_name,
                 'specialist_id' => $request->specialist_id,
                 'appointment_date' => $request->appointment_date,
                 'appointment_time' => $request->appointment_time,
@@ -251,11 +462,9 @@ class BillingController extends Controller
                 'total_lab_amount' => 0,
                 'final_total_amount' => $request->price,
                 'billing_status' => $request->billing_status,
-                'source' => $request->source,
-                'notes' => $request->notes,
-                'special_requirements' => $request->special_requirements,
-                'status' => 'pending',
-                'lab_tests_count' => 0,
+                'source' => $request->source === 'walk_in' ? 'Walk-in' : 'Online', // Match enum values
+                'additional_info' => $request->notes, // Use additional_info instead of notes
+                'status' => 'Pending', // Match enum values
             ]);
 
             return redirect()->back()->with('success', 'Appointment created successfully.');
@@ -286,20 +495,18 @@ class BillingController extends Controller
         ]);
 
         try {
+            // Update appointment without non-existent columns (patient_name, specialist_name, notes, special_requirements)
             $appointment->update([
-                'patient_name' => $request->patient_name,
                 'patient_id' => $request->patient_id,
                 'appointment_type' => $request->appointment_type,
-                'specialist_name' => $request->specialist_name,
                 'specialist_id' => $request->specialist_id,
                 'appointment_date' => $request->appointment_date,
                 'appointment_time' => $request->appointment_time,
                 'price' => $request->price,
                 'final_total_amount' => $request->price,
                 'billing_status' => $request->billing_status,
-                'source' => $request->source,
-                'notes' => $request->notes,
-                'special_requirements' => $request->special_requirements,
+                'source' => $request->source === 'walk_in' ? 'Walk-in' : 'Online', // Match enum values
+                'additional_info' => $request->notes, // Use additional_info instead of notes
             ]);
 
             return redirect()->back()->with('success', 'Appointment updated successfully.');
@@ -470,8 +677,9 @@ class BillingController extends Controller
             ->select('specialist_id as id', 'name')
             ->get();
         $labTests = LabTest::select('id', 'name', 'code', 'price')->get();
-        $hmoProviders = \App\Models\HmoProvider::where('is_active', true)
-            ->select('id', 'name', 'code', 'is_active')
+        // Get HMO providers - use 'status' column which exists in database
+        $hmoProviders = \App\Models\HmoProvider::where('status', 'active')
+            ->select('id', 'name', 'code', 'status')
             ->orderBy('name')
             ->get();
 
@@ -498,8 +706,9 @@ class BillingController extends Controller
             ->get();
 
         $doctors = \App\Models\Specialist::where('role', 'Doctor')->select('specialist_id as id', 'name')->get();
-        $hmoProviders = \App\Models\HmoProvider::where('is_active', true)
-            ->select('id', 'name', 'code', 'is_active')
+        // Get HMO providers - use 'status' column which exists in database
+        $hmoProviders = \App\Models\HmoProvider::where('status', 'active')
+            ->select('id', 'name', 'code', 'status')
             ->orderBy('name')
             ->get();
 
@@ -649,15 +858,13 @@ class BillingController extends Controller
             $doctorId = $specialist ? $specialist->specialist_id : null;
             
             // Create transaction with basic required fields first
+            // Use transaction_code which exists in database (transaction_id is an accessor)
             $transactionData = [
-                'transaction_id' => $transactionId,
+                'transaction_code' => $transactionId, // Use transaction_code which exists in database
                 'appointment_id' => $firstAppointment->id,
                 'patient_id' => $patientId,
-                'doctor_id' => $doctorId,
-                'payment_type' => 'cash',
-                'total_amount' => $totalAmount, // Original amount before discount
-                'amount' => $finalAmount, // Final amount after discount
-                'discount_amount' => 0, // Regular discount amount (not senior citizen)
+                'specialist_id' => $doctorId, // Use specialist_id which exists in database
+                'amount' => $finalAmount, // Only 'amount' exists in database (not 'total_amount')
                 'payment_method' => $request->payment_method,
                 'payment_reference' => $request->payment_reference,
                 'status' => 'pending',
@@ -719,12 +926,18 @@ class BillingController extends Controller
                     $baseConsultationPrice = 350.00;
                 }
                 
+                // Get patient name from relationship instead of non-existent column
+                $patientName = 'Unknown Patient';
+                if ($appointment->patient) {
+                    $patientName = trim($appointment->patient->first_name . ' ' . $appointment->patient->last_name);
+                }
+                
                 // Create consultation item with base price (not inflated price that includes lab tests)
                 \App\Models\BillingTransactionItem::create([
                     'billing_transaction_id' => $transaction->id,
                     'item_type' => 'consultation',
                     'item_name' => $appointmentTypeLabel . ' Appointment',
-                    'item_description' => "Appointment for {$appointment->patient_name} on {$appointment->appointment_date->format('M d, Y')} at {$appointment->appointment_time->format('g:i A')}",
+                    'item_description' => "Appointment for {$patientName} on {$appointment->appointment_date->format('M d, Y')} at {$appointment->appointment_time->format('g:i A')}",
                     'quantity' => 1,
                     'unit_price' => $baseConsultationPrice,
                     'total_price' => $baseConsultationPrice
@@ -991,12 +1204,11 @@ class BillingController extends Controller
                 }
             }
             
+            // Create appointment without non-existent columns (patient_name, specialist_name)
             $dummyAppointment = \App\Models\Appointment::create([
                 'patient_id' => $request->patient_id,
-                'patient_name' => $patient ? $patient->first_name . ' ' . $patient->last_name : 'Unknown Patient',
                 'specialist_id' => $specialistId,
                 'specialist_type' => $specialistType,
-                'specialist_name' => $specialistName,
                 'appointment_type' => 'manual_transaction',
                 'appointment_date' => $transactionDate->toDateString(),
                 'appointment_time' => $transactionDate->toTimeString(),
@@ -1007,17 +1219,13 @@ class BillingController extends Controller
                 'created_by' => auth()->id(),
             ]);
             
-            // Prepare transaction data
+            // Prepare transaction data - use specialist_id and transaction_code which exist in database
             $transactionData = [
-                'transaction_id' => $transactionId,
+                'transaction_code' => $transactionId, // Use transaction_code which exists in database
                 'appointment_id' => $dummyAppointment->id,
                 'patient_id' => $request->patient_id,
-                'doctor_id' => $request->doctor_id,
-                'payment_type' => $request->payment_type,
-                'total_amount' => $request->total_amount,
-                'amount' => $request->amount ?? $request->total_amount,
-                'discount_amount' => $request->discount_amount ?? 0,
-                'discount_percentage' => $request->discount_percentage,
+                'specialist_id' => $specialistId, // Use specialist_id instead of doctor_id
+                'amount' => $request->amount ?? $request->total_amount ?? 0, // Only 'amount' exists in database
                 'hmo_provider' => $request->hmo_provider,
                 'hmo_reference' => $request->hmo_reference,
                 'hmo_reference_number' => $request->hmo_reference_number,
@@ -1146,7 +1354,7 @@ class BillingController extends Controller
         
         \Log::info("Checking transaction {$transaction->id} for itemization", [
             'existing_items_count' => $existingItemsCount,
-            'total_amount' => $transaction->total_amount,
+            'amount' => $transaction->amount, // Use 'amount' since 'total_amount' doesn't exist in database
             'appointment_links_count' => $transaction->appointmentLinks->count(),
             'appointment_id_field' => $transaction->appointment_id ?? 'null',
             'patient_id' => $transaction->patient_id
@@ -1220,7 +1428,8 @@ class BillingController extends Controller
             $labTestItems = $transaction->items()->where('item_type', 'laboratory')->count();
             
             // Check if single item price matches transaction total (common case: combined item)
-            if ($singleItem && abs($singleItem->total_price - $transaction->total_amount) < 0.01) {
+            // Use 'amount' since 'total_amount' doesn't exist in database (accessor provides backward compatibility)
+            if ($singleItem && abs($singleItem->total_price - $transaction->amount) < 0.01) {
                 // Determine base consultation price based on appointment type
                 $baseConsultationPrice = 350.00; // Default for consultation
                 
@@ -1236,9 +1445,10 @@ class BillingController extends Controller
                 }
                 
                 // If transaction total is higher than base consultation AND no lab test items exist, FORCE itemization
-                if ($transaction->total_amount > $baseConsultationPrice + 0.01 && $labTestItems == 0) {
+                // Use 'amount' since 'total_amount' doesn't exist in database
+                if ($transaction->amount > $baseConsultationPrice + 0.01 && $labTestItems == 0) {
                     $needsItemization = true;
-                    \Log::info("FORCE ITEMIZATION (SIMPLIFIED): Transaction total ({$transaction->total_amount}) > base consultation ({$baseConsultationPrice}), single item ({$singleItem->total_price}), no lab items ({$labTestItems})");
+                    \Log::info("FORCE ITEMIZATION (SIMPLIFIED): Transaction amount ({$transaction->amount}) > base consultation ({$baseConsultationPrice}), single item ({$singleItem->total_price}), no lab items ({$labTestItems})");
                 }
             }
         }
@@ -1265,27 +1475,29 @@ class BillingController extends Controller
                             'lab_tests_count' => $appointment->labTests->count(),
                             'lab_tests_names' => $appointment->labTests->map(fn($lt) => $lt->labTest->name ?? 'unknown')->toArray(),
                             'expected_total' => $expectedTotal,
-                            'transaction_total' => $transaction->total_amount,
+                            'transaction_amount' => $transaction->amount, // Use 'amount' since 'total_amount' doesn't exist
                             'single_item_price' => $singleItem->total_price
                         ]);
                         
                         // If transaction total matches expected total (price + lab tests) but we only have 1 item, FORCE itemization
-                        if (abs($transaction->total_amount - $expectedTotal) < 0.01 && $appointment->labTests->isNotEmpty()) {
+                        // Use 'amount' since 'total_amount' doesn't exist in database
+                        if (abs($transaction->amount - $expectedTotal) < 0.01 && $appointment->labTests->isNotEmpty()) {
                             $labTestItems = $transaction->items()->where('item_type', 'laboratory')->count();
                             if ($labTestItems == 0) {
                                 $needsItemization = true;
-                                \Log::info("FORCE ITEMIZATION (Post-link): Transaction total ({$transaction->total_amount}) matches appointment total ({$expectedTotal}) with {$appointment->labTests->count()} lab tests, but no lab test items exist");
+                                \Log::info("FORCE ITEMIZATION (Post-link): Transaction amount ({$transaction->amount}) matches appointment total ({$expectedTotal}) with {$appointment->labTests->count()} lab tests, but no lab test items exist");
                                 break;
                             }
                         }
                         
                         // Also check if single item price equals total and appointment has lab tests
-                        if (abs($singleItem->total_price - $transaction->total_amount) < 0.01) {
+                        // Use 'amount' since 'total_amount' doesn't exist in database
+                        if (abs($singleItem->total_price - $transaction->amount) < 0.01) {
                             if ($appointment->labTests->isNotEmpty() || $appointment->total_lab_amount > 0) {
                                 $labTestItems = $transaction->items()->where('item_type', 'laboratory')->count();
                                 if ($labTestItems == 0) {
                                     $needsItemization = true;
-                                    \Log::info("FORCE ITEMIZATION (Post-link): Single item price ({$singleItem->total_price}) matches total ({$transaction->total_amount}) and appointment has {$appointment->labTests->count()} lab tests");
+                                    \Log::info("FORCE ITEMIZATION (Post-link): Single item price ({$singleItem->total_price}) matches amount ({$transaction->amount}) and appointment has {$appointment->labTests->count()} lab tests");
                                     break;
                                 }
                             }
@@ -1300,15 +1512,16 @@ class BillingController extends Controller
                         }
                         $priceDifference = $appointment->price - $baseConsultationPrice;
                         
-                        if (!$needsItemization && abs($singleItem->total_price - $transaction->total_amount) < 0.01) {
+                        // Use 'amount' since 'total_amount' doesn't exist in database
+                        if (!$needsItemization && abs($singleItem->total_price - $transaction->amount) < 0.01) {
                             // Check if transaction/appointment total is higher than base consultation
-                            if ($transaction->total_amount > $baseConsultationPrice + 0.01) {
+                            if ($transaction->amount > $baseConsultationPrice + 0.01) {
                                 $labTestItems = $transaction->items()->where('item_type', 'laboratory')->count();
                                 // CRITICAL: Also check appointment_lab_tests table directly
                                 $appointmentLabTestsCount = \App\Models\AppointmentLabTest::where('appointment_id', $appointment->id)->count();
                                 if ($labTestItems == 0) {
                                     $needsItemization = true;
-                                    \Log::info("FORCE ITEMIZATION (Post-link): Transaction total ({$transaction->total_amount}) is higher than base consultation ({$baseConsultationPrice}), but no lab test items exist. Appointment has {$appointmentLabTestsCount} lab test records. Price difference: {$priceDifference}");
+                                    \Log::info("FORCE ITEMIZATION (Post-link): Transaction amount ({$transaction->amount}) is higher than base consultation ({$baseConsultationPrice}), but no lab test items exist. Appointment has {$appointmentLabTestsCount} lab test records. Price difference: {$priceDifference}");
                                     break;
                                 }
                             }
@@ -1357,7 +1570,7 @@ class BillingController extends Controller
                             'hasLabTests' => $hasLabTestsInDB,
                             'price_suggests_lab_tests' => $priceSuggestsLabTests,
                             'expected_total' => $expectedTotal,
-                            'transaction_total' => $transaction->total_amount,
+                            'transaction_amount' => $transaction->amount, // Use 'amount' since 'total_amount' doesn't exist
                             'single_item_price' => $singleItem->total_price
                         ]);
                         
@@ -1368,13 +1581,14 @@ class BillingController extends Controller
                             
                             if ($labTestItems == 0) {
                                 $needsItemization = true;
-                                \Log::info("MUST ITEMIZE: Appointment has lab tests but no lab test items. Appointment total: {$appointment->price} + Lab: {$appointment->total_lab_amount} = Expected: {$expectedTotal}, Transaction total: {$transaction->total_amount}");
+                                \Log::info("MUST ITEMIZE: Appointment has lab tests but no lab test items. Appointment total: {$appointment->price} + Lab: {$appointment->total_lab_amount} = Expected: {$expectedTotal}, Transaction amount: {$transaction->amount}");
                                 break;
                             }
                         }
                         
                         // Also check if single item price matches total AND appointment has lab tests (this is the main issue)
-                        if ($singleItem && abs($singleItem->total_price - $transaction->total_amount) < 0.01) {
+                        // Use 'amount' since 'total_amount' doesn't exist in database
+                        if ($singleItem && abs($singleItem->total_price - $transaction->amount) < 0.01) {
                             if ($hasLabTestsInDB || $appointment->total_lab_amount > 0 || $priceSuggestsLabTests) {
                                 $labTestItems = $transaction->items()->where('item_type', 'laboratory')->count();
                                 if ($labTestItems == 0) {
@@ -1446,11 +1660,17 @@ class BillingController extends Controller
                         }
                         $labAmount = $appointment->price - $baseConsultationPrice;
                         
+                        // Get patient name from relationship instead of non-existent column
+                        $patientName = 'Unknown Patient';
+                        if ($appointment->patient) {
+                            $patientName = trim($appointment->patient->first_name . ' ' . $appointment->patient->last_name);
+                        }
+                        
                         \App\Models\BillingTransactionItem::create([
                             'billing_transaction_id' => $transaction->id,
                             'item_type' => 'consultation',
                             'item_name' => $appointmentTypeLabel . ' Appointment',
-                            'item_description' => "Appointment for {$appointment->patient_name} on " . ($appointment->appointment_date ? \Carbon\Carbon::parse($appointment->appointment_date)->format('M d, Y') : 'N/A') . " at " . ($appointment->appointment_time ? \Carbon\Carbon::parse($appointment->appointment_time)->format('g:i A') : 'N/A'),
+                            'item_description' => "Appointment for {$patientName} on " . ($appointment->appointment_date ? \Carbon\Carbon::parse($appointment->appointment_date)->format('M d, Y') : 'N/A') . " at " . ($appointment->appointment_time ? \Carbon\Carbon::parse($appointment->appointment_time)->format('g:i A') : 'N/A'),
                             'quantity' => 1,
                             'unit_price' => $baseConsultationPrice,
                             'total_price' => $baseConsultationPrice
@@ -1570,7 +1790,8 @@ class BillingController extends Controller
                     // NO APPOINTMENT LINKS - Itemize based on transaction total alone
                     // Create consultation item at base price (350)
                     $baseConsultationPrice = 350.00;
-                    $labAmount = $transaction->total_amount - $baseConsultationPrice;
+                    // Use 'amount' since 'total_amount' doesn't exist in database
+                    $labAmount = $transaction->amount - $baseConsultationPrice;
                     
                     \App\Models\BillingTransactionItem::create([
                         'billing_transaction_id' => $transaction->id,
@@ -1677,10 +1898,10 @@ class BillingController extends Controller
             $finalAmount = $itemsTotal - $correctSeniorDiscount;
             
             // Update transaction if discount amount changed
+            // Only update 'amount' since 'total_amount' doesn't exist in database
             if (abs($transaction->senior_discount_amount - $correctSeniorDiscount) > 0.01 || abs($transaction->amount - $finalAmount) > 0.01) {
                 $transaction->update([
-                    'total_amount' => $itemsTotal,
-                    'amount' => $finalAmount,
+                    'amount' => $finalAmount, // Only 'amount' exists in database
                     'senior_discount_amount' => $correctSeniorDiscount,
                     'senior_discount_percentage' => 20.00
                 ]);
@@ -1695,11 +1916,11 @@ class BillingController extends Controller
             }
         } else {
             // Not senior citizen, ensure amounts match items total
+            // Only update 'amount' since 'total_amount' doesn't exist in database
             $itemsTotal = $transaction->items()->sum('total_price');
-            if (abs($transaction->total_amount - $itemsTotal) > 0.01) {
+            if (abs($transaction->amount - $itemsTotal) > 0.01) {
                 $transaction->update([
-                    'total_amount' => $itemsTotal,
-                    'amount' => $itemsTotal
+                    'amount' => $itemsTotal // Only 'amount' exists in database
                 ]);
             }
         }
@@ -1708,7 +1929,7 @@ class BillingController extends Controller
             'id' => $transaction->id,
             'transaction_id' => $transaction->transaction_id,
             'status' => $transaction->status,
-            'total_amount' => $transaction->total_amount,
+            'amount' => $transaction->amount, // Use 'amount' since 'total_amount' doesn't exist
             'amount' => $transaction->amount,
             'is_senior_citizen' => $transaction->is_senior_citizen,
             'senior_discount_amount' => $transaction->senior_discount_amount,
@@ -1764,8 +1985,26 @@ class BillingController extends Controller
                 'has_doctor' => $transaction->doctor !== null
             ]);
             
+            // Map specialist_id to doctor_id for backward compatibility with frontend
+            $transactionData = $transaction->toArray();
+            if (isset($transaction->specialist_id)) {
+                $transactionData['doctor_id'] = $transaction->specialist_id;
+            }
+            // Ensure doctor relationship is included with correct structure
+            if ($transaction->doctor) {
+                $transactionData['doctor'] = [
+                    'specialist_id' => $transaction->doctor->specialist_id,
+                    'id' => $transaction->doctor->specialist_id, // For backward compatibility
+                    'name' => $transaction->doctor->name,
+                    'role' => $transaction->doctor->role ?? 'Doctor',
+                    'employee_id' => $transaction->doctor->specialist_code ?? null, // For backward compatibility
+                ];
+            } else {
+                $transactionData['doctor'] = null;
+            }
+            
             return response()->json([
-                'transaction' => $transaction
+                'transaction' => $transactionData
             ]);
         }
 
@@ -1872,24 +2111,47 @@ class BillingController extends Controller
         DB::beginTransaction();
         try {
             // Update transaction
-            $transaction->update([
+            // Convert doctor_id to specialist_id for database
+            $specialistId = null;
+            if ($request->doctor_id) {
+                $specialist = \App\Models\Specialist::find($request->doctor_id);
+                if ($specialist) {
+                    $specialistId = $specialist->specialist_id;
+                }
+            }
+            
+            // Only update columns that exist in database
+            $updateData = [
                 'patient_id' => $request->patient_id,
-                'doctor_id' => $request->doctor_id,
-                'payment_type' => $request->payment_type,
-                'total_amount' => $request->total_amount,
-                'discount_amount' => $request->discount_amount ?? 0,
-                'discount_percentage' => $request->discount_percentage,
-                'hmo_provider' => $request->hmo_provider,
-                'hmo_reference' => $request->hmo_reference,
-                'payment_method' => $request->payment_type, // Map payment_type to payment_method for database
-                'payment_reference' => $request->payment_reference,
-                'status' => $request->status,
-                'description' => $request->description,
-                'notes' => $request->notes,
-                'transaction_date' => $request->transaction_date,
-                'due_date' => $request->due_date,
-                'updated_by' => auth()->id(),
-            ]);
+                'specialist_id' => $specialistId, // Use specialist_id which exists in database
+            ];
+            
+            // Only set amount if provided (only 'amount' exists in database, not 'total_amount')
+            if ($request->has('amount') || $request->has('total_amount')) {
+                $updateData['amount'] = $request->amount ?? $request->total_amount ?? 0;
+            }
+            
+            // Only set columns that exist in database
+            if ($request->has('hmo_provider_id')) {
+                $updateData['hmo_provider_id'] = $request->hmo_provider_id;
+            }
+            if ($request->has('hmo_reference_number')) {
+                $updateData['hmo_reference_number'] = $request->hmo_reference_number;
+            }
+            if ($request->has('payment_method')) {
+                $updateData['payment_method'] = $request->payment_method;
+            }
+            if ($request->has('reference_no')) {
+                $updateData['reference_no'] = $request->reference_no;
+            }
+            if ($request->has('status')) {
+                $updateData['status'] = $request->status;
+            }
+            if ($request->has('notes')) {
+                $updateData['notes'] = $request->notes;
+            }
+            
+            $transaction->update($updateData);
 
             // Delete existing items before creating new ones
             BillingTransactionItem::where('billing_transaction_id', $transaction->id)->delete();
@@ -1986,7 +2248,7 @@ class BillingController extends Controller
         // Debug: Log the transaction details before processing
         \Log::info('Transaction loaded for receipt:', [
             'transaction_id' => $transaction->transaction_id,
-            'total_amount' => $transaction->total_amount,
+            'amount' => $transaction->amount, // Use 'amount' since 'total_amount' doesn't exist
             'amount' => $transaction->amount,
             'is_itemized' => $transaction->is_itemized,
             'items_count_before' => $transaction->items->count()
@@ -2034,13 +2296,14 @@ class BillingController extends Controller
         
         // If no items exist, this means the transaction was created without proper items
         // This should not happen for manual transactions, so log an error
-        if ($transaction->items->isEmpty() && $transaction->total_amount > 0) {
+        // Use 'amount' since 'total_amount' doesn't exist in database
+        if ($transaction->items->isEmpty() && $transaction->amount > 0) {
             \Log::error('No items found for transaction ' . $transaction->transaction_id . ' - this indicates a data integrity issue');
         }
         
         \Log::info('Receipt data loaded:', [
             'transaction_id' => $transaction->transaction_id,
-            'total_amount' => $transaction->total_amount,
+            'amount' => $transaction->amount, // Use 'amount' since 'total_amount' doesn't exist
             'items_count' => $transaction->items->count(),
             'patient' => $transaction->patient ? $transaction->patient->first_name . ' ' . $transaction->patient->last_name : 'No patient',
             'doctor' => $transaction->doctor ? $transaction->doctor->name : 'No doctor'
@@ -2102,13 +2365,13 @@ class BillingController extends Controller
             $query->where('payment_method', $paymentMethod);
         }
 
-        // Apply doctor filter
+        // Apply doctor filter - use specialist_id which exists in database
         if ($doctorId !== 'all') {
-            $query->where('doctor_id', $doctorId);
+            $query->where('specialist_id', $doctorId);
         }
 
-        // Get transactions
-        $transactions = $query->orderBy('transaction_date', 'desc')->get();
+        // Get transactions - use created_at since transaction_date doesn't exist in database
+        $transactions = $query->orderBy('created_at', 'desc')->get();
 
         $filters = [
             'date_from' => $dateFrom,
@@ -2365,8 +2628,8 @@ class BillingController extends Controller
                         <td>' . $transaction->transaction_id . '</td>
                         <td>' . ($transaction->patient ? $transaction->patient->first_name . ' ' . $transaction->patient->last_name : 'N/A') . '</td>
                         <td>' . ($transaction->doctor ? $transaction->doctor->name : 'N/A') . '</td>
-                        <td class="amount">₱' . number_format($transaction->total_amount, 2) . '</td>
-                        <td class="amount">₱' . number_format($transaction->amount ?? $transaction->total_amount, 2) . '</td>
+                        <td class="amount">₱' . number_format($transaction->amount, 2) . '</td>
+                        <td class="amount">₱' . number_format($transaction->amount, 2) . '</td>
                         <td>' . ucfirst($transaction->payment_method ?? 'N/A') . '</td>
                         <td class="' . $statusClass . '">' . ucfirst($transaction->status) . '</td>
                         <td>' . ($transaction->transaction_date ? $transaction->transaction_date->format('M d, Y H:i') : 'N/A') . '</td>
@@ -2542,14 +2805,32 @@ class BillingController extends Controller
                 <tbody>';
 
         foreach ($appointments as $appointment) {
+            // Get patient name from relationship instead of non-existent column
+            $patientName = 'Unknown Patient';
+            if ($appointment->patient) {
+                $patientName = trim($appointment->patient->first_name . ' ' . $appointment->patient->last_name);
+            }
+            
+            // Get contact number from relationship
+            $contactNumber = 'N/A';
+            if ($appointment->patient) {
+                $contactNumber = $appointment->patient->mobile_no ?? $appointment->patient->telephone_no ?? 'N/A';
+            }
+            
+            // Get specialist name from relationship instead of non-existent column
+            $specialistName = 'Unknown Specialist';
+            if ($appointment->specialist) {
+                $specialistName = $appointment->specialist->name;
+            }
+            
             $statusClass = 'status-' . strtolower($appointment->status);
             $html .= '
                     <tr>
                         <td>' . $appointment->id . '</td>
-                        <td>' . $appointment->patient_name . '</td>
-                        <td>' . ($appointment->contact_number ?? 'N/A') . '</td>
+                        <td>' . $patientName . '</td>
+                        <td>' . $contactNumber . '</td>
                         <td>' . ucfirst($appointment->appointment_type) . '</td>
-                        <td>' . $appointment->specialist_name . '</td>
+                        <td>' . $specialistName . '</td>
                         <td>' . ($appointment->appointment_date ? $appointment->appointment_date->format('M d, Y') : 'N/A') . '</td>
                         <td>' . ($appointment->appointment_time ? $appointment->appointment_time->format('g:i A') : 'N/A') . '</td>
                         <td class="' . $statusClass . '">' . ucfirst($appointment->status) . '</td>

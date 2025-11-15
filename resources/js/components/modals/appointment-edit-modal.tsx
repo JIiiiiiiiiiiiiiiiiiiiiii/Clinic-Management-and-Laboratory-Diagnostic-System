@@ -84,6 +84,7 @@ interface AppointmentEditModalProps {
     onSuccess: () => void;
     appointment: Appointment | null;
     doctors: Doctor[];
+    appointmentTypes?: Array<{ value: string; label: string }>;
 }
 
 const statusOptions = [
@@ -99,7 +100,8 @@ const sourceOptions = [
     { value: 'phone', label: 'Phone' },
 ];
 
-const appointmentTypeOptions = [
+// Fallback appointment types if none provided from database
+const defaultAppointmentTypeOptions = [
     { value: 'general_consultation', label: 'Consultation' },
     { value: 'follow_up', label: 'Follow-up' },
     { value: 'emergency', label: 'Emergency' },
@@ -112,8 +114,11 @@ export default function AppointmentEditModal({
     onClose,
     onSuccess,
     appointment,
-    doctors
+    doctors,
+    appointmentTypes = []
 }: AppointmentEditModalProps) {
+    // Use appointment types from database if provided, otherwise use fallback
+    const appointmentTypeOptions = appointmentTypes.length > 0 ? appointmentTypes : defaultAppointmentTypeOptions;
     const [appointmentData, setAppointmentData] = useState<Appointment | null>(null);
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
@@ -136,12 +141,46 @@ export default function AppointmentEditModal({
     useEffect(() => {
         if (appointment) {
             setAppointmentData(appointment);
+            
+            // Extract specialist_id - check multiple possible locations
+            let specialistId = '';
+            // Try direct specialist_id first
+            if (appointment.specialist_id) {
+                specialistId = appointment.specialist_id.toString();
+            } else if (appointment.specialist) {
+                // Specialist relationship exists - check for specialist_id or id
+                specialistId = appointment.specialist.specialist_id?.toString() || 
+                               appointment.specialist.id?.toString() || 
+                               '';
+            }
+            
+            // If still empty, log a warning
+            if (!specialistId) {
+                console.warn('Specialist ID not found in appointment data:', appointment);
+            }
+            
+            // Extract patient_id - ensure it's not empty
+            let patientId = '';
+            // Try multiple sources for patient_id
+            if (appointment.patient_id) {
+                patientId = appointment.patient_id.toString();
+            } else if (appointment.patient?.id) {
+                patientId = appointment.patient.id.toString();
+            } else if (appointment.patient?.patient_id) {
+                patientId = appointment.patient.patient_id.toString();
+            }
+            
+            // If still empty, log a warning
+            if (!patientId) {
+                console.warn('Patient ID not found in appointment data:', appointment);
+            }
+            
             setData({
                 patient_name: appointment.patient_name || '',
-                patient_id: appointment.patient_id || '',
+                patient_id: patientId,
                 appointment_type: appointment.appointment_type || '',
-                specialist_name: appointment.specialist_name || '',
-                specialist_id: appointment.specialist?.id?.toString() || appointment.specialist_id?.toString() || '',
+                specialist_name: appointment.specialist_name || appointment.specialist?.name || '',
+                specialist_id: specialistId,
                 appointment_date: appointment.appointment_date || '',
                 appointment_time: appointment.appointment_time || '',
                 price: appointment.price || 0,
@@ -179,7 +218,11 @@ export default function AppointmentEditModal({
     };
 
     const handleSpecialistChange = (specialistId: string) => {
-        const selectedDoctor = doctors.find(doctor => doctor.id.toString() === specialistId);
+        // Find doctor by id (which is specialist_id) or by specialist_id field
+        const selectedDoctor = doctors.find(doctor => 
+            doctor.id?.toString() === specialistId || 
+            doctor.specialist_id?.toString() === specialistId
+        );
         setData({
             ...data,
             specialist_id: specialistId,
@@ -315,11 +358,15 @@ export default function AppointmentEditModal({
                                                     <SelectValue placeholder="Select specialist" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {doctors.map((doctor) => (
-                                                        <SelectItem key={doctor.id} value={doctor.id.toString()}>
-                                                            {doctor.name}
-                                                        </SelectItem>
-                                                    ))}
+                                                    {doctors.map((doctor) => {
+                                                        // Use id (which is specialist_id) or specialist_id field
+                                                        const doctorId = doctor.id?.toString() || doctor.specialist_id?.toString() || '';
+                                                        return (
+                                                            <SelectItem key={doctorId} value={doctorId}>
+                                                                {doctor.name}
+                                                            </SelectItem>
+                                                        );
+                                                    })}
                                                 </SelectContent>
                                             </Select>
                                             {errors.specialist_id && (

@@ -241,11 +241,21 @@ export default function BillingTransactions({
                 </Button>
             )
         },
-        cell: ({ row }) => (
-            <div className="text-sm">
-                {new Date(row.getValue("transaction_date")).toLocaleDateString()}
-            </div>
-        ),
+        cell: ({ row }) => {
+            const dateValue = row.getValue("transaction_date");
+            if (!dateValue) {
+                return <div className="text-sm text-gray-400">N/A</div>;
+            }
+            try {
+                const date = new Date(dateValue);
+                if (isNaN(date.getTime())) {
+                    return <div className="text-sm text-gray-400">Invalid Date</div>;
+                }
+                return <div className="text-sm">{date.toLocaleDateString()}</div>;
+            } catch (error) {
+                return <div className="text-sm text-gray-400">Invalid Date</div>;
+            }
+        },
     },
     {
         id: "actions",
@@ -313,6 +323,14 @@ export default function BillingTransactions({
 
     // Ensure we have data to work with
     const transactionsData = transactions?.data || [];
+    
+    // Debug: Log first transaction to check doctor relationship
+    useEffect(() => {
+        if (transactionsData.length > 0) {
+            console.log('First transaction data:', transactionsData[0]);
+            console.log('Doctor in first transaction:', transactionsData[0]?.doctor);
+        }
+    }, [transactionsData]);
     
     // View modal handlers
     const handleViewTransaction = (transactionId: number) => {

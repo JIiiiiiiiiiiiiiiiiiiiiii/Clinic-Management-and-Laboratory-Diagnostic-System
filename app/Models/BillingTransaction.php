@@ -10,49 +10,59 @@ class BillingTransaction extends Model
     use HasFactory;
     
     protected $fillable = [
-        'transaction_id',
+        'transaction_code', // Actual database column (transaction_id is an accessor)
         'appointment_id',
         'patient_id',
-        'doctor_id',
-        'payment_type',
-        'total_amount',
-        'amount',
-        'discount_amount',
-        'discount_percentage',
+        'specialist_id', // Use specialist_id which exists in database (not doctor_id)
+        'amount', // Only 'amount' exists in database (not 'total_amount')
         'is_senior_citizen',
         'senior_discount_amount',
         'senior_discount_percentage',
-        'hmo_provider',
-        'hmo_reference',
+        'hmo_provider_id',
         'hmo_reference_number',
         'payment_method',
-        'payment_reference',
+        'reference_no',
         'status',
         'is_itemized',
-        'description',
         'notes',
-        'transaction_date',
-        'transaction_date_only',
-        'transaction_time_only',
-        'due_date',
-        'created_by',
-        'updated_by',
+        'visit_id',
+        'is_visit_based',
+        'consultation_amount',
+        'lab_amount',
+        'follow_up_amount',
+        'total_visits',
     ];
 
     protected $casts = [
-        'total_amount' => 'decimal:2',
-        'amount' => 'decimal:2',
-        'discount_amount' => 'decimal:2',
-        'discount_percentage' => 'decimal:2',
+        'amount' => 'decimal:2', // Only 'amount' exists in database (not 'total_amount')
         'is_senior_citizen' => 'boolean',
         'senior_discount_amount' => 'decimal:2',
         'senior_discount_percentage' => 'decimal:2',
         'is_itemized' => 'boolean',
-        'transaction_date' => 'datetime',
-        'transaction_date_only' => 'date',
-        'transaction_time_only' => 'datetime:H:i:s',
-        'due_date' => 'date',
+        'is_visit_based' => 'boolean',
+        'consultation_amount' => 'decimal:2',
+        'lab_amount' => 'decimal:2',
+        'follow_up_amount' => 'decimal:2',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
+
+    // Append accessors to JSON output for backward compatibility
+    protected $appends = ['transaction_id', 'transaction_date', 'total_amount'];
+    
+    // Accessor: Map amount to total_amount for backward compatibility
+    // Since total_amount column doesn't exist in database, use amount
+    public function getTotalAmountAttribute()
+    {
+        // If total_amount exists in attributes (from fillable), use it
+        // Otherwise, fall back to amount
+        if (isset($this->attributes['total_amount'])) {
+            return $this->attributes['total_amount'];
+        }
+        
+        // Use amount as the total amount
+        return $this->amount ?? 0;
+    }
 
     // Relationships
     public function patient()
@@ -60,9 +70,16 @@ class BillingTransaction extends Model
         return $this->belongsTo(Patient::class, 'patient_id', 'id');
     }
 
+    // Relationship to specialist - use specialist_id which exists in database
     public function doctor()
     {
-        return $this->belongsTo(\App\Models\Specialist::class, 'doctor_id', 'specialist_id');
+        return $this->belongsTo(\App\Models\Specialist::class, 'specialist_id', 'specialist_id');
+    }
+    
+    // Alias for backward compatibility
+    public function specialist()
+    {
+        return $this->doctor();
     }
 
     public function appointmentLinks()
@@ -122,7 +139,8 @@ class BillingTransaction extends Model
 
     public function scopeByDateRange($query, $startDate, $endDate)
     {
-        return $query->whereBetween('transaction_date', [$startDate, $endDate]);
+        // Use created_at since transaction_date doesn't exist in database
+        return $query->whereBetween('created_at', [$startDate, $endDate]);
     }
 
     // Business logic methods
@@ -172,6 +190,37 @@ class BillingTransaction extends Model
         return null;
     }
 
+    // Accessor: Map transaction_code to transaction_id for backward compatibility
+    // Since transaction_id column doesn't exist in database, use transaction_code
+    public function getTransactionIdAttribute()
+    {
+        // If transaction_code exists, use it as transaction_id
+        if (isset($this->attributes['transaction_code'])) {
+            return $this->attributes['transaction_code'];
+        }
+        
+        // Fallback: generate from id if transaction_code is null
+        if (isset($this->attributes['id'])) {
+            return 'TXN-' . str_pad($this->attributes['id'], 6, '0', STR_PAD_LEFT);
+        }
+        
+        return null;
+    }
+
+    // Accessor: Map created_at to transaction_date for backward compatibility
+    // Since transaction_date column doesn't exist in database, use created_at
+    public function getTransactionDateAttribute()
+    {
+        // If transaction_date exists in attributes (from fillable), use it
+        // Otherwise, fall back to created_at
+        if (isset($this->attributes['transaction_date'])) {
+            return $this->attributes['transaction_date'];
+        }
+        
+        // Use created_at as the transaction date
+        return $this->created_at;
+    }
+
     // Methods
     public function markAsPaid($paymentMethod = 'cash', $referenceNo = null)
     {
@@ -196,16 +245,36 @@ class BillingTransaction extends Model
         $this->appointmentLinks()->update(['status' => 'cancelled']);
     }
 
-    // Boot method to generate transaction ID
+    // Boot method to generate transaction code
     protected static function boot()
     {
         parent::boot();
 
         static::creating(function ($transaction) {
-            if (empty($transaction->transaction_id)) {
+            // Generate transaction_code if not provided (use transaction_code which exists in database)
+            if (empty($transaction->transaction_code)) {
                 $nextId = static::max('id') + 1;
-                $transaction->transaction_id = 'TXN-' . str_pad($nextId, 6, '0', STR_PAD_LEFT);
+                $transaction->transaction_code = 'TXN-' . str_pad($nextId, 6, '0', STR_PAD_LEFT);
             }
         });
+    }
+    
+    /**
+     * Override toArray to ensure doctor relationship is always included, even when null
+     */
+    public function toArray()
+    {
+        $array = parent::toArray();
+        
+        // Ensure doctor relationship is always included in the array, even when null
+        if (!isset($array['doctor'])) {
+            if ($this->relationLoaded('doctor')) {
+                $array['doctor'] = $this->doctor ? $this->doctor->toArray() : null;
+            } else {
+                $array['doctor'] = null;
+            }
+        }
+        
+        return $array;
     }
 }

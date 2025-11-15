@@ -105,9 +105,9 @@ class ManualTransactionController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Get HMO providers
-        $hmoProviders = HmoProvider::where('is_active', true)
-            ->select('id', 'name', 'code')
+        // Get HMO providers - use 'status' column which exists in database
+        $hmoProviders = HmoProvider::where('status', 'active')
+            ->select('id', 'name', 'code', 'status')
             ->orderBy('name')
             ->get();
 
@@ -487,9 +487,9 @@ class ManualTransactionController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Get HMO providers
-        $hmoProviders = HmoProvider::where('is_active', true)
-            ->select('id', 'name', 'code')
+        // Get HMO providers - use 'status' column which exists in database
+        $hmoProviders = HmoProvider::where('status', 'active')
+            ->select('id', 'name', 'code', 'status')
             ->orderBy('name')
             ->get();
 

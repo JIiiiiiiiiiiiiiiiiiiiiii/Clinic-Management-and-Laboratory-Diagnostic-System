@@ -193,16 +193,20 @@ class PendingAppointmentApprovalService
      */
     private function createVisitFromAppointment(Appointment $appointment): Visit
     {
-        // Get staff ID - assign based on specialist type
-        $staffId = null;
-        if ($appointment->specialist_type === 'doctor') {
-            // Find a doctor user
-            $doctor = User::where('role', 'doctor')->first();
-            $staffId = $doctor ? $doctor->id : null;
-        } elseif ($appointment->specialist_type === 'medtech') {
-            // Find a medtech user
-            $medtech = User::where('role', 'medtech')->first();
-            $staffId = $medtech ? $medtech->id : null;
+        // Use the appointment's specialist_id directly if it exists
+        // The specialist_id in appointments table should reference users.id
+        $staffId = $appointment->specialist_id;
+        
+        // If specialist_id is not a user ID, try to find the corresponding user
+        if (!$staffId) {
+            // Try to find user by specialist name or type
+            if ($appointment->specialist_type === 'doctor' || $appointment->specialist_type === 'Doctor') {
+                $doctor = User::where('role', 'doctor')->first();
+                $staffId = $doctor ? $doctor->id : null;
+            } elseif ($appointment->specialist_type === 'medtech' || $appointment->specialist_type === 'MedTech') {
+                $medtech = User::where('role', 'medtech')->first();
+                $staffId = $medtech ? $medtech->id : null;
+            }
         }
         
         // Fallback to current user or admin

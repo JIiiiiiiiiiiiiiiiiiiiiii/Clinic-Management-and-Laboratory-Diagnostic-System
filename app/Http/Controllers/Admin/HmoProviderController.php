@@ -42,13 +42,27 @@ class HmoProviderController extends Controller
             'name' => 'required|string|max:255',
             'code' => 'required|string|max:50|unique:hmo_providers,code',
             'description' => 'nullable|string',
-            'contact_number' => 'nullable|string|max:20',
-            'email' => 'nullable|email|max:255',
-            'address' => 'nullable|string|max:500',
-            'is_active' => 'boolean',
+            'contact_person' => 'nullable|string|max:255',
+            'contact_email' => 'nullable|email|max:255',
+            'contact_phone' => 'nullable|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'commission_rate' => 'nullable|numeric|min:0|max:100',
+            'status' => 'nullable|in:active,inactive,suspended',
+            'is_active' => 'nullable|boolean', // Virtual attribute - will be converted to status
         ]);
 
-        HmoProvider::create($request->all());
+        $data = $request->all();
+        
+        // Convert is_active to status if provided (for backward compatibility)
+        if (isset($data['is_active'])) {
+            $data['status'] = $data['is_active'] ? 'active' : 'inactive';
+            unset($data['is_active']);
+        } elseif (!isset($data['status'])) {
+            // Default to 'active' if neither is provided
+            $data['status'] = 'active';
+        }
+
+        HmoProvider::create($data);
 
         return redirect()->route('admin.billing.hmo-providers.index')
             ->with('success', 'HMO provider created successfully.');
@@ -76,13 +90,24 @@ class HmoProviderController extends Controller
             'name' => 'required|string|max:255',
             'code' => 'required|string|max:50|unique:hmo_providers,code,' . $hmoProvider->id,
             'description' => 'nullable|string',
-            'contact_number' => 'nullable|string|max:20',
-            'email' => 'nullable|email|max:255',
-            'address' => 'nullable|string|max:500',
-            'is_active' => 'boolean',
+            'contact_person' => 'nullable|string|max:255',
+            'contact_email' => 'nullable|email|max:255',
+            'contact_phone' => 'nullable|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'commission_rate' => 'nullable|numeric|min:0|max:100',
+            'status' => 'nullable|in:active,inactive,suspended',
+            'is_active' => 'nullable|boolean', // Virtual attribute - will be converted to status
         ]);
 
-        $hmoProvider->update($request->all());
+        $data = $request->all();
+        
+        // Convert is_active to status if provided (for backward compatibility)
+        if (isset($data['is_active'])) {
+            $data['status'] = $data['is_active'] ? 'active' : 'inactive';
+            unset($data['is_active']);
+        }
+
+        $hmoProvider->update($data);
 
         return redirect()->route('admin.billing.hmo-providers.index')
             ->with('success', 'HMO provider updated successfully.');
@@ -107,8 +132,9 @@ class HmoProviderController extends Controller
             'is_active' => 'required|boolean',
         ]);
 
+        // Convert is_active to status (database column)
         $hmoProvider->update([
-            'is_active' => $request->is_active,
+            'status' => $request->is_active ? 'active' : 'inactive',
         ]);
 
         return back()->with('success', 'HMO provider status updated successfully.');

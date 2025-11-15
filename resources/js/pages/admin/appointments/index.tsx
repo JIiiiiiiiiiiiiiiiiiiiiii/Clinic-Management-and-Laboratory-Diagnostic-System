@@ -48,6 +48,7 @@ import {
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import RealtimeNotificationBell from '@/components/RealtimeNotificationBell';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Appointments', href: '/admin/appointments' },
@@ -93,7 +94,7 @@ const appointmentTypes = [
 // Column definitions for the appointments data table
 const createColumns = (handleDeleteAppointment: (appointment: any) => void, handleEditAppointment: (appointment: any) => void, handleViewAppointment: (appointment: any) => void, handleAddLabTests: (appointment: any) => void): ColumnDef<any>[] => [
     {
-        accessorKey: "patient_id",
+        accessorKey: "patient_id_display",
         header: ({ column }) => {
             return (
                 <Button
@@ -106,9 +107,12 @@ const createColumns = (handleDeleteAppointment: (appointment: any) => void, hand
                 </Button>
             )
         },
-        cell: ({ row }) => (
-            <div className="font-medium text-center">{row.getValue("patient_id")}</div>
-        ),
+        cell: ({ row }) => {
+            const patientIdDisplay = row.getValue("patient_id_display") as string;
+            return (
+                <div className="font-medium text-center">{patientIdDisplay || row.original.patient_id || 'N/A'}</div>
+            );
+        },
     },
     {
         accessorKey: "patient_name",
@@ -176,9 +180,10 @@ const createColumns = (handleDeleteAppointment: (appointment: any) => void, hand
         header: "Type",
         cell: ({ row }) => {
             const type = row.getValue("appointment_type") as string;
+            const formattedType = formatAppointmentType(type);
             return (
                 <Badge className={getTypeBadge(type)}>
-                    {type}
+                    {formattedType}
                 </Badge>
             );
         },
@@ -323,14 +328,56 @@ const getStatusBadge = (status: string) => {
     }
 };
 
+// Format appointment type for display
+const formatAppointmentType = (type: string): string => {
+    if (!type) return 'N/A';
+    
+    const typeMap: { [key: string]: string } = {
+        'consultation': 'Consultation',
+        'general_consultation': 'General Consultation',
+        'checkup': 'Check-up',
+        'Follow-up': 'Follow-up',
+        'fecalysis': 'Fecalysis',
+        'fecalysis_test': 'Fecalysis Test',
+        'cbc': 'CBC (Complete Blood Count)',
+        'urinalysis': 'Urinalysis',
+        'urinarysis_test': 'Urinalysis Test',
+        'x-ray': 'X-Ray',
+        'ultrasound': 'Ultrasound',
+        'Emergency': 'Emergency',
+        'Routine Checkup': 'Routine Checkup',
+        'New Consultation': 'New Consultation',
+    };
+    
+    return typeMap[type] || type.split('_').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+};
+
 const getTypeBadge = (type: string) => {
-    switch (type) {
-        case 'New Consultation':
+    if (!type) return 'bg-gray-100 text-gray-800';
+    
+    switch (type.toLowerCase()) {
+        case 'consultation':
+        case 'general_consultation':
+        case 'new consultation':
             return 'bg-purple-100 text-purple-800';
-        case 'Follow-up':
+        case 'follow-up':
             return 'bg-indigo-100 text-indigo-800';
-        case 'Emergency':
+        case 'emergency':
             return 'bg-red-100 text-red-800';
+        case 'checkup':
+        case 'routine checkup':
+            return 'bg-blue-100 text-blue-800';
+        case 'fecalysis':
+        case 'fecalysis_test':
+        case 'cbc':
+        case 'urinalysis':
+        case 'urinarysis_test':
+            return 'bg-green-100 text-green-800';
+        case 'x-ray':
+        case 'ultrasound':
+            return 'bg-yellow-100 text-yellow-800';
         default:
             return 'bg-gray-100 text-gray-800';
     }
@@ -352,9 +399,10 @@ interface AppointmentsIndexProps {
     };
     doctors?: any[];
     medtechs?: any[];
+    appointmentTypes?: Array<{ value: string; label: string }>;
 }
 
-export default function AppointmentsIndex({ appointments, filters, nextPatientId, doctors = [], medtechs = [] }: AppointmentsIndexProps & { nextPatientId?: string }) {
+export default function AppointmentsIndex({ appointments, filters, nextPatientId, doctors = [], medtechs = [], appointmentTypes = [] }: AppointmentsIndexProps & { nextPatientId?: string }) {
     const { permissions } = useRoleAccess();
     const [appointmentsList, setAppointmentsList] = useState(appointments.data);
     const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list' as 'list' | 'calendar');
@@ -501,24 +549,67 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
 
     const handleEditAppointment = useCallback((appointment: any) => {
         setSelectedAppointment(appointment);
+        
+        // Format date for date input (YYYY-MM-DD format)
+        let formattedDate = '';
+        if (appointment.appointment_date) {
+            if (typeof appointment.appointment_date === 'string') {
+                // If it's already a string, check if it's in the right format
+                if (appointment.appointment_date.includes('T')) {
+                    formattedDate = appointment.appointment_date.split('T')[0];
+                } else if (appointment.appointment_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    formattedDate = appointment.appointment_date;
+                } else {
+                    // Try to parse and format
+                    const date = new Date(appointment.appointment_date);
+                    if (!isNaN(date.getTime())) {
+                        formattedDate = date.toISOString().split('T')[0];
+                    }
+                }
+            } else {
+                // If it's a Date object or other format, convert to string
+                const date = new Date(appointment.appointment_date);
+                if (!isNaN(date.getTime())) {
+                    formattedDate = date.toISOString().split('T')[0];
+                }
+            }
+        }
+        
+        // Format time for time input (HH:MM format)
+        let formattedTime = '';
+        if (appointment.appointment_time) {
+            if (typeof appointment.appointment_time === 'string') {
+                if (appointment.appointment_time.includes('T')) {
+                    // Extract time from ISO string
+                    formattedTime = appointment.appointment_time.split('T')[1]?.substring(0, 5) || '';
+                } else if (appointment.appointment_time.match(/^\d{2}:\d{2}/)) {
+                    // Already in HH:MM format
+                    formattedTime = appointment.appointment_time.substring(0, 5);
+                } else {
+                    // Try to parse
+                    const time = appointment.appointment_time.substring(0, 5);
+                    formattedTime = time;
+                }
+            }
+        }
+        
         setEditForm({
-            patientName: appointment.patient_name,
-            doctor: appointment.specialist_name,
-            date: appointment.appointment_date,
-            time: appointment.appointment_time ? 
-                (appointment.appointment_time.includes('T') ? 
-                    appointment.appointment_time.split('T')[1]?.substring(0, 5) : 
-                    appointment.appointment_time.substring(0, 5)) : '',
-            type: appointment.appointment_type,
-            status: appointment.status,
-            duration: appointment.duration,
-            notes: appointment.notes,
-            contactNumber: appointment.contact_number
+            patientName: appointment.patient_name || '',
+            doctor: appointment.specialist_name || '',
+            date: formattedDate,
+            time: formattedTime,
+            type: appointment.appointment_type || '',
+            status: appointment.status || '',
+            duration: appointment.duration || '',
+            notes: appointment.notes || '',
+            contactNumber: appointment.contact_number || ''
         });
         setShowEditModal(true);
     }, []);
 
     const handleViewAppointment = useCallback((appointment: any) => {
+        // For now, use the appointment data from the list
+        // The show route will be used for full page views, not modals
         setSelectedAppointment(appointment);
         setShowViewModal(true);
     }, []);
@@ -529,23 +620,97 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
             return;
         }
 
-        // Update appointment via API
-        router.put(route('admin.appointments.update', selectedAppointment.id), {
-            patient_name: editForm.patientName,
-            patient_id: selectedAppointment.patient_id, // Include patient_id
-            specialist_name: editForm.doctor,
-            specialist_type: selectedAppointment.specialist_type, // Include specialist_type
-            specialist_id: selectedAppointment.specialist_id, // Include specialist_id
+        // Extract patient_id from multiple possible locations
+        let patientId = selectedAppointment.patient_id;
+        if (!patientId && selectedAppointment.patient) {
+            // Try to get from patient relationship
+            patientId = selectedAppointment.patient.id || selectedAppointment.patient.patient_id || null;
+        }
+        
+        // Extract specialist_id - first check if doctor was changed in the form
+        let specialistId = selectedAppointment.specialist_id;
+        
+        // If doctor name changed, find the doctor by name and get their ID
+        if (editForm.doctor && editForm.doctor !== selectedAppointment.specialist_name) {
+            const selectedDoctor = doctors.find(d => d.name === editForm.doctor);
+            if (selectedDoctor) {
+                // Doctors array has 'id' which is mapped from specialist_id
+                specialistId = selectedDoctor.id || selectedDoctor.specialist_id || null;
+                console.log('Doctor changed, found specialist_id:', specialistId, 'from doctor:', selectedDoctor);
+            } else {
+                console.warn('Doctor not found in doctors array:', editForm.doctor, 'Available doctors:', doctors.map(d => d.name));
+            }
+        }
+        
+        // If still not found, try to get from appointment data
+        if (!specialistId && selectedAppointment.specialist) {
+            // Try to get from specialist relationship
+            specialistId = selectedAppointment.specialist.specialist_id || selectedAppointment.specialist.id || null;
+        }
+        
+        // Extract specialist_type
+        let specialistType = selectedAppointment.specialist_type;
+        
+        // If doctor was changed, get type from the selected doctor
+        if (editForm.doctor && editForm.doctor !== selectedAppointment.specialist_name) {
+            const selectedDoctor = doctors.find(d => d.name === editForm.doctor);
+            if (selectedDoctor) {
+                specialistType = selectedDoctor.role || 'Doctor';
+            }
+        }
+        
+        // If still not found, try to get from appointment data
+        if (!specialistType && selectedAppointment.specialist) {
+            // Try to get from specialist relationship
+            specialistType = selectedAppointment.specialist.role || null;
+        }
+        
+        // Only include specialist_id if it's not null/undefined
+        // NOTE: patient_name, contact_number, and specialist_name are NOT database columns
+        // They are derived from relationships and should NOT be sent in the update
+        // Also note: 'notes' maps to 'admin_notes' in the database
+        // 'special_requirements' maps to 'additional_info' in the database
+        const updatePayload: any = {
+            patient_id: patientId || undefined, // Send undefined instead of null
             appointment_date: editForm.date,
             appointment_time: editForm.time,
             appointment_type: editForm.type,
             status: editForm.status,
             duration: editForm.duration,
-            notes: editForm.notes,
-            contact_number: editForm.contactNumber,
-            special_requirements: selectedAppointment.special_requirements || '', // Include special_requirements
-        }, {
-            onSuccess: (page) => {
+        };
+        
+        // Map notes to admin_notes (database column name)
+        if (editForm.notes) {
+            updatePayload.admin_notes = editForm.notes;
+        }
+        
+        // Map special_requirements to additional_info (database column name)
+        if (selectedAppointment.special_requirements) {
+            updatePayload.additional_info = selectedAppointment.special_requirements;
+        }
+        
+        // Only add specialist_id and specialist_type if they have values
+        if (specialistId !== null && specialistId !== undefined) {
+            updatePayload.specialist_id = specialistId;
+        }
+        if (specialistType) {
+            updatePayload.specialist_type = specialistType;
+        }
+        
+        console.log('Sending update with:', {
+            patient_id: patientId,
+            specialist_id: specialistId,
+            specialist_type: specialistType,
+            appointment_id: selectedAppointment.id,
+            payload: updatePayload
+        });
+        
+        // Update appointment via API
+        router.put(route('admin.appointments.update', selectedAppointment.id), updatePayload, {
+            onSuccess: () => {
+                // Show success toast (matching system design)
+                toast.success('Appointment updated successfully!');
+                
                 // Add notification for appointment update
                 const updateNotification = {
                     id: Date.now(),
@@ -559,13 +724,46 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                 setNotifications(prev => [updateNotification, ...prev]);
                 setUnreadCount(prev => prev + 1);
                 
-                alert('Appointment updated successfully!');
+                // Close modal
                 setShowEditModal(false);
                 setSelectedAppointment(null);
+                
+                // Refresh the appointments list to show updated data
+                router.reload({ only: ['appointments'] });
             },
             onError: (errors) => {
                 console.error('Error updating appointment:', errors);
-                alert('Error updating appointment. Please try again.');
+                // Extract error message from various possible formats
+                let errorMessage = 'Failed to update appointment. Please try again.';
+                
+                // Inertia passes errors as an object with error keys
+                if (errors && typeof errors === 'object') {
+                    // Check for 'error' key first (most common)
+                    if (errors.error) {
+                        errorMessage = Array.isArray(errors.error) ? errors.error[0] : errors.error;
+                    }
+                    // Check for 'message' key
+                    else if (errors.message) {
+                        errorMessage = Array.isArray(errors.message) ? errors.message[0] : errors.message;
+                    }
+                    // Check for validation errors object
+                    else if (errors.errors && typeof errors.errors === 'object') {
+                        const firstError = Object.values(errors.errors)[0];
+                        errorMessage = Array.isArray(firstError) ? firstError[0] : String(firstError);
+                    }
+                    // Check if errors object has string values
+                    else {
+                        const errorValues = Object.values(errors);
+                        if (errorValues.length > 0) {
+                            const firstValue = errorValues[0];
+                            errorMessage = Array.isArray(firstValue) ? firstValue[0] : String(firstValue);
+                        }
+                    }
+                } else if (typeof errors === 'string') {
+                    errorMessage = errors;
+                }
+                
+                toast.error(errorMessage);
             }
         });
     };
@@ -580,6 +778,9 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
         if (appointmentToDelete) {
             router.delete(route('admin.appointments.destroy', appointmentToDelete.id), {
                 onSuccess: (page) => {
+                    // Show success toast (matching system design)
+                    toast.success('Appointment deleted successfully!');
+                    
                     // Add notification for appointment deletion
                     const deleteNotification = {
                         id: Date.now(),
@@ -598,7 +799,20 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                 },
                 onError: (errors) => {
                     console.error('Error deleting appointment:', errors);
-                    alert('Error deleting appointment. Please try again.');
+                    // Extract error message from various possible formats
+                    let errorMessage = 'Failed to delete appointment. Please try again.';
+                    if (typeof errors === 'string') {
+                        errorMessage = errors;
+                    } else if (errors?.error) {
+                        errorMessage = errors.error;
+                    } else if (errors?.message) {
+                        errorMessage = errors.message;
+                    } else if (errors?.errors && typeof errors.errors === 'object') {
+                        // Handle validation errors
+                        const firstError = Object.values(errors.errors)[0];
+                        errorMessage = Array.isArray(firstError) ? firstError[0] : firstError;
+                    }
+                    toast.error(errorMessage);
                 }
             });
         }
@@ -730,7 +944,7 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
             id: Date.now(),
             type: 'new_appointment',
             title: 'New Appointment Added',
-            message: `${appointment.patient_name} scheduled ${appointment.appointment_type} with ${appointment.specialist_name}`,
+            message: `${appointment.patient_name} scheduled ${formatAppointmentType(appointment.appointment_type)} with ${appointment.specialist_name}`,
             appointmentId: appointment.id,
             timestamp: new Date(),
             read: false
@@ -1113,8 +1327,8 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                     
                 {/* Edit Appointment Modal */}
                 {showEditModal && selectedAppointment && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4" onClick={handleCloseModals}>
+                        <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto z-[101]" onClick={(e) => e.stopPropagation()}>
                             <Card className="border-0">
                                 <CardHeader className="bg-white border-b border-gray-200">
                                     <div className="flex items-center justify-between">
@@ -1179,10 +1393,30 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
                                             >
                                                 <option value="">Select type...</option>
-                                                <option value="New Consultation">New Consultation</option>
-                                                <option value="Follow-up">Follow-up</option>
-                                                <option value="Emergency">Emergency</option>
-                                                <option value="Routine Checkup">Routine Checkup</option>
+                                                {appointmentTypes.length > 0 ? (
+                                                    appointmentTypes.map((type) => (
+                                                        <option key={type.value} value={type.value}>
+                                                            {type.label}
+                                                        </option>
+                                                    ))
+                                                ) : (
+                                                    // Fallback options if no appointment types from database
+                                                    <>
+                                                        <option value="consultation">Consultation</option>
+                                                        <option value="general_consultation">General Consultation</option>
+                                                        <option value="checkup">Check-up</option>
+                                                        <option value="Follow-up">Follow-up</option>
+                                                        <option value="fecalysis">Fecalysis</option>
+                                                        <option value="fecalysis_test">Fecalysis Test</option>
+                                                        <option value="cbc">CBC (Complete Blood Count)</option>
+                                                        <option value="urinalysis">Urinalysis</option>
+                                                        <option value="urinarysis_test">Urinarysis Test</option>
+                                                        <option value="x-ray">X-Ray</option>
+                                                        <option value="ultrasound">Ultrasound</option>
+                                                        <option value="Emergency">Emergency</option>
+                                                        <option value="Routine Checkup">Routine Checkup</option>
+                                                    </>
+                                                )}
                                             </select>
                                         </div>
                                         <div>
@@ -1255,8 +1489,8 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
 
                 {/* View Appointment Modal */}
                 {showViewModal && selectedAppointment && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4" onClick={handleCloseModals}>
+                        <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto z-[101]" onClick={(e) => e.stopPropagation()}>
                             <Card className="border-0">
                         <CardHeader className="bg-white border-b border-gray-200">
                                     <div className="flex items-center justify-between">
@@ -1287,7 +1521,7 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                                     </div>
                                                     <div>
                                                         <div className="text-sm text-gray-600">Patient ID</div>
-                                                        <div className="font-medium text-black">{selectedAppointment.patient_id || 'N/A'}</div>
+                                                        <div className="font-medium text-black">{selectedAppointment.patient_id_display || selectedAppointment.patient_id || 'N/A'}</div>
                                                     </div>
                                                     <div>
                                                         <div className="text-sm text-gray-600">Contact Number</div>
@@ -1325,7 +1559,7 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                                     <div>
                                                         <div className="text-sm text-gray-600">Type</div>
                                                         <Badge className={getTypeBadge(selectedAppointment.appointment_type)}>
-                                                            {selectedAppointment.appointment_type || 'N/A'}
+                                                            {formatAppointmentType(selectedAppointment.appointment_type)}
                                                         </Badge>
                                                     </div>
                                                     <div>
@@ -1451,7 +1685,7 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                                                             {getAppointmentStatusIcon(appointment.status)}
                                                                             <span className="text-xs font-medium">{appointment.patient_name}</span>
                                                                         </div>
-                                                                        <div className="text-xs text-gray-600 text-center">{appointment.appointment_type}</div>
+                                                                        <div className="text-xs text-gray-600 text-center">{formatAppointmentType(appointment.appointment_type)}</div>
                                                                         <div className="flex items-center justify-between mt-2">
                                                                             <span className="text-xs">{appointment.specialist_name}</span>
                                                                             <div className="flex items-center gap-1">

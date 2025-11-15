@@ -103,7 +103,8 @@ class EnhancedBillingController extends Controller
             ->orderBy('name')
             ->get();
 
-        $hmoProviders = HMOProvider::where('is_active', true)
+        // Get HMO providers - use 'status' column which exists in database
+        $hmoProviders = HMOProvider::where('status', 'active')
             ->orderBy('name')
             ->get();
 

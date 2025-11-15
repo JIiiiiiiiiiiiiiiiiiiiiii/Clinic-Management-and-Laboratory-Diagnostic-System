@@ -69,10 +69,18 @@ class VisitController extends Controller
             $applyFilters($initialQuery);
             $applyFilters($followUpQuery);
 
-            // Get paginated results - combine queries for proper pagination
-            $combinedQuery = $initialQuery->union($followUpQuery);
+            // Get paginated results - use a single query that includes all visits
+            // Union doesn't work well with pagination, so we'll use a single query
             $perPage = $request->get('per_page', 15);
-            $allVisits = $combinedQuery->paginate($perPage);
+            
+            // Combine both queries using whereIn for visit_type or use a single query
+            // Since follow-up visits are a subset, we can just query all visits
+            $allVisitsQuery = Visit::with(['patient', 'appointment', 'attendingStaff']);
+            
+            // Re-apply filters to the combined query
+            $applyFilters($allVisitsQuery);
+            
+            $allVisits = $allVisitsQuery->paginate($perPage);
             
             // Transform visits to match frontend expectations
             $allVisits->getCollection()->transform(function ($visit) {

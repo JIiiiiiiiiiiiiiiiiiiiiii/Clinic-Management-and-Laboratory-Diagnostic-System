@@ -35,8 +35,10 @@ interface NotificationsIndexProps {
 export default function NotificationsIndex({ notifications, unreadCount }: NotificationsIndexProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState('all');
+    const [notificationsState, setNotificationsState] = useState(notifications.data);
+    const [unreadCountState, setUnreadCountState] = useState(unreadCount);
 
-    const filteredNotifications = notifications.data.filter(notification => {
+    const filteredNotifications = notificationsState.filter(notification => {
         const matchesSearch = notification.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             notification.message.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesType = filterType === 'all' || notification.type === filterType;
@@ -80,8 +82,20 @@ export default function NotificationsIndex({ notifications, unreadCount }: Notif
     };
 
     const markAsRead = async (notificationId: number) => {
+        // Optimistic update: update UI immediately
+        setNotificationsState(prev => 
+            prev.map(notif => 
+                notif.id === notificationId 
+                    ? { ...notif, read: true, read_at: new Date().toISOString() }
+                    : notif
+            )
+        );
+        
+        // Update unread count
+        setUnreadCountState(prev => Math.max(0, prev - 1));
+
         try {
-            await fetch(`/admin/notifications/${notificationId}/mark-read`, {
+            const response = await fetch(`/admin/notifications/${notificationId}/mark-read`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -89,16 +103,32 @@ export default function NotificationsIndex({ notifications, unreadCount }: Notif
                 },
             });
             
-            // Refresh the page to update the notification status
-            router.reload();
+            if (!response.ok) {
+                // Revert on error
+                router.reload();
+            }
         } catch (error) {
             console.error('Error marking notification as read:', error);
+            // Revert on error
+            router.reload();
         }
     };
 
     const markAllAsRead = async () => {
+        // Optimistic update: mark all as read immediately
+        setNotificationsState(prev => 
+            prev.map(notif => ({ 
+                ...notif, 
+                read: true, 
+                read_at: notif.read_at || new Date().toISOString() 
+            }))
+        );
+        
+        // Update unread count to 0
+        setUnreadCountState(0);
+
         try {
-            await fetch('/admin/notifications/mark-all-read', {
+            const response = await fetch('/admin/notifications/mark-all-read', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -106,9 +136,21 @@ export default function NotificationsIndex({ notifications, unreadCount }: Notif
                 },
             });
             
-            router.reload();
+            if (!response.ok) {
+                // Revert on error
+                router.reload();
+            }
         } catch (error) {
             console.error('Error marking all notifications as read:', error);
+            // Revert on error
+            router.reload();
+        }
+    };
+
+    const handleViewClick = async (notificationId: number) => {
+        // Auto-mark as read when viewing
+        if (!notificationsState.find(n => n.id === notificationId)?.read) {
+            await markAsRead(notificationId);
         }
     };
 
@@ -124,15 +166,15 @@ export default function NotificationsIndex({ notifications, unreadCount }: Notif
                                 <h1 className="text-3xl font-bold text-gray-900">Notifications</h1>
                                 <p className="text-gray-600 mt-2">
                                     Manage and respond to system notifications
-                                    {unreadCount > 0 && (
+                                    {unreadCountState > 0 && (
                                         <Badge className="ml-2 bg-red-100 text-red-800">
-                                            {unreadCount} unread
+                                            {unreadCountState} unread
                                         </Badge>
                                     )}
                                 </p>
                             </div>
                             <div className="flex items-center gap-4">
-                                {unreadCount > 0 && (
+                                {unreadCountState > 0 && (
                                     <Button
                                         onClick={markAllAsRead}
                                         variant="outline"
@@ -247,6 +289,7 @@ export default function NotificationsIndex({ notifications, unreadCount }: Notif
                                                     )}
                                                     <Link
                                                         href={`/admin/notifications/${notification.id}`}
+                                                        onClick={() => handleViewClick(notification.id)}
                                                         className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                                                     >
                                                         <Eye className="w-4 h-4 mr-1" />

@@ -782,11 +782,11 @@ class BillingReportController extends Controller
             return trim($transaction->patient->first_name . ' ' . $transaction->patient->last_name);
         }
 
-        // Try to get patient name from appointment data
+        // Try to get patient name from appointment data - use relationship instead of non-existent column
         if ($transaction->appointmentLinks->isNotEmpty()) {
             $appointment = $transaction->appointmentLinks->first()->appointment;
-            if ($appointment) {
-                return $appointment->patient_name;
+            if ($appointment && $appointment->patient) {
+                return trim($appointment->patient->first_name . ' ' . $appointment->patient->last_name);
             }
         }
 
@@ -800,11 +800,11 @@ class BillingReportController extends Controller
             return $transaction->doctor->name;
         }
 
-        // Try to get specialist name from appointment data
+        // Try to get specialist name from appointment data - use relationship instead of non-existent column
         if ($transaction->appointmentLinks->isNotEmpty()) {
             $appointment = $transaction->appointmentLinks->first()->appointment;
-            if ($appointment) {
-                return $appointment->specialist_name;
+            if ($appointment && $appointment->specialist) {
+                return $appointment->specialist->name;
             }
         }
 

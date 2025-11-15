@@ -527,6 +527,7 @@ Route::prefix('admin')
             })->name('walk-in');
             Route::post('/walk-in', [AppointmentController::class, 'storeWalkIn'])->name('walk-in.store');
 
+            // Parameterized routes MUST come after all specific routes (walk-in, availability, etc.)
             Route::get('/{appointment}', [AppointmentController::class, 'show'])->name('show');
             Route::put('/{appointment}', [AppointmentController::class, 'update'])->name('update');
             Route::delete('/{appointment}', [AppointmentController::class, 'destroy'])->name('destroy');
@@ -539,77 +540,9 @@ Route::prefix('admin')
             Route::get('/api/lab-tests/available', [\App\Http\Controllers\Admin\AppointmentLabController::class, 'getAvailableLabTests'])->name('api.lab-tests.available');
             Route::get('/{appointment}/api/lab-tests', [\App\Http\Controllers\Admin\AppointmentLabController::class, 'getAppointmentLabTests'])->name('api.lab-tests');
             Route::post('/api/lab-tests/pricing', [\App\Http\Controllers\Admin\AppointmentLabController::class, 'getLabTestPricing'])->name('api.lab-tests.pricing');
-            Route::get('/walk-in', function () {
-                // Get available doctors and medtechs with schedule data (matching online appointment)
-                $doctors = \App\Models\Specialist::where('role', 'Doctor')
-                    ->when(\Schema::hasColumn('specialists', 'status'), function($query) {
-                        return $query->where('status', 'Active');
-                    })
-                    ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id', 'schedule_data')
-                    ->get()
-                    ->map(function ($doctor) {
-                        return [
-                            'id' => $doctor->id,
-                            'name' => $doctor->name,
-                            'specialization' => $doctor->specialization ?? 'General Medicine',
-                            'employee_id' => $doctor->employee_id,
-                            'availability' => 'Mon-Fri 9AM-5PM',
-                            'rating' => 4.8,
-                            'experience' => '10+ years',
-                            'nextAvailable' => now()->addDays(1)->format('M d, Y g:i A'),
-                            'schedule_data' => $doctor->schedule_data,
-                        ];
-                    });
-
-                $medtechs = \App\Models\Specialist::where('role', 'MedTech')
-                    ->when(\Schema::hasColumn('specialists', 'status'), function($query) {
-                        return $query->where('status', 'Active');
-                    })
-                    ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id', 'schedule_data')
-                    ->get()
-                    ->map(function ($medtech) {
-                        return [
-                            'id' => $medtech->id,
-                            'name' => $medtech->name,
-                            'specialization' => $medtech->specialization ?? 'Medical Technology',
-                            'employee_id' => $medtech->employee_id,
-                            'availability' => 'Mon-Fri 9AM-5PM',
-                            'rating' => 4.5,
-                            'experience' => '5+ years',
-                            'nextAvailable' => now()->addDays(1)->format('M d, Y g:i A'),
-                            'schedule_data' => $medtech->schedule_data,
-                        ];
-                    });
-                
-                $appointmentTypes = [
-                    'general_consultation' => 'General Consultation',
-                    'cbc' => 'Complete Blood Count (CBC)',
-                    'fecalysis_test' => 'Fecalysis Test',
-                    'urinarysis_test' => 'Urinalysis Test',
-                ];
-                
-                return Inertia::render('shared/appointment-booking', [
-                    'user' => auth()->user(),
-                    'patient' => null,
-                    'doctors' => $doctors,
-                    'medtechs' => $medtechs,
-                    'appointmentTypes' => $appointmentTypes,
-                    'isExistingPatient' => false,
-                    'isAdmin' => true,
-                    'backUrl' => route('admin.appointments.index'),
-                    'nextPatientId' => 'P001'
-                ]);
-            })->name('walk-in');
-            Route::post('/walk-in', [AppointmentController::class, 'storeWalkIn'])->name('walk-in.store');
-            
-
-            
             
             Route::post('/', [AppointmentController::class, 'store'])->name('store');
-            Route::get('/{appointment}', [AppointmentController::class, 'show'])->name('show');
             Route::get('/{appointment}/edit', [AppointmentController::class, 'edit'])->name('edit');
-            Route::put('/{appointment}', [AppointmentController::class, 'update'])->name('update');
-            Route::delete('/{appointment}', [AppointmentController::class, 'destroy'])->name('destroy');
             Route::delete('/patient/{patient_id}', [AppointmentController::class, 'destroyByPatientId'])->name('destroy.by-patient');
             Route::put('/{appointment}/status', [AppointmentController::class, 'updateStatus'])->name('status.update');
             Route::get('/api/by-date', [AppointmentController::class, 'getByDate'])->name('api.by-date');

@@ -58,21 +58,30 @@ class AppointmentLabController extends Controller
                 ];
             }),
             'existingLabTests' => $existingLabTests->map(function ($labTest) {
-                return [
-                    'id' => $labTest->id,
-                    'lab_test' => [
+                // Check if lab_test relationship exists before accessing its properties
+                $labTestData = null;
+                if ($labTest->lab_test) {
+                    $labTestData = [
                         'id' => $labTest->lab_test->id,
                         'name' => $labTest->lab_test->name,
                         'code' => $labTest->lab_test->code,
                         'price' => (float) $labTest->lab_test->price,
-                    ],
+                    ];
+                }
+                
+                return [
+                    'id' => $labTest->id,
+                    'lab_test' => $labTestData,
                     'total_price' => (float) $labTest->total_price,
                     'status' => $labTest->status,
                     'added_by' => [
                         'name' => $labTest->addedBy->name ?? 'Unknown',
                     ],
                 ];
-            }),
+            })->filter(function ($labTest) {
+                // Filter out lab tests where the relationship is null
+                return $labTest['lab_test'] !== null;
+            })->values(),
         ]);
     }
 

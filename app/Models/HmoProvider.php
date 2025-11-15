@@ -13,20 +13,36 @@ class HmoProvider extends Model
         'name',
         'code',
         'description',
-        'contact_number',
-        'email',
+        'contact_person',
+        'contact_email',
+        'contact_phone',
         'address',
-        'is_active',
+        'commission_rate',
+        'status', // Actual database column (enum: 'active', 'inactive', 'suspended')
+        'coverage_details',
+        'payment_terms',
+        'contract_start_date',
+        'contract_end_date',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
+        'commission_rate' => 'decimal:2',
+        'contract_start_date' => 'date',
+        'contract_end_date' => 'date',
     ];
 
-    // Accessor for status field (maps is_active to status)
-    public function getStatusAttribute()
+    // Accessor: Convert 'status' enum to 'is_active' boolean for backward compatibility
+    // This allows code using $hmoProvider->is_active to work even though DB has 'status' column
+    public function getIsActiveAttribute()
     {
-        return $this->is_active ? 'active' : 'inactive';
+        return isset($this->attributes['status']) && $this->attributes['status'] === 'active';
+    }
+
+    // Mutator: Convert 'is_active' boolean to 'status' enum when setting
+    // This allows code using $hmoProvider->is_active = true to work
+    public function setIsActiveAttribute($value)
+    {
+        $this->attributes['status'] = $value ? 'active' : 'inactive';
     }
 
     // Relationships
@@ -45,15 +61,15 @@ class HmoProvider extends Model
         return $this->hasMany(BillingTransaction::class, 'hmo_provider', 'name');
     }
 
-    // Scopes
+    // Scopes - use 'status' column which exists in database
     public function scopeActive($query)
     {
-        return $query->where('is_active', true);
+        return $query->where('status', 'active');
     }
 
     public function scopeInactive($query)
     {
-        return $query->where('is_active', false);
+        return $query->where('status', 'inactive');
     }
 
     // Helper methods

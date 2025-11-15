@@ -197,6 +197,8 @@ class RealtimeAppointmentController extends Controller
                     'read' => $notification->read,
                     'created_at' => $notification->created_at->toISOString(),
                     'data' => $notification->data, // This should be properly parsed by the model cast
+                    'related_id' => $notification->related_id, // Include related_id for fallback
+                    'related_type' => $notification->related_type, // Include related_type for reference
                 ];
             });
 
