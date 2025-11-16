@@ -647,7 +647,7 @@ export default function OnlineAppointment({
 
     return (
         <div className="min-h-screen bg-white">
-            <Head title="Online Appointment - SJHI Industrial Clinic" />
+            <Head title="Online Appointment" />
             
             {/* Shared Navigation */}
             <SharedNavigation user={user} currentPath="/patient/online-appointment" notifications={notifications} unreadCount={unreadCount} />

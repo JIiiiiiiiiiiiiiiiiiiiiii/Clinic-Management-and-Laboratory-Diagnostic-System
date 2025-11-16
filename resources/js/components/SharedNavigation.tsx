@@ -74,7 +74,7 @@ export default function SharedNavigation({ user, currentPath = '/', notification
     const patientDropdownItems = [
         {
             name: 'Dashboard',
-            href: '/patient/dashboard-simple',
+            href: '/patient/dashboard',
             icon: Heart,
             description: 'View your health overview',
             category: 'main'

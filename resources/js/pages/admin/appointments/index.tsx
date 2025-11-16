@@ -40,6 +40,7 @@ import {
     VisibilityState,
 } from '@tanstack/react-table';
 import { safeFormatDate, safeFormatTime } from '@/utils/dateTime';
+import { formatAppointmentType } from '@/utils/formatAppointmentType';
 import { 
     Calendar as CalendarIcon, CheckCircle, Clock, Filter, Plus, Search, Stethoscope, Edit, Eye, UserCheck, Bell, CalendarDays, Users, X, Save, Trash2, TestTube,
     ArrowUpDown, ArrowUp, ArrowDown, ChevronsUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Settings2, EyeOff, MoreHorizontal, ChevronDown,
@@ -326,32 +327,6 @@ const getStatusBadge = (status: string) => {
         default:
             return 'bg-gray-100 text-gray-800';
     }
-};
-
-// Format appointment type for display
-const formatAppointmentType = (type: string): string => {
-    if (!type) return 'N/A';
-    
-    const typeMap: { [key: string]: string } = {
-        'consultation': 'Consultation',
-        'general_consultation': 'General Consultation',
-        'checkup': 'Check-up',
-        'Follow-up': 'Follow-up',
-        'fecalysis': 'Fecalysis',
-        'fecalysis_test': 'Fecalysis Test',
-        'cbc': 'CBC (Complete Blood Count)',
-        'urinalysis': 'Urinalysis',
-        'urinarysis_test': 'Urinalysis Test',
-        'x-ray': 'X-Ray',
-        'ultrasound': 'Ultrasound',
-        'Emergency': 'Emergency',
-        'Routine Checkup': 'Routine Checkup',
-        'New Consultation': 'New Consultation',
-    };
-    
-    return typeMap[type] || type.split('_').map(word => 
-        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-    ).join(' ');
 };
 
 const getTypeBadge = (type: string) => {
@@ -1053,23 +1028,24 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                             Appointments ({table.getFilteredRowModel().rows.length})
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="p-6">
+                    <CardContent className="p-4 sm:p-6">
                         {/* Controls */}
-                        <div className="flex flex-wrap items-center gap-4 py-4">
-                            <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 py-4">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
                                 <Input
                                     placeholder="Search patient name, ID, or specialist..."
                                     value={searchTerm}
                                     onChange={(event) => setSearchTerm(event.target.value)}
-                                    className="max-w-sm"
+                                    className="w-full sm:max-w-sm"
                                 />
                                 
                                 <Button
                                     onClick={handleNewAppointment}
-                                    className="bg-green-600 hover:bg-green-700 text-white"
+                                    className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
                                 >
                                     <CalendarDays className="h-4 w-4 mr-2" />
-                                    Walk-in Appointment
+                                    <span className="hidden sm:inline">Walk-in Appointment</span>
+                                    <span className="sm:hidden">Walk-in</span>
                                 </Button>
                             </div>
                             
@@ -1196,63 +1172,65 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                     <Card className="shadow-lg border-0 rounded-xl bg-white">
                         <CardContent className="p-6">
                             {/* Table */}
-                            <div className="rounded-md border">
-                            <Table>
-                                <TableHeader>
-                                    {table.getHeaderGroups().map((headerGroup) => (
-                                        <TableRow key={headerGroup.id}>
-                                            {headerGroup.headers.map((header) => {
-                                                return (
-                                                    <TableHead key={header.id}>
-                                                        {header.isPlaceholder
-                                                            ? null
-                                                            : flexRender(
-                                                                header.column.columnDef.header,
-                                                                header.getContext()
-                                                        )}
-                                                    </TableHead>
-                                                )
-                                            })}
-                                        </TableRow>
-                                    ))}
-                                </TableHeader>
-                                <TableBody>
-                                    {table.getRowModel().rows?.length ? (
-                                        table.getRowModel().rows.map((row) => (
-                                            <TableRow
-                                                key={row.id}
-                                                data-state={row.getIsSelected() && "selected"}
-                                            >
-                                                {row.getVisibleCells().map((cell) => (
-                                                    <TableCell key={cell.id}>
-                                                        {flexRender(
-                                                            cell.column.columnDef.cell,
-                                                            cell.getContext()
-                                                        )}
+                            <div className="rounded-md border overflow-x-auto">
+                                <div className="inline-block min-w-full align-middle">
+                                    <Table>
+                                        <TableHeader>
+                                            {table.getHeaderGroups().map((headerGroup) => (
+                                                <TableRow key={headerGroup.id}>
+                                                    {headerGroup.headers.map((header) => {
+                                                        return (
+                                                            <TableHead key={header.id} className="whitespace-nowrap">
+                                                                {header.isPlaceholder
+                                                                    ? null
+                                                                    : flexRender(
+                                                                        header.column.columnDef.header,
+                                                                        header.getContext()
+                                                                    )}
+                                                            </TableHead>
+                                                        )
+                                                    })}
+                                                </TableRow>
+                                            ))}
+                                        </TableHeader>
+                                        <TableBody>
+                                            {table.getRowModel().rows?.length ? (
+                                                table.getRowModel().rows.map((row) => (
+                                                    <TableRow
+                                                        key={row.id}
+                                                        data-state={row.getIsSelected() && "selected"}
+                                                    >
+                                                        {row.getVisibleCells().map((cell) => (
+                                                            <TableCell key={cell.id} className="whitespace-nowrap">
+                                                                {flexRender(
+                                                                    cell.column.columnDef.cell,
+                                                                    cell.getContext()
+                                                                )}
+                                                            </TableCell>
+                                                        ))}
+                                                    </TableRow>
+                                                ))
+                                            ) : (
+                                                <TableRow>
+                                                    <TableCell
+                                                        colSpan={columns.length}
+                                                        className="h-24 text-center"
+                                                    >
+                                                        No results.
                                                     </TableCell>
-                                                ))}
-                                            </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell
-                                                colSpan={columns.length}
-                                                className="h-24 text-center"
-                                            >
-                                                No results.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
                         
                         {/* Pagination */}
-                        <div className="flex items-center justify-between px-2 py-4">
-                            <div className="text-muted-foreground flex-1 text-sm">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 px-2 py-4">
+                            <div className="text-muted-foreground text-sm text-center sm:text-left">
                                 Showing {table.getRowModel().rows.length} of {table.getFilteredRowModel().rows.length} appointments
                             </div>
-                            <div className="flex items-center space-x-6 lg:space-x-8">
+                            <div className="flex flex-col sm:flex-row items-center gap-4 sm:space-x-6 lg:space-x-8">
                                 <div className="flex items-center space-x-2">
                                     <p className="text-sm font-medium">Rows per page</p>
                                     <Select

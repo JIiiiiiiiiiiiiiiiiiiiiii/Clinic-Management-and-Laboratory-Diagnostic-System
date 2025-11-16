@@ -8,7 +8,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Link } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import axios from 'axios';
 import { Bell, RefreshCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -202,14 +202,58 @@ export default function RealtimeNotificationBell({ initialNotifications = [], un
                 window.location.href = '/admin/pending-appointments';
             }
         } else {
-            // For other notification types or patient users, use the general link generation
-            const link = getNotificationLink(notification);
-            console.log('Generated link:', link);
+            // For patient users, handle notification clicks with proper validation
+            if (userRole === 'patient') {
+                // For appointment approval notifications, always navigate to appointments list
+                // to avoid permission issues when trying to access specific appointments
+                if (notification.type === 'appointment_approved' || notification.type === 'appointment_status_update') {
+                    console.log('Appointment approved/status update notification, redirecting to appointments list');
+                    router.visit('/patient/appointments');
+                    return;
+                }
+                
+                const link = getNotificationLink(notification);
+                console.log('Generated link for patient:', link);
 
-            if (link && link !== '#') {
-                window.location.href = link;
+                if (link && link !== '#') {
+                    // For other appointment notifications, verify the appointment exists and belongs to the patient
+                    if (notification.type === 'appointment' && link.includes('/patient/appointments/')) {
+                        const appointmentId = notification.data?.appointment_id || notification.related_id;
+                        if (appointmentId) {
+                            try {
+                                // Use Inertia router to navigate, which will handle 403 errors gracefully
+                                router.visit(link, {
+                                    onError: (errors) => {
+                                        console.warn('Error accessing appointment, redirecting to appointments list:', errors);
+                                        router.visit('/patient/appointments');
+                                    },
+                                });
+                            } catch (error) {
+                                console.warn('Error navigating to appointment, redirecting to appointments list:', error);
+                                router.visit('/patient/appointments');
+                            }
+                        } else {
+                            router.visit('/patient/appointments');
+                        }
+                    } else {
+                        // For other notification types, navigate directly
+                        router.visit(link);
+                    }
+                } else {
+                    // Fallback to appointments page if no valid link
+                    console.warn('No valid link generated for notification, redirecting to appointments:', notification);
+                    router.visit('/patient/appointments');
+                }
             } else {
-                console.warn('No valid link generated for notification:', notification);
+                // For other notification types or non-patient users, use the general link generation
+                const link = getNotificationLink(notification);
+                console.log('Generated link:', link);
+
+                if (link && link !== '#') {
+                    window.location.href = link;
+                } else {
+                    console.warn('No valid link generated for notification:', notification);
+                }
             }
         }
     };

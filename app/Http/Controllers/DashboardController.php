@@ -6,6 +6,7 @@ use App\Models\Patient;
 use App\Models\Appointment;
 use App\Models\LabOrder;
 use App\Models\LabResult;
+use App\Models\Specialist;
 use App\Models\Supply\Supply as Item;
 use App\Models\Supply\SupplyTransaction as Transaction;
 use App\Models\User;
@@ -196,12 +197,31 @@ class DashboardController extends Controller
 
         switch ($role) {
             case 'doctor':
+                // Get specialist_id for the user
+                $specialist = \App\Models\Specialist::where('name', $user->name)->first();
+                $specialistId = $specialist ? $specialist->specialist_id : null;
+                
                 $stats = [
-                    'my_patients' => Patient::whereHas('appointments', function($q) use ($user) {
-                        $q->where('specialist_name', $user->name);
+                    'my_patients' => Patient::whereHas('appointments', function($q) use ($specialistId, $user) {
+                        // Filter by specialist_id if available, otherwise try to match via join
+                        if ($specialistId) {
+                            // In whereHas callback, query is already scoped to appointments table
+                            $q->where('specialist_id', $specialistId);
+                        } else {
+                            // Fallback: join with specialists table to match by name
+                            $q->join('specialists', 'appointments.specialist_id', '=', 'specialists.specialist_id')
+                              ->where('specialists.name', $user->name);
+                        }
                     })->count(),
-                    'pending_consultations' => Appointment::where('specialist_name', $user->name)
-                        ->where('status', 'pending')->count(),
+                    'pending_consultations' => Appointment::when($specialistId, function($q) use ($specialistId) {
+                        // Query is already on appointments table, so use specialist_id directly
+                        $q->where('specialist_id', $specialistId);
+                    }, function($q) use ($user) {
+                        // Fallback: join with specialists table - need to qualify columns
+                        $q->join('specialists', 'appointments.specialist_id', '=', 'specialists.specialist_id')
+                          ->where('specialists.name', $user->name);
+                    })
+                    ->where('appointments.status', 'pending')->count(),
                     'lab_results_pending' => LabResult::whereNull('verified_at')->count(),
                 ];
                 break;
@@ -252,43 +272,227 @@ class DashboardController extends Controller
 
     private function getTodayAppointments($role, $user)
     {
-        $query = Appointment::with(['patient'])
-            ->whereDate('appointment_date', now()->toDateString())
-            ->orderBy('appointment_time');
+        // Use LEFT JOIN to get patient and specialist data directly from database
+        // Check all possible specialist sources (appointments.specialist_id, visits.doctor_id, visits.nurse_id, visits.medtech_id, visits.attending_staff_id)
+        $query = Appointment::query()
+            ->leftJoin('visits', 'appointments.id', '=', 'visits.appointment_id')
+            ->leftJoin('patients as appointment_patients', 'appointments.patient_id', '=', 'appointment_patients.id')
+            ->leftJoin('patients as visit_patients', 'visits.patient_id', '=', 'visit_patients.id')
+            ->leftJoin('specialists', 'appointments.specialist_id', '=', 'specialists.specialist_id')
+            ->leftJoin('specialists as visit_doctor_specialists', 'visits.doctor_id', '=', 'visit_doctor_specialists.specialist_id')
+            ->leftJoin('specialists as visit_nurse_specialists', 'visits.nurse_id', '=', 'visit_nurse_specialists.specialist_id')
+            ->leftJoin('specialists as visit_medtech_specialists', 'visits.medtech_id', '=', 'visit_medtech_specialists.specialist_id')
+            ->leftJoin('specialists as visit_attending_specialists', 'visits.attending_staff_id', '=', 'visit_attending_specialists.specialist_id')
+            ->select(
+                'appointments.*',
+                DB::raw('COALESCE(appointment_patients.first_name, visit_patients.first_name) as patient_first_name'),
+                DB::raw('COALESCE(appointment_patients.last_name, visit_patients.last_name) as patient_last_name'),
+                DB::raw('COALESCE(appointment_patients.middle_name, visit_patients.middle_name) as patient_middle_name'),
+                DB::raw('COALESCE(
+                    specialists.name, 
+                    visit_doctor_specialists.name, 
+                    visit_nurse_specialists.name, 
+                    visit_medtech_specialists.name, 
+                    visit_attending_specialists.name
+                ) as specialist_name_from_table')
+            )
+            ->whereDate('appointments.appointment_date', now()->toDateString())
+            ->orderBy('appointments.appointment_time');
 
         // Filter by role
         if ($role === 'doctor') {
-            $query->where('specialist_name', $user->name);
+            $query->where(function($q) use ($user) {
+                $q->where('specialists.name', $user->name)
+                  ->orWhere('visit_doctor_specialists.name', $user->name)
+                  ->orWhere('visit_attending_specialists.name', $user->name);
+            });
         }
 
         return $query->get()->map(function ($appointment) {
-                return [
-                    'id' => $appointment->id,
-                    'patient_name' => $appointment->patient ? $appointment->patient->first_name . ' ' . $appointment->patient->last_name : $appointment->patient_name ?? 'Unknown Patient',
-                    'specialist_name' => $appointment->specialist_name ?? 'Unknown Doctor',
-                    'appointment_type' => $appointment->appointment_type ?? 'General Consultation',
-                    'appointment_time' => $appointment->appointment_time,
-                    'status' => $appointment->status,
-                ];
-            });
+            // Access joined columns from attributes
+            $attributes = $appointment->getAttributes();
+            
+            // Get patient name from joined data
+            $patientName = 'Unknown Patient';
+            $patientFirstName = $attributes['patient_first_name'] ?? $appointment->patient_first_name ?? null;
+            $patientMiddleName = $attributes['patient_middle_name'] ?? $appointment->patient_middle_name ?? null;
+            $patientLastName = $attributes['patient_last_name'] ?? $appointment->patient_last_name ?? null;
+            
+            if ($patientFirstName || $patientLastName) {
+                $firstName = $patientFirstName ?? '';
+                $middleName = $patientMiddleName ?? '';
+                $lastName = $patientLastName ?? '';
+                $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+            }
+            
+            // If still empty, try to load patient relationship as fallback
+            if (empty(trim($patientName)) && $appointment->patient_id) {
+                if (!$appointment->relationLoaded('patient')) {
+                    $appointment->load('patient');
+                }
+                if ($appointment->patient) {
+                    $firstName = $appointment->patient->first_name ?? '';
+                    $middleName = $appointment->patient->middle_name ?? '';
+                    $lastName = $appointment->patient->last_name ?? '';
+                    $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+                }
+            }
+            
+            if (empty(trim($patientName))) {
+                $patientName = 'Unknown Patient';
+            }
+            
+            // Get specialist name from joined data
+            $specialistName = $attributes['specialist_name_from_table'] ?? $appointment->specialist_name_from_table ?? null;
+            
+            // If still null, try to get from relationships as fallback
+            if (empty($specialistName) || $specialistName === 'NULL') {
+                // Try appointment specialist relationship
+                if ($appointment->specialist_id) {
+                    if (!$appointment->relationLoaded('specialist')) {
+                        $appointment->load('specialist');
+                    }
+                    if ($appointment->specialist) {
+                        $specialistName = $appointment->specialist->name;
+                    }
+                }
+                
+                // Try visit relationships
+                if (empty($specialistName) && $appointment->relationLoaded('visit') && $appointment->visit) {
+                    $visit = $appointment->visit;
+                    if ($visit->doctor_id) {
+                        $visitDoctor = \App\Models\Specialist::find($visit->doctor_id);
+                        if ($visitDoctor) {
+                            $specialistName = $visitDoctor->name;
+                        }
+                    }
+                }
+            }
+            
+            // Final fallback
+            if (empty($specialistName) || $specialistName === 'NULL') {
+                $specialistName = 'Unknown Specialist';
+            }
+            
+            return [
+                'id' => $appointment->id,
+                'patient_name' => $patientName,
+                'specialist_name' => $specialistName,
+                'appointment_type' => $appointment->appointment_type ?? 'General Consultation',
+                'appointment_time' => $appointment->appointment_time,
+                'status' => $appointment->status,
+            ];
+        });
     }
 
     private function getRecentAppointments($role, $user)
     {
-        $query = Appointment::with(['patient'])
-            ->orderByDesc('created_at')
+        // Use LEFT JOIN to get patient and specialist data directly from database
+        // Check all possible specialist sources (appointments.specialist_id, visits.doctor_id, visits.nurse_id, visits.medtech_id, visits.attending_staff_id)
+        $query = Appointment::query()
+            ->leftJoin('visits', 'appointments.id', '=', 'visits.appointment_id')
+            ->leftJoin('patients as appointment_patients', 'appointments.patient_id', '=', 'appointment_patients.id')
+            ->leftJoin('patients as visit_patients', 'visits.patient_id', '=', 'visit_patients.id')
+            ->leftJoin('specialists', 'appointments.specialist_id', '=', 'specialists.specialist_id')
+            ->leftJoin('specialists as visit_doctor_specialists', 'visits.doctor_id', '=', 'visit_doctor_specialists.specialist_id')
+            ->leftJoin('specialists as visit_nurse_specialists', 'visits.nurse_id', '=', 'visit_nurse_specialists.specialist_id')
+            ->leftJoin('specialists as visit_medtech_specialists', 'visits.medtech_id', '=', 'visit_medtech_specialists.specialist_id')
+            ->leftJoin('specialists as visit_attending_specialists', 'visits.attending_staff_id', '=', 'visit_attending_specialists.specialist_id')
+            ->select(
+                'appointments.*',
+                DB::raw('COALESCE(appointment_patients.first_name, visit_patients.first_name) as patient_first_name'),
+                DB::raw('COALESCE(appointment_patients.last_name, visit_patients.last_name) as patient_last_name'),
+                DB::raw('COALESCE(appointment_patients.middle_name, visit_patients.middle_name) as patient_middle_name'),
+                DB::raw('COALESCE(
+                    specialists.name, 
+                    visit_doctor_specialists.name, 
+                    visit_nurse_specialists.name, 
+                    visit_medtech_specialists.name, 
+                    visit_attending_specialists.name
+                ) as specialist_name_from_table')
+            )
+            ->orderByDesc('appointments.created_at')
             ->limit(10);
 
         // Filter by role
         if ($role === 'doctor') {
-            $query->where('specialist_name', $user->name);
+            $query->where(function($q) use ($user) {
+                $q->where('specialists.name', $user->name)
+                  ->orWhere('visit_doctor_specialists.name', $user->name)
+                  ->orWhere('visit_attending_specialists.name', $user->name);
+            });
         }
 
         return $query->get()->map(function ($appointment) {
+            // Access joined columns from attributes
+            $attributes = $appointment->getAttributes();
+            
+            // Get patient name from joined data
+            $patientName = 'Unknown Patient';
+            $patientFirstName = $attributes['patient_first_name'] ?? $appointment->patient_first_name ?? null;
+            $patientMiddleName = $attributes['patient_middle_name'] ?? $appointment->patient_middle_name ?? null;
+            $patientLastName = $attributes['patient_last_name'] ?? $appointment->patient_last_name ?? null;
+            
+            if ($patientFirstName || $patientLastName) {
+                $firstName = $patientFirstName ?? '';
+                $middleName = $patientMiddleName ?? '';
+                $lastName = $patientLastName ?? '';
+                $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+            }
+            
+            // If still empty, try to load patient relationship as fallback
+            if (empty(trim($patientName)) && $appointment->patient_id) {
+                if (!$appointment->relationLoaded('patient')) {
+                    $appointment->load('patient');
+                }
+                if ($appointment->patient) {
+                    $firstName = $appointment->patient->first_name ?? '';
+                    $middleName = $appointment->patient->middle_name ?? '';
+                    $lastName = $appointment->patient->last_name ?? '';
+                    $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+                }
+            }
+            
+            if (empty(trim($patientName))) {
+                $patientName = 'Unknown Patient';
+            }
+            
+            // Get specialist name from joined data
+            $specialistName = $attributes['specialist_name_from_table'] ?? $appointment->specialist_name_from_table ?? null;
+            
+            // If still null, try to get from relationships as fallback
+            if (empty($specialistName) || $specialistName === 'NULL') {
+                // Try appointment specialist relationship
+                if ($appointment->specialist_id) {
+                    if (!$appointment->relationLoaded('specialist')) {
+                        $appointment->load('specialist');
+                    }
+                    if ($appointment->specialist) {
+                        $specialistName = $appointment->specialist->name;
+                    }
+                }
+                
+                // Try visit relationships
+                if (empty($specialistName) && $appointment->relationLoaded('visit') && $appointment->visit) {
+                    $visit = $appointment->visit;
+                    if ($visit->doctor_id) {
+                        $visitDoctor = \App\Models\Specialist::find($visit->doctor_id);
+                        if ($visitDoctor) {
+                            $specialistName = $visitDoctor->name;
+                        }
+                    }
+                }
+            }
+            
+            // Final fallback
+            if (empty($specialistName) || $specialistName === 'NULL') {
+                $specialistName = 'Unknown Specialist';
+            }
+            
             return [
                 'id' => $appointment->id,
-                'patient_name' => $appointment->patient ? $appointment->patient->first_name . ' ' . $appointment->patient->last_name : $appointment->patient_name ?? 'Unknown Patient',
-                'specialist_name' => $appointment->specialist_name ?? 'Unknown Doctor',
+                'patient_name' => $patientName,
+                'specialist_name' => $specialistName,
                 'appointment_type' => $appointment->appointment_type ?? 'General Consultation',
                 'appointment_date' => $appointment->appointment_date,
                 'appointment_time' => $appointment->appointment_time,
@@ -766,22 +970,145 @@ class DashboardController extends Controller
                         'user_id' => $patient->user_id,
                     ];
                 }),
-            'recent_appointments' => Appointment::with(['patient', 'specialist'])
-                ->orderByDesc('appointment_date')
+            'recent_appointments' => Appointment::query()
+                ->with([
+                    'patient',
+                    'specialist',
+                    'visit.doctor',
+                    'visit.nurse',
+                    'visit.medtech'
+                ])
+                ->leftJoin('visits', 'appointments.id', '=', 'visits.appointment_id')
+                ->leftJoin('patients as appointment_patients', 'appointments.patient_id', '=', 'appointment_patients.id')
+                ->leftJoin('patients as visit_patients', 'visits.patient_id', '=', 'visit_patients.id')
+                ->leftJoin('specialists', 'appointments.specialist_id', '=', 'specialists.specialist_id')
+                ->leftJoin('specialists as visit_doctor_specialists', 'visits.doctor_id', '=', 'visit_doctor_specialists.specialist_id')
+                ->leftJoin('specialists as visit_nurse_specialists', 'visits.nurse_id', '=', 'visit_nurse_specialists.specialist_id')
+                ->leftJoin('specialists as visit_medtech_specialists', 'visits.medtech_id', '=', 'visit_medtech_specialists.specialist_id')
+                ->leftJoin('specialists as visit_attending_specialists', 'visits.attending_staff_id', '=', 'visit_attending_specialists.specialist_id')
+                ->select(
+                    'appointments.*',
+                    DB::raw('COALESCE(appointment_patients.first_name, visit_patients.first_name) as patient_first_name'),
+                    DB::raw('COALESCE(appointment_patients.last_name, visit_patients.last_name) as patient_last_name'),
+                    DB::raw('COALESCE(appointment_patients.middle_name, visit_patients.middle_name) as patient_middle_name'),
+                    DB::raw('COALESCE(
+                        specialists.name, 
+                        visit_doctor_specialists.name, 
+                        visit_nurse_specialists.name, 
+                        visit_medtech_specialists.name, 
+                        visit_attending_specialists.name
+                    ) as specialist_name_from_table')
+                )
+                ->orderByDesc('appointments.appointment_date')
                 ->limit(5)
                 ->get()
                 ->map(function ($appointment) {
+                    // Access joined columns from attributes
+                    $attributes = $appointment->getAttributes();
+                    
+                    // Get patient name from joined data
+                    $patientName = 'Unknown Patient';
+                    $patientFirstName = $attributes['patient_first_name'] ?? $appointment->patient_first_name ?? null;
+                    $patientMiddleName = $attributes['patient_middle_name'] ?? $appointment->patient_middle_name ?? null;
+                    $patientLastName = $attributes['patient_last_name'] ?? $appointment->patient_last_name ?? null;
+                    
+                    if ($patientFirstName || $patientLastName) {
+                        $firstName = $patientFirstName ?? '';
+                        $middleName = $patientMiddleName ?? '';
+                        $lastName = $patientLastName ?? '';
+                        $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+                    }
+                    
+                    // If still empty, try to load patient relationship as fallback
+                    if (empty(trim($patientName)) && $appointment->patient_id) {
+                        if ($appointment->patient) {
+                            $firstName = $appointment->patient->first_name ?? '';
+                            $middleName = $appointment->patient->middle_name ?? '';
+                            $lastName = $appointment->patient->last_name ?? '';
+                            $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+                        }
+                    }
+                    
+                    if (empty(trim($patientName))) {
+                        $patientName = 'Unknown Patient';
+                    }
+                    
+                    // Get specialist name - enhanced lookup with multiple fallbacks
+                    $specialistName = $attributes['specialist_name_from_table'] ?? $appointment->specialist_name_from_table ?? null;
+                    
+                    // Try appointment specialist relationship (eager loaded)
+                    if (empty($specialistName) || $specialistName === 'NULL') {
+                        if ($appointment->specialist) {
+                            $specialistName = $appointment->specialist->name;
+                        } elseif ($appointment->specialist_id) {
+                            $specialist = \App\Models\Specialist::where('specialist_id', $appointment->specialist_id)->first();
+                            if ($specialist) {
+                                $specialistName = $specialist->name;
+                            }
+                        }
+                    }
+                    
+                    // Try visit relationships (eager loaded)
+                    if ((empty($specialistName) || $specialistName === 'NULL') && $appointment->visit) {
+                        $visit = $appointment->visit;
+                        
+                        // Try visit doctor relationship
+                        if ($visit->doctor) {
+                            $specialistName = $visit->doctor->name;
+                        } elseif ($visit->doctor_id) {
+                            $visitDoctor = \App\Models\Specialist::where('specialist_id', $visit->doctor_id)->first();
+                            if ($visitDoctor) {
+                                $specialistName = $visitDoctor->name;
+                            }
+                        }
+                        
+                        // Try visit nurse relationship
+                        if ((empty($specialistName) || $specialistName === 'NULL') && $visit->nurse) {
+                            $specialistName = $visit->nurse->name;
+                        } elseif ((empty($specialistName) || $specialistName === 'NULL') && $visit->nurse_id) {
+                            $visitNurse = \App\Models\Specialist::where('specialist_id', $visit->nurse_id)->first();
+                            if ($visitNurse) {
+                                $specialistName = $visitNurse->name;
+                            }
+                        }
+                        
+                        // Try visit medtech relationship
+                        if ((empty($specialistName) || $specialistName === 'NULL') && $visit->medtech) {
+                            $specialistName = $visit->medtech->name;
+                        } elseif ((empty($specialistName) || $specialistName === 'NULL') && $visit->medtech_id) {
+                            $visitMedtech = \App\Models\Specialist::where('specialist_id', $visit->medtech_id)->first();
+                            if ($visitMedtech) {
+                                $specialistName = $visitMedtech->name;
+                            }
+                        }
+                        
+                        // Try visit attending_staff_id
+                        if ((empty($specialistName) || $specialistName === 'NULL') && $visit->attending_staff_id) {
+                            $attendingStaff = \App\Models\Specialist::where('specialist_id', $visit->attending_staff_id)->first();
+                            if ($attendingStaff) {
+                                $specialistName = $attendingStaff->name;
+                            }
+                        }
+                    }
+                    
+                    // Final fallback
+                    if (empty($specialistName) || $specialistName === 'NULL') {
+                        $specialistName = 'Unknown Specialist';
+                    }
+                    
                     return [
                         'id' => $appointment->id,
-                        'patient_name' => $appointment->patient 
-                            ? ($appointment->patient->first_name . ' ' . $appointment->patient->last_name) 
-                            : ($appointment->patient_name ?? 'Unknown Patient'),
-                        'specialist_name' => $appointment->specialist 
-                            ? $appointment->specialist->name 
-                            : ($appointment->specialist_name ?? 'Unknown Specialist'),
+                        'patient_name' => $patientName,
+                        'specialist_name' => $specialistName,
                         'appointment_date' => $appointment->appointment_date,
                         'appointment_time' => $appointment->appointment_time,
+                        'appointment_type' => $appointment->appointment_type ?? 'N/A',
                         'status' => $appointment->status,
+                        'contact_number' => $appointment->contact_number ?? ($appointment->patient->mobile_no ?? $appointment->patient->telephone_no ?? null),
+                        'patient_id' => $appointment->patient_id,
+                        'specialist_id' => $appointment->specialist_id,
+                        'duration' => $appointment->duration ?? '30 min',
+                        'notes' => $appointment->admin_notes ?? $appointment->additional_info ?? null,
                     ];
                 }),
             'recent_lab_results' => LabResult::with(['order.patient', 'test'])

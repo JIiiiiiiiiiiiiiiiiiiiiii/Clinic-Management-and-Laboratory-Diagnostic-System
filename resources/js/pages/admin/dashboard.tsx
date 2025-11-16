@@ -10,7 +10,9 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Area, AreaChart, ResponsiveContainer, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
+import { formatAppointmentType } from '@/utils/formatAppointmentType';
+import { safeFormatDate, safeFormatTime } from '@/utils/dateTime';
 import { 
     Users, 
     Calendar, 
@@ -52,7 +54,8 @@ import {
     Bed,
     UserCheck,
     Target,
-    Zap
+    Zap,
+    X
 } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -70,6 +73,57 @@ export default function Dashboard() {
     const notifications = dashboard?.notifications || [];
     const analyticsData = dashboard?.analyticsData || {};
     const miniTables = dashboard?.miniTables || {};
+    
+    // View modal state
+    const [showViewModal, setShowViewModal] = useState(false);
+    const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+    
+    // Handle view appointment
+    const handleViewAppointment = useCallback((appointment: any) => {
+        setSelectedAppointment(appointment);
+        setShowViewModal(true);
+    }, []);
+    
+    // Handle close modals
+    const handleCloseModals = useCallback(() => {
+        setShowViewModal(false);
+        setSelectedAppointment(null);
+    }, []);
+    
+    // Get status badge class
+    const getStatusBadge = (status: string) => {
+        switch (status?.toLowerCase()) {
+            case 'confirmed':
+                return 'bg-green-100 text-green-800';
+            case 'pending':
+                return 'bg-yellow-100 text-yellow-800';
+            case 'cancelled':
+                return 'bg-red-100 text-red-800';
+            case 'completed':
+                return 'bg-blue-100 text-blue-800';
+            default:
+                return 'bg-gray-100 text-gray-800';
+        }
+    };
+    
+    // Get type badge class
+    const getTypeBadge = (type: string) => {
+        if (!type) return 'bg-gray-100 text-gray-800';
+        
+        switch (type.toLowerCase()) {
+            case 'consultation':
+            case 'general_consultation':
+                return 'bg-purple-100 text-purple-800';
+            case 'follow-up':
+                return 'bg-indigo-100 text-indigo-800';
+            case 'emergency':
+                return 'bg-red-100 text-red-800';
+            case 'checkup':
+                return 'bg-blue-100 text-blue-800';
+            default:
+                return 'bg-gray-100 text-gray-800';
+        }
+    };
 
     // Debug logging for chart data - removed for performance
 
@@ -1404,11 +1458,13 @@ export default function Dashboard() {
                                                 }>
                                                     {appointment.status}
                                                 </Badge>
-                                                <Button variant="ghost" size="sm" asChild>
-                                                    <Link href={`/admin/appointments/${appointment.id}`}>
-                                                        <Eye className="h-4 w-4" />
-                                                    </Link>
-                            </Button>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="sm"
+                                                    onClick={() => handleViewAppointment(appointment)}
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
                         </div>
                                         </div>
                                     ))
@@ -1422,6 +1478,122 @@ export default function Dashboard() {
                         </CardContent>
                     </Card>
                 </div>
+
+                {/* View Appointment Modal */}
+                {showViewModal && selectedAppointment && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4" onClick={handleCloseModals}>
+                        <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto z-[101]" onClick={(e) => e.stopPropagation()}>
+                            <Card className="border-0">
+                                <CardHeader className="bg-white border-b border-gray-200">
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="flex items-center gap-3 text-xl font-semibold text-black">
+                                            <Eye className="h-5 w-5 text-black" />
+                                            Appointment Details
+                                        </CardTitle>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleCloseModals}
+                                            className="text-gray-500 hover:text-gray-700"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="p-6">
+                                    <div className="space-y-6">
+                                        {/* Patient Information */}
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-black mb-4">Patient Information</h3>
+                                            <div className="bg-gray-50 p-4 rounded-lg">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <div className="text-sm text-gray-600">Patient Name</div>
+                                                        <div className="font-medium text-black">{selectedAppointment.patient_name || 'N/A'}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-sm text-gray-600">Contact Number</div>
+                                                        <div className="font-medium text-black">{selectedAppointment.contact_number || 'N/A'}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Appointment Details */}
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-black mb-4">Appointment Details</h3>
+                                            <div className="bg-gray-50 p-4 rounded-lg">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <div className="text-sm text-gray-600">Doctor</div>
+                                                        <div className="font-medium text-black">{selectedAppointment.specialist_name || 'N/A'}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-sm text-gray-600">Date</div>
+                                                        <div className="font-medium text-black">
+                                                            {safeFormatDate(selectedAppointment.appointment_date)}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-sm text-gray-600">Time</div>
+                                                        <div className="font-medium text-black">
+                                                            {safeFormatTime(selectedAppointment.appointment_time)}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-sm text-gray-600">Duration</div>
+                                                        <div className="font-medium text-black">{selectedAppointment.duration || 'N/A'}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-sm text-gray-600">Type</div>
+                                                        <Badge className={getTypeBadge(selectedAppointment.appointment_type)}>
+                                                            {formatAppointmentType(selectedAppointment.appointment_type)}
+                                                        </Badge>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-sm text-gray-600">Status</div>
+                                                        <Badge className={getStatusBadge(selectedAppointment.status)}>
+                                                            {selectedAppointment.status || 'N/A'}
+                                                        </Badge>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Notes */}
+                                        {selectedAppointment.notes && (
+                                            <div>
+                                                <h3 className="text-lg font-semibold text-black mb-4">Notes</h3>
+                                                <div className="bg-gray-50 p-4 rounded-lg">
+                                                    <div className="text-gray-700">{selectedAppointment.notes}</div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex justify-end gap-3 mt-6">
+                                        <Button
+                                            onClick={handleCloseModals}
+                                            variant="outline"
+                                            className="px-6 py-2"
+                                        >
+                                            Close
+                                        </Button>
+                                        <Button
+                                            onClick={() => {
+                                                handleCloseModals();
+                                                router.visit(`/admin/appointments/${selectedAppointment.id}`);
+                                            }}
+                                            className="bg-black hover:bg-gray-800 text-white px-6 py-2 flex items-center gap-2"
+                                        >
+                                            <Edit className="h-4 w-4" />
+                                            Edit Appointment
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </div>
+                )}
 
                 {/* Main Dashboard Content */}
                 <div className="mb-8">

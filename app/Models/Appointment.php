@@ -15,15 +15,12 @@ class Appointment extends Model
     protected $fillable = [
         "appointment_code",
         "sequence_number",
-        "patient_name",
         "patient_id",
-        "contact_number",
         "appointment_type",
         "price",
         "total_lab_amount",
         "final_total_amount",
         "specialist_type",
-        "specialist_name",
         "specialist_id",
         "appointment_date",
         "appointment_time",
@@ -34,11 +31,12 @@ class Appointment extends Model
         "billing_status",
         "billing_reference",
         "confirmation_sent",
-        "notes",
-        "special_requirements",
+        "admin_notes",
+        "additional_info",
         "source",
         "patient_id_fk",
         "unique_appointment_key",
+        "created_by",
     ];
 
     protected $casts = [
@@ -142,23 +140,85 @@ class Appointment extends Model
 
     public function generateUniqueKey()
     {
-        return "APT-" . $this->patient_id . "-" . $this->specialist_id . "-" . $this->appointment_date->format("Y-m-d") . "-" . $this->appointment_time->format("H-i-s");
+        // For manual transactions, include microtime and uniqid to make them unique
+        // This allows multiple manual transactions for the same patient/specialist/date/time
+        // Transactions should allow duplicates since a patient can visit multiple times
+        if ($this->appointment_type === 'manual_transaction') {
+            // Use microtime(true) for high precision timestamp, and uniqid() for additional uniqueness
+            // This ensures even transactions created in the same second are unique
+            $uniqueId = $this->id ? $this->id : (microtime(true) * 10000) . '-' . uniqid('', true);
+            
+            // Handle date/time formatting safely
+            $dateStr = $this->appointment_date instanceof \Carbon\Carbon 
+                ? $this->appointment_date->format("Y-m-d") 
+                : (is_string($this->appointment_date) ? $this->appointment_date : date('Y-m-d'));
+            
+            $timeStr = $this->appointment_time instanceof \Carbon\Carbon 
+                ? $this->appointment_time->format("H-i-s") 
+                : (is_string($this->appointment_time) ? str_replace(':', '-', substr($this->appointment_time, 0, 8)) : date('H-i-s'));
+            
+            return "APT-MANUAL-" . $this->patient_id . "-" . ($this->specialist_id ?? 'NULL') . "-" . $dateStr . "-" . $timeStr . "-" . $uniqueId;
+        }
+        
+        // For regular appointments, use the standard format
+        $dateStr = $this->appointment_date instanceof \Carbon\Carbon 
+            ? $this->appointment_date->format("Y-m-d") 
+            : (is_string($this->appointment_date) ? $this->appointment_date : date('Y-m-d'));
+        
+        $timeStr = $this->appointment_time instanceof \Carbon\Carbon 
+            ? $this->appointment_time->format("H-i-s") 
+            : (is_string($this->appointment_time) ? str_replace(':', '-', substr($this->appointment_time, 0, 8)) : date('H-i-s'));
+        
+        return "APT-" . $this->patient_id . "-" . $this->specialist_id . "-" . $dateStr . "-" . $timeStr;
     }
 
     public function checkForDuplicates()
     {
+        // Skip duplicate checking for manual transactions (they're not real appointments)
+        // Transactions should allow duplicates since a patient can visit multiple times
+        if ($this->appointment_type === 'manual_transaction') {
+            \Log::info('Skipping duplicate check for manual_transaction', [
+                'appointment_id' => $this->id,
+                'appointment_type' => $this->appointment_type,
+                'patient_id' => $this->patient_id,
+            ]);
+            return null;
+        }
+        
         $uniqueKey = $this->generateUniqueKey();
+        
+        \Log::info('Checking for duplicates', [
+            'appointment_id' => $this->id,
+            'appointment_type' => $this->appointment_type,
+            'unique_key' => $uniqueKey,
+            'patient_id' => $this->patient_id,
+            'specialist_id' => $this->specialist_id,
+        ]);
         
         $duplicate = Appointment::where("unique_appointment_key", $uniqueKey)
             ->where("id", "!=", $this->id ?? 0)
             ->where("status", "!=", "Cancelled")
+            ->where("appointment_type", "!=", "manual_transaction") // Exclude manual transactions from duplicate check
             ->first();
+        
+        if ($duplicate) {
+            \Log::warning('Duplicate appointment found', [
+                'current_appointment_id' => $this->id,
+                'duplicate_appointment_id' => $duplicate->id,
+                'unique_key' => $uniqueKey,
+            ]);
+        }
             
         return $duplicate;
     }
 
     public function isDuplicate()
     {
+        // Skip duplicate checking for manual transactions (they're not real appointments)
+        if ($this->appointment_type === 'manual_transaction') {
+            return false;
+        }
+        
         return $this->checkForDuplicates() !== null;
     }
 
@@ -215,22 +275,85 @@ class Appointment extends Model
 
         // Generate unique key and check for duplicates
         static::creating(function ($appointment) {
+            \Log::info('Appointment creating event fired', [
+                'appointment_type' => $appointment->appointment_type,
+                'patient_id' => $appointment->patient_id,
+                'specialist_id' => $appointment->specialist_id,
+                'appointment_date' => $appointment->appointment_date,
+                'appointment_time' => $appointment->appointment_time,
+            ]);
+            
+            // CRITICAL: Skip ALL duplicate checking for manual transactions
+            // Transactions should allow duplicates since a patient can visit multiple times
+            if ($appointment->appointment_type === 'manual_transaction') {
+                \Log::info('Skipping duplicate check for manual_transaction in creating event');
+                // Generate unique key but skip duplicate check entirely
+                if (empty($appointment->unique_appointment_key)) {
+                    $appointment->unique_appointment_key = $appointment->generateUniqueKey();
+                }
+                \Log::info('Manual transaction unique key generated', [
+                    'unique_key' => $appointment->unique_appointment_key,
+                ]);
+                return; // Early return - no duplicate check for manual transactions
+            }
+            
+            // For regular appointments, generate key and check for duplicates
             if (empty($appointment->unique_appointment_key)) {
                 $appointment->unique_appointment_key = $appointment->generateUniqueKey();
             }
             
-            // Check for duplicates before creating
+            // Only check for duplicates for non-manual-transaction appointments
             if ($appointment->isDuplicate()) {
+                \Log::error('Duplicate appointment detected in creating event', [
+                    'appointment_type' => $appointment->appointment_type,
+                    'patient_id' => $appointment->patient_id,
+                    'unique_key' => $appointment->unique_appointment_key,
+                ]);
                 throw new \Exception("Duplicate appointment detected. An appointment already exists for this patient, specialist, date, and time.");
             }
         });
 
         static::updating(function ($appointment) {
+            // CRITICAL: Skip ALL duplicate checking for manual transactions
+            // Transactions should allow duplicates since a patient can visit multiple times
+            // Check both original and new appointment_type to handle cases where it might be changed
+            $originalType = $appointment->getOriginal('appointment_type');
+            $newType = $appointment->appointment_type;
+            
+            \Log::info('Appointment updating event fired', [
+                'appointment_id' => $appointment->id,
+                'original_type' => $originalType,
+                'new_type' => $newType,
+                'dirty_fields' => $appointment->getDirty(),
+            ]);
+            
+            if ($originalType === 'manual_transaction' || $newType === 'manual_transaction') {
+                \Log::info('Skipping duplicate check for manual_transaction in updating event', [
+                    'appointment_id' => $appointment->id,
+                    'original_type' => $originalType,
+                    'new_type' => $newType,
+                ]);
+                // For manual transactions, only update unique key if needed, but skip duplicate check entirely
+                if ($appointment->isDirty(["patient_id", "specialist_id", "appointment_date", "appointment_time"])) {
+                    $appointment->unique_appointment_key = $appointment->generateUniqueKey();
+                    \Log::info('Updated unique key for manual transaction', [
+                        'unique_key' => $appointment->unique_appointment_key,
+                    ]);
+                }
+                return; // Early return - no duplicate check for manual transactions
+            }
+            
+            // For regular appointments, check for duplicates only if key fields changed
             if ($appointment->isDirty(["patient_id", "specialist_id", "appointment_date", "appointment_time"])) {
                 $appointment->unique_appointment_key = $appointment->generateUniqueKey();
                 
                 // Check for duplicates before updating
                 if ($appointment->isDuplicate()) {
+                    \Log::error('Duplicate appointment detected in updating event', [
+                        'appointment_id' => $appointment->id,
+                        'appointment_type' => $appointment->appointment_type,
+                        'unique_key' => $appointment->unique_appointment_key,
+                    ]);
                     throw new \Exception("Duplicate appointment detected. An appointment already exists for this patient, specialist, date, and time.");
                 }
             }

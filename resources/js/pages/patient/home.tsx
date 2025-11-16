@@ -145,7 +145,7 @@ export default function PatientHome({
 
     return (
         <div className="min-h-screen bg-white">
-            <Head title="SJHI Industrial Clinic - Your Trusted Healthcare Partner" />
+            <Head title="Home" />
             
             {/* Shared Navigation */}
             <SharedNavigation user={user} currentPath="/" notifications={notifications} unreadCount={unreadCount} />
@@ -206,10 +206,18 @@ export default function PatientHome({
 
                                     <div className="text-center p-4 bg-gray-50 rounded-lg">
                                         <h4 className="font-semibold text-gray-900">Our Location</h4>
-                                        <p className="text-sm text-gray-600 mt-1">
-                                            SJHI Industrial Clinic<br />
-                                            Industrial Area, Philippines
+                                        <p className="text-sm text-gray-600 mt-1 mb-2">
+                                            SJHI Industrial Clinic and Diagnostic Center<br />
+                                            Cabuyao City, Laguna
                                         </p>
+                                        <a 
+                                            href="https://maps.app.goo.gl/fWUa7BTJs6nW3Dvx6" 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="text-sm text-green-600 hover:text-green-700 underline"
+                                        >
+                                            View on Google Maps
+                                        </a>
                                     </div>
                                 </div>
                             </div>
@@ -506,7 +514,7 @@ export default function PatientHome({
                             </Button>
                         </Link>
                         <Link href="/patient/contact">
-                            <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-green-600 px-8 py-4 text-lg">
+                            <Button variant="outline" size="lg" className="border-2 border-white bg-white/10 text-white hover:bg-white hover:text-green-600 px-8 py-4 text-lg backdrop-blur-sm">
                                 <Phone className="mr-2 h-5 w-5" />
                                 Contact Us
                             </Button>
@@ -574,17 +582,35 @@ export default function PatientHome({
                                 <div className="flex items-start space-x-3">
                                     <MapPin className="h-5 w-5 text-green-400 mt-0.5" />
                                     <div>
-                                        <p className="text-gray-300">SJHI Industrial Clinic</p>
-                                        <p className="text-gray-300">Industrial Area, Philippines</p>
+                                        <p className="text-gray-300">SJHI Industrial Clinic and Diagnostic Center</p>
+                                        <p className="text-gray-300">Cabuyao City, Laguna</p>
+                                        <a 
+                                            href="https://maps.app.goo.gl/fWUa7BTJs6nW3Dvx6" 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="text-gray-300 hover:text-green-400 transition-colors underline"
+                                        >
+                                            View on Google Maps
+                                        </a>
+                                    </div>
+                                </div>
+                                <div className="flex items-start space-x-3">
+                                    <Phone className="h-5 w-5 text-green-400 mt-0.5" />
+                                    <div className="text-gray-300 space-y-1">
+                                        <a href="tel:+639338256214" className="hover:text-green-400 transition-colors block">0933 825 6214</a>
+                                        <a href="tel:+63285844533" className="hover:text-green-400 transition-colors block">(02) 8584 4533</a>
+                                        <a href="tel:+63495341254" className="hover:text-green-400 transition-colors block">(049) 534 1254</a>
+                                        <a href="tel:+63495020058" className="hover:text-green-400 transition-colors block">(049) 502-0058</a>
                                     </div>
                                 </div>
                                 <div className="flex items-center space-x-3">
-                                    <Phone className="h-5 w-5 text-green-400" />
-                                    <p className="text-gray-300">+63 XXX XXX XXXX</p>
-                                </div>
-                                <div className="flex items-center space-x-3">
                                     <Mail className="h-5 w-5 text-green-400" />
-                                    <p className="text-gray-300">info@sjhi.com</p>
+                                    <a 
+                                        href="mailto:stjamesclinic413@gmail.com" 
+                                        className="text-gray-300 hover:text-green-400 transition-colors"
+                                    >
+                                        stjamesclinic413@gmail.com
+                                    </a>
                                 </div>
                             </div>
                         </div>

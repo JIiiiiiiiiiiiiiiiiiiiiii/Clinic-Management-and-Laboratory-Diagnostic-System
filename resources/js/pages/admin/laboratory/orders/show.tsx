@@ -405,17 +405,46 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                                 </div>
                                                 
                                                 {result.values.length > 0 ? (
-                                                    <div className="grid gap-3 md:grid-cols-2">
-                                                        {result.values.map((value) => (
-                                                            <div key={value.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                                                <div>
-                                                                    <p className="font-medium text-gray-900">{value.field_name}</p>
-                                                                    <p className="text-sm text-gray-600">
-                                                                        {value.value} {value.unit && `(${value.unit})`}
-                                                                    </p>
+                                                    <div className="space-y-4">
+                                                        {(() => {
+                                                            // Group values by parameter_key prefix (e.g., "physical_examination", "microscopic")
+                                                            const grouped = result.values.reduce((acc: any, value: any) => {
+                                                                const key = value.parameter_key?.split('.')[0] || 'general';
+                                                                if (!acc[key]) acc[key] = [];
+                                                                acc[key].push(value);
+                                                                return acc;
+                                                            }, {});
+                                                            
+                                                            return Object.entries(grouped).map(([category, values]: [string, any]) => (
+                                                                <div key={category} className="border border-gray-200 rounded-lg p-4">
+                                                                    <h6 className="font-semibold text-gray-900 mb-3 capitalize">
+                                                                        {category.replace(/_/g, ' ')}
+                                                                    </h6>
+                                                                    <div className="grid gap-3 md:grid-cols-2">
+                                                                        {values.map((value: any) => (
+                                                                            <div key={value.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                                                <div className="flex-1">
+                                                                                    <p className="font-medium text-gray-900">{value.parameter_label || value.field_name}</p>
+                                                                                    <p className="text-sm text-gray-600">
+                                                                                        {value.value} {value.unit && `(${value.unit})`}
+                                                                                    </p>
+                                                                                    {value.reference_text && (
+                                                                                        <p className="text-xs text-gray-500 mt-1">
+                                                                                            Reference: {value.reference_text}
+                                                                                        </p>
+                                                                                    )}
+                                                                                    {(value.reference_min && value.reference_max) && (
+                                                                                        <p className="text-xs text-gray-500 mt-1">
+                                                                                            Range: {value.reference_min} - {value.reference_max}
+                                                                                        </p>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        ))}
+                                                            ));
+                                                        })()}
                                                     </div>
                                                 ) : (
                                                     <div className="text-center py-8">
@@ -454,28 +483,6 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                 )}
                             </CardContent>
                         </Card>
-
-                        {/* Notes Section */}
-                        {order.notes && (
-                            <Card className="shadow-lg">
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-gray-100 rounded-lg">
-                                            <FileText className="h-6 w-6 text-black" />
-                                        </div>
-                                        <div>
-                                            <CardTitle className="text-lg font-semibold text-gray-900">Order Notes</CardTitle>
-                                            <p className="text-sm text-gray-500 mt-1">Additional information for this order</p>
-                                        </div>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="p-6">
-                                    <div className="bg-gray-50 rounded-lg p-4">
-                                        <p className="text-gray-700">{order.notes}</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
                     </div>
                 </div>
             </div>

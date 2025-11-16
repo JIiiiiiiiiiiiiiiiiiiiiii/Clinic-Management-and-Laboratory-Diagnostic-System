@@ -43,6 +43,60 @@ Route::get('/patient/home', function () {
     return redirect('/');
 })->name('patient.home');
 
+// Public Privacy Policy page
+Route::get('/privacy', function () {
+    $user = auth()->user();
+    $patient = null;
+    $notifications = [];
+    $unreadCount = 0;
+    
+    // If user is logged in, get their data
+    if ($user) {
+        $patient = Patient::where('user_id', $user->id)->first();
+        $notifications = Notification::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+        $unreadCount = Notification::where('user_id', $user->id)
+            ->where('read', false)
+            ->count();
+    }
+    
+    return Inertia::render('patient/privacy', [
+        'user' => $user,
+        'patient' => $patient,
+        'notifications' => $notifications,
+        'unreadCount' => $unreadCount,
+    ]);
+})->name('privacy.public');
+
+// Public Terms of Service page
+Route::get('/terms', function () {
+    $user = auth()->user();
+    $patient = null;
+    $notifications = [];
+    $unreadCount = 0;
+    
+    // If user is logged in, get their data
+    if ($user) {
+        $patient = Patient::where('user_id', $user->id)->first();
+        $notifications = Notification::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+        $unreadCount = Notification::where('user_id', $user->id)
+            ->where('read', false)
+            ->count();
+    }
+    
+    return Inertia::render('patient/terms', [
+        'user' => $user,
+        'patient' => $patient,
+        'notifications' => $notifications,
+        'unreadCount' => $unreadCount,
+    ]);
+})->name('terms.public');
+
 // Public About Us page
 Route::get('/about', function () {
     $user = auth()->user();

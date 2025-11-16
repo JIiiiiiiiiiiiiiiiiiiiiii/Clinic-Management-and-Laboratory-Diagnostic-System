@@ -198,39 +198,6 @@ const columns: ColumnDef<Patient>[] = [
             );
         },
     },
-    {
-        id: "actions",
-        enableHiding: false,
-        cell: ({ row }) => {
-            const patient = row.original;
-
-            return (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem
-                            onClick={() => navigator.clipboard.writeText(patient.patient_no)}
-                        >
-                            Copy patient number
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem>
-                            View patient details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                            View medical history
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            )
-        },
-    },
 ];
 
 export default function PatientReports({ filter, date, data, patients, summary, chartData, filterOptions, metadata }: PatientReportsProps) {
@@ -657,36 +624,38 @@ export default function PatientReports({ filter, date, data, patients, summary, 
                             </div>
                         ) : (
                             <Card className="bg-white border border-gray-200">
-                                <CardContent className="p-6">
+                                <CardContent className="p-4 sm:p-6">
                                     {/* Table Controls */}
-                                    <div className="flex items-center py-4">
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 py-4">
                                         <Input
                                             placeholder="Search patients..."
                                             value={globalFilter ?? ""}
                                             onChange={(event) => setGlobalFilter(event.target.value)}
-                                            className="max-w-sm"
+                                            className="w-full sm:max-w-sm"
                                         />
                                         <Button
                                             onClick={() => handleExport('excel')}
                                             disabled={isExporting}
                                             variant="outline"
-                                            className="ml-4"
+                                            className="w-full sm:w-auto"
                                         >
                                             <Download className="h-4 w-4 mr-2" />
-                                            Export Excel
+                                            <span className="hidden sm:inline">Export Excel</span>
+                                            <span className="sm:hidden">Excel</span>
                                         </Button>
                                         <Button
                                             onClick={() => handleExport('pdf')}
                                             disabled={isExporting}
                                             variant="outline"
-                                            className="ml-2"
+                                            className="w-full sm:w-auto"
                                         >
                                             <FileDown className="h-4 w-4 mr-2" />
-                                            Export PDF
+                                            <span className="hidden sm:inline">Export PDF</span>
+                                            <span className="sm:hidden">PDF</span>
                                         </Button>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="outline" className="ml-auto">
+                                                <Button variant="outline" className="w-full sm:w-auto sm:ml-auto">
                                                     Columns <ChevronDown className="ml-2 h-4 w-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
@@ -716,55 +685,57 @@ export default function PatientReports({ filter, date, data, patients, summary, 
                                     </div>
                                     
                                     {/* Table */}
-                                    <div className="rounded-md border">
-                                        <Table>
-                                            <TableHeader>
-                                                {table.getHeaderGroups().map((headerGroup) => (
-                                                    <TableRow key={headerGroup.id}>
-                                                        {headerGroup.headers.map((header) => {
-                                                            return (
-                                                                <TableHead key={header.id}>
-                                                                    {header.isPlaceholder
-                                                                        ? null
-                                                                        : flexRender(
-                                                                            header.column.columnDef.header,
-                                                                            header.getContext()
-                                                                        )}
-                                                                </TableHead>
-                                                            )
-                                                        })}
-                                                    </TableRow>
-                                                ))}
-                                            </TableHeader>
-                                            <TableBody>
-                                                {table.getRowModel().rows?.length ? (
-                                                    table.getRowModel().rows.map((row) => (
-                                                        <TableRow
-                                                            key={row.id}
-                                                            data-state={row.getIsSelected() && "selected"}
-                                                        >
-                                                            {row.getVisibleCells().map((cell) => (
-                                                                <TableCell key={cell.id}>
-                                                                    {flexRender(
-                                                                        cell.column.columnDef.cell,
-                                                                        cell.getContext()
-                                                                    )}
-                                                                </TableCell>
-                                                            ))}
+                                    <div className="rounded-md border overflow-x-auto">
+                                        <div className="inline-block min-w-full align-middle">
+                                            <Table>
+                                                <TableHeader>
+                                                    {table.getHeaderGroups().map((headerGroup) => (
+                                                        <TableRow key={headerGroup.id}>
+                                                            {headerGroup.headers.map((header) => {
+                                                                return (
+                                                                    <TableHead key={header.id} className="whitespace-nowrap">
+                                                                        {header.isPlaceholder
+                                                                            ? null
+                                                                            : flexRender(
+                                                                                header.column.columnDef.header,
+                                                                                header.getContext()
+                                                                            )}
+                                                                    </TableHead>
+                                                                )
+                                                            })}
                                                         </TableRow>
-                                                    ))
-                                                ) : (
-                                                    <TableRow>
-                                                        <TableCell
-                                                            colSpan={columns.length}
-                                                            className="h-24 text-center"
-                                                        >
-                                                            No results.
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )}
-                                            </TableBody>
-                                        </Table>
+                                                    ))}
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {table.getRowModel().rows?.length ? (
+                                                        table.getRowModel().rows.map((row) => (
+                                                            <TableRow
+                                                                key={row.id}
+                                                                data-state={row.getIsSelected() && "selected"}
+                                                            >
+                                                                {row.getVisibleCells().map((cell) => (
+                                                                    <TableCell key={cell.id} className="whitespace-nowrap">
+                                                                        {flexRender(
+                                                                            cell.column.columnDef.cell,
+                                                                            cell.getContext()
+                                                                        )}
+                                                                    </TableCell>
+                                                                ))}
+                                                            </TableRow>
+                                                        ))
+                                                    ) : (
+                                                        <TableRow>
+                                                            <TableCell
+                                                                colSpan={columns.length}
+                                                                className="h-24 text-center"
+                                                            >
+                                                                No results.
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
                                     </div>
                                     
                                     {/* Pagination */}

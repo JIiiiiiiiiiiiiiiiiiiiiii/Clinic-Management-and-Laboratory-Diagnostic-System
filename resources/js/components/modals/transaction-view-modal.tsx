@@ -127,7 +127,7 @@ export default function TransactionViewModal({
                 console.log('Transaction response:', data);
                 if (data.transaction) {
                     console.log('Setting transaction:', data.transaction);
-                    setTransaction(data.transaction);
+                setTransaction(data.transaction);
                 } else {
                     console.error('Transaction data not found in response:', data);
                     setTransaction(null);

@@ -31,6 +31,8 @@ class BillingTransaction extends Model
         'lab_amount',
         'follow_up_amount',
         'total_visits',
+        'created_by',
+        'updated_by',
     ];
 
     protected $casts = [

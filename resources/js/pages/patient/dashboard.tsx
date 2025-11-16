@@ -76,7 +76,7 @@ export default function SimpleDashboard({
 }: SimpleDashboardProps) {
     return (
         <div className="min-h-screen bg-white">
-            <Head title="Patient Dashboard - SJHI Industrial Clinic" />
+            <Head title="Dashboard" />
             
             {/* Shared Navigation */}
             <SharedNavigation user={user} currentPath="/patient/dashboard" notifications={notifications} unreadCount={unreadCount} />

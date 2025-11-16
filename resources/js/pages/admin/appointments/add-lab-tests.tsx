@@ -45,6 +45,7 @@ interface Props {
         appointment_date: string;
         appointment_time: string;
         specialist_name: string;
+        specialist_id: number | null;
         status: string;
     };
     availableLabTests: LabTest[];
@@ -158,8 +159,11 @@ export default function AddLabTests({ appointment, availableLabTests, existingLa
                                         <p className="font-semibold text-black">{appointment.appointment_type}</p>
                                     </div>
                                     <div>
-                                        <Label className="text-sm font-medium text-gray-600">Doctor</Label>
-                                        <p className="font-semibold text-black">{appointment.specialist_name}</p>
+                                        <Label className="text-sm font-medium text-gray-600">Attending Physician/Doctor</Label>
+                                        <p className="font-semibold text-black">{appointment.specialist_name || 'Not Assigned'}</p>
+                                        {appointment.specialist_id && (
+                                            <p className="text-xs text-gray-500 mt-1">ID: {appointment.specialist_id}</p>
+                                        )}
                                     </div>
                                     <div>
                                         <Label className="text-sm font-medium text-gray-600">Date & Time</Label>

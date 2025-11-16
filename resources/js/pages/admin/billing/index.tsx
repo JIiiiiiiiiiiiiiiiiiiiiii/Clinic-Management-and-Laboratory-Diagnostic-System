@@ -13,6 +13,7 @@ import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import Heading from '@/components/heading';
 import { safeFormatDate, safeFormatTime } from '@/utils/dateTime';
+import { formatAppointmentType } from '@/utils/formatAppointmentType';
 import { 
     AlertCircle, 
     ArrowLeft, 
@@ -151,6 +152,7 @@ const getStatusBadge = (status: keyof typeof statusConfig) => {
         </Badge>
     );
 };
+
 
 // Column definitions for the transactions table
 const createTransactionColumns = (): ColumnDef<BillingTransaction>[] => [
@@ -298,11 +300,15 @@ const createPendingAppointmentsColumns = (): ColumnDef<PendingAppointment>[] => 
     {
         accessorKey: "appointment_type",
         header: "Appointment Type",
-        cell: ({ row }) => (
-            <Badge variant="outline" className="capitalize">
-                {row.getValue("appointment_type")}
-            </Badge>
-        ),
+        cell: ({ row }) => {
+            const type = row.getValue("appointment_type") as string;
+            const formattedType = formatAppointmentType(type);
+            return (
+                <Badge variant="outline">
+                    {formattedType}
+                </Badge>
+            );
+        },
     },
     {
         accessorKey: "specialist_name",
@@ -1051,25 +1057,26 @@ export default function BillingIndex({
                                 </div>
 
                                 {/* Table Controls */}
-                                <div className="flex items-center py-4">
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 py-4">
                                     <Input
                                         placeholder="Search transactions..."
                                         value={globalFilter ?? ""}
                                         onChange={(event) => setGlobalFilter(event.target.value)}
-                                        className="max-w-sm"
+                                        className="w-full sm:max-w-sm"
                                     />
                                     <Button
                                         asChild
-                                        className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                                        className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
                                     >
                                         <Link href="/admin/billing/create">
                                             <Plus className="h-4 w-4 mr-2" />
-                                            New Transaction
+                                            <span className="hidden sm:inline">New Transaction</span>
+                                            <span className="sm:hidden">New</span>
                                         </Link>
                                     </Button>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="outline" className="ml-auto">
+                                            <Button variant="outline" className="w-full sm:w-auto sm:ml-auto">
                                                 Columns <ChevronDown className="ml-2 h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
@@ -1099,66 +1106,69 @@ export default function BillingIndex({
                                 </div>
 
                                 {/* Transactions Table */}
-                                <div className="rounded-md border">
-                                    <Table>
-                                        <TableHeader>
-                                            {table.getHeaderGroups().map((headerGroup) => (
-                                                <TableRow key={headerGroup.id}>
-                                                    {headerGroup.headers.map((header) => {
-                                                        return (
-                                                            <TableHead key={header.id}>
-                                                                {header.isPlaceholder
-                                                                    ? null
-                                                                    : flexRender(
-                                                                        header.column.columnDef.header,
-                                                                        header.getContext()
-                                                                )}
-                                                            </TableHead>
-                                                        )
-                                                    })}
-                                                </TableRow>
-                                            ))}
-                                        </TableHeader>
-                                        <TableBody>
-                                            {table.getRowModel().rows?.length ? (
-                                                table.getRowModel().rows.map((row) => (
-                                                    <TableRow
-                                                        key={row.id}
-                                                        data-state={row.getIsSelected() && "selected"}
-                                                    >
-                                                        {row.getVisibleCells().map((cell) => (
-                                                            <TableCell key={cell.id}>
-                                                                {flexRender(
-                                                                    cell.column.columnDef.cell,
-                                                                    cell.getContext()
-                                                                )}
-                                                            </TableCell>
-                                                        ))}
+                                <div className="rounded-md border overflow-x-auto">
+                                    <div className="inline-block min-w-full align-middle">
+                                        <Table>
+                                            <TableHeader>
+                                                {table.getHeaderGroups().map((headerGroup) => (
+                                                    <TableRow key={headerGroup.id}>
+                                                        {headerGroup.headers.map((header) => {
+                                                            return (
+                                                                <TableHead key={header.id} className="whitespace-nowrap">
+                                                                    {header.isPlaceholder
+                                                                        ? null
+                                                                        : flexRender(
+                                                                            header.column.columnDef.header,
+                                                                            header.getContext()
+                                                                        )}
+                                                                </TableHead>
+                                                            )
+                                                        })}
                                                     </TableRow>
-                                                ))
-                                            ) : (
-                                                <TableRow>
-                                                    <TableCell
-                                                        colSpan={columns.length}
-                                                        className="h-24 text-center"
-                                                    >
-                                                        No results.
-                                                    </TableCell>
-                                                </TableRow>
-                                            )}
-                                        </TableBody>
-                                    </Table>
+                                                ))}
+                                            </TableHeader>
+                                            <TableBody>
+                                                {table.getRowModel().rows?.length ? (
+                                                    table.getRowModel().rows.map((row) => (
+                                                        <TableRow
+                                                            key={row.id}
+                                                            data-state={row.getIsSelected() && "selected"}
+                                                        >
+                                                            {row.getVisibleCells().map((cell) => (
+                                                                <TableCell key={cell.id} className="whitespace-nowrap">
+                                                                    {flexRender(
+                                                                        cell.column.columnDef.cell,
+                                                                        cell.getContext()
+                                                                    )}
+                                                                </TableCell>
+                                                            ))}
+                                                        </TableRow>
+                                                    ))
+                                                ) : (
+                                                    <TableRow>
+                                                        <TableCell
+                                                            colSpan={columns.length}
+                                                            className="h-24 text-center"
+                                                        >
+                                                            No results.
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
                                 </div>
                                 
                                 {/* Pagination */}
-                                <div className="flex items-center justify-between px-2 py-4">
-                                    <div className="text-muted-foreground flex-1 text-sm">
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 px-2 py-4">
+                                    <div className="text-muted-foreground text-sm text-center sm:text-left">
                                         {table.getFilteredSelectedRowModel().rows.length} of{" "}
                                         {table.getFilteredRowModel().rows.length} row(s) selected.
                                     </div>
-                                    <div className="flex items-center space-x-6 lg:space-x-8">
+                                    <div className="flex flex-col sm:flex-row items-center gap-4 sm:space-x-6 lg:space-x-8">
                                         <div className="flex items-center space-x-2">
-                                            <p className="text-sm font-medium">Rows per page</p>
+                                            <p className="text-sm font-medium hidden sm:inline">Rows per page</p>
+                                            <p className="text-sm font-medium sm:hidden">Per page</p>
                                             <Select
                                                 value={`${table.getState().pagination.pageSize}`}
                                                 onValueChange={(value) => {
@@ -1253,25 +1263,26 @@ export default function BillingIndex({
                             </CardHeader>
                             <CardContent className="p-6">
                                 {/* Table Controls */}
-                                <div className="flex items-center py-4">
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 py-4">
                                     <Input
                                         placeholder="Search appointments..."
                                         value={pendingGlobalFilter ?? ""}
                                         onChange={(event) => setPendingGlobalFilter(event.target.value)}
-                                        className="max-w-sm"
+                                        className="w-full sm:max-w-sm"
                                     />
                                     <Button
                                         asChild
-                                        className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                                        className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
                                     >
                                         <Link href="/admin/billing/create-from-appointments">
                                             <Plus className="h-4 w-4 mr-2" />
-                                            Create Transaction
+                                            <span className="hidden sm:inline">Create Transaction</span>
+                                            <span className="sm:hidden">Create</span>
                                         </Link>
                                     </Button>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="outline" className="ml-auto">
+                                            <Button variant="outline" className="w-full sm:w-auto sm:ml-auto">
                                                 Columns <ChevronDown className="ml-2 h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
@@ -1301,55 +1312,57 @@ export default function BillingIndex({
                                 </div>
 
                                 {/* Pending Appointments Table */}
-                                <div className="rounded-md border">
-                                    <Table>
-                                        <TableHeader>
-                                            {pendingTable.getHeaderGroups().map((headerGroup) => (
-                                                <TableRow key={headerGroup.id}>
-                                                    {headerGroup.headers.map((header) => {
-                                                        return (
-                                                            <TableHead key={header.id}>
-                                                                {header.isPlaceholder
-                                                                    ? null
-                                                                    : flexRender(
-                                                                        header.column.columnDef.header,
-                                                                        header.getContext()
-                                                                )}
-                                                            </TableHead>
-                                                        )
-                                                    })}
-                                                </TableRow>
-                                            ))}
-                                        </TableHeader>
-                                        <TableBody>
-                                            {pendingTable.getRowModel().rows?.length ? (
-                                                pendingTable.getRowModel().rows.map((row) => (
-                                                    <TableRow
-                                                        key={row.id}
-                                                        data-state={row.getIsSelected() && "selected"}
-                                                    >
-                                                        {row.getVisibleCells().map((cell) => (
-                                                            <TableCell key={cell.id}>
-                                                                {flexRender(
-                                                                    cell.column.columnDef.cell,
-                                                                    cell.getContext()
-                                                                )}
-                                                            </TableCell>
-                                                        ))}
+                                <div className="rounded-md border overflow-x-auto">
+                                    <div className="inline-block min-w-full align-middle">
+                                        <Table>
+                                            <TableHeader>
+                                                {pendingTable.getHeaderGroups().map((headerGroup) => (
+                                                    <TableRow key={headerGroup.id}>
+                                                        {headerGroup.headers.map((header) => {
+                                                            return (
+                                                                <TableHead key={header.id} className="whitespace-nowrap">
+                                                                    {header.isPlaceholder
+                                                                        ? null
+                                                                        : flexRender(
+                                                                            header.column.columnDef.header,
+                                                                            header.getContext()
+                                                                        )}
+                                                                </TableHead>
+                                                            )
+                                                        })}
                                                     </TableRow>
-                                                ))
-                                            ) : (
-                                                <TableRow>
-                                                    <TableCell
-                                                        colSpan={pendingColumns.length}
-                                                        className="h-24 text-center"
-                                                    >
-                                                        No pending appointments
-                                                    </TableCell>
-                                                </TableRow>
-                                            )}
-                                        </TableBody>
-                                    </Table>
+                                                ))}
+                                            </TableHeader>
+                                            <TableBody>
+                                                {pendingTable.getRowModel().rows?.length ? (
+                                                    pendingTable.getRowModel().rows.map((row) => (
+                                                        <TableRow
+                                                            key={row.id}
+                                                            data-state={row.getIsSelected() && "selected"}
+                                                        >
+                                                            {row.getVisibleCells().map((cell) => (
+                                                                <TableCell key={cell.id} className="whitespace-nowrap">
+                                                                    {flexRender(
+                                                                        cell.column.columnDef.cell,
+                                                                        cell.getContext()
+                                                                    )}
+                                                                </TableCell>
+                                                            ))}
+                                                        </TableRow>
+                                                    ))
+                                                ) : (
+                                                    <TableRow>
+                                                        <TableCell
+                                                            colSpan={pendingColumns.length}
+                                                            className="h-24 text-center"
+                                                        >
+                                                            No pending appointments
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
                                 </div>
                                 
                                 {/* Pagination */}
@@ -1461,25 +1474,26 @@ export default function BillingIndex({
                             </CardHeader>
                             <CardContent className="p-6">
                                 {/* Table Controls */}
-                                <div className="flex items-center py-4">
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 py-4">
                                     <Input
                                         placeholder="Search payments..."
                                         value={doctorGlobalFilter ?? ""}
                                         onChange={(event) => setDoctorGlobalFilter(event.target.value)}
-                                        className="max-w-sm"
+                                        className="w-full sm:max-w-sm"
                                     />
                                     <Button
                                         asChild
-                                        className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                                        className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
                                     >
                                         <Link href="/admin/billing/doctor-payments/create">
                                             <Plus className="h-4 w-4 mr-2" />
-                                            New Payment
+                                            <span className="hidden sm:inline">New Payment</span>
+                                            <span className="sm:hidden">New</span>
                                         </Link>
                                     </Button>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="outline" className="ml-auto">
+                                            <Button variant="outline" className="w-full sm:w-auto sm:ml-auto">
                                                 Columns <ChevronDown className="ml-2 h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>

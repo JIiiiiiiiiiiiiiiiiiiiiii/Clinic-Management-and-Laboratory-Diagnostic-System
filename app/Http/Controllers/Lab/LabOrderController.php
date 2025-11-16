@@ -151,9 +151,15 @@ class LabOrderController extends Controller
             'visit.attendingStaff'
         ]);
 
-        // Get lab tests through results
+        // Get lab tests through results with category/type
         $labTests = $order->results->map(function ($result) {
-            return $result->test;
+            $test = $result->test;
+            if ($test) {
+                // Add category/type if available
+                $test->category = $test->category ?? null;
+                $test->description = $test->description ?? null;
+            }
+            return $test;
         })->filter();
         $order->setRelation('lab_tests', $labTests);
 

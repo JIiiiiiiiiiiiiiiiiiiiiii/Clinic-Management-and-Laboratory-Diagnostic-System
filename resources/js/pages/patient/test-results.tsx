@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import SharedNavigation from '@/components/SharedNavigation';
 import { Head } from '@inertiajs/react';
-import { Calendar, CheckCircle, Clock, FileText, Heart } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, FileText, Heart, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState } from 'react';
 
 
 interface PatientTestResultsProps {
@@ -34,12 +35,24 @@ interface PatientTestResultsProps {
             status: string;
             results: Array<{
                 id: number;
+                test_id: number;
                 test_name: string;
                 result_value: string;
                 normal_range: string;
                 unit: string;
                 status: string;
                 verified_at: string | null;
+                verified_by?: string;
+                order_id: number;
+                detailed_values?: Array<{
+                    parameter_key: string;
+                    parameter_label: string;
+                    value: string;
+                    unit?: string;
+                    reference_text?: string;
+                    reference_min?: string;
+                    reference_max?: string;
+                }>;
             }>;
             verified_at: string;
         }>;
@@ -82,9 +95,23 @@ const getResultStatusBadge = (result: any) => {
 };
 
 export default function PatientTestResults({ user, patient, testResults, notifications = [], unreadCount = 0 }: PatientTestResultsProps) {
+    const [expandedOrders, setExpandedOrders] = useState<Set<number>>(new Set());
+
+    const toggleOrder = (orderId: number) => {
+        setExpandedOrders(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(orderId)) {
+                newSet.delete(orderId);
+            } else {
+                newSet.add(orderId);
+            }
+            return newSet;
+        });
+    };
+
     return (
         <div className="min-h-screen bg-white">
-            <Head title="Test Results - SJHI Industrial Clinic" />
+            <Head title="Test Results" />
             
             {/* Shared Navigation */}
             <SharedNavigation user={user} currentPath="/patient/test-results" notifications={notifications} unreadCount={unreadCount} />
@@ -200,21 +227,48 @@ export default function PatientTestResults({ user, patient, testResults, notific
                             <CardDescription>Your verified laboratory test results</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="space-y-6">
+                            <div className="space-y-4">
                                 {Array.isArray(testResults?.completed)
-                                    ? testResults.completed.map((order) => (
+                                    ? testResults.completed.map((order) => {
+                                          const isExpanded = expandedOrders.has(order.id);
+                                          return (
                                           <Card key={order.id} className="border-l-4 border-l-green-500">
-                                              <CardHeader className="pb-3">
+                                                  <CardHeader 
+                                                      className="pb-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                                                      onClick={() => toggleOrder(order.id)}
+                                                  >
                                                   <div className="flex items-center justify-between">
-                                                      <div>
+                                                          <div className="flex-1">
+                                                              <div className="flex items-center gap-2">
                                                           <CardTitle className="text-lg">Lab Order #{order.id}</CardTitle>
+                                                                  {isExpanded ? (
+                                                                      <ChevronUp className="h-5 w-5 text-gray-500" />
+                                                                  ) : (
+                                                                      <ChevronDown className="h-5 w-5 text-gray-500" />
+                                                                  )}
+                                                              </div>
                                                           <CardDescription>
                                                               Ordered: {order.created_at} | Verified: {order.verified_at}
                                                           </CardDescription>
+                                                              {!isExpanded && (
+                                                                  <div className="mt-2 flex flex-wrap gap-2">
+                                                                      {Array.isArray(order?.tests) && order.tests.slice(0, 3).map((test, index) => (
+                                                                          <Badge key={index} variant="outline" className="text-xs">
+                                                                              {test}
+                                                                          </Badge>
+                                                                      ))}
+                                                                      {Array.isArray(order?.tests) && order.tests.length > 3 && (
+                                                                          <Badge variant="outline" className="text-xs">
+                                                                              +{order.tests.length - 3} more
+                                                                          </Badge>
+                                                                      )}
+                                                                  </div>
+                                                              )}
                                                       </div>
                                                       <Badge className={getStatusBadge(order.status)}>{order.status}</Badge>
                                                   </div>
                                               </CardHeader>
+                                                  {isExpanded && (
                                               <CardContent>
                                                   <div className="space-y-4">
                                                       <div>
@@ -232,39 +286,99 @@ export default function PatientTestResults({ user, patient, testResults, notific
 
                                                       <div>
                                                           <h4 className="mb-2 font-semibold text-gray-700">Results:</h4>
-                                                          <Table>
-                                                              <TableHeader>
-                                                                  <TableRow>
-                                                                      <TableHead>Test Name</TableHead>
-                                                                      <TableHead>Result</TableHead>
-                                                                      <TableHead>Normal Range</TableHead>
-                                                                      <TableHead>Unit</TableHead>
-                                                                      <TableHead>Status</TableHead>
-                                                                  </TableRow>
-                                                              </TableHeader>
-                                                              <TableBody>
-                                                                  {Array.isArray(order?.results)
-                                                                      ? order.results.map((result) => (
-                                                                            <TableRow key={result.id}>
-                                                                                <TableCell className="font-medium">{result.test_name}</TableCell>
-                                                                                <TableCell className="font-semibold">{result.result_value}</TableCell>
-                                                                                <TableCell className="text-gray-600">{result.normal_range}</TableCell>
-                                                                                <TableCell className="text-gray-600">{result.unit}</TableCell>
-                                                                                <TableCell>
+                                                          {Array.isArray(order?.results) && order.results.length > 0 ? (
+                                                              order.results.map((result) => (
+                                                                  <div key={result.id} className="mb-6 rounded-lg border border-gray-200 p-4">
+                                                                      <div className="mb-3 flex items-center justify-between border-b pb-2">
+                                                                          <div>
+                                                                              <h5 className="text-lg font-semibold text-gray-900">{result.test_name}</h5>
+                                                                          </div>
                                                                                     <Badge className={getResultStatusBadge(result)}>
-                                                                                        {result.status}
+                                                                              {result.status === 'verified' ? 'Verified' : result.status}
                                                                                     </Badge>
-                                                                                </TableCell>
-                                                                            </TableRow>
-                                                                        ))
-                                                                      : null}
-                                                              </TableBody>
-                                                          </Table>
+                                                                      </div>
+                                                                      
+                                                                      {/* Detailed Values - Grouped by category like admin side */}
+                                                                      {result.detailed_values && result.detailed_values.length > 0 ? (
+                                                                          <div className="space-y-4">
+                                                                              {(() => {
+                                                                                  // Group values by parameter_key prefix (e.g., "physical_examination", "microscopic")
+                                                                                  const grouped = result.detailed_values.reduce((acc: any, value: any) => {
+                                                                                      const key = value.parameter_key?.split('.')[0] || 'general';
+                                                                                      if (!acc[key]) acc[key] = [];
+                                                                                      acc[key].push(value);
+                                                                                      return acc;
+                                                                                  }, {});
+                                                                                  
+                                                                                  return Object.entries(grouped).map(([category, values]: [string, any]) => (
+                                                                                      <div key={category} className="border border-gray-200 rounded-lg p-4">
+                                                                                          <h6 className="font-semibold text-gray-900 mb-3 capitalize">
+                                                                                              {category.replace(/_/g, ' ')}
+                                                                                          </h6>
+                                                                                          <div className="grid gap-3 md:grid-cols-2">
+                                                                                              {values.map((value: any, idx: number) => (
+                                                                                                  <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                                                                      <div className="flex-1">
+                                                                                                          <p className="font-medium text-gray-900">{value.parameter_label || value.parameter_key}</p>
+                                                                                                          <p className="text-sm text-gray-600">
+                                                                                                              {value.value} {value.unit && `(${value.unit})`}
+                                                                                                          </p>
+                                                                                                          {value.reference_text && (
+                                                                                                              <p className="text-xs text-gray-500 mt-1">
+                                                                                                                  Reference: {value.reference_text}
+                                                                                                              </p>
+                                                                                                          )}
+                                                                                                          {(value.reference_min && value.reference_max) && (
+                                                                                                              <p className="text-xs text-gray-500 mt-1">
+                                                                                                                  Range: {value.reference_min} - {value.reference_max}
+                                                                                                              </p>
+                                                                                                          )}
+                                                                                                      </div>
+                                                                                                  </div>
+                                                                                              ))}
+                                                                                          </div>
+                                                                                      </div>
+                                                                                  ));
+                                                                              })()}
+                                                                          </div>
+                                                                      ) : (
+                                                                          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                                                                              <p className="font-medium text-gray-900">Result</p>
+                                                                              <p className="text-sm text-gray-600">
+                                                                                  {result.result_value} {result.unit && `(${result.unit})`}
+                                                                              </p>
+                                                                              {result.normal_range && (
+                                                                                  <p className="text-xs text-gray-500 mt-1">
+                                                                                      Reference: {result.normal_range}
+                                                                                  </p>
+                                                                              )}
+                                                                          </div>
+                                                                      )}
+                                                                      
+                                                                      {/* Verification Info */}
+                                                                      {(result.verified_by || result.verified_at) && (
+                                                                          <div className="flex items-center gap-4 border-t pt-3 mt-4 text-sm text-gray-600">
+                                                                              {result.verified_by && (
+                                                                                  <span>Verified by: <strong>{result.verified_by}</strong></span>
+                                                                              )}
+                                                                              {result.verified_at && (
+                                                                                  <span>Verified on: <strong>{result.verified_at}</strong></span>
+                                                                              )}
+                                                                          </div>
+                                                                      )}
+                                                                  </div>
+                                                              ))
+                                                          ) : (
+                                                              <p className="text-sm text-gray-500">No results available</p>
+                                                          )}
                                                       </div>
+                                                      
                                                   </div>
                                               </CardContent>
+                                                  )}
                                           </Card>
-                                      ))
+                                          );
+                                      })
                                     : null}
                             </div>
                         </CardContent>

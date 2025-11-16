@@ -17,21 +17,52 @@ class PatientBillingController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
+        // Try to find patient by user_id, or by email if user_id doesn't match
         $patient = Patient::where('user_id', $user->id)->first();
+        
+        // If patient not found by user_id, try to find by email
+        if (!$patient && $user->email) {
+            \Log::info('Patient not found by user_id, trying to find by email', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+            ]);
+            $patient = Patient::where('email', $user->email)->first();
+        }
         
         $transactions = collect([]);
         
         if ($patient) {
+            \Log::info('Loading billing transactions for patient', [
+                'patient_id' => $patient->id,
+                'patient_no' => $patient->patient_no,
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'patient_email' => $patient->email ?? null,
+            ]);
+            
             // Get all billing transactions for this patient from the database
+            // BillingTransaction.patient_id references Patient.id (integer)
+            // Use created_at instead of transaction_date (which doesn't exist in database)
             $transactions = BillingTransaction::where('patient_id', $patient->id)
                 ->with(['patient', 'doctor', 'items', 'createdBy'])
-                ->orderBy('transaction_date', 'desc')
                 ->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function ($transaction) {
+                ->get();
+            
+            \Log::info('Billing transactions loaded', [
+                'patient_id' => $patient->id,
+                'transactions_count' => $transactions->count(),
+                'sample_transaction' => $transactions->first() ? [
+                    'id' => $transactions->first()->id,
+                    'patient_id' => $transactions->first()->patient_id,
+                    'amount' => $transactions->first()->amount,
+                ] : null,
+            ]);
+            
+            $transactions = $transactions->map(function ($transaction) {
                     return [
                         'id' => $transaction->id,
-                        'transaction_id' => $transaction->transaction_id,
+                        'transaction_id' => $transaction->transaction_id, // Accessor
+                        'transaction_code' => $transaction->transaction_code, // Actual database column
                         'patient' => $transaction->patient ? [
                             'id' => $transaction->patient->id,
                             'first_name' => $transaction->patient->first_name,
@@ -39,27 +70,22 @@ class PatientBillingController extends Controller
                             'patient_no' => $transaction->patient->patient_no,
                         ] : null,
                         'doctor' => $transaction->doctor ? [
-                            'id' => $transaction->doctor->id ?? null,
+                            'id' => $transaction->doctor->specialist_id ?? null,
                             'name' => $transaction->doctor->name ?? 'N/A',
+                            'role' => $transaction->doctor->role ?? 'Doctor',
                         ] : null,
-                        'payment_type' => $transaction->payment_type,
-                        'total_amount' => (float) $transaction->total_amount,
-                        'amount' => (float) $transaction->amount,
-                        'discount_amount' => (float) $transaction->discount_amount,
-                        'discount_percentage' => $transaction->discount_percentage ? (float) $transaction->discount_percentage : null,
+                        'payment_method' => $transaction->payment_method ?? 'cash',
+                        'total_amount' => (float) $transaction->total_amount, // Accessor (maps to amount)
+                        'amount' => (float) $transaction->amount, // Actual database column
                         'is_senior_citizen' => $transaction->is_senior_citizen ?? false,
                         'senior_discount_amount' => (float) ($transaction->senior_discount_amount ?? 0),
                         'senior_discount_percentage' => $transaction->senior_discount_percentage ? (float) $transaction->senior_discount_percentage : null,
-                        'hmo_provider' => $transaction->hmo_provider,
-                        'hmo_reference' => $transaction->hmo_reference,
+                        'hmo_provider_id' => $transaction->hmo_provider_id,
                         'hmo_reference_number' => $transaction->hmo_reference_number,
-                        'payment_method' => $transaction->payment_method,
-                        'payment_reference' => $transaction->payment_reference,
+                        'reference_no' => $transaction->reference_no, // Actual database column (not payment_reference)
                         'status' => $transaction->status,
-                        'description' => $transaction->description,
                         'notes' => $transaction->notes,
-                        'transaction_date' => $transaction->transaction_date ? $transaction->transaction_date->format('Y-m-d H:i:s') : null,
-                        'due_date' => $transaction->due_date ? $transaction->due_date->format('Y-m-d') : null,
+                        'transaction_date' => $transaction->transaction_date ? $transaction->transaction_date->format('Y-m-d H:i:s') : null, // Accessor (maps to created_at)
                         'created_at' => $transaction->created_at->format('Y-m-d H:i:s'),
                         'items' => $transaction->items->map(function ($item) {
                             return [
@@ -132,10 +158,11 @@ class PatientBillingController extends Controller
             abort(404, 'Transaction not found');
         }
         
-        // Format transaction data
+        // Format transaction data - use only fields that exist in database
         $transactionData = [
             'id' => $transaction->id,
-            'transaction_id' => $transaction->transaction_id,
+            'transaction_id' => $transaction->transaction_id, // Accessor
+            'transaction_code' => $transaction->transaction_code, // Actual database column
             'patient' => $transaction->patient ? [
                 'id' => $transaction->patient->id,
                 'first_name' => $transaction->patient->first_name,
@@ -145,27 +172,22 @@ class PatientBillingController extends Controller
                 'mobile_no' => $transaction->patient->mobile_no ?? '',
             ] : null,
             'doctor' => $transaction->doctor ? [
-                'id' => $transaction->doctor->id ?? null,
+                'id' => $transaction->doctor->specialist_id ?? null,
                 'name' => $transaction->doctor->name ?? 'N/A',
+                'role' => $transaction->doctor->role ?? 'Doctor',
             ] : null,
-            'payment_type' => $transaction->payment_type,
-            'total_amount' => (float) $transaction->total_amount,
-            'amount' => (float) $transaction->amount,
-            'discount_amount' => (float) $transaction->discount_amount,
-            'discount_percentage' => $transaction->discount_percentage ? (float) $transaction->discount_percentage : null,
+            'payment_method' => $transaction->payment_method ?? 'cash',
+            'total_amount' => (float) $transaction->total_amount, // Accessor (maps to amount)
+            'amount' => (float) $transaction->amount, // Actual database column
             'is_senior_citizen' => $transaction->is_senior_citizen ?? false,
             'senior_discount_amount' => (float) ($transaction->senior_discount_amount ?? 0),
             'senior_discount_percentage' => $transaction->senior_discount_percentage ? (float) $transaction->senior_discount_percentage : null,
-            'hmo_provider' => $transaction->hmo_provider,
-            'hmo_reference' => $transaction->hmo_reference,
+            'hmo_provider_id' => $transaction->hmo_provider_id,
             'hmo_reference_number' => $transaction->hmo_reference_number,
-            'payment_method' => $transaction->payment_method,
-            'payment_reference' => $transaction->payment_reference,
+            'reference_no' => $transaction->reference_no, // Actual database column (not payment_reference)
             'status' => $transaction->status,
-            'description' => $transaction->description,
             'notes' => $transaction->notes,
-            'transaction_date' => $transaction->transaction_date ? $transaction->transaction_date->format('Y-m-d H:i:s') : null,
-            'due_date' => $transaction->due_date ? $transaction->due_date->format('Y-m-d') : null,
+            'transaction_date' => $transaction->transaction_date ? $transaction->transaction_date->format('Y-m-d H:i:s') : null, // Accessor (maps to created_at)
             'created_at' => $transaction->created_at->format('Y-m-d H:i:s'),
             'items' => $transaction->items->map(function ($item) {
                 return [

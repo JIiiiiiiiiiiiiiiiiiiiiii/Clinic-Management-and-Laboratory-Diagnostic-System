@@ -736,8 +736,8 @@ export default function InventoryReports({
     // Initialize table
     const columns = useMemo(() => createColumns(currentReportType), [currentReportType]);
 
-    // Debug table data
-    const tableData = filteredData.supply_details || data?.supply_details || supplies?.data || [];
+    // Debug table data - use filteredData which is updated when filters change
+    const tableData = filteredData.supply_details || [];
     console.log('Table data for', reportType, ':', tableData.slice(0, 2));
 
     const table = useReactTable({
@@ -1359,30 +1359,32 @@ export default function InventoryReports({
                             </div>
                         ) : (
                             <Card className="border border-gray-200 bg-white">
-                                <CardContent className="p-6">
+                                <CardContent className="p-4 sm:p-6">
                                     {/* Table Controls */}
-                                    <div className="flex items-center py-4">
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 py-4">
                                         <Input
                                             placeholder="Search supplies..."
                                             value={globalFilter ?? ''}
                                             onChange={(event) => setGlobalFilter(event.target.value)}
-                                            className="max-w-sm"
+                                            className="w-full sm:max-w-sm"
                                         />
                                         <Button
                                             onClick={() => handleExport('excel')}
                                             disabled={isExporting}
-                                            className="ml-4 bg-green-600 text-white hover:bg-green-700"
+                                            className="bg-green-600 text-white hover:bg-green-700 w-full sm:w-auto"
                                         >
                                             <Download className="mr-2 h-4 w-4" />
-                                            Export Excel
+                                            <span className="hidden sm:inline">Export Excel</span>
+                                            <span className="sm:hidden">Excel</span>
                                         </Button>
-                                        <Button onClick={() => handleExport('pdf')} disabled={isExporting} variant="outline" className="ml-2">
+                                        <Button onClick={() => handleExport('pdf')} disabled={isExporting} variant="outline" className="w-full sm:w-auto">
                                             <FileDown className="mr-2 h-4 w-4" />
-                                            Export PDF
+                                            <span className="hidden sm:inline">Export PDF</span>
+                                            <span className="sm:hidden">PDF</span>
                                         </Button>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="outline" className="ml-auto">
+                                                <Button variant="outline" className="w-full sm:w-auto sm:ml-auto">
                                                     Columns <ChevronDown className="ml-2 h-4 w-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
@@ -1411,54 +1413,57 @@ export default function InventoryReports({
                                     </div>
 
                                     {/* Table */}
-                                    <div className="rounded-md border">
-                                        <Table>
-                                            <TableHeader>
-                                                {table.getHeaderGroups().map((headerGroup) => (
-                                                    <TableRow key={headerGroup.id}>
-                                                        {headerGroup.headers.map((header) => {
-                                                            return (
-                                                                <TableHead key={header.id}>
-                                                                    {header.isPlaceholder
-                                                                        ? null
-                                                                        : flexRender(header.column.columnDef.header, header.getContext())}
-                                                                </TableHead>
-                                                            );
-                                                        })}
-                                                    </TableRow>
-                                                ))}
-                                            </TableHeader>
-                                            <TableBody>
-                                                {table.getRowModel().rows?.length ? (
-                                                    table.getRowModel().rows.map((row) => (
-                                                        <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
-                                                            {row.getVisibleCells().map((cell) => (
-                                                                <TableCell key={cell.id}>
-                                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                                                </TableCell>
-                                                            ))}
+                                    <div className="rounded-md border overflow-x-auto">
+                                        <div className="inline-block min-w-full align-middle">
+                                            <Table>
+                                                <TableHeader>
+                                                    {table.getHeaderGroups().map((headerGroup) => (
+                                                        <TableRow key={headerGroup.id}>
+                                                            {headerGroup.headers.map((header) => {
+                                                                return (
+                                                                    <TableHead key={header.id} className="whitespace-nowrap">
+                                                                        {header.isPlaceholder
+                                                                            ? null
+                                                                            : flexRender(header.column.columnDef.header, header.getContext())}
+                                                                    </TableHead>
+                                                                );
+                                                            })}
                                                         </TableRow>
-                                                    ))
-                                                ) : (
-                                                    <TableRow>
-                                                        <TableCell colSpan={columns.length} className="h-24 text-center">
-                                                            No results.
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )}
-                                            </TableBody>
-                                        </Table>
+                                                    ))}
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {table.getRowModel().rows?.length ? (
+                                                        table.getRowModel().rows.map((row) => (
+                                                            <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
+                                                                {row.getVisibleCells().map((cell) => (
+                                                                    <TableCell key={cell.id} className="whitespace-nowrap">
+                                                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                                    </TableCell>
+                                                                ))}
+                                                            </TableRow>
+                                                        ))
+                                                    ) : (
+                                                        <TableRow>
+                                                            <TableCell colSpan={columns.length} className="h-24 text-center">
+                                                                No results.
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
                                     </div>
 
                                     {/* Pagination */}
-                                    <div className="flex items-center justify-between px-2 py-4">
-                                        <div className="flex-1 text-sm text-muted-foreground">
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 px-2 py-4">
+                                        <div className="text-muted-foreground text-sm text-center sm:text-left">
                                             {table.getFilteredSelectedRowModel().rows.length} of {table.getFilteredRowModel().rows.length} row(s)
                                             selected.
                                         </div>
-                                        <div className="flex items-center space-x-6 lg:space-x-8">
+                                        <div className="flex flex-col sm:flex-row items-center gap-4 sm:space-x-6 lg:space-x-8">
                                             <div className="flex items-center space-x-2">
-                                                <p className="text-sm font-medium">Rows per page</p>
+                                                <p className="text-sm font-medium hidden sm:inline">Rows per page</p>
+                                                <p className="text-sm font-medium sm:hidden">Per page</p>
                                                 <Select
                                                     value={`${table.getState().pagination.pageSize}`}
                                                     onValueChange={(value) => {

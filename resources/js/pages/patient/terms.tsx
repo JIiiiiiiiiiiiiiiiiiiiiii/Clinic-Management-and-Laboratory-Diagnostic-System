@@ -92,7 +92,7 @@ export default function PatientTerms({
 
     return (
         <div className="min-h-screen bg-white">
-            <Head title="Terms of Service - SJHI Industrial Clinic" />
+            <Head title="Terms of Service" />
             
             {/* Shared Navigation */}
             <SharedNavigation user={user} currentPath="/patient/terms" />
@@ -222,16 +222,12 @@ export default function PatientTerms({
                                     </p>
                                     <div className="space-y-3">
                                         <div className="flex items-center space-x-3">
-                                            <Phone className="h-5 w-5 text-green-600" />
-                                            <span className="text-gray-700">Phone: +63 XXX XXX XXXX</span>
-                                        </div>
-                                        <div className="flex items-center space-x-3">
                                             <FileText className="h-5 w-5 text-green-600" />
-                                            <span className="text-gray-700">Email: legal@sjhi.com</span>
+                                            <span className="text-gray-700">Email: stjamesclinic413@gmail.com</span>
                                         </div>
                                         <div className="flex items-center space-x-3">
                                             <UserCheck className="h-5 w-5 text-green-600" />
-                                            <span className="text-gray-700">Address: SJHI Industrial Clinic, Industrial Area, Philippines</span>
+                                            <span className="text-gray-700">Address: <a href="https://maps.app.goo.gl/du9rahz164nMFuaMA" target="_blank" rel="noopener noreferrer" className="text-green-600 hover:text-green-700 underline">View on Google Maps</a></span>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -277,7 +273,7 @@ export default function PatientTerms({
                             </Button>
                         </Link>
                         <Link href="/patient/online-appointment">
-                            <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-green-600 px-8 py-4 text-lg">
+                            <Button variant="outline" size="lg" className="border-2 border-white bg-white/10 text-white hover:bg-white hover:text-green-600 px-8 py-4 text-lg backdrop-blur-sm">
                                 <Calendar className="mr-2 h-5 w-5" />
                                 Book Appointment
                             </Button>

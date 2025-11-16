@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import SharedNavigation from '@/components/SharedNavigation';
+import PublicFooter from '@/components/PublicFooter';
 import { 
     Heart, 
     TestTube, 
@@ -20,6 +21,7 @@ import {
     Stethoscope,
     Calendar,
     Phone,
+    Mail,
     MapPin,
     Award,
     Users,
@@ -155,7 +157,7 @@ export default function PatientServices({
 
     return (
         <div className="min-h-screen bg-white">
-            <Head title="Our Services - SJHI Industrial Clinic" />
+            <Head title="Our Services" />
             
             {/* Shared Navigation */}
             <SharedNavigation user={user || undefined} currentPath="/services" notifications={notifications || []} unreadCount={unreadCount || 0} />
@@ -324,7 +326,7 @@ export default function PatientServices({
                             </Button>
                         </Link>
                         <Link href="/patient/contact">
-                            <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-green-600 px-8 py-4 text-lg font-semibold">
+                            <Button variant="outline" size="lg" className="border-2 border-white bg-white/10 text-white hover:bg-white hover:text-green-600 px-8 py-4 text-lg font-semibold backdrop-blur-sm">
                                 <Phone className="mr-2 h-6 w-6" />
                                 Contact Us
                             </Button>
@@ -342,20 +344,34 @@ export default function PatientServices({
                                 <MapPin className="h-8 w-8 text-green-600" />
                             </div>
                             <h3 className="text-lg font-semibold text-gray-900 mb-2">Address</h3>
-                            <p className="text-gray-600">123 Medical Center St.<br />Healthcare District<br />City, State 12345</p>
-                        </div>
-                        
-                        <div className="text-center">
-                            <div className="p-4 bg-blue-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                                <Phone className="h-8 w-8 text-blue-600" />
-                            </div>
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2">Call Us</h3>
-                            <p className="text-gray-600">+1 123 456 7890<br />Emergency: +1 123 456 7891<br />24/7 Available</p>
+                            <p className="text-gray-600 mb-2">SJHI Industrial Clinic and Diagnostic Center</p>
+                            <p className="text-gray-600 mb-2">Cabuyao City, Laguna</p>
+                            <a 
+                                href="https://maps.app.goo.gl/fWUa7BTJs6nW3Dvx6" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-green-600 hover:text-green-700 underline text-sm"
+                            >
+                                View on Google Maps
+                            </a>
                         </div>
                         
                         <div className="text-center">
                             <div className="p-4 bg-purple-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                                <Clock className="h-8 w-8 text-purple-600" />
+                                <Mail className="h-8 w-8 text-purple-600" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">Email Us</h3>
+                            <a 
+                                href="mailto:stjamesclinic413@gmail.com" 
+                                className="text-gray-600 hover:text-green-600 underline"
+                            >
+                                stjamesclinic413@gmail.com
+                            </a>
+                        </div>
+                        
+                        <div className="text-center">
+                            <div className="p-4 bg-orange-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                                <Clock className="h-8 w-8 text-orange-600" />
                             </div>
                             <h3 className="text-lg font-semibold text-gray-900 mb-2">Hours</h3>
                             <p className="text-gray-600">Mon-Fri: 8AM-5PM<br />Sat: 8AM-12PM<br />Sun: Emergency Only</p>
@@ -363,6 +379,9 @@ export default function PatientServices({
                     </div>
                 </div>
             </div>
+
+            {/* Footer */}
+            <PublicFooter />
         </div>
     );
 }

@@ -16,7 +16,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import SharedNavigation from '@/components/SharedNavigation';
+import PrivacyActModal from '@/components/PrivacyActModal';
+import TermsOfServiceModal from '@/components/TermsOfServiceModal';
 import { type BreadcrumbItem } from '@/types';
 import { CreatePatientItem } from '@/types/patients';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
@@ -154,6 +157,12 @@ export default function RegisterAndBook({
     const [availableTimes, setAvailableTimes] = useState<Array<{value: string, label: string}>>([]);
     const [appointmentPrice, setAppointmentPrice] = useState(0);
     const [createNewPatient, setCreateNewPatient] = useState(false);
+    
+    // Privacy Act and Terms of Service acceptance
+    const [privacyActAccepted, setPrivacyActAccepted] = useState(false);
+    const [termsAccepted, setTermsAccepted] = useState(false);
+    const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+    const [showTermsModal, setShowTermsModal] = useState(false);
 
     const totalSteps = 6; // 5 patient steps + 1 appointment step
 
@@ -418,7 +427,7 @@ export default function RegisterAndBook({
 
     return (
         <div className="min-h-screen bg-white">
-            <Head title="Register & Book Appointment - SJHI Industrial Clinic" />
+            <Head title="Register & Book Appointment" />
             
             {/* Shared Navigation */}
             <SharedNavigation user={user} currentPath="/patient/register-and-book" notifications={notifications} unreadCount={unreadCount} />
@@ -1315,15 +1324,83 @@ export default function RegisterAndBook({
                                     
                                     // Show complete button when all fields are filled
                                     return (
-                                        <Button 
-                                            disabled={processing} 
-                                            type="button"
-                                            onClick={handleFinalSubmit}
-                                            className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 h-12 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold"
-                                        >
-                                            <Save className="mr-3 h-6 w-6" />
-                                            {processing ? 'Submitting Request...' : 'Submit Registration & Appointment Request'}
-                                        </Button>
+                                        <div className="flex flex-col gap-4">
+                                            {/* Privacy Act and Terms Acceptance */}
+                                            <div className="space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                                <h4 className="text-sm font-semibold text-gray-900 mb-3">Required Acceptances</h4>
+                                                
+                                                {/* Privacy Act Checkbox */}
+                                                <div className="flex items-start gap-3">
+                                                    <Checkbox
+                                                        id="privacy-act-accept"
+                                                        checked={privacyActAccepted}
+                                                        onCheckedChange={(checked) => setPrivacyActAccepted(checked === true)}
+                                                        className="mt-1"
+                                                    />
+                                                    <div className="flex-1">
+                                                        <label
+                                                            htmlFor="privacy-act-accept"
+                                                            className="text-sm font-medium leading-relaxed cursor-pointer flex items-start gap-2"
+                                                        >
+                                                            <span className="flex-1">
+                                                                I have read and accept the{' '}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowPrivacyModal(true)}
+                                                                    className="text-green-600 hover:text-green-700 underline font-semibold"
+                                                                >
+                                                                    Data Privacy Act Notice (RA 10173)
+                                                                </button>
+                                                            </span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+
+                                                {/* Terms of Service Checkbox */}
+                                                <div className="flex items-start gap-3">
+                                                    <Checkbox
+                                                        id="terms-accept"
+                                                        checked={termsAccepted}
+                                                        onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                                                        className="mt-1"
+                                                    />
+                                                    <div className="flex-1">
+                                                        <label
+                                                            htmlFor="terms-accept"
+                                                            className="text-sm font-medium leading-relaxed cursor-pointer flex items-start gap-2"
+                                                        >
+                                                            <span className="flex-1">
+                                                                I have read and accept the{' '}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowTermsModal(true)}
+                                                                    className="text-green-600 hover:text-green-700 underline font-semibold"
+                                                                >
+                                                                    Terms of Service
+                                                                </button>
+                                                            </span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+
+                                                {/* Error message if not accepted */}
+                                                {(!privacyActAccepted || !termsAccepted) && (
+                                                    <p className="text-sm text-red-600 mt-2">
+                                                        Please accept both the Privacy Act Notice and Terms of Service to continue.
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            <Button 
+                                                disabled={processing || !privacyActAccepted || !termsAccepted} 
+                                                type="button"
+                                                onClick={handleFinalSubmit}
+                                                className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 h-12 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                <Save className="mr-3 h-6 w-6" />
+                                                {processing ? 'Submitting Request...' : 'Submit Registration & Appointment Request'}
+                                            </Button>
+                                        </div>
                                     );
                                 })()}
                             </div>
@@ -1331,6 +1408,26 @@ export default function RegisterAndBook({
                     </form>
                 </div>
             </div>
+
+            {/* Privacy Act Modal */}
+            <PrivacyActModal
+                open={showPrivacyModal}
+                onAccept={() => {
+                    setPrivacyActAccepted(true);
+                    setShowPrivacyModal(false);
+                }}
+                onClose={() => setShowPrivacyModal(false)}
+            />
+
+            {/* Terms of Service Modal */}
+            <TermsOfServiceModal
+                open={showTermsModal}
+                onAccept={() => {
+                    setTermsAccepted(true);
+                    setShowTermsModal(false);
+                }}
+                onClose={() => setShowTermsModal(false)}
+            />
         </div>
     );
 }

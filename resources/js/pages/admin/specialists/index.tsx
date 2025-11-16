@@ -49,10 +49,10 @@ import * as React from 'react';
 
 type Specialist = {
     id: number;
+    specialist_id?: number;
     name: string;
-    email: string;
-    specialization?: string;
-    license_number?: string;
+    email: string | null;
+    contact?: string | null;
     is_active: boolean;
     role: string;
     created_at: string;
@@ -136,17 +136,10 @@ const createColumns = (handleDeleteSpecialist: (specialist: Specialist) => void)
         ),
     },
     {
-        accessorKey: "specialization",
-        header: "Specialization",
+        accessorKey: "contact",
+        header: "Contact",
         cell: ({ row }) => (
-            <div className="text-sm">{row.getValue("specialization") || "N/A"}</div>
-        ),
-    },
-    {
-        accessorKey: "license_number",
-        header: "License Number",
-        cell: ({ row }) => (
-            <div className="text-sm">{row.getValue("license_number") || "N/A"}</div>
+            <div className="text-sm">{row.getValue("contact") || "N/A"}</div>
         ),
     },
     {
@@ -231,8 +224,10 @@ export default function SpecialistIndex({ doctors, nurses, medtechs }: {
     nurses: Specialist[], 
     medtechs: Specialist[] 
 }) {
-    // Combine all specialists
-    const allSpecialists = [...doctors, ...nurses, ...medtechs];
+    // Combine all specialists - memoize to prevent unnecessary re-renders
+    const allSpecialists = React.useMemo(() => {
+        return [...doctors, ...nurses, ...medtechs];
+    }, [doctors, nurses, medtechs]);
     
     // TanStack Table state
     const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -240,16 +235,20 @@ export default function SpecialistIndex({ doctors, nurses, medtechs }: {
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = React.useState({});
     const [globalFilter, setGlobalFilter] = React.useState('');
+    const [pagination, setPagination] = React.useState({
+        pageIndex: 0,
+        pageSize: 10,
+    });
     
     // Delete confirmation state
     const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
     const [specialistToDelete, setSpecialistToDelete] = React.useState<Specialist | null>(null);
 
-    // Delete handler functions
-    const handleDeleteSpecialist = (specialist: Specialist) => {
+    // Delete handler functions - memoize to prevent recreation
+    const handleDeleteSpecialist = React.useCallback((specialist: Specialist) => {
         setSpecialistToDelete(specialist);
         setDeleteConfirmOpen(true);
-    };
+    }, []);
 
     const confirmDelete = () => {
         if (specialistToDelete) {
@@ -259,7 +258,8 @@ export default function SpecialistIndex({ doctors, nurses, medtechs }: {
                 'MedTech': 'medtechs'
             };
             const rolePath = roleMapping[specialistToDelete.role] || `${specialistToDelete.role.toLowerCase()}s`;
-            router.delete(`/admin/specialists/${rolePath}/${specialistToDelete.id}`, {
+            const specialistId = specialistToDelete.specialist_id || specialistToDelete.id;
+            router.delete(`/admin/specialists/${rolePath}/${specialistId}`, {
                 onSuccess: () => {
                     setDeleteConfirmOpen(false);
                     setSpecialistToDelete(null);
@@ -268,8 +268,21 @@ export default function SpecialistIndex({ doctors, nurses, medtechs }: {
         }
     };
 
-    // Initialize table
-    const columns = createColumns(handleDeleteSpecialist);
+    // Initialize table - memoize columns to prevent recreation
+    const columns = React.useMemo(() => createColumns(handleDeleteSpecialist), [handleDeleteSpecialist]);
+    
+    // Memoize global filter function to prevent recreation
+    const globalFilterFn = React.useCallback((row: any, columnId: string, value: string) => {
+        const search = value.toLowerCase();
+        const specialist = row.original;
+        return (
+            specialist.name?.toLowerCase().includes(search) ||
+            specialist.email?.toLowerCase().includes(search) ||
+            specialist.contact?.toLowerCase().includes(search) ||
+            specialist.role?.toLowerCase().includes(search)
+        );
+    }, []);
+    
     const table = useReactTable({
         data: allSpecialists || [],
         columns,
@@ -282,22 +295,15 @@ export default function SpecialistIndex({ doctors, nurses, medtechs }: {
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
         onGlobalFilterChange: setGlobalFilter,
-        globalFilterFn: (row, columnId, value) => {
-            const search = value.toLowerCase();
-            const specialist = row.original;
-            return (
-                specialist.name?.toLowerCase().includes(search) ||
-                specialist.email?.toLowerCase().includes(search) ||
-                specialist.specialization?.toLowerCase().includes(search) ||
-                specialist.role?.toLowerCase().includes(search)
-            );
-        },
+        onPaginationChange: setPagination,
+        globalFilterFn,
         state: {
             sorting,
             columnFilters,
             columnVisibility,
             rowSelection,
             globalFilter,
+            pagination,
         },
     });
 
@@ -373,16 +379,16 @@ export default function SpecialistIndex({ doctors, nurses, medtechs }: {
                     <Card className="bg-white border border-gray-200">
                         <CardContent className="p-6">
                             {/* Table Controls */}
-                            <div className="flex items-center py-4">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 py-4">
                                 <Input
                                     placeholder="Search specialists..."
                                     value={globalFilter ?? ""}
                                     onChange={(event) => setGlobalFilter(event.target.value)}
-                                    className="max-w-sm"
+                                    className="w-full sm:max-w-sm"
                                 />
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="ml-auto">
+                                        <Button variant="outline" className="w-full sm:w-auto sm:ml-auto">
                                             Columns <ChevronDown className="ml-2 h-4 w-4" />
                                         </Button>
                                     </DropdownMenuTrigger>
@@ -412,66 +418,69 @@ export default function SpecialistIndex({ doctors, nurses, medtechs }: {
                             </div>
                                     
                             {/* Table */}
-                            <div className="rounded-md border">
-                                <Table>
-                                    <TableHeader>
-                                        {table.getHeaderGroups().map((headerGroup) => (
-                                            <TableRow key={headerGroup.id}>
-                                                {headerGroup.headers.map((header) => {
-                                                    return (
-                                                        <TableHead key={header.id}>
-                                                            {header.isPlaceholder
-                                                                ? null
-                                                                : flexRender(
-                                                                    header.column.columnDef.header,
-                                                                    header.getContext()
-                                                                )}
-                                                        </TableHead>
-                                                    )
-                                                })}
-                                            </TableRow>
-                                        ))}
-                                    </TableHeader>
-                                    <TableBody>
-                                        {table.getRowModel().rows?.length ? (
-                                            table.getRowModel().rows.map((row) => (
-                                                <TableRow
-                                                    key={row.id}
-                                                    data-state={row.getIsSelected() && "selected"}
-                                                >
-                                                    {row.getVisibleCells().map((cell) => (
-                                                        <TableCell key={cell.id}>
-                                                            {flexRender(
-                                                                cell.column.columnDef.cell,
-                                                                cell.getContext()
-                                                            )}
-                                                        </TableCell>
-                                                    ))}
+                            <div className="rounded-md border overflow-x-auto">
+                                <div className="inline-block min-w-full align-middle">
+                                    <Table>
+                                        <TableHeader>
+                                            {table.getHeaderGroups().map((headerGroup) => (
+                                                <TableRow key={headerGroup.id}>
+                                                    {headerGroup.headers.map((header) => {
+                                                        return (
+                                                            <TableHead key={header.id} className="whitespace-nowrap">
+                                                                {header.isPlaceholder
+                                                                    ? null
+                                                                    : flexRender(
+                                                                        header.column.columnDef.header,
+                                                                        header.getContext()
+                                                                    )}
+                                                            </TableHead>
+                                                        )
+                                                    })}
                                                 </TableRow>
-                                            ))
-                                        ) : (
-                                            <TableRow>
-                                                <TableCell
-                                                    colSpan={columns.length}
-                                                    className="h-24 text-center"
-                                                >
-                                                    No results.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
+                                            ))}
+                                        </TableHeader>
+                                        <TableBody>
+                                            {table.getRowModel().rows?.length ? (
+                                                table.getRowModel().rows.map((row) => (
+                                                    <TableRow
+                                                        key={row.id}
+                                                        data-state={row.getIsSelected() && "selected"}
+                                                    >
+                                                        {row.getVisibleCells().map((cell) => (
+                                                            <TableCell key={cell.id} className="whitespace-nowrap">
+                                                                {flexRender(
+                                                                    cell.column.columnDef.cell,
+                                                                    cell.getContext()
+                                                                )}
+                                                            </TableCell>
+                                                        ))}
+                                                    </TableRow>
+                                                ))
+                                            ) : (
+                                                <TableRow>
+                                                    <TableCell
+                                                        colSpan={columns.length}
+                                                        className="h-24 text-center"
+                                                    >
+                                                        No results.
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             </div>
                             
                             {/* Pagination */}
-                            <div className="flex items-center justify-between px-2 py-4">
-                                <div className="text-muted-foreground flex-1 text-sm">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 px-2 py-4">
+                                <div className="text-muted-foreground text-sm text-center sm:text-left">
                                     {table.getFilteredSelectedRowModel().rows.length} of{" "}
                                     {table.getFilteredRowModel().rows.length} row(s) selected.
                                 </div>
-                                <div className="flex items-center space-x-6 lg:space-x-8">
+                                <div className="flex flex-col sm:flex-row items-center gap-4 sm:space-x-6 lg:space-x-8">
                                     <div className="flex items-center space-x-2">
-                                        <p className="text-sm font-medium">Rows per page</p>
+                                        <p className="text-sm font-medium hidden sm:inline">Rows per page</p>
+                                        <p className="text-sm font-medium sm:hidden">Per page</p>
                                         <Select
                                             value={`${table.getState().pagination.pageSize}`}
                                             onValueChange={(value) => {

@@ -220,12 +220,25 @@ class AppointmentLabService
             throw new \Exception('Cannot create lab order: patient_id is required but not found in appointment or visit');
         }
         
+        // Get attending physician/doctor from appointment using comprehensive lookup
+        $attendingPhysician = $this->getAttendingPhysician($appointment);
+        
+        // Build notes with attending physician information
+        $orderNotes = [];
+        if ($attendingPhysician) {
+            $orderNotes[] = "Attending Physician: {$attendingPhysician}";
+        }
+        if ($notes) {
+            $orderNotes[] = $notes;
+        }
+        $finalNotes = !empty($orderNotes) ? implode("\n", $orderNotes) : null;
+        
         $labOrder = LabOrder::create([
             'patient_id' => $patientId,
             'patient_visit_id' => $appointment->visit?->id,
             'ordered_by' => $orderedBy,
             'status' => 'ordered',
-            'notes' => $notes
+            'notes' => $finalNotes
         ]);
 
         // Create lab results for each test
@@ -239,6 +252,65 @@ class AppointmentLabService
         }
 
         return $labOrder;
+    }
+
+    /**
+     * Get attending physician/doctor from appointment
+     */
+    private function getAttendingPhysician(Appointment $appointment): ?string
+    {
+        // Try to get specialist from appointment relationship
+        if ($appointment->specialist_id) {
+            if (!$appointment->relationLoaded('specialist')) {
+                $appointment->load('specialist');
+            }
+            if ($appointment->specialist) {
+                return $appointment->specialist->name;
+            }
+        }
+        
+        // Try to get from visit relationships
+        if (!$appointment->relationLoaded('visit')) {
+            $appointment->load('visit');
+        }
+        
+        if ($appointment->visit) {
+            $visit = $appointment->visit;
+            
+            // Check doctor_id
+            if ($visit->doctor_id) {
+                $doctor = \App\Models\Specialist::find($visit->doctor_id);
+                if ($doctor) {
+                    return $doctor->name;
+                }
+            }
+            
+            // Check attending_staff_id
+            if ($visit->attending_staff_id) {
+                $attending = \App\Models\Specialist::find($visit->attending_staff_id);
+                if ($attending) {
+                    return $attending->name;
+                }
+            }
+            
+            // Check nurse_id
+            if ($visit->nurse_id) {
+                $nurse = \App\Models\Specialist::find($visit->nurse_id);
+                if ($nurse) {
+                    return $nurse->name;
+                }
+            }
+            
+            // Check medtech_id
+            if ($visit->medtech_id) {
+                $medtech = \App\Models\Specialist::find($visit->medtech_id);
+                if ($medtech) {
+                    return $medtech->name;
+                }
+            }
+        }
+        
+        return null;
     }
 
     /**

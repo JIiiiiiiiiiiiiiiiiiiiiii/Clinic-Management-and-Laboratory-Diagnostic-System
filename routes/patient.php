@@ -44,11 +44,11 @@ Route::middleware(['auth'])
     ->name('patient.')
     ->group(function () {
 
-        // Dashboard
-        Route::get('/dashboard', [PatientDashboardController::class, 'home'])->name('dashboard');
-
-        // Simple dashboard fallback
-        Route::get('/dashboard-simple', [PatientDashboardController::class, 'index'])->name('dashboard.simple');
+        // Dashboard - main dashboard route
+        Route::get('/dashboard', [PatientDashboardController::class, 'index'])->name('dashboard');
+        
+        // Home route (alternative dashboard view)
+        Route::get('/home', [PatientDashboardController::class, 'home'])->name('home');
 
 
         // Patient Registration and Booking
@@ -63,6 +63,27 @@ Route::middleware(['auth'])
         
         // Staff API
         Route::get('/staff', [\App\Http\Controllers\Patient\OnlineAppointmentController::class, 'getStaff'])->name('staff');
+
+        // Notifications
+        Route::get('/notifications', function () {
+            $user = auth()->user();
+            $patient = \App\Models\Patient::where('user_id', $user->id)->first();
+            
+            $notifications = \App\Models\Notification::where('user_id', $user->id)
+                ->orderBy('created_at', 'desc')
+                ->paginate(20);
+            
+            $unreadCount = \App\Models\Notification::where('user_id', $user->id)
+                ->where('read', false)
+                ->count();
+
+            return Inertia::render('patient/notifications/index', [
+                'user' => $user,
+                'patient' => $patient,
+                'notifications' => $notifications,
+                'unreadCount' => $unreadCount,
+            ]);
+        })->name('notifications');
 
         // Appointments
         Route::prefix('appointments')->name('appointments.')->group(function () {

@@ -278,46 +278,6 @@ const createColumns = (): ColumnDef<Transaction>[] => [
             );
         },
     },
-    {
-        id: "actions",
-        enableHiding: false,
-        header: ({ column }) => {
-            return (
-                <div className="text-left font-medium w-full">Actions</div>
-            )
-        },
-        cell: ({ row }) => {
-            const transaction = row.original;
-
-            return (
-                <div className="text-left">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">Open menu</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem
-                                onClick={() => navigator.clipboard.writeText(transaction.id.toString())}
-                            >
-                                Copy transaction ID
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem>
-                                View details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                                Edit transaction
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-            )
-        },
-    },
 ];
 
 export default function FinancialReports({ filter, date, reportType, data, transactions, summary, chartData, filterOptions, metadata }: FinancialReportsProps) {
@@ -352,13 +312,21 @@ export default function FinancialReports({ filter, date, reportType, data, trans
     };
 
     // Calculate dynamic data based on current filter and date
+    // Use props directly (filter, date, reportType) instead of state to ensure data updates when URL changes
     const getFilteredData = () => {
         // Use data prop if available (filtered from backend), otherwise fallback to transactions
-        const currentTransactions = data?.transaction_details || transactions?.data || [];
+        // Check if transaction_details is empty array and fallback to transactions.data
+        const dataTransactions = data?.transaction_details;
+        const hasDataTransactions = Array.isArray(dataTransactions) && dataTransactions.length > 0;
+        const currentTransactions = hasDataTransactions ? dataTransactions : (transactions?.data || []);
+        
+        // Use props directly, not state, to ensure we get the latest values from URL
+        const activeFilter = filter || currentFilter;
+        const activeDate = date || currentDate;
         
         // Debug logging
-        console.log('getFilteredData - currentFilter:', currentFilter);
-        console.log('getFilteredData - currentDate:', currentDate);
+        console.log('getFilteredData - activeFilter (from props):', activeFilter);
+        console.log('getFilteredData - activeDate (from props):', activeDate);
         console.log('getFilteredData - data prop:', data);
         console.log('getFilteredData - transactions prop:', transactions);
         console.log('getFilteredData - currentTransactions length:', currentTransactions.length);
@@ -392,11 +360,11 @@ export default function FinancialReports({ filter, date, reportType, data, trans
             average_transaction: averageTransaction,
             payment_summary: paymentSummary,
             transaction_details: currentTransactions,
-            period: currentFilter === 'daily' 
-                ? `Daily Report - ${new Date(currentDate).toLocaleDateString()}`
-                : currentFilter === 'monthly' 
-                ? `Monthly Report - ${new Date(currentDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}`
-                : `Yearly Report - ${new Date(currentDate).getFullYear()}`
+            period: activeFilter === 'daily' 
+                ? `Daily Report - ${new Date(activeDate).toLocaleDateString()}`
+                : activeFilter === 'monthly' 
+                ? `Monthly Report - ${new Date(activeDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}`
+                : `Yearly Report - ${new Date(activeDate).getFullYear()}`
         };
         
         console.log('getFilteredData - result:', result);
@@ -410,13 +378,20 @@ export default function FinancialReports({ filter, date, reportType, data, trans
     const [isExporting, setIsExporting] = useState(false);
     const [search, setSearch] = useState('');
 
+    // Update state when props change (e.g., when URL changes)
+    useEffect(() => {
+        setCurrentFilter(filter);
+        setCurrentDate(date);
+        setCurrentReportType(reportType);
+    }, [filter, date, reportType]);
+
     // Recalculate filtered data when filter or date changes
     const [filteredData, setFilteredData] = useState(() => getFilteredData());
 
     // Update filtered data when data prop changes (new data from backend)
     useEffect(() => {
         setFilteredData(getFilteredData());
-    }, [data, transactions]);
+    }, [data, transactions, filter, date, reportType]);
     const [dateRange, setDateRange] = useState<DateRange | undefined>({
         from: new Date(new Date().getFullYear(), new Date().getMonth(), 1), // First day of current month
         to: new Date(), // Today
@@ -1005,34 +980,36 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                             </div>
                         ) : (
                             <Card className="bg-white border border-gray-200">
-                                <CardContent className="p-6">
+                                <CardContent className="p-4 sm:p-6">
                                     {/* Table Controls */}
-                                    <div className="flex items-center py-4">
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 py-4">
                                         <Input
                                             placeholder="Search transactions..."
                                             value={globalFilter ?? ""}
                                             onChange={(event) => setGlobalFilter(event.target.value)}
-                                            className="max-w-sm"
+                                            className="w-full sm:max-w-sm"
                                         />
                                         <Button
                                             onClick={() => handleExport('excel')}
                                             disabled={isExporting}
-                                            className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                                            className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
                                         >
                                             <Download className="h-4 w-4 mr-2" />
-                                            Export Excel
+                                            <span className="hidden sm:inline">Export Excel</span>
+                                            <span className="sm:hidden">Excel</span>
                                         </Button>
                                         <Button
                                             onClick={() => handleExport('pdf')}
                                             disabled={isExporting}
-                                            className="ml-2 bg-green-600 hover:bg-green-700 text-white"
+                                            className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
                                         >
                                             <FileDown className="h-4 w-4 mr-2" />
-                                            Export PDF
+                                            <span className="hidden sm:inline">Export PDF</span>
+                                            <span className="sm:hidden">PDF</span>
                                         </Button>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="outline" className="ml-auto">
+                                                <Button variant="outline" className="w-full sm:w-auto sm:ml-auto">
                                                     Columns <ChevronDown className="ml-2 h-4 w-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
@@ -1062,66 +1039,69 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                     </div>
 
                                     {/* Table */}
-                                    <div className="rounded-md border">
-                                        <Table>
-                                            <TableHeader>
-                                                {table.getHeaderGroups().map((headerGroup) => (
-                                                    <TableRow key={headerGroup.id}>
-                                                        {headerGroup.headers.map((header) => {
-                                                            return (
-                                                                <TableHead key={header.id}>
-                                                                    {header.isPlaceholder
-                                                                        ? null
-                                                                        : flexRender(
-                                                                            header.column.columnDef.header,
-                                                                            header.getContext()
-                                                                        )}
-                                                                </TableHead>
-                                                            )
-                                                        })}
-                                                    </TableRow>
-                                                ))}
-                                            </TableHeader>
-                                            <TableBody>
-                                                {table.getRowModel().rows?.length ? (
-                                                    table.getRowModel().rows.map((row) => (
-                                                        <TableRow
-                                                            key={row.id}
-                                                            data-state={row.getIsSelected() && "selected"}
-                                                        >
-                                                            {row.getVisibleCells().map((cell) => (
-                                                                <TableCell key={cell.id}>
-                                                                    {flexRender(
-                                                                        cell.column.columnDef.cell,
-                                                                        cell.getContext()
-                                                                    )}
-                                                                </TableCell>
-                                                            ))}
+                                    <div className="rounded-md border overflow-x-auto">
+                                        <div className="inline-block min-w-full align-middle">
+                                            <Table>
+                                                <TableHeader>
+                                                    {table.getHeaderGroups().map((headerGroup) => (
+                                                        <TableRow key={headerGroup.id}>
+                                                            {headerGroup.headers.map((header) => {
+                                                                return (
+                                                                    <TableHead key={header.id} className="whitespace-nowrap">
+                                                                        {header.isPlaceholder
+                                                                            ? null
+                                                                            : flexRender(
+                                                                                header.column.columnDef.header,
+                                                                                header.getContext()
+                                                                            )}
+                                                                    </TableHead>
+                                                                )
+                                                            })}
                                                         </TableRow>
-                                                    ))
-                                                ) : (
-                                                    <TableRow>
-                                                        <TableCell
-                                                            colSpan={columns.length}
-                                                            className="h-24 text-center"
-                                                        >
-                                                            No results.
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )}
-                                            </TableBody>
-                                        </Table>
+                                                    ))}
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {table.getRowModel().rows?.length ? (
+                                                        table.getRowModel().rows.map((row) => (
+                                                            <TableRow
+                                                                key={row.id}
+                                                                data-state={row.getIsSelected() && "selected"}
+                                                            >
+                                                                {row.getVisibleCells().map((cell) => (
+                                                                    <TableCell key={cell.id} className="whitespace-nowrap">
+                                                                        {flexRender(
+                                                                            cell.column.columnDef.cell,
+                                                                            cell.getContext()
+                                                                        )}
+                                                                    </TableCell>
+                                                                ))}
+                                                            </TableRow>
+                                                        ))
+                                                    ) : (
+                                                        <TableRow>
+                                                            <TableCell
+                                                                colSpan={columns.length}
+                                                                className="h-24 text-center"
+                                                            >
+                                                                No results.
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
                                     </div>
 
                                     {/* Pagination */}
-                                    <div className="flex items-center justify-between px-2 py-4">
-                                        <div className="text-muted-foreground flex-1 text-sm">
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 px-2 py-4">
+                                        <div className="text-muted-foreground text-sm text-center sm:text-left">
                                             {table.getFilteredSelectedRowModel().rows.length} of{" "}
                                             {table.getFilteredRowModel().rows.length} row(s) selected.
                                         </div>
-                                        <div className="flex items-center space-x-6 lg:space-x-8">
+                                        <div className="flex flex-col sm:flex-row items-center gap-4 sm:space-x-6 lg:space-x-8">
                                             <div className="flex items-center space-x-2">
-                                                <p className="text-sm font-medium">Rows per page</p>
+                                                <p className="text-sm font-medium hidden sm:inline">Rows per page</p>
+                                                <p className="text-sm font-medium sm:hidden">Per page</p>
                                                 <Select
                                                     value={`${table.getState().pagination.pageSize}`}
                                                     onValueChange={(value) => {

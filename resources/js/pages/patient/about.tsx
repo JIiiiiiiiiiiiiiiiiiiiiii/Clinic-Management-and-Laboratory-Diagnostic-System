@@ -1,6 +1,7 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import SharedNavigation from '@/components/SharedNavigation';
+import PublicFooter from '@/components/PublicFooter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -139,7 +140,7 @@ export default function PatientAbout({
 
     return (
         <div className="min-h-screen bg-white">
-            <Head title="About Us - SJHI Industrial Clinic" />
+            <Head title="About Us" />
             
             {/* Shared Navigation */}
             <SharedNavigation user={user || undefined} currentPath="/about" notifications={notifications || []} unreadCount={unreadCount || 0} />
@@ -426,7 +427,7 @@ export default function PatientAbout({
                             </Button>
                         </Link>
                         <Link href="/patient/contact">
-                            <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-green-600 px-8 py-4 text-lg">
+                            <Button variant="outline" size="lg" className="border-2 border-white bg-white/10 text-white hover:bg-white hover:text-green-600 px-8 py-4 text-lg backdrop-blur-sm">
                                 <Phone className="mr-2 h-5 w-5" />
                                 Contact Us
                             </Button>
@@ -434,6 +435,9 @@ export default function PatientAbout({
                     </div>
                 </div>
             </section>
+
+            {/* Footer */}
+            <PublicFooter />
         </div>
     );
 }

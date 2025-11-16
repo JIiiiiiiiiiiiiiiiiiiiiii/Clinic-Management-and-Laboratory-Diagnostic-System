@@ -1191,20 +1191,33 @@ class BillingController extends Controller
             $patient = \App\Models\Patient::find($request->patient_id);
             
             // Handle specialist_id - if doctor_id is provided, use it, otherwise set to null
+            // Note: doctor_id from frontend is actually specialist_id (mapped as 'id' in the query)
             $specialistId = null;
             $specialistType = null;
             $specialistName = null;
             if ($request->doctor_id) {
                 // Check if the doctor_id exists in specialists table
-                $specialist = \App\Models\Specialist::find($request->doctor_id);
+                // Use where('specialist_id', ...) because Specialist uses specialist_id as primary key
+                $specialist = \App\Models\Specialist::where('specialist_id', $request->doctor_id)->first();
                 if ($specialist) {
                     $specialistId = $specialist->specialist_id;
                     $specialistType = $specialist->role;
                     $specialistName = $specialist->name;
+                } else {
+                    \Log::warning('Specialist not found for doctor_id:', ['doctor_id' => $request->doctor_id]);
                 }
             }
             
             // Create appointment without non-existent columns (patient_name, specialist_name)
+            \Log::info('Creating manual_transaction appointment', [
+                'patient_id' => $request->patient_id,
+                'specialist_id' => $specialistId,
+                'specialist_type' => $specialistType,
+                'appointment_type' => 'manual_transaction',
+                'appointment_date' => $transactionDate->toDateString(),
+                'appointment_time' => $transactionDate->toTimeString(),
+            ]);
+            
             $dummyAppointment = \App\Models\Appointment::create([
                 'patient_id' => $request->patient_id,
                 'specialist_id' => $specialistId,
@@ -1219,27 +1232,43 @@ class BillingController extends Controller
                 'created_by' => auth()->id(),
             ]);
             
-            // Prepare transaction data - use specialist_id and transaction_code which exist in database
+            \Log::info('Manual_transaction appointment created successfully', [
+                'appointment_id' => $dummyAppointment->id,
+                'appointment_type' => $dummyAppointment->appointment_type,
+                'unique_appointment_key' => $dummyAppointment->unique_appointment_key,
+            ]);
+            
+            // Prepare transaction data - use only columns that exist in database
             $transactionData = [
                 'transaction_code' => $transactionId, // Use transaction_code which exists in database
                 'appointment_id' => $dummyAppointment->id,
                 'patient_id' => $request->patient_id,
                 'specialist_id' => $specialistId, // Use specialist_id instead of doctor_id
                 'amount' => $request->amount ?? $request->total_amount ?? 0, // Only 'amount' exists in database
-                'hmo_provider' => $request->hmo_provider,
-                'hmo_reference' => $request->hmo_reference,
-                'hmo_reference_number' => $request->hmo_reference_number,
                 'payment_method' => $paymentMethod,
-                'payment_reference' => $request->payment_reference,
                 'status' => 'pending',
-                'description' => $request->description,
                 'notes' => $request->notes,
-                'transaction_date' => $transactionDate,
-                'transaction_date_only' => $transactionDate->toDateString(),
-                'transaction_time_only' => $transactionDate->toTimeString(),
-                'due_date' => $request->due_date,
-                'created_by' => auth()->id(),
             ];
+            
+            // Only add HMO fields if they exist in the database and are provided
+            if ($request->has('hmo_provider') && $request->hmo_provider) {
+                // Map hmo_provider (name) to hmo_provider_id if needed
+                // For now, store as hmo_reference_number if hmo_provider_id doesn't exist
+                $transactionData['hmo_reference_number'] = $request->hmo_reference_number ?? $request->hmo_reference ?? $request->hmo_provider;
+            }
+            
+            if ($request->has('hmo_reference_number') && $request->hmo_reference_number) {
+                $transactionData['hmo_reference_number'] = $request->hmo_reference_number;
+            }
+            
+            if ($request->has('payment_reference') && $request->payment_reference) {
+                $transactionData['reference_no'] = $request->payment_reference; // Map payment_reference to reference_no
+            }
+            
+            // Add created_by if the column exists (for tracking who created the transaction)
+            if (auth()->check()) {
+                $transactionData['created_by'] = auth()->id();
+            }
             
             // Add senior citizen fields if present
             if ($request->has('is_senior_citizen')) {
@@ -1257,9 +1286,22 @@ class BillingController extends Controller
             $transaction = BillingTransaction::create($transactionData);
             
             // Update the dummy appointment with the actual transaction amount
+            // CRITICAL: Preserve appointment_type to ensure duplicate checks are skipped
+            \Log::info('Updating manual_transaction appointment with amount', [
+                'appointment_id' => $dummyAppointment->id,
+                'current_appointment_type' => $dummyAppointment->appointment_type,
+                'total_amount' => $request->total_amount,
+            ]);
+            
             $dummyAppointment->update([
                 'price' => $request->total_amount,
                 'final_total_amount' => $request->amount ?? $request->total_amount,
+                'appointment_type' => 'manual_transaction', // Ensure it stays as manual_transaction
+            ]);
+            
+            \Log::info('Manual_transaction appointment updated successfully', [
+                'appointment_id' => $dummyAppointment->id,
+                'appointment_type' => $dummyAppointment->fresh()->appointment_type,
             ]);
 
             // Create transaction items
@@ -2077,16 +2119,15 @@ class BillingController extends Controller
                 'doctor_id' => 'nullable|exists:specialists,specialist_id',
                 'payment_type' => 'required|in:cash,health_card',
                 'total_amount' => 'required|numeric|min:0',
+                'amount' => 'nullable|numeric|min:0',
                 'discount_amount' => 'nullable|numeric|min:0',
                 'discount_percentage' => 'nullable|numeric|min:0|max:100',
-                'hmo_provider' => 'nullable|string|max:255',
-                'hmo_reference' => 'nullable|string|max:255',
+                'hmo_provider_id' => 'nullable|exists:hmo_providers,id',
+                'hmo_reference_number' => 'nullable|string|max:255',
                 'payment_reference' => 'nullable|string|max:255',
+                'reference_no' => 'nullable|string|max:255',
                 'status' => 'required|in:draft,pending,paid,cancelled,refunded',
-                'description' => 'nullable|string',
                 'notes' => 'nullable|string',
-                'transaction_date' => 'required|date',
-                'due_date' => 'nullable|date|after_or_equal:transaction_date',
                 'items' => 'required|array|min:1',
                 'items.*.item_type' => 'required|in:consultation,laboratory,medicine,procedure,other',
                 'items.*.item_name' => 'required|string|max:255',
@@ -2112,11 +2153,15 @@ class BillingController extends Controller
         try {
             // Update transaction
             // Convert doctor_id to specialist_id for database
+            // Note: doctor_id from frontend is actually specialist_id (mapped as 'id' in the query)
             $specialistId = null;
             if ($request->doctor_id) {
-                $specialist = \App\Models\Specialist::find($request->doctor_id);
+                // Use where('specialist_id', ...) because Specialist uses specialist_id as primary key
+                $specialist = \App\Models\Specialist::where('specialist_id', $request->doctor_id)->first();
                 if ($specialist) {
                     $specialistId = $specialist->specialist_id;
+                } else {
+                    \Log::warning('Specialist not found for doctor_id during update:', ['doctor_id' => $request->doctor_id]);
                 }
             }
             
@@ -2141,7 +2186,10 @@ class BillingController extends Controller
             if ($request->has('payment_method')) {
                 $updateData['payment_method'] = $request->payment_method;
             }
-            if ($request->has('reference_no')) {
+            // Map payment_reference to reference_no (the actual database column)
+            if ($request->has('payment_reference')) {
+                $updateData['reference_no'] = $request->payment_reference;
+            } elseif ($request->has('reference_no')) {
                 $updateData['reference_no'] = $request->reference_no;
             }
             if ($request->has('status')) {
@@ -2149,6 +2197,11 @@ class BillingController extends Controller
             }
             if ($request->has('notes')) {
                 $updateData['notes'] = $request->notes;
+            }
+            
+            // Add updated_by if the column exists (for tracking who updated the transaction)
+            if (auth()->check()) {
+                $updateData['updated_by'] = auth()->id();
             }
             
             $transaction->update($updateData);
