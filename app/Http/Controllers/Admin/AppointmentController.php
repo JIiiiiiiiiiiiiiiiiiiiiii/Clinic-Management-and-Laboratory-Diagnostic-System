@@ -843,71 +843,86 @@ class AppointmentController extends Controller
             'request_headers' => request()->headers->all()
         ]);
         
-        // Load relationships
-        $appointment->load(['patient', 'specialist', 'labTests.labTest', 'visits', 'billingTransactions']);
+        // Log raw appointment data for debugging
+        \Log::info('AppointmentController@show - Raw Appointment Data', [
+            'appointment_id' => $appointment->id,
+            'appointment_patient_id' => $appointment->patient_id,
+            'appointment_specialist_id' => $appointment->specialist_id,
+            'appointment_attributes' => $appointment->getAttributes(),
+        ]);
         
-        // Get patient information from relationship
+        // Load relationships - try multiple approaches due to database inconsistencies
+        // But don't rely on them - use fallback methods instead
+        try {
+            $appointment->load(['labTests.labTest', 'visits', 'billingTransactions']);
+            // Don't load patient/specialist relationships here - use fallback methods instead
+        } catch (\Exception $e) {
+            \Log::warning('Failed to load relationships via eager loading', ['error' => $e->getMessage()]);
+        }
+        
+        // Get patient information using fallback method (handles all cases)
         $patientName = 'N/A';
         $patientIdDisplay = 'N/A';
         $contactNumber = 'N/A';
         
-        if ($appointment->patient) {
-            // Build patient name from first, middle, and last name
-            $firstName = $appointment->patient->first_name ?? '';
-            $middleName = $appointment->patient->middle_name ?? '';
-            $lastName = $appointment->patient->last_name ?? '';
+        // Use the fallback method to get patient (always use this, don't rely on relationship)
+        $patient = $appointment->getPatientWithFallback();
+        
+        if ($patient) {
+            $firstName = $patient->first_name ?? '';
+            $middleName = $patient->middle_name ?? '';
+            $lastName = $patient->last_name ?? '';
             $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+            $patientIdDisplay = $patient->patient_no ?? $patient->patient_code ?? 'N/A';
+            $contactNumber = $patient->mobile_no ?? $patient->telephone_no ?? 'N/A';
             
-            // Get patient ID display (patient_no like P0001)
-            $patientIdDisplay = $appointment->patient->patient_no ?? $appointment->patient->patient_code ?? 'N/A';
-            
-            // Get contact number (prefer mobile_no, fallback to telephone_no)
-            $contactNumber = $appointment->patient->mobile_no ?? $appointment->patient->telephone_no ?? 'N/A';
-        } elseif ($appointment->patient_id) {
-            // If relationship failed but we have patient_id, try direct query
-            // Try both 'id' and 'patient_id' as primary key since migrations are inconsistent
-            $patient = \App\Models\Patient::where('id', $appointment->patient_id)->first();
-            if (!$patient) {
-                // Try with patient_id column if it exists
-                $patient = \App\Models\Patient::where('patient_id', $appointment->patient_id)->first();
-            }
-            
-            if ($patient) {
-                $firstName = $patient->first_name ?? '';
-                $middleName = $patient->middle_name ?? '';
-                $lastName = $patient->last_name ?? '';
-                $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
-                $patientIdDisplay = $patient->patient_no ?? $patient->patient_code ?? 'N/A';
-                $contactNumber = $patient->mobile_no ?? $patient->telephone_no ?? 'N/A';
-            }
+            \Log::info('AppointmentController@show - Patient found', [
+                'patient_id' => $patient->id ?? $patient->patient_id ?? 'unknown',
+                'patient_name' => $patientName,
+                'method' => $appointment->relationLoaded('patient') && $appointment->patient ? 'relationship' : 'fallback'
+            ]);
+        } else {
+            \Log::warning('AppointmentController@show - No patient_id on appointment', [
+                'appointment_id' => $appointment->id,
+            ]);
         }
         
-        // Get specialist information from relationship
+        // Get specialist information using fallback method (handles all cases)
         $specialistName = 'N/A';
         $specialistIdDisplay = 'N/A';
         
-        if ($appointment->specialist) {
-            $specialistName = $appointment->specialist->name ?? 'N/A';
-            $specialistIdDisplay = $appointment->specialist->specialist_id ?? $appointment->specialist_id ?? 'N/A';
+        // Use the fallback method to get specialist (always use this, don't rely on relationship)
+        $specialist = $appointment->getSpecialistWithFallback();
+        
+        if ($specialist) {
+            $specialistName = $specialist->name ?? 'N/A';
+            $specialistIdDisplay = $specialist->specialist_id ?? $appointment->specialist_id ?? 'N/A';
+            
+            \Log::info('AppointmentController@show - Specialist found', [
+                'specialist_id' => $specialist->specialist_id,
+                'specialist_name' => $specialistName,
+                'method' => $appointment->relationLoaded('specialist') && $appointment->specialist ? 'relationship' : 'fallback'
+            ]);
         } elseif ($appointment->specialist_id) {
-            // If relationship failed but we have specialist_id, try direct query
-            $specialist = \App\Models\Specialist::find($appointment->specialist_id);
-            if ($specialist) {
-                $specialistName = $specialist->name ?? 'N/A';
-                $specialistIdDisplay = $specialist->specialist_id ?? 'N/A';
-            } else {
-                $specialistIdDisplay = $appointment->specialist_id;
-            }
+            // At least show the ID if we can't find the specialist
+            $specialistIdDisplay = $appointment->specialist_id;
+            \Log::warning('AppointmentController@show - Specialist not found', [
+                'appointment_specialist_id' => $appointment->specialist_id,
+            ]);
+        } else {
+            \Log::warning('AppointmentController@show - No specialist_id on appointment', [
+                'appointment_id' => $appointment->id,
+            ]);
         }
         
         // Log for debugging
         \Log::info('AppointmentController@show - Patient and Specialist Data', [
             'appointment_id' => $appointment->id,
-            'patient_id' => $appointment->patient_id,
+            'appointment_patient_id' => $appointment->patient_id,
+            'appointment_specialist_id' => $appointment->specialist_id,
             'patient_name' => $patientName,
             'patient_id_display' => $patientIdDisplay,
             'contact_number' => $contactNumber,
-            'specialist_id' => $appointment->specialist_id,
             'specialist_name' => $specialistName,
             'specialist_id_display' => $specialistIdDisplay,
             'has_patient_relationship' => $appointment->patient ? 'yes' : 'no',

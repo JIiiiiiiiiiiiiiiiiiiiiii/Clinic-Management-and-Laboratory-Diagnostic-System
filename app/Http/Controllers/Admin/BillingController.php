@@ -790,10 +790,49 @@ class BillingController extends Controller
         \Log::info('Request URL:', ['url' => request()->fullUrl()]);
         \Log::info('Request parameters:', request()->all());
         
+        // Get pending appointments - don't eager load patient/specialist relationships
+        // Use fallback methods instead to handle database inconsistencies
         $pendingAppointments = Appointment::pendingBilling()
             ->with(['billingLinks', 'labTests.labTest'])
             ->orderBy('appointment_date', 'asc')
-            ->get();
+            ->get()
+            ->map(function ($appointment) {
+                // Get patient information using fallback method (handles all cases)
+                $patientName = 'N/A';
+                $patientIdDisplay = 'N/A';
+                
+                $patient = $appointment->getPatientWithFallback();
+                if ($patient) {
+                    $firstName = $patient->first_name ?? '';
+                    $middleName = $patient->middle_name ?? '';
+                    $lastName = $patient->last_name ?? '';
+                    $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+                    $patientIdDisplay = $patient->patient_no ?? $patient->patient_code ?? 'N/A';
+                }
+                
+                // Get specialist information using fallback method (handles all cases)
+                $specialistName = 'N/A';
+                
+                $specialist = $appointment->getSpecialistWithFallback();
+                if ($specialist) {
+                    $specialistName = $specialist->name ?? 'N/A';
+                }
+                
+                // Return appointment with transformed data
+                return [
+                    'id' => $appointment->id,
+                    'patient_name' => $patientName,
+                    'patient_id' => $patientIdDisplay,
+                    'appointment_type' => $appointment->appointment_type,
+                    'price' => $appointment->price ?? 0,
+                    'total_lab_amount' => $appointment->total_lab_amount ?? 0,
+                    'final_total_amount' => $appointment->final_total_amount ?? $appointment->price ?? 0,
+                    'appointment_date' => $appointment->appointment_date ? $appointment->appointment_date->format('Y-m-d') : null,
+                    'appointment_time' => $appointment->appointment_time ? $appointment->appointment_time->format('H:i:s') : null,
+                    'specialist_name' => $specialistName,
+                    'billing_status' => $appointment->billing_status ?? 'pending',
+                ];
+            });
 
         $doctors = \App\Models\Specialist::where('role', 'Doctor')->select('specialist_id as id', 'name')->get();
         // Get HMO providers - use 'status' column which exists in database
