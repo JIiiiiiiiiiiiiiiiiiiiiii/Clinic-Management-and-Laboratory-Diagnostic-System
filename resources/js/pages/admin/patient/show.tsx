@@ -17,7 +17,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { PatientItem } from '@/types/patients';
 import { Head, router } from '@inertiajs/react';
-import { Calendar, Edit, MapPin, Phone, Plus, Stethoscope, TestTube, User } from 'lucide-react';
+import { Calendar, Edit, MapPin, Phone, Plus, Stethoscope, TestTube, User, Mail } from 'lucide-react';
 import * as React from 'react';
 
 const buildBreadcrumbs = (patientId: number): BreadcrumbItem[] => [
@@ -169,6 +169,13 @@ export default function ShowPatient({ patient, labOrders = [] }: ShowPatientProp
                                                 </p>
                                                 <p className="mt-1 text-sm font-semibold text-gray-900">{patient.mobile_no || 'Not provided'}</p>
                                             </div>
+                                        </div>
+                                        <div>
+                                            <p className="flex items-center gap-2 text-sm font-medium text-gray-600">
+                                                <Mail className="h-4 w-4" />
+                                                Email Address
+                                            </p>
+                                            <p className="mt-1 text-sm font-semibold text-gray-900">{patient.email || 'Not provided'}</p>
                                         </div>
                                     </CardContent>
                                 </Card>

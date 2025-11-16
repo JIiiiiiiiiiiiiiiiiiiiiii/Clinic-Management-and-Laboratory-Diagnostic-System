@@ -42,6 +42,7 @@ class UpdatePatientRequest extends FormRequest
             'present_address' => 'required|string',
             'telephone_no' => 'nullable|string|max:255',
             'mobile_no' => 'required|string|max:255',
+            'email' => 'nullable|email|max:255',
 
             // Emergency Contact (accept both old and new field names)
             'emergency_name' => 'nullable|string|max:255',

@@ -18,7 +18,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { PatientItem } from '@/types/patients';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Save, User, Activity, Phone, Heart, Shield, Edit, Calendar, Stethoscope, Clock, MapPin } from 'lucide-react';
+import { ArrowLeft, Save, User, Activity, Phone, Heart, Shield, Edit, Calendar, Stethoscope, Clock, MapPin, Mail } from 'lucide-react';
 import Heading from '@/components/heading';
 import { useState } from 'react';
 
@@ -71,6 +71,7 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
         present_address: patient.present_address || '',
         telephone_no: patient.telephone_no || '',
         mobile_no: patient.mobile_no || '',
+        email: patient.email || '',
 
         // Emergency Contact (support both field names)
         emergency_name: patient.emergency_name || patient.informant_name || '',
@@ -359,6 +360,18 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                         />
                                         {errors.mobile_no && <p className="text-black text-sm">{errors.mobile_no}</p>}
                                     </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="email" className="text-base font-bold text-gray-700">Email Address</Label>
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        value={data.email}
+                                        onChange={(e) => setData('email', e.target.value)}
+                                        className="w-full"
+                                        autoComplete="email"
+                                    />
+                                    {errors.email && <p className="text-black text-sm">{errors.email}</p>}
                                 </div>
                             </div>
                     </PatientInfoCard>

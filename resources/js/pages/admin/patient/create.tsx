@@ -73,6 +73,7 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
         present_address: '',
         telephone_no: '',
         mobile_no: '',
+        email: '',
 
         // Emergency Contact
         informant_name: '',
@@ -420,6 +421,23 @@ export default function RegisterPatient({ doctors = [] as Doctor[], next_patient
                                 />
                                 {errors.mobile_no && <p className="text-red-500 text-sm mt-1">{errors.mobile_no}</p>}
                             </div>
+                        </div>
+                        <div>
+                            <Label htmlFor="email" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                <Mail className="h-4 w-4" />
+                                Email Address
+                            </Label>
+                            <Input
+                                id="email"
+                                name="email"
+                                type="email"
+                                autoComplete="email"
+                                value={data.email}
+                                onChange={(e) => setData('email', e.target.value)}
+                                className="mt-1"
+                                placeholder="Enter email address"
+                            />
+                            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
                         </div>
                     </div>
                 );

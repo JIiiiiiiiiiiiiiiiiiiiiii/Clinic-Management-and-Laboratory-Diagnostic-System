@@ -149,9 +149,6 @@ export default function PatientAbout({
             <section className="bg-gradient-to-br from-green-50 via-white to-blue-50 py-20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center">
-                        <Badge className="bg-green-100 text-green-800 border-green-200 mb-6">
-                            About SJHI Clinic
-                        </Badge>
                         <h1 className="text-5xl font-bold text-gray-900 mb-6">
                             Your Trusted Healthcare Partner
                         </h1>
