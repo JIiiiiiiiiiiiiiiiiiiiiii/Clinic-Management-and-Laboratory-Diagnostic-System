@@ -67,7 +67,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 // Column definitions for the specialist data table
-const createColumns = (handleDeleteSpecialist: (specialist: Specialist) => void): ColumnDef<Specialist>[] => [
+const createColumns = (): ColumnDef<Specialist>[] => [
     {
         accessorKey: "name",
         header: ({ column }) => {
@@ -170,53 +170,6 @@ const createColumns = (handleDeleteSpecialist: (specialist: Specialist) => void)
             );
         },
     },
-    {
-        id: "actions",
-        enableHiding: false,
-        cell: ({ row }) => {
-            const specialist = row.original;
-
-            return (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem
-                            onClick={() => navigator.clipboard.writeText(specialist.email)}
-                        >
-                            Copy email
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => router.visit(`/admin/specialists/${specialist.role === 'Doctor' ? 'doctors' : specialist.role === 'Nurse' ? 'nurses' : 'medtechs'}/${specialist.id}`)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View specialist
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.visit(`/admin/specialists/${specialist.role === 'Doctor' ? 'doctors' : specialist.role === 'Nurse' ? 'nurses' : 'medtechs'}/${specialist.id}/edit`)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit specialist
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.visit(`/admin/specialists/${specialist.role === 'Doctor' ? 'doctors' : specialist.role === 'Nurse' ? 'nurses' : 'medtechs'}/${specialist.id}/schedule`)}>
-                            <Calendar className="mr-2 h-4 w-4" />
-                            View Schedule
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                            onClick={() => handleDeleteSpecialist(specialist)}
-                            className="text-red-600"
-                        >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete specialist
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            )
-        },
-    },
 ];
 
 export default function SpecialistIndex({ doctors, nurses, medtechs }: { 
@@ -240,36 +193,8 @@ export default function SpecialistIndex({ doctors, nurses, medtechs }: {
         pageSize: 10,
     });
     
-    // Delete confirmation state
-    const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
-    const [specialistToDelete, setSpecialistToDelete] = React.useState<Specialist | null>(null);
-
-    // Delete handler functions - memoize to prevent recreation
-    const handleDeleteSpecialist = React.useCallback((specialist: Specialist) => {
-        setSpecialistToDelete(specialist);
-        setDeleteConfirmOpen(true);
-    }, []);
-
-    const confirmDelete = () => {
-        if (specialistToDelete) {
-            const roleMapping = {
-                'Doctor': 'doctors',
-                'Nurse': 'nurses',
-                'MedTech': 'medtechs'
-            };
-            const rolePath = roleMapping[specialistToDelete.role] || `${specialistToDelete.role.toLowerCase()}s`;
-            const specialistId = specialistToDelete.specialist_id || specialistToDelete.id;
-            router.delete(`/admin/specialists/${rolePath}/${specialistId}`, {
-                onSuccess: () => {
-                    setDeleteConfirmOpen(false);
-                    setSpecialistToDelete(null);
-                },
-            });
-        }
-    };
-
     // Initialize table - memoize columns to prevent recreation
-    const columns = React.useMemo(() => createColumns(handleDeleteSpecialist), [handleDeleteSpecialist]);
+    const columns = React.useMemo(() => createColumns(), []);
     
     // Memoize global filter function to prevent recreation
     const globalFilterFn = React.useCallback((row: any, columnId: string, value: string) => {
@@ -550,25 +475,6 @@ export default function SpecialistIndex({ doctors, nurses, medtechs }: {
                         </CardContent>
                     </Card>
                 </div>
-
-                {/* Delete Confirmation Dialog */}
-                <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Specialist</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Are you sure you want to delete <strong>{specialistToDelete?.name}</strong>? 
-                                This action cannot be undone.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
-                                Delete Specialist
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
             </div>
         </AppLayout>
     );

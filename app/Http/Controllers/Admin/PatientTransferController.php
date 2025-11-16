@@ -139,14 +139,21 @@ class PatientTransferController extends Controller
         if ($patient) {
             // Get ALL visits for the patient first, then filter in PHP
             // This ensures we don't miss any visits due to relationship loading issues
+            // Check which date column exists in the visits table
+            $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('visits', 'visit_date_time_time') 
+                ? 'visit_date_time_time' 
+                : (\Illuminate\Support\Facades\Schema::hasColumn('visits', 'visit_date_time') 
+                    ? 'visit_date_time' 
+                    : 'created_at');
+            
             $allVisits = \App\Models\Visit::with(['appointment.specialist', 'attendingStaff'])
                 ->where('patient_id', $patient->id)
                 ->orderBy('transfer_required', 'desc') // Transfer-required visits first
-                ->orderBy('visit_date_time', 'desc')
+                ->orderBy($dateColumn, 'desc')
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            // Filter visits that have doctor consultations
+            // Filter visits that have doctor consultations and map them properly
             $visits = $allVisits->filter(function ($visit) {
                 // Check if visit has appointment with doctor specialist_type
                 $hasDoctorAppointment = false;
@@ -164,13 +171,57 @@ class PatientTransferController extends Controller
                     $hasDoctorStaff = in_array($staffRole, ['doctor']);
                 }
 
-                // Debug logging (can be removed in production)
-                // if (!$hasDoctorAppointment && !$hasDoctorStaff && $visit->appointment_id) {
-                //     Log::info('Visit filtered out in create method', [...]);
-                // }
-
                 // Return true if either condition is met
                 return $hasDoctorAppointment || $hasDoctorStaff;
+            })
+            ->map(function ($visit) {
+                // Determine doctor name from appointment specialist or attending staff
+                $doctorName = 'N/A';
+                if ($visit->appointment && $visit->appointment->specialist) {
+                    $doctorName = $visit->appointment->specialist->name ?? 'N/A';
+                } elseif ($visit->attendingStaff) {
+                    $doctorName = $visit->attendingStaff->name ?? 'N/A';
+                }
+
+                // Get appointment date - use visit date as fallback
+                $appointmentDate = null;
+                if ($visit->appointment && $visit->appointment->appointment_date) {
+                    $appointmentDate = $visit->appointment->appointment_date;
+                } elseif ($visit->visit_date_time_time) {
+                    $appointmentDate = \Carbon\Carbon::parse($visit->visit_date_time_time)->format('Y-m-d');
+                } elseif ($visit->visit_date_time) {
+                    $appointmentDate = \Carbon\Carbon::parse($visit->visit_date_time)->format('Y-m-d');
+                }
+
+                // Get appointment time
+                $appointmentTime = null;
+                if ($visit->appointment && $visit->appointment->appointment_time) {
+                    try {
+                        $appointmentTime = \Carbon\Carbon::parse($visit->appointment->appointment_time)->format('H:i');
+                    } catch (\Exception $e) {
+                        $appointmentTime = null;
+                    }
+                } elseif ($visit->visit_date_time_time) {
+                    try {
+                        $appointmentTime = \Carbon\Carbon::parse($visit->visit_date_time_time)->format('H:i');
+                    } catch (\Exception $e) {
+                        $appointmentTime = null;
+                    }
+                }
+
+                return [
+                    'id' => $visit->id,
+                    'visit_code' => $visit->visit_code ?? 'N/A',
+                    'visit_date_time' => $visit->visit_date_time_time ?? $visit->visit_date_time ?? null,
+                    'appointment_date' => $appointmentDate,
+                    'appointment_time' => $appointmentTime,
+                    'doctor_name' => $doctorName,
+                    'reason_for_consult' => $visit->reason_for_consult ?? null,
+                    'assessment_diagnosis' => $visit->assessment_diagnosis ?? null,
+                    'plan_management' => $visit->plan_management ?? null,
+                    'transfer_required' => $visit->transfer_required ?? false,
+                    'transfer_reason_notes' => $visit->transfer_reason_notes ?? null,
+                ];
             })
             ->values(); // Re-index the collection
         }
@@ -207,6 +258,8 @@ class PatientTransferController extends Controller
             'priority' => 'required|in:low,medium,high,urgent',
             'notes' => 'nullable|string|max:1000',
             'transfer_date' => 'required|date|after_or_equal:today',
+            'from_hospital' => 'nullable|boolean',
+            'to_clinic' => 'nullable|boolean',
         ]);
 
         try {
@@ -294,14 +347,26 @@ class PatientTransferController extends Controller
                     ->with('error', 'Selected visit must be a doctor consultation.');
             }
 
+            // Determine transfer direction from request or use defaults based on user role
+            // If not provided, determine based on user role:
+            // - Admin users typically transfer from clinic to hospital (from_hospital=false, to_clinic=false)
+            // - Hospital users typically transfer from hospital to clinic (from_hospital=true, to_clinic=true)
+            // Default: Assume admin users are transferring from clinic to hospital
+            $fromHospital = $request->has('from_hospital') 
+                ? (bool) $request->from_hospital 
+                : in_array($user->role, ['hospital_admin', 'hospital_staff']);
+            $toClinic = $request->has('to_clinic') 
+                ? (bool) $request->to_clinic 
+                : in_array($user->role, ['hospital_admin', 'hospital_staff']);
+            
             // All validations passed - create the transfer record for the EXISTING patient
             // NOTE: This does NOT create a new patient - it only creates a transfer record
             // linking to the existing patient_id and visit_id
             $transfer = PatientTransfer::create([
                 'patient_id' => $request->patient_id, // This is an existing patient ID, not a new patient
                 'visit_id' => $request->visit_id, // Link to the specific visit/consultation
-                'from_hospital' => true, // Assuming transfers are from hospital
-                'to_clinic' => true,    // Assuming transfers are to clinic
+                'from_hospital' => $fromHospital,
+                'to_clinic' => $toClinic,
                 'transfer_reason' => $request->transfer_reason,
                 'priority' => $request->priority,
                 'notes' => $request->notes,
@@ -541,84 +606,116 @@ class PatientTransferController extends Controller
 
         // Get ALL visits for the patient first, then filter in PHP
         // This ensures we don't miss any visits due to relationship loading issues
-        $allVisits = Visit::with(['appointment', 'appointment.specialist', 'attendingStaff'])
+        // Check which date column exists in the visits table
+        $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('visits', 'visit_date_time_time') 
+            ? 'visit_date_time_time' 
+            : (\Illuminate\Support\Facades\Schema::hasColumn('visits', 'visit_date_time') 
+                ? 'visit_date_time' 
+                : 'created_at');
+        
+        $allVisits = Visit::with(['appointment.specialist', 'attendingStaff'])
             ->where('patient_id', $request->patient_id)
             ->orderBy('transfer_required', 'desc') // Transfer-required visits first
-            ->orderBy('visit_date_time', 'desc')
+            ->orderBy($dateColumn, 'desc')
             ->orderBy('created_at', 'desc')
             ->get();
 
-        // Debug logging (can be removed in production)
-        // Log::info('getPatientVisits - All visits fetched', [
-        //     'patient_id' => $request->patient_id,
-        //     'total_visits' => $allVisits->count(),
-        // ]);
+        // Debug logging
+        \Log::info('getPatientVisits - All visits fetched', [
+            'patient_id' => $request->patient_id,
+            'total_visits' => $allVisits->count(),
+            'visits_sample' => $allVisits->take(2)->map(function($v) {
+                return [
+                    'id' => $v->id,
+                    'visit_code' => $v->visit_code,
+                    'appointment_id' => $v->appointment_id,
+                    'has_appointment' => $v->appointment ? 'yes' : 'no',
+                    'appointment_specialist_id' => $v->appointment->specialist_id ?? null,
+                    'has_specialist' => ($v->appointment && $v->appointment->specialist) ? 'yes' : 'no',
+                    'attending_staff_id' => $v->attending_staff_id,
+                    'has_attending_staff' => $v->attendingStaff ? 'yes' : 'no',
+                ];
+            })->toArray(),
+        ]);
 
         // Filter visits that have doctor consultations
         $visits = $allVisits->filter(function ($visit) {
             // Check if visit has appointment with doctor specialist_type
             $hasDoctorAppointment = false;
-            if ($visit->appointment_id) {
-                // Reload appointment if not loaded
-                if (!$visit->relationLoaded('appointment')) {
-                    $visit->load('appointment');
-                }
-                
-                if ($visit->appointment) {
-                    $specialistType = strtolower(trim($visit->appointment->specialist_type ?? ''));
-                    // Handle various case variations: 'doctor', 'Doctor', 'DOCTOR'
-                    $hasDoctorAppointment = in_array($specialistType, ['doctor']);
-                }
+            if ($visit->appointment_id && $visit->appointment) {
+                $specialistType = strtolower(trim($visit->appointment->specialist_type ?? ''));
+                // Handle various case variations: 'doctor', 'Doctor', 'DOCTOR'
+                $hasDoctorAppointment = in_array($specialistType, ['doctor']);
             }
 
             // Check if visit has attending_staff that is a doctor
             $hasDoctorStaff = false;
-            if ($visit->attending_staff_id) {
-                // Reload attendingStaff if not loaded
-                if (!$visit->relationLoaded('attendingStaff')) {
-                    $visit->load('attendingStaff');
-                }
-                
-                if ($visit->attendingStaff) {
-                    $staffRole = strtolower(trim($visit->attendingStaff->role ?? ''));
-                    // Handle various case variations: 'doctor', 'Doctor', 'DOCTOR'
-                    $hasDoctorStaff = in_array($staffRole, ['doctor']);
-                }
+            if ($visit->attending_staff_id && $visit->attendingStaff) {
+                $staffRole = strtolower(trim($visit->attendingStaff->role ?? ''));
+                // Handle various case variations: 'doctor', 'Doctor', 'DOCTOR'
+                $hasDoctorStaff = in_array($staffRole, ['doctor']);
             }
-
-            // Debug logging (can be removed in production)
-            // if (!$hasDoctorAppointment && !$hasDoctorStaff && $visit->appointment_id) {
-            //     Log::info('Visit filtered out', [...]);
-            // }
 
             // Return true if either condition is met
             return $hasDoctorAppointment || $hasDoctorStaff;
         })
         ->map(function ($visit) {
-            // Determine doctor name from appointment or attending staff
-            $doctorName = 'Unknown Doctor';
+            // Determine doctor name from appointment specialist or attending staff
+            $doctorName = 'N/A';
             if ($visit->appointment && $visit->appointment->specialist) {
-                $doctorName = $visit->appointment->specialist->name;
+                $doctorName = $visit->appointment->specialist->name ?? 'N/A';
             } elseif ($visit->attendingStaff) {
-                $doctorName = $visit->attendingStaff->name;
+                $doctorName = $visit->attendingStaff->name ?? 'N/A';
+            }
+
+            // Get appointment date - use visit date as fallback
+            $appointmentDate = null;
+            if ($visit->appointment && $visit->appointment->appointment_date) {
+                $appointmentDate = $visit->appointment->appointment_date;
+            } elseif ($visit->visit_date_time_time) {
+                $appointmentDate = \Carbon\Carbon::parse($visit->visit_date_time_time)->format('Y-m-d');
+            } elseif ($visit->visit_date_time) {
+                $appointmentDate = \Carbon\Carbon::parse($visit->visit_date_time)->format('Y-m-d');
+            }
+
+            // Get appointment time
+            $appointmentTime = null;
+            if ($visit->appointment && $visit->appointment->appointment_time) {
+                try {
+                    $appointmentTime = \Carbon\Carbon::parse($visit->appointment->appointment_time)->format('H:i');
+                } catch (\Exception $e) {
+                    $appointmentTime = null;
+                }
+            } elseif ($visit->visit_date_time_time) {
+                try {
+                    $appointmentTime = \Carbon\Carbon::parse($visit->visit_date_time_time)->format('H:i');
+                } catch (\Exception $e) {
+                    $appointmentTime = null;
+                }
             }
 
             return [
                 'id' => $visit->id,
-                'visit_code' => $visit->visit_code,
-                'visit_date_time' => $visit->visit_date_time,
-                'appointment_date' => $visit->appointment->appointment_date ?? null,
-                'appointment_time' => $visit->appointment->appointment_time ? 
-                    (\Carbon\Carbon::parse($visit->appointment->appointment_time)->format('H:i') ?? null) : null,
+                'visit_code' => $visit->visit_code ?? 'N/A',
+                'visit_date_time' => $visit->visit_date_time_time ?? $visit->visit_date_time ?? null,
+                'appointment_date' => $appointmentDate,
+                'appointment_time' => $appointmentTime,
                 'doctor_name' => $doctorName,
-                'reason_for_consult' => $visit->reason_for_consult,
-                'assessment_diagnosis' => $visit->assessment_diagnosis,
-                'plan_management' => $visit->plan_management,
+                'reason_for_consult' => $visit->reason_for_consult ?? null,
+                'assessment_diagnosis' => $visit->assessment_diagnosis ?? null,
+                'plan_management' => $visit->plan_management ?? null,
                 'transfer_required' => $visit->transfer_required ?? false,
-                'transfer_reason_notes' => $visit->transfer_reason_notes,
+                'transfer_reason_notes' => $visit->transfer_reason_notes ?? null,
             ];
         })
         ->values(); // Re-index the collection
+
+        // Debug logging
+        \Log::info('getPatientVisits - Filtered visits result', [
+            'patient_id' => $request->patient_id,
+            'filtered_visits_count' => $visits->count(),
+            'visits_sample' => $visits->take(2)->toArray(),
+        ]);
 
         // Debug logging (can be removed in production)
         // Log::info('getPatientVisits - Filtered visits result', [

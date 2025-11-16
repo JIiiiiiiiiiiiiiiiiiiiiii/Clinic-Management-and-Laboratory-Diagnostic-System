@@ -846,19 +846,87 @@ class AppointmentController extends Controller
         // Load relationships
         $appointment->load(['patient', 'specialist', 'labTests.labTest', 'visits', 'billingTransactions']);
         
+        // Get patient information from relationship
+        $patientName = 'N/A';
+        $patientIdDisplay = 'N/A';
+        $contactNumber = 'N/A';
+        
+        if ($appointment->patient) {
+            // Build patient name from first, middle, and last name
+            $firstName = $appointment->patient->first_name ?? '';
+            $middleName = $appointment->patient->middle_name ?? '';
+            $lastName = $appointment->patient->last_name ?? '';
+            $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+            
+            // Get patient ID display (patient_no like P0001)
+            $patientIdDisplay = $appointment->patient->patient_no ?? $appointment->patient->patient_code ?? 'N/A';
+            
+            // Get contact number (prefer mobile_no, fallback to telephone_no)
+            $contactNumber = $appointment->patient->mobile_no ?? $appointment->patient->telephone_no ?? 'N/A';
+        } elseif ($appointment->patient_id) {
+            // If relationship failed but we have patient_id, try direct query
+            // Try both 'id' and 'patient_id' as primary key since migrations are inconsistent
+            $patient = \App\Models\Patient::where('id', $appointment->patient_id)->first();
+            if (!$patient) {
+                // Try with patient_id column if it exists
+                $patient = \App\Models\Patient::where('patient_id', $appointment->patient_id)->first();
+            }
+            
+            if ($patient) {
+                $firstName = $patient->first_name ?? '';
+                $middleName = $patient->middle_name ?? '';
+                $lastName = $patient->last_name ?? '';
+                $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+                $patientIdDisplay = $patient->patient_no ?? $patient->patient_code ?? 'N/A';
+                $contactNumber = $patient->mobile_no ?? $patient->telephone_no ?? 'N/A';
+            }
+        }
+        
+        // Get specialist information from relationship
+        $specialistName = 'N/A';
+        $specialistIdDisplay = 'N/A';
+        
+        if ($appointment->specialist) {
+            $specialistName = $appointment->specialist->name ?? 'N/A';
+            $specialistIdDisplay = $appointment->specialist->specialist_id ?? $appointment->specialist_id ?? 'N/A';
+        } elseif ($appointment->specialist_id) {
+            // If relationship failed but we have specialist_id, try direct query
+            $specialist = \App\Models\Specialist::find($appointment->specialist_id);
+            if ($specialist) {
+                $specialistName = $specialist->name ?? 'N/A';
+                $specialistIdDisplay = $specialist->specialist_id ?? 'N/A';
+            } else {
+                $specialistIdDisplay = $appointment->specialist_id;
+            }
+        }
+        
+        // Log for debugging
+        \Log::info('AppointmentController@show - Patient and Specialist Data', [
+            'appointment_id' => $appointment->id,
+            'patient_id' => $appointment->patient_id,
+            'patient_name' => $patientName,
+            'patient_id_display' => $patientIdDisplay,
+            'contact_number' => $contactNumber,
+            'specialist_id' => $appointment->specialist_id,
+            'specialist_name' => $specialistName,
+            'specialist_id_display' => $specialistIdDisplay,
+            'has_patient_relationship' => $appointment->patient ? 'yes' : 'no',
+            'has_specialist_relationship' => $appointment->specialist ? 'yes' : 'no',
+        ]);
+        
         // Format the appointment data for frontend display
         $formattedAppointment = [
             'id' => $appointment->id,
-            'patient_name' => $appointment->patient_name,
-            'patient_id' => $appointment->patient_id,
-            'contact_number' => $appointment->contact_number,
+            'patient_name' => $patientName,
+            'patient_id' => $patientIdDisplay,
+            'contact_number' => $contactNumber,
             'appointment_type' => $appointment->appointment_type,
             'price' => $appointment->price,
             'total_lab_amount' => $appointment->total_lab_amount ?? 0,
             'final_total_amount' => $appointment->final_total_amount ?? $appointment->price,
             'specialist_type' => $appointment->specialist_type,
-            'specialist_name' => $appointment->specialist_name,
-            'specialist_id' => $appointment->specialist_id,
+            'specialist_name' => $specialistName,
+            'specialist_id' => $specialistIdDisplay,
             'appointment_date' => $appointment->appointment_date ? $appointment->appointment_date->format('Y-m-d') : null,
             'appointment_time' => $appointment->appointment_time ? $appointment->appointment_time->format('H:i:s') : null,
             'duration' => $appointment->duration,

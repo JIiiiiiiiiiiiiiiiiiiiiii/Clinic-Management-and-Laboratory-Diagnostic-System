@@ -23,9 +23,14 @@ class BillingReportController extends Controller
             $startDateTime = $dateFrom . ' 00:00:00';
             $endDateTime = $dateTo . ' 23:59:59';
             
-            $revenueData = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
+            // Check if transaction_date column exists, otherwise use created_at
+            $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+                ? 'transaction_date' 
+                : 'created_at';
+            
+            $revenueData = BillingTransaction::whereBetween($dateColumn, [$startDateTime, $endDateTime])
                 ->with(['patient', 'doctor'])
-                ->orderBy('transaction_date', 'desc')
+                ->orderBy($dateColumn, 'desc')
                 ->get();
             
             
@@ -434,7 +439,12 @@ class BillingReportController extends Controller
         $startDateTime = $dateFrom . ' 00:00:00';
         $endDateTime = $dateTo . ' 23:59:59';
         
-        $query = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
+        // Check if transaction_date column exists, otherwise use created_at
+        $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+            ? 'transaction_date' 
+            : 'created_at';
+        
+        $query = BillingTransaction::whereBetween($dateColumn, [$startDateTime, $endDateTime])
             ->with(['patient', 'doctor', 'appointmentLinks.appointment']);
 
         // Apply filters
@@ -508,7 +518,12 @@ class BillingReportController extends Controller
         $startDateTime = $dateFrom . ' 00:00:00';
         $endDateTime = $dateTo . ' 23:59:59';
         
-        $revenueQuery = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
+        // Check if transaction_date column exists, otherwise use created_at
+        $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+            ? 'transaction_date' 
+            : 'created_at';
+        
+        $revenueQuery = BillingTransaction::whereBetween($dateColumn, [$startDateTime, $endDateTime])
             ->where('status', 'paid')
             ->with(['doctor']);
 
@@ -600,7 +615,12 @@ class BillingReportController extends Controller
             $startDateTime = $dateFrom . ' 00:00:00';
             $endDateTime = $dateTo . ' 23:59:59';
             
-            $revenueQuery = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
+            // Check if transaction_date column exists, otherwise use created_at
+            $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+                ? 'transaction_date' 
+                : 'created_at';
+            
+            $revenueQuery = BillingTransaction::whereBetween($dateColumn, [$startDateTime, $endDateTime])
                 ->where('status', 'paid')
                 ->with(['doctor']);
 
@@ -693,7 +713,12 @@ class BillingReportController extends Controller
         $startDateTime = $dateFrom . ' 00:00:00';
         $endDateTime = $dateTo . ' 23:59:59';
         
-        $billingTransactions = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
+        // Check if transaction_date column exists, otherwise use created_at
+        $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+            ? 'transaction_date' 
+            : 'created_at';
+        
+        $billingTransactions = BillingTransaction::whereBetween($dateColumn, [$startDateTime, $endDateTime])
             ->with(['patient', 'doctor', 'appointmentLinks.appointment'])
             ->get();
 

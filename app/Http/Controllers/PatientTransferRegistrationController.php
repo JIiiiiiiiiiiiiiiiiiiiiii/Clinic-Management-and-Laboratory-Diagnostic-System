@@ -22,33 +22,13 @@ class PatientTransferRegistrationController extends Controller
     {
         $user = auth()->user();
         
-        // Build the base query - only show pending transfers by default to prevent double approval
+        // Build the base query - show ALL transfers that have happened
         // Eager load relationships
-        $query = PatientTransfer::with(['patient', 'requestedBy', 'approvedBy']);
+        $query = PatientTransfer::with(['patient', 'requestedBy', 'approvedBy', 'transferredBy', 'acceptedBy']);
 
-        // Filter based on user role for cross-approval system
-        // Also include transfers without registration_type (existing patient transfers)
-        if ($user->role === 'admin') {
-            // Admin sees hospital registrations (from hospital admin) that need approval
-            // Also show existing patient transfers (those without registration_type)
-            $query->where(function ($q) {
-                $q->where('registration_type', 'hospital')
-                  ->orWhereNull('registration_type'); // Include existing patient transfers
-            });
-        } elseif (in_array($user->role, ['hospital_admin', 'hospital_staff'])) {
-            // Hospital sees admin registrations (from admin) that need approval
-            // Also show existing patient transfers (those without registration_type)
-            $query->where(function ($q) {
-                $q->where('registration_type', 'admin')
-                  ->orWhereNull('registration_type'); // Include existing patient transfers
-            });
-        } else {
-            // For other roles, show all transfers including those without registration_type
-            $query->where(function ($q) {
-                $q->whereNotNull('registration_type')
-                  ->orWhereNull('registration_type');
-            });
-        }
+        // Show ALL transfers regardless of registration_type or role
+        // This ensures all transfers are displayed in the table
+        // No filtering by registration_type - show everything
 
         // Apply status filter
         if ($request->filled('status') && $request->status !== 'all') {
@@ -101,19 +81,38 @@ class PatientTransferRegistrationController extends Controller
             })->toArray(),
         ]);
 
-        // Calculate statistics for the user's role
+        // Calculate statistics for ALL transfers (not filtered by role)
         $allTransfers = PatientTransfer::query();
-        if ($user->role === 'admin') {
-            $allTransfers->byRegistrationType('hospital');
-        } elseif (in_array($user->role, ['hospital_admin', 'hospital_staff'])) {
-            $allTransfers->byRegistrationType('admin');
-        }
 
         $statistics = [
             'total_transfers' => $allTransfers->count(),
-            'pending_transfers' => $allTransfers->clone()->where('approval_status', 'pending')->count(),
-            'approved_transfers' => $allTransfers->clone()->where('approval_status', 'approved')->count(),
-            'rejected_transfers' => $allTransfers->clone()->where('approval_status', 'rejected')->count(),
+            'pending_transfers' => $allTransfers->clone()
+                ->where(function ($q) {
+                    $q->where('approval_status', 'pending')
+                      ->orWhere(function ($subQ) {
+                          $subQ->whereNull('approval_status')
+                               ->where('status', 'pending');
+                      });
+                })
+                ->count(),
+            'approved_transfers' => $allTransfers->clone()
+                ->where(function ($q) {
+                    $q->where('approval_status', 'approved')
+                      ->orWhere(function ($subQ) {
+                          $subQ->whereNull('approval_status')
+                               ->where('status', 'completed');
+                      });
+                })
+                ->count(),
+            'rejected_transfers' => $allTransfers->clone()
+                ->where(function ($q) {
+                    $q->where('approval_status', 'rejected')
+                      ->orWhere(function ($subQ) {
+                          $subQ->whereNull('approval_status')
+                               ->where('status', 'cancelled');
+                      });
+                })
+                ->count(),
         ];
 
         // Transform the data to ensure patient_data is properly formatted
@@ -146,15 +145,22 @@ class PatientTransferRegistrationController extends Controller
                 ];
             }
 
-            // Determine transfer direction
+            // Determine transfer direction from boolean fields
+            // Logic: from_hospital=true, to_clinic=true = Hospital → Clinic
+            //        from_hospital=false, to_clinic=false = Clinic → Hospital
+            //        from_hospital=true, to_clinic=false = Hospital → Hospital
+            //        from_hospital=false, to_clinic=true = Clinic → Clinic
             $transferDirection = null;
-            if ($transfer->from_hospital && $transfer->to_clinic) {
+            $fromHospital = (bool) $transfer->from_hospital;
+            $toClinic = (bool) $transfer->to_clinic;
+            
+            if ($fromHospital && $toClinic) {
                 $transferDirection = 'hospital_to_clinic';
-            } elseif (!$transfer->from_hospital && !$transfer->to_clinic) {
+            } elseif (!$fromHospital && !$toClinic) {
                 $transferDirection = 'clinic_to_hospital';
-            } elseif ($transfer->from_hospital && !$transfer->to_clinic) {
+            } elseif ($fromHospital && !$toClinic) {
                 $transferDirection = 'hospital_to_hospital';
-            } elseif (!$transfer->from_hospital && $transfer->to_clinic) {
+            } elseif (!$fromHospital && $toClinic) {
                 $transferDirection = 'clinic_to_clinic';
             }
 
@@ -184,6 +190,18 @@ class PatientTransferRegistrationController extends Controller
                 'transfer_reason' => $transfer->transfer_reason, // Include for existing transfers
                 'priority' => $transfer->priority, // Include for existing transfers
                 'transfer_date' => $transfer->transfer_date, // Include for existing transfers
+                'transferred_by' => $transfer->transferredBy ? [
+                    'id' => $transfer->transferredBy->id,
+                    'name' => $transfer->transferredBy->name,
+                    'role' => $transfer->transferredBy->role,
+                ] : null,
+                'accepted_by' => $transfer->acceptedBy ? [
+                    'id' => $transfer->acceptedBy->id,
+                    'name' => $transfer->acceptedBy->name,
+                    'role' => $transfer->acceptedBy->role,
+                ] : null,
+                'completion_date' => $transfer->completion_date,
+                'notes' => $transfer->notes,
             ];
         });
 
@@ -259,6 +277,14 @@ class PatientTransferRegistrationController extends Controller
         try {
             DB::beginTransaction();
 
+            // Determine transfer direction based on registration type and user role
+            // Hospital users creating registrations = Hospital → Clinic (from hospital, to clinic)
+            // Admin users creating registrations = Clinic → Hospital (from clinic, to hospital)
+            // So: from_hospital=true, to_clinic=true = Hospital → Clinic
+            //     from_hospital=false, to_clinic=false = Clinic → Hospital
+            $fromHospital = ($registrationType === 'hospital');
+            $toClinic = ($registrationType === 'hospital'); // Hospital users transfer TO clinic
+            
             // Create patient transfer record instead of direct patient
             $transfer = PatientTransfer::create([
                 'patient_id' => null, // Will be set when approved
@@ -266,11 +292,13 @@ class PatientTransferRegistrationController extends Controller
                 'registration_type' => $registrationType,
                 'approval_status' => 'pending',
                 'requested_by' => $user->id,
-                'transfer_reason' => 'Patient registration request',
+                'transfer_reason' => $request->reason_for_transfer ?? 'Patient registration request',
                 'priority' => 'medium',
                 'status' => 'pending',
                 'transferred_by' => $user->id,
                 'transfer_date' => now(),
+                'from_hospital' => $fromHospital,
+                'to_clinic' => $toClinic,
             ]);
 
             // Create history record
@@ -293,18 +321,126 @@ class PatientTransferRegistrationController extends Controller
     {
         $transfer->load(['patient', 'requestedBy', 'approvedBy', 'transferHistory.actionByUser']);
 
-        // Transform the transfer data for better display
-        $transferData = [
-            'id' => $transfer->id,
-            'patient_data' => $transfer->patient_data ?: [
+        // Determine patient data - check if patient relationship exists first, then use patient_data
+        $patientData = [];
+        if ($transfer->patient) {
+            // Existing patient transfer - use relationship
+            // Map field names to match frontend expectations (some fields have different names in Patient model)
+            $patientData = [
+                'first_name' => $transfer->patient->first_name ?? 'N/A',
+                'last_name' => $transfer->patient->last_name ?? 'N/A',
+                'middle_name' => $transfer->patient->middle_name ?? '',
+                'birthdate' => $transfer->patient->birthdate ?? null,
+                'age' => $transfer->patient->age ?? null,
+                'sex' => $transfer->patient->sex ?? 'N/A',
+                'civil_status' => $transfer->patient->civil_status ?? 'N/A',
+                'nationality' => $transfer->patient->nationality ?? 'N/A',
+                'present_address' => $transfer->patient->present_address ?? $transfer->patient->address ?? 'N/A',
+                'telephone_no' => $transfer->patient->telephone_no ?? 'N/A',
+                'mobile_no' => $transfer->patient->mobile_no ?? 'N/A',
+                'informant_name' => $transfer->patient->informant_name ?? 'N/A',
+                'relationship' => $transfer->patient->relationship ?? 'N/A',
+                'company_name' => $transfer->patient->company_name ?? null,
+                'hmo_name' => $transfer->patient->hmo_name ?? null,
+                'hmo_company_id_no' => $transfer->patient->hmo_id_no ?? $transfer->patient->hmo_company_id_no ?? null,
+                'drug_allergies' => $transfer->patient->drug_allergies ?? null,
+                'food_allergies' => $transfer->patient->food_allergies ?? null,
+                'past_medical_history' => $transfer->patient->past_medical_history ?? null,
+                'family_history' => $transfer->patient->family_history ?? null,
+                'social_personal_history' => $transfer->patient->social_history ?? null, // Patient model uses social_history
+                'obstetrics_gynecology_history' => $transfer->patient->obgyn_history ?? null, // Patient model uses obgyn_history
+            ];
+        } elseif ($transfer->patient_data) {
+            // New patient registration - use JSON field and normalize field names
+            $rawData = is_array($transfer->patient_data) ? $transfer->patient_data : json_decode($transfer->patient_data, true);
+            
+            if ($rawData && is_array($rawData)) {
+                // Map field names to match frontend expectations
+                // Handle various field name variations from different sources
+                $patientData = [
+                    'first_name' => $rawData['first_name'] ?? $rawData['firstname'] ?? 'N/A',
+                    'last_name' => $rawData['last_name'] ?? $rawData['lastname'] ?? 'N/A',
+                    'middle_name' => $rawData['middle_name'] ?? $rawData['middlename'] ?? '',
+                    'birthdate' => $rawData['birthdate'] ?? $rawData['date_of_birth'] ?? null,
+                    'age' => $rawData['age'] ?? (isset($rawData['birthdate']) || isset($rawData['date_of_birth']) 
+                        ? (function() use ($rawData) {
+                            try {
+                                return \Carbon\Carbon::parse($rawData['birthdate'] ?? $rawData['date_of_birth'])->age;
+                            } catch (\Exception $e) {
+                                return null;
+                            }
+                        })() 
+                        : null),
+                    'sex' => $rawData['sex'] ?? $rawData['gender'] ?? 'N/A',
+                    'civil_status' => $rawData['civil_status'] ?? 'N/A',
+                    'nationality' => $rawData['nationality'] ?? 'N/A',
+                    'present_address' => $rawData['present_address'] ?? $rawData['address'] ?? 'N/A',
+                    'telephone_no' => $rawData['telephone_no'] ?? $rawData['telephone'] ?? 'N/A',
+                    'mobile_no' => $rawData['mobile_no'] ?? $rawData['contact_number'] ?? $rawData['mobile'] ?? 'N/A',
+                    'informant_name' => $rawData['informant_name'] ?? 'N/A',
+                    'relationship' => $rawData['relationship'] ?? 'N/A',
+                    'company_name' => $rawData['company_name'] ?? null,
+                    'hmo_name' => $rawData['hmo_name'] ?? null,
+                    'hmo_company_id_no' => $rawData['hmo_company_id_no'] ?? $rawData['hmo_id_no'] ?? null,
+                    'drug_allergies' => $rawData['drug_allergies'] ?? null,
+                    'food_allergies' => $rawData['food_allergies'] ?? null,
+                    'past_medical_history' => $rawData['past_medical_history'] ?? null,
+                    'family_history' => $rawData['family_history'] ?? null,
+                    'social_personal_history' => $rawData['social_personal_history'] ?? $rawData['social_history'] ?? null,
+                    'obstetrics_gynecology_history' => $rawData['obstetrics_gynecology_history'] ?? $rawData['obgyn_history'] ?? null,
+                ];
+            } else {
+                // Fallback if patient_data is empty or invalid
+                $patientData = [
+                    'first_name' => 'N/A',
+                    'last_name' => 'N/A',
+                    'middle_name' => '',
+                    'birthdate' => null,
+                    'age' => null,
+                    'sex' => 'N/A',
+                    'civil_status' => 'N/A',
+                    'nationality' => 'N/A',
+                    'present_address' => 'N/A',
+                    'telephone_no' => 'N/A',
+                    'mobile_no' => 'N/A',
+                    'informant_name' => 'N/A',
+                    'relationship' => 'N/A',
+                ];
+            }
+        } else {
+            // No patient data at all
+            $patientData = [
                 'first_name' => 'N/A',
                 'last_name' => 'N/A',
                 'middle_name' => '',
                 'birthdate' => null,
                 'age' => null,
                 'sex' => 'N/A',
+                'civil_status' => 'N/A',
+                'nationality' => 'N/A',
+                'present_address' => 'N/A',
+                'telephone_no' => 'N/A',
                 'mobile_no' => 'N/A',
-            ],
+                'informant_name' => 'N/A',
+                'relationship' => 'N/A',
+            ];
+        }
+
+        // Log for debugging
+        \Log::info('Patient Transfer Show - Patient Data', [
+            'transfer_id' => $transfer->id,
+            'patient_id' => $transfer->patient_id,
+            'has_patient_relationship' => $transfer->patient ? 'yes' : 'no',
+            'has_patient_data' => $transfer->patient_data ? 'yes' : 'no',
+            'patient_data_type' => gettype($transfer->patient_data),
+            'patient_data_sample' => is_array($transfer->patient_data) ? array_slice($transfer->patient_data, 0, 5) : 'not array',
+            'normalized_patient_data' => array_slice($patientData, 0, 10),
+        ]);
+
+        // Transform the transfer data for better display
+        $transferData = [
+            'id' => $transfer->id,
+            'patient_data' => $patientData,
             'registration_type' => $transfer->registration_type,
             'approval_status' => $transfer->approval_status,
             'requested_by' => [
@@ -410,6 +546,59 @@ class PatientTransferRegistrationController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors(['error' => 'Failed to reject patient registration: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Remove the specified patient transfer
+     */
+    public function destroy(PatientTransfer $transfer)
+    {
+        $user = auth()->user();
+        
+        try {
+            // Check if transfer has been approved - prevent deletion of approved transfers
+            if ($transfer->approval_status === 'approved') {
+                return back()->withErrors(['error' => 'Cannot delete an approved transfer.']);
+            }
+
+            // Check if transfer has been completed - prevent deletion of completed transfers
+            if ($transfer->status === 'completed') {
+                return back()->withErrors(['error' => 'Cannot delete a completed transfer.']);
+            }
+
+            // Create history record before deletion (use 'cancelled' since 'deleted' is not in the enum)
+            try {
+                $transfer->createHistoryRecord('cancelled', $user->id, 'Transfer request deleted by ' . $user->name);
+            } catch (\Exception $historyError) {
+                // Log but don't fail if history record creation fails
+                Log::warning('Failed to create history record for deleted transfer', [
+                    'transfer_id' => $transfer->id,
+                    'error' => $historyError->getMessage(),
+                ]);
+            }
+
+            // Delete the transfer (soft delete)
+            $transfer->delete();
+
+            Log::info('Patient transfer deleted', [
+                'transfer_id' => $transfer->id,
+                'deleted_by' => $user->id,
+            ]);
+
+            return redirect()->route('admin.patient.transfer.index')
+                ->with('success', 'Patient transfer deleted successfully!');
+
+        } catch (\Exception $e) {
+            Log::error('Failed to delete patient transfer', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'transfer_id' => $transfer->id,
+                'user_id' => $user->id,
+            ]);
+
+            return back()
+                ->with('error', 'Failed to delete patient transfer: ' . $e->getMessage());
         }
     }
 

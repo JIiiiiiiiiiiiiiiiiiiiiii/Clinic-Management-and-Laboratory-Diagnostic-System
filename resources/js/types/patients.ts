@@ -26,6 +26,7 @@ export interface PatientItem {
     display_address?: string; // Computed field for display
     telephone_no: string;
     mobile_no: string;
+    email?: string;
 
     // Emergency Contact
     informant_name: string;
@@ -93,6 +94,7 @@ export interface CreatePatientItem {
     display_address?: string; // Computed field for display
     telephone_no: string;
     mobile_no: string;
+    email?: string;
 
     // Emergency Contact
     informant_name: string;

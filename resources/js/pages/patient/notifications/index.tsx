@@ -93,29 +93,45 @@ export default function PatientNotifications({
         }
 
         // Handle different notification types for patients
+        // Always navigate to safe patient routes to avoid access denied errors
         let targetUrl = '/patient/appointments';
 
         switch (notification.type) {
             case 'appointment':
             case 'appointment_approved':
             case 'appointment_status_update':
-                // Try to get appointment_id from data or related_id
-                const appointmentId = notification.data?.appointment_id || notification.related_id;
-                if (appointmentId && appointmentId !== 'undefined' && appointmentId !== undefined && appointmentId !== null && !isNaN(Number(appointmentId))) {
-                    targetUrl = `/patient/appointments/${appointmentId}`;
-                }
+                // Always navigate to appointments list instead of specific appointment
+                // to avoid permission issues when trying to access specific appointments
+                targetUrl = '/patient/appointments';
                 break;
             case 'billing':
             case 'payment':
                 targetUrl = '/patient/billing';
                 break;
+            case 'lab_result':
+            case 'test_result':
+                targetUrl = '/patient/test-results';
+                break;
+            case 'medical_record':
+            case 'record':
+                targetUrl = '/patient/records';
+                break;
             default:
                 targetUrl = '/patient/appointments';
         }
 
-        // Navigate to the target URL
-        if (targetUrl) {
-            router.visit(targetUrl);
+        // Navigate to the target URL with error handling
+        if (targetUrl && targetUrl.startsWith('/patient/')) {
+            router.visit(targetUrl, {
+                onError: (errors) => {
+                    console.warn('Error accessing notification link, redirecting to dashboard:', errors);
+                    // If there's an error, redirect to dashboard as safe fallback
+                    router.visit('/patient/dashboard');
+                },
+            });
+        } else {
+            // Fallback to dashboard if no valid patient link
+            router.visit('/patient/dashboard');
         }
     };
 

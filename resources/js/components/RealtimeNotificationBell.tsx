@@ -204,45 +204,44 @@ export default function RealtimeNotificationBell({ initialNotifications = [], un
         } else {
             // For patient users, handle notification clicks with proper validation
             if (userRole === 'patient') {
-                // For appointment approval notifications, always navigate to appointments list
-                // to avoid permission issues when trying to access specific appointments
-                if (notification.type === 'appointment_approved' || notification.type === 'appointment_status_update') {
-                    console.log('Appointment approved/status update notification, redirecting to appointments list');
-                    router.visit('/patient/appointments');
-                    return;
-                }
-                
                 const link = getNotificationLink(notification);
                 console.log('Generated link for patient:', link);
 
-                if (link && link !== '#') {
-                    // For other appointment notifications, verify the appointment exists and belongs to the patient
-                    if (notification.type === 'appointment' && link.includes('/patient/appointments/')) {
-                        const appointmentId = notification.data?.appointment_id || notification.related_id;
-                        if (appointmentId) {
-                            try {
-                                // Use Inertia router to navigate, which will handle 403 errors gracefully
-                                router.visit(link, {
-                                    onError: (errors) => {
-                                        console.warn('Error accessing appointment, redirecting to appointments list:', errors);
-                                        router.visit('/patient/appointments');
-                                    },
-                                });
-                            } catch (error) {
-                                console.warn('Error navigating to appointment, redirecting to appointments list:', error);
-                                router.visit('/patient/appointments');
-                            }
-                        } else {
-                            router.visit('/patient/appointments');
-                        }
-                    } else {
-                        // For other notification types, navigate directly
-                        router.visit(link);
+                // Ensure the link is always a valid patient route
+                if (link && link !== '#' && link.startsWith('/patient/')) {
+                    // For appointment-related notifications, always navigate to appointments list
+                    // to avoid permission issues when trying to access specific appointments
+                    if (notification.type === 'appointment' || 
+                        notification.type === 'appointment_approved' || 
+                        notification.type === 'appointment_status_update') {
+                        console.log('Appointment notification, redirecting to appointments list');
+                        router.visit('/patient/appointments', {
+                            onError: (errors) => {
+                                console.warn('Error accessing appointments, redirecting to dashboard:', errors);
+                                router.visit('/patient/dashboard');
+                            },
+                        });
+                        return;
                     }
+                    
+                    // For other notification types (billing, lab results, etc.), navigate directly
+                    // but with error handling to prevent access denied
+                    router.visit(link, {
+                        onError: (errors) => {
+                            console.warn('Error accessing notification link, redirecting to dashboard:', errors);
+                            // If there's an error, redirect to dashboard as safe fallback
+                            router.visit('/patient/dashboard');
+                        },
+                    });
                 } else {
-                    // Fallback to appointments page if no valid link
-                    console.warn('No valid link generated for notification, redirecting to appointments:', notification);
-                    router.visit('/patient/appointments');
+                    // Fallback to dashboard if no valid patient link
+                    console.warn('No valid patient link generated for notification, redirecting to dashboard:', notification);
+                    router.visit('/patient/dashboard', {
+                        onError: () => {
+                            // Ultimate fallback - just reload the current page
+                            router.reload();
+                        },
+                    });
                 }
             } else {
                 // For other notification types or non-patient users, use the general link generation
@@ -307,11 +306,25 @@ export default function RealtimeNotificationBell({ initialNotifications = [], un
                     return '#';
             }
         } else {
+            // For patient users, ensure ALL routes are patient-side routes
             switch (notification.type) {
                 case 'appointment':
                 case 'appointment_approved':
-                    return `/patient/appointments/${notification.data?.appointment_id}`;
+                case 'appointment_status_update':
+                    // Always navigate to appointments list for patient safety
+                    // Individual appointment access will be handled in handleNotificationClick with validation
+                    return '/patient/appointments';
+                case 'billing':
+                case 'payment':
+                    return '/patient/billing';
+                case 'lab_result':
+                case 'test_result':
+                    return '/patient/test-results';
+                case 'medical_record':
+                case 'record':
+                    return '/patient/records';
                 default:
+                    // Default fallback to appointments list for any unknown notification type
                     return '/patient/appointments';
             }
         }

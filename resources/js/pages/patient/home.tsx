@@ -156,9 +156,6 @@ export default function PatientHome({
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
                         <div className="space-y-8">
                             <div className="space-y-4">
-                                <Badge className="bg-green-100 text-green-800 border-green-200">
-                                    Welcome to SJHI Clinic
-                                </Badge>
                                 <h1 className="text-5xl font-bold text-gray-900 leading-tight">
                                     We'll Ensure You Always Get The Best Result.
                                 </h1>
