@@ -237,22 +237,38 @@ class PatientController extends Controller
             $validated = $request->validated();
 
             // Map old field names to new field names for backward compatibility
-            if (isset($validated['informant_name']) && !isset($validated['emergency_name'])) {
+            // Prioritize emergency_name/emergency_relation, but fallback to informant_name/relationship
+            if (empty($validated['emergency_name']) && !empty($validated['informant_name'])) {
                 $validated['emergency_name'] = $validated['informant_name'];
-                unset($validated['informant_name']);
             }
-            if (isset($validated['relationship']) && !isset($validated['emergency_relation'])) {
+            if (empty($validated['emergency_relation']) && !empty($validated['relationship'])) {
                 $validated['emergency_relation'] = $validated['relationship'];
-                unset($validated['relationship']);
             }
+            
+            // Remove the old field names to avoid confusion
+            unset($validated['informant_name']);
+            unset($validated['relationship']);
+
+            \Log::info('Updating patient', [
+                'patient_id' => $patient->id,
+                'validated_fields' => array_keys($validated),
+                'emergency_name' => $validated['emergency_name'] ?? 'NOT SET',
+                'emergency_relation' => $validated['emergency_relation'] ?? 'NOT SET',
+            ]);
 
             // Update the patient via service
             $patientService->updatePatient($patient, $validated);
 
             return redirect()->route('admin.patient.index')->with('success', 'Patient updated successfully!');
         } catch (\Throwable $e) {
+            \Log::error('Failed to update patient', [
+                'patient_id' => $patient->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
             return back()
-                ->with('error', 'Failed to update patient: '.($e->getMessage()))
+                ->withErrors(['update_error' => 'Failed to update patient: '.($e->getMessage())])
                 ->withInput();
         }
     }

@@ -220,13 +220,16 @@ const createColumns = (): ColumnDef<Appointment>[] => [
             const specialist = row.getValue("specialist_name") as string;
             const specialistType = row.original.specialist_type;
             // Display specialist name if available, otherwise show type as fallback
-            const displayName = specialist && specialist !== 'Unknown Specialist' ? specialist : (specialistType || 'Not Assigned');
+            // Display specialist name, or default to "Paul Henry N. Parrotina, MD." if missing
+            const displayName = specialist && specialist !== 'Unknown Specialist' && specialist !== 'Paul Henry N. Parrotina, MD.' 
+                ? specialist 
+                : 'Paul Henry N. Parrotina, MD.';
             return (
                 <div className="flex items-center space-x-2">
                     <Stethoscope className="h-4 w-4 text-gray-400" />
                     <div>
                         <div className="font-medium">{displayName}</div>
-                        {specialist && specialist !== 'Unknown Specialist' && specialistType && (
+                        {specialist && specialist !== 'Unknown Specialist' && specialist !== 'Paul Henry N. Parrotina, MD.' && specialistType && (
                             <div className="text-sm text-gray-500">{specialistType}</div>
                         )}
                     </div>

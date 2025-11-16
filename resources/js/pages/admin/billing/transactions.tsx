@@ -8,7 +8,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import BillingTransactionModal from '@/components/modals/billing-transaction-modal';
 import TransactionViewModal from '@/components/modals/transaction-view-modal';
 import TransactionEditModal from '@/components/modals/transaction-edit-modal';
 import { 
@@ -18,7 +17,6 @@ import {
     Download, 
     Eye, 
     FileText, 
-    Plus, 
     Search, 
     XCircle, 
     CreditCard,
@@ -179,7 +177,9 @@ export default function BillingTransactions({
         header: "Specialist",
         cell: ({ row }) => {
             const doctor = row.getValue("doctor") as any;
-            return <div>{doctor ? doctor.name : '—'}</div>;
+            // Display doctor name, or default to "Paul Henry N. Parrotina, MD." if missing
+            const displayName = doctor?.name || 'Paul Henry N. Parrotina, MD.';
+            return <div>{displayName}</div>;
         },
     },
     {
@@ -297,7 +297,6 @@ export default function BillingTransactions({
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
     
     // Modal state
-    const [modalOpen, setModalOpen] = useState(false);
     const [viewModalOpen, setViewModalOpen] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [selectedTransactionId, setSelectedTransactionId] = useState<number | null>(null);
@@ -329,6 +328,12 @@ export default function BillingTransactions({
         if (transactionsData.length > 0) {
             console.log('First transaction data:', transactionsData[0]);
             console.log('Doctor in first transaction:', transactionsData[0]?.doctor);
+            console.log('Full first transaction:', transactionsData[0]);
+            if (transactionsData[0]?.doctor) {
+                console.log('Doctor name:', transactionsData[0].doctor.name);
+            } else {
+                console.log('Doctor is null or undefined');
+            }
         }
     }, [transactionsData]);
     
@@ -412,14 +417,6 @@ export default function BillingTransactions({
     };
 
     // Modal handlers
-    const handleCreateTransaction = () => {
-        setModalOpen(true);
-    };
-
-    const handleModalClose = () => {
-        setModalOpen(false);
-    };
-
     const handleModalSuccess = () => {
         // Refresh the transactions data
         router.reload({ only: ['transactions'] });
@@ -552,13 +549,6 @@ export default function BillingTransactions({
                                             </option>
                                         ))}
                                     </select>
-                                    <Button
-                                        onClick={handleCreateTransaction}
-                                        className="bg-green-600 hover:bg-green-700 text-white"
-                                    >
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        New Transaction
-                                    </Button>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <Button variant="outline">
@@ -739,17 +729,6 @@ export default function BillingTransactions({
                 </div>
             </div>
             
-            {/* Billing Transaction Modal */}
-            <BillingTransactionModal
-                isOpen={modalOpen}
-                onClose={handleModalClose}
-                onSuccess={handleModalSuccess}
-                patients={patients}
-                doctors={doctors}
-                labTests={labTests}
-                hmoProviders={hmoProviders}
-            />
-
             {/* Transaction View Modal */}
             <TransactionViewModal
                 isOpen={viewModalOpen}

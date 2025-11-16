@@ -808,7 +808,7 @@ class BillingReportController extends Controller
             }
         }
 
-        return 'Unknown Specialist';
+        return 'Paul Henry N. Parrotina, MD.';
     }
 
     private function syncDailyTransactions($date)

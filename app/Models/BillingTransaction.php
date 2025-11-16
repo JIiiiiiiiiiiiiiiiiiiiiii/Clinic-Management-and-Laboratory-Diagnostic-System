@@ -72,16 +72,55 @@ class BillingTransaction extends Model
         return $this->belongsTo(Patient::class, 'patient_id', 'id');
     }
 
-    // Relationship to specialist - use specialist_id which exists in database
+    // Relationship to specialist - check both specialist_id and doctor_id columns
     public function doctor()
     {
-        return $this->belongsTo(\App\Models\Specialist::class, 'specialist_id', 'specialist_id');
+        // Check which column exists in the database (cache the result to avoid repeated checks)
+        static $foreignKey = null;
+        if ($foreignKey === null) {
+            $foreignKey = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'specialist_id') 
+                ? 'specialist_id' 
+                : 'doctor_id';
+        }
+        
+        return $this->belongsTo(\App\Models\Specialist::class, $foreignKey, 'specialist_id');
     }
     
     // Alias for backward compatibility
     public function specialist()
     {
         return $this->doctor();
+    }
+    
+    // Accessor to get the specialist ID regardless of column name
+    public function getSpecialistIdAttribute()
+    {
+        // Check which column exists and return its value (cache the result)
+        static $columnName = null;
+        if ($columnName === null) {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'specialist_id')) {
+                $columnName = 'specialist_id';
+            } elseif (\Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'doctor_id')) {
+                $columnName = 'doctor_id';
+            } else {
+                $columnName = false;
+            }
+        }
+        
+        if ($columnName) {
+            return $this->attributes[$columnName] ?? null;
+        }
+        return null;
+    }
+    
+    // Method to always get fresh specialist data (bypasses relationship cache)
+    public function getFreshDoctor()
+    {
+        $specialistId = $this->getSpecialistIdAttribute();
+        if ($specialistId) {
+            return \App\Models\Specialist::find($specialistId);
+        }
+        return null;
     }
 
     public function appointmentLinks()

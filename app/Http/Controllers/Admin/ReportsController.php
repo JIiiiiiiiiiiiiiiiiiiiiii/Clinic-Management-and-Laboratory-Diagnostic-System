@@ -1315,7 +1315,7 @@ class ReportsController extends Controller
                 $exportData = $this->getAllReportData($request);
             } else {
                 // Export specific type
-                $exportData = $this->formatDataForExport($data, $type);
+                $exportData = $this->formatDataForExport($data, $type, $request);
             }
             
             return Excel::download(
@@ -1389,7 +1389,7 @@ class ReportsController extends Controller
     {
         try {
             $data = $this->getReportData($type, $request);
-            $exportData = $this->formatDataForExport($data, $type);
+            $exportData = $this->formatDataForExport($data, $type, $request);
             
             $csvData = [];
             
@@ -3615,7 +3615,7 @@ class ReportsController extends Controller
     /**
      * Format data for export based on type
      */
-    private function formatDataForExport($data, $type)
+    private function formatDataForExport($data, $type, Request $request = null)
     {
         try {
             $exportData = [];
@@ -3661,19 +3661,67 @@ class ReportsController extends Controller
                     break;
                     
                 case 'inventory':
-                    foreach ($data['supply_details'] as $supply) {
-                        $exportData[] = [
-                            'Product ID' => $supply['id'],
-                            'Name' => $supply['name'],
-                            'Code' => $supply['code'],
-                            'Category' => $supply['category'],
-                            'Unit of Measure' => $supply['unit_of_measure'] ?? 'N/A',
-                            'Current Stock' => $supply['current_stock'],
-                            'Minimum Level' => $supply['minimum_stock_level'],
-                            'Maximum Level' => $supply['maximum_stock_level'] ?? 0,
-                            'Status' => $supply['is_out_of_stock'] ? 'Out of Stock' : ($supply['is_low_stock'] ? 'Low Stock' : 'Normal'),
-                            'Active' => $supply['is_active'] ? 'Yes' : 'No',
-                        ];
+                    $reportType = $request ? $request->get('report_type', 'all') : ($data['report_type'] ?? 'all');
+                    
+                    // Check if supply_details exists and is not empty
+                    if (!isset($data['supply_details']) || empty($data['supply_details'])) {
+                        Log::warning('Inventory export: supply_details is empty or not set', [
+                            'data_keys' => array_keys($data ?? []),
+                            'report_type' => $reportType
+                        ]);
+                        break;
+                    }
+                    
+                    if ($reportType === 'all') {
+                        // All inventory items report
+                        foreach ($data['supply_details'] as $supply) {
+                            $exportData[] = [
+                                'Product ID' => $supply['id'] ?? $supply['item_id'] ?? 'N/A',
+                                'Name' => $supply['name'] ?? $supply['item_name'] ?? 'N/A',
+                                'Code' => $supply['code'] ?? $supply['item_code'] ?? 'N/A',
+                                'Category' => $supply['category'] ?? 'N/A',
+                                'Unit of Measure' => $supply['unit_of_measure'] ?? 'N/A',
+                                'Current Stock' => $supply['current_stock'] ?? $supply['stock'] ?? 0,
+                                'Minimum Level' => $supply['minimum_stock_level'] ?? $supply['low_stock_alert'] ?? 0,
+                                'Maximum Level' => $supply['maximum_stock_level'] ?? 0,
+                                'Status' => isset($supply['is_out_of_stock']) && $supply['is_out_of_stock'] 
+                                    ? 'Out of Stock' 
+                                    : (isset($supply['is_low_stock']) && $supply['is_low_stock'] 
+                                        ? 'Low Stock' 
+                                        : 'Normal'),
+                                'Active' => isset($supply['is_active']) ? ($supply['is_active'] ? 'Yes' : 'No') : 'N/A',
+                            ];
+                        }
+                    } elseif ($reportType === 'used_rejected') {
+                        // Used/Rejected items report
+                        foreach ($data['supply_details'] as $supply) {
+                            $exportData[] = [
+                                'Item Name' => $supply['name'] ?? $supply['item_name'] ?? 'N/A',
+                                'Category' => $supply['category'] ?? 'N/A',
+                                'Used Quantity' => $supply['used_quantity'] ?? $supply['quantity'] ?? 0,
+                                'Rejected Quantity' => $supply['rejected_quantity'] ?? 0,
+                                'Date' => isset($supply['created_at']) 
+                                    ? \Carbon\Carbon::parse($supply['created_at'])->format('Y-m-d H:i:s')
+                                    : 'N/A',
+                            ];
+                        }
+                    } elseif ($reportType === 'in_out') {
+                        // In/Out movements report
+                        foreach ($data['supply_details'] as $supply) {
+                            $exportData[] = [
+                                'Date' => isset($supply['created_at']) 
+                                    ? \Carbon\Carbon::parse($supply['created_at'])->format('Y-m-d H:i:s')
+                                    : 'N/A',
+                                'Item Name' => $supply['name'] ?? $supply['item_name'] ?? 'N/A',
+                                'Movement Type' => $supply['movement_type'] === 'IN' ? 'Incoming' : 'Outgoing',
+                                'Quantity' => $supply['quantity'] ?? 0,
+                                'Created By' => $supply['created_by'] ?? 'System',
+                                'Remarks' => $supply['remarks'] ?? 'N/A',
+                                'Expiry Date' => isset($supply['expiry_date']) && $supply['expiry_date']
+                                    ? \Carbon\Carbon::parse($supply['expiry_date'])->format('Y-m-d')
+                                    : 'N/A',
+                            ];
+                        }
                     }
                     break;
             }

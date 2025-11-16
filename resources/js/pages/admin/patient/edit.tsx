@@ -13,7 +13,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { ReportDatePicker } from '@/components/ui/report-date-picker';
 import { PatientPageLayout, PatientActionButton, PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
@@ -59,9 +58,10 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
         first_name: patient.first_name || '',
         middle_name: patient.middle_name || '',
         birthdate: normalizeDate(patient.birthdate),
-        sex: patient.sex || '',
-        civil_status: patient.civil_status || '',
-        nationality: patient.nationality || '',
+        age: patient.age || (patient.birthdate ? Math.floor((new Date().getTime() - new Date(patient.birthdate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : 0),
+        sex: patient.sex || 'male',
+        civil_status: patient.civil_status || 'single',
+        nationality: patient.nationality || 'Filipino',
 
         // Demographics
         occupation: patient.occupation || '',
@@ -72,9 +72,11 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
         telephone_no: patient.telephone_no || '',
         mobile_no: patient.mobile_no || '',
 
-        // Emergency Contact
-        emergency_name: patient.emergency_name || '',
-        emergency_relation: patient.emergency_relation || '',
+        // Emergency Contact (support both field names)
+        emergency_name: patient.emergency_name || patient.informant_name || '',
+        emergency_relation: patient.emergency_relation || patient.relationship || '',
+        informant_name: patient.informant_name || patient.emergency_name || '',
+        relationship: patient.relationship || patient.emergency_relation || '',
 
         // Financial/Insurance
         company_name: patient.company_name || '',
@@ -84,8 +86,8 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
         validity: patient.validity || '',
 
         // Medical History
-        drug_allergies: patient.drug_allergies || '',
-        food_allergies: patient.food_allergies || '',
+        drug_allergies: patient.drug_allergies || 'NONE',
+        food_allergies: patient.food_allergies || 'NONE',
         past_medical_history: patient.past_medical_history || '',
         family_history: patient.family_history || '',
         social_personal_history: patient.social_personal_history || '',
@@ -95,20 +97,54 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        // Check for required fields
+        // Check for required fields based on UpdatePatientRequest
         const requiredFields = [
-            'last_name', 'first_name', 'birth_date', 'sex', 'civil_status',
-            'present_address', 'contact_number', 'informant_name', 'informant_relationship', 'informant_contact'
+            'last_name', 'first_name', 'birthdate', 'age', 'sex', 'civil_status',
+            'present_address', 'mobile_no'
         ];
         
-        const missingFields = requiredFields.filter(field => !data[field as keyof typeof data]);
+        // Check emergency contact (either emergency_name/emergency_relation or informant_name/relationship)
+        const hasEmergencyName = !!(data.emergency_name || data.informant_name);
+        const hasEmergencyRelation = !!(data.emergency_relation || data.relationship);
+        
+        const missingFields = requiredFields.filter(field => {
+            const value = data[field as keyof typeof data];
+            return !value && value !== 0; // Allow 0 for age
+        });
+        
+        if (!hasEmergencyName || !hasEmergencyRelation) {
+            missingFields.push('emergency_contact');
+        }
         
         if (missingFields.length > 0) {
             setShowMissingModal(true);
             return;
         }
         
-        submit('put', `/admin/patient/${patient.id}`);
+        // Ensure emergency contact fields are properly set before submitting
+        // The form already syncs both field name variants, so we just need to ensure they're not empty
+        if (!data.emergency_name && data.informant_name) {
+            setData('emergency_name', data.informant_name);
+        }
+        if (!data.emergency_relation && data.relationship) {
+            setData('emergency_relation', data.relationship);
+        }
+        if (!data.informant_name && data.emergency_name) {
+            setData('informant_name', data.emergency_name);
+        }
+        if (!data.relationship && data.emergency_relation) {
+            setData('relationship', data.emergency_relation);
+        }
+        
+        // Submit the form - Inertia will use the current form data
+        submit('put', `/admin/patient/${patient.id}`, {
+            onError: (errors) => {
+                console.error('Validation errors:', errors);
+            },
+            onSuccess: () => {
+                console.log('Patient updated successfully');
+            },
+        });
     };
 
     return (
@@ -117,7 +153,6 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
             <PatientPageLayout
                 title="Edit Patient"
                 description={`Patient No: ${patient.patient_no}`}
-                icon={<Edit className="h-6 w-6" />}
                 actions={
                     <PatientActionButton
                         variant="default"
@@ -183,14 +218,38 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="birthdate" className="text-base font-bold text-gray-700">Birth Date *</Label>
-                                    <ReportDatePicker
-                                        date={data.birthdate ? new Date(data.birthdate) : undefined}
-                                        onDateChange={(date) => setData('birthdate', date ? date.toISOString().split('T')[0] : '')}
-                                        filter="daily"
-                                        placeholder="Select birthdate"
-                                        disabled={false}
+                                    <Input
+                                        id="birthdate"
+                                        type="date"
+                                        value={data.birthdate}
+                                        onChange={(e) => {
+                                            const dateStr = e.target.value;
+                                            setData('birthdate', dateStr);
+                                            // Calculate age from birthdate
+                                            if (dateStr) {
+                                                const birthDate = new Date(dateStr);
+                                                const age = Math.floor((new Date().getTime() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+                                                setData('age', age);
+                                            }
+                                        }}
+                                        className="w-full"
+                                        required
                                     />
                                     {errors.birthdate && <p className="text-black text-sm">{errors.birthdate}</p>}
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="age" className="text-base font-bold text-gray-700">Age *</Label>
+                                    <Input
+                                        id="age"
+                                        type="number"
+                                        min="0"
+                                        max="150"
+                                        value={data.age}
+                                        onChange={(e) => setData('age', Number(e.target.value))}
+                                        className="w-full"
+                                        required
+                                    />
+                                    {errors.age && <p className="text-black text-sm">{errors.age}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="sex" className="text-base font-bold text-gray-700">Sex *</Label>
@@ -199,8 +258,8 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                             <SelectValue placeholder="Select sex" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="Male">Male</SelectItem>
-                                            <SelectItem value="Female">Female</SelectItem>
+                                            <SelectItem value="male">Male</SelectItem>
+                                            <SelectItem value="female">Female</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     {errors.sex && <p className="text-black text-sm">{errors.sex}</p>}
@@ -212,10 +271,11 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                             <SelectValue placeholder="Select civil status" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="Single">Single</SelectItem>
-                                            <SelectItem value="Married">Married</SelectItem>
-                                            <SelectItem value="Widowed">Widowed</SelectItem>
-                                            <SelectItem value="Divorced">Divorced</SelectItem>
+                                            <SelectItem value="single">Single</SelectItem>
+                                            <SelectItem value="married">Married</SelectItem>
+                                            <SelectItem value="widowed">Widowed</SelectItem>
+                                            <SelectItem value="divorced">Divorced</SelectItem>
+                                            <SelectItem value="separated">Separated</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     {errors.civil_status && <p className="text-black text-sm">{errors.civil_status}</p>}
@@ -256,20 +316,6 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                         onChange={(e) => setData('religion', e.target.value)}
                                         className="w-full"
                                     />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="educational_attainment" className="text-base font-bold text-gray-700">Educational Attainment</Label>
-                                    <Select value={data.educational_attainment} onValueChange={(value) => setData('educational_attainment', value)}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select educational attainment" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Elementary">Elementary</SelectItem>
-                                            <SelectItem value="High School">High School</SelectItem>
-                                            <SelectItem value="College">College</SelectItem>
-                                            <SelectItem value="Graduate">Graduate</SelectItem>
-                                        </SelectContent>
-                                    </Select>
                                 </div>
                             </div>
                     </PatientInfoCard>
@@ -327,23 +373,33 @@ export default function EditPatient({ patient, doctors = [] }: EditPatientProps)
                                     <Label htmlFor="emergency_name" className="text-base font-bold text-gray-700">Informant Name *</Label>
                                     <Input
                                         id="emergency_name"
-                                        value={data.emergency_name}
-                                        onChange={(e) => setData('emergency_name', e.target.value)}
+                                        value={data.emergency_name || data.informant_name || ''}
+                                        onChange={(e) => {
+                                            setData('emergency_name', e.target.value);
+                                            setData('informant_name', e.target.value);
+                                        }}
                                         className="w-full"
                                         required
                                     />
-                                    {errors.emergency_name && <p className="text-black text-sm">{errors.emergency_name}</p>}
+                                    {(errors.emergency_name || errors.informant_name || errors.emergency_contact) && (
+                                        <p className="text-black text-sm">{errors.emergency_name || errors.informant_name || errors.emergency_contact}</p>
+                                    )}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="emergency_relation" className="text-base font-bold text-gray-700">Relationship *</Label>
                                     <Input
                                         id="emergency_relation"
-                                        value={data.emergency_relation}
-                                        onChange={(e) => setData('emergency_relation', e.target.value)}
+                                        value={data.emergency_relation || data.relationship || ''}
+                                        onChange={(e) => {
+                                            setData('emergency_relation', e.target.value);
+                                            setData('relationship', e.target.value);
+                                        }}
                                         className="w-full"
                                         required
                                     />
-                                    {errors.emergency_relation && <p className="text-black text-sm">{errors.emergency_relation}</p>}
+                                    {(errors.emergency_relation || errors.relationship || errors.emergency_contact) && (
+                                        <p className="text-black text-sm">{errors.emergency_relation || errors.relationship || errors.emergency_contact}</p>
+                                    )}
                                 </div>
                             </div>
                     </PatientInfoCard>

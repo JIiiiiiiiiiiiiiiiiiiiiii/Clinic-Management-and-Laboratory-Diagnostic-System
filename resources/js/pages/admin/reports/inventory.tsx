@@ -712,17 +712,15 @@ export default function InventoryReports({
         try {
             setIsExporting(true);
             const params = new URLSearchParams({
+                type: 'inventory',
                 filter: currentFilter,
                 date: currentDate,
                 report_type: currentReportType,
                 format,
-                total_products: (filteredData.total_products || 0).toString(),
-                low_stock_items: (filteredData.low_stock_items || 0).toString(),
             });
 
-            if (format === 'excel') {
-                window.location.href = `/admin/reports/export?type=inventory&format=excel&${params}`;
-            }
+            const exportUrl = `/admin/reports/export?${params.toString()}`;
+            window.location.href = exportUrl;
 
             setTimeout(() => {
                 setIsExporting(false);

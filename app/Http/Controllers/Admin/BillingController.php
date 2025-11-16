@@ -23,7 +23,10 @@ class BillingController extends Controller
     {
         try {
             // Load necessary relationships for the frontend
-            $query = BillingTransaction::with(['patient', 'doctor', 'appointments']);
+            // Note: We'll reload doctor relationship with fresh data in the transformation
+            // to ensure we always have the latest specialist name (bypassing any cache)
+            // Also load appointmentLinks to get specialist from appointments if needed
+            $query = BillingTransaction::with(['patient', 'appointments', 'appointmentLinks.appointment']);
 
             // Apply filters
             if ($request->filled('search')) {
@@ -46,9 +49,12 @@ class BillingController extends Controller
                 $query->where('payment_method', $request->payment_method);
             }
 
-            // Use specialist_id which exists in database (not doctor_id)
+            // Use the correct column (specialist_id or doctor_id) based on what exists in database
             if ($request->filled('doctor_id') && $request->doctor_id !== 'all') {
-                $query->where('specialist_id', $request->doctor_id);
+                $doctorColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'specialist_id') 
+                    ? 'specialist_id' 
+                    : 'doctor_id';
+                $query->where($doctorColumn, $request->doctor_id);
             }
 
             // Get transactions with pagination
@@ -57,9 +63,74 @@ class BillingController extends Controller
             // Manually transform transactions to ensure doctor relationship is always included
             // This ensures the data structure matches what the frontend expects
             $transformedData = $transactions->getCollection()->map(function ($transaction) {
-                // Ensure doctor relationship is loaded
-                if (!$transaction->relationLoaded('doctor')) {
-                    $transaction->load('doctor');
+                // Get the specialist ID directly from attributes (specialist_id column exists)
+                $specialistId = $transaction->attributes['specialist_id'] ?? null;
+                
+                // If specialist_id is null, try to get it from the linked appointment or visit
+                if (!$specialistId) {
+                    // Try from appointment first
+                    if ($transaction->appointment_id) {
+                        $appointment = \App\Models\Appointment::find($transaction->appointment_id);
+                        if ($appointment && $appointment->specialist_id) {
+                            $specialistId = $appointment->specialist_id;
+                        }
+                    }
+                    
+                    // If still null, try from visit
+                    if (!$specialistId && $transaction->visit_id) {
+                        $visit = \App\Models\Visit::find($transaction->visit_id);
+                        if ($visit) {
+                            // Check doctor_id, nurse_id, medtech_id, or attending_staff_id
+                            $specialistId = $visit->doctor_id ?? $visit->nurse_id ?? $visit->medtech_id ?? $visit->attending_staff_id ?? null;
+                        }
+                    }
+                    
+                    // If still null, try from appointmentLinks relationship (many-to-many)
+                    if (!$specialistId) {
+                        $transaction->load('appointmentLinks.appointment');
+                        foreach ($transaction->appointmentLinks as $link) {
+                            if ($link->appointment && $link->appointment->specialist_id) {
+                                $specialistId = $link->appointment->specialist_id;
+                                break; // Use the first appointment's specialist
+                            }
+                        }
+                    }
+                    
+                    // Last resort: Get from patient's most recent appointment or visit
+                    if (!$specialistId && $transaction->patient_id) {
+                        // Try most recent appointment
+                        $recentAppointment = \App\Models\Appointment::where('patient_id', $transaction->patient_id)
+                            ->whereNotNull('specialist_id')
+                            ->orderBy('appointment_date', 'desc')
+                            ->orderBy('created_at', 'desc')
+                            ->first();
+                        if ($recentAppointment && $recentAppointment->specialist_id) {
+                            $specialistId = $recentAppointment->specialist_id;
+                        }
+                        
+                        // If still null, try most recent visit
+                        if (!$specialistId) {
+                            $recentVisit = \App\Models\Visit::where('patient_id', $transaction->patient_id)
+                                ->where(function($q) {
+                                    $q->whereNotNull('doctor_id')
+                                      ->orWhereNotNull('nurse_id')
+                                      ->orWhereNotNull('medtech_id')
+                                      ->orWhereNotNull('attending_staff_id');
+                                })
+                                ->orderBy('visit_date', 'desc')
+                                ->orderBy('created_at', 'desc')
+                                ->first();
+                            if ($recentVisit) {
+                                $specialistId = $recentVisit->doctor_id ?? $recentVisit->nurse_id ?? $recentVisit->medtech_id ?? $recentVisit->attending_staff_id ?? null;
+                            }
+                        }
+                    }
+                }
+                
+                // Always get fresh specialist data from database to ensure latest name
+                $doctor = null;
+                if ($specialistId) {
+                    $doctor = \App\Models\Specialist::find($specialistId);
                 }
                 
                 // Get the base array representation
@@ -67,15 +138,20 @@ class BillingController extends Controller
                 
                 // ALWAYS explicitly set doctor in the array to ensure it's present
                 // This is critical because Laravel's toArray() may not include null relationships
-                if ($transaction->doctor) {
+                // If specialist is deleted or missing, use default name "Paul Henry N. Parrotina, MD."
+                if ($doctor) {
                     $data['doctor'] = [
-                        'specialist_id' => $transaction->doctor->specialist_id,
-                        'name' => $transaction->doctor->name,
-                        'role' => $transaction->doctor->role ?? 'Doctor',
+                        'specialist_id' => $doctor->specialist_id,
+                        'name' => $doctor->name,
+                        'role' => $doctor->role ?? 'Doctor',
                     ];
                 } else {
-                    // Explicitly set to null so frontend knows the field exists
-                    $data['doctor'] = null;
+                    // Use default specialist name when specialist is deleted or missing
+                    $data['doctor'] = [
+                        'specialist_id' => null,
+                        'name' => 'Paul Henry N. Parrotina, MD.',
+                        'role' => 'Doctor',
+                    ];
                 }
                 
                 return $data;
@@ -96,10 +172,16 @@ class BillingController extends Controller
             // Debug: Log first transaction to verify doctor is included
             if ($transformedData->isNotEmpty()) {
                 $firstTransaction = $transformedData->first();
+                $originalTransaction = $transactions->getCollection()->first();
                 \Log::info('First transaction doctor data', [
                     'transaction_id' => $firstTransaction['id'] ?? 'N/A',
+                    'specialist_id_from_db' => $originalTransaction->attributes['specialist_id'] ?? 'NULL',
+                    'appointment_id' => $originalTransaction->appointment_id ?? 'NULL',
+                    'visit_id' => $originalTransaction->visit_id ?? 'NULL',
+                    'patient_id' => $originalTransaction->patient_id ?? 'NULL',
                     'has_doctor' => isset($firstTransaction['doctor']),
                     'doctor' => $firstTransaction['doctor'] ?? 'NULL',
+                    'doctor_name' => $firstTransaction['doctor']['name'] ?? 'NULL',
                 ]);
             }
             
@@ -262,13 +344,21 @@ class BillingController extends Controller
                     
                     // If still null, try to get from relationships as fallback
                     if (empty($specialistName) || $specialistName === 'NULL') {
-                        // Try appointment specialist relationship
+                        // Try appointment specialist relationship - always get fresh data
                         if ($appointment->specialist_id) {
-                            if (!$appointment->relationLoaded('specialist')) {
-                                $appointment->load('specialist');
-                            }
-                            if ($appointment->specialist) {
-                                $specialistName = $appointment->specialist->name;
+                            // Always reload to get the latest specialist data
+                            $freshSpecialist = \App\Models\Specialist::find($appointment->specialist_id);
+                            if ($freshSpecialist) {
+                                $specialistName = $freshSpecialist->name;
+                                $appointment->setRelation('specialist', $freshSpecialist);
+                            } else {
+                                // Fallback to relationship if direct find fails
+                                if (!$appointment->relationLoaded('specialist')) {
+                                    $appointment->load('specialist');
+                                }
+                                if ($appointment->specialist) {
+                                    $specialistName = $appointment->specialist->name;
+                                }
                             }
                         }
                         
@@ -339,7 +429,7 @@ class BillingController extends Controller
                     
                     // Final fallback
                     if (empty($specialistName) || $specialistName === 'NULL') {
-                        $specialistName = 'Unknown Specialist';
+                        $specialistName = 'Paul Henry N. Parrotina, MD.';
                     }
                     
                     return [
@@ -1995,12 +2085,53 @@ class BillingController extends Controller
             }
         }
         
-        if (!$transaction->relationLoaded('doctor') || !$transaction->doctor) {
-            $transaction->load('doctor');
-            if (!$transaction->doctor) {
-                $doctorInfo = $transaction->getDoctorInfo();
-                if ($doctorInfo) {
-                    $transaction->setRelation('doctor', $doctorInfo);
+        // Always reload doctor relationship to get the latest data
+        // This ensures that if a specialist name was updated, it's reflected immediately
+        $specialistId = $transaction->attributes['specialist_id'] ?? null;
+        
+        // If specialist_id is null, try to get it from linked appointment or visit
+        if (!$specialistId) {
+            // Try from appointment
+            if ($transaction->appointment_id) {
+                $appointment = \App\Models\Appointment::find($transaction->appointment_id);
+                if ($appointment && $appointment->specialist_id) {
+                    $specialistId = $appointment->specialist_id;
+                }
+            }
+            
+            // Try from visit
+            if (!$specialistId && $transaction->visit_id) {
+                $visit = \App\Models\Visit::find($transaction->visit_id);
+                if ($visit) {
+                    $specialistId = $visit->doctor_id ?? $visit->nurse_id ?? $visit->medtech_id ?? $visit->attending_staff_id ?? null;
+                }
+            }
+            
+            // Try from appointmentLinks
+            if (!$specialistId) {
+                $transaction->load('appointmentLinks.appointment');
+                foreach ($transaction->appointmentLinks as $link) {
+                    if ($link->appointment && $link->appointment->specialist_id) {
+                        $specialistId = $link->appointment->specialist_id;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if ($specialistId) {
+            // Always get fresh data from database, bypassing any relationship cache
+            $freshDoctor = \App\Models\Specialist::find($specialistId);
+            if ($freshDoctor) {
+                $transaction->setRelation('doctor', $freshDoctor);
+            } else {
+                // If direct find fails, try the relationship
+                $transaction->load('doctor');
+                if (!$transaction->doctor) {
+                    $doctorInfo = $transaction->getDoctorInfo();
+                    if ($doctorInfo) {
+                        $transaction->setRelation('doctor', $doctorInfo);
+                    }
                 }
             }
         }
@@ -2033,6 +2164,7 @@ class BillingController extends Controller
                 $transactionData['doctor_id'] = $transaction->specialist_id;
             }
             // Ensure doctor relationship is included with correct structure
+            // If specialist is deleted or missing, use default name "Paul Henry N. Parrotina, MD."
             if ($transaction->doctor) {
                 $transactionData['doctor'] = [
                     'specialist_id' => $transaction->doctor->specialist_id,
@@ -2042,7 +2174,14 @@ class BillingController extends Controller
                     'employee_id' => $transaction->doctor->specialist_code ?? null, // For backward compatibility
                 ];
             } else {
-                $transactionData['doctor'] = null;
+                // Use default specialist name when specialist is deleted or missing
+                $transactionData['doctor'] = [
+                    'specialist_id' => null,
+                    'id' => null,
+                    'name' => 'Paul Henry N. Parrotina, MD.',
+                    'role' => 'Doctor',
+                    'employee_id' => null,
+                ];
             }
             
             return response()->json([
@@ -2871,7 +3010,7 @@ class BillingController extends Controller
             }
             
             // Get specialist name from relationship instead of non-existent column
-            $specialistName = 'Unknown Specialist';
+            $specialistName = 'Paul Henry N. Parrotina, MD.';
             if ($appointment->specialist) {
                 $specialistName = $appointment->specialist->name;
             }

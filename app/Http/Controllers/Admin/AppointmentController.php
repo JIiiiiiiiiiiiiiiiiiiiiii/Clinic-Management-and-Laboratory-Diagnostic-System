@@ -199,13 +199,21 @@ class AppointmentController extends Controller
             
             // If still null, try to get from relationships as fallback
             if (empty($specialistName) || $specialistName === 'NULL') {
-                // Try appointment specialist relationship (load if not already loaded)
+                // Try appointment specialist relationship - always get fresh data
                 if ($appointment->specialist_id) {
-                    if (!$appointment->relationLoaded('specialist')) {
-                        $appointment->load('specialist');
-                    }
-                    if ($appointment->specialist) {
-                        $specialistName = $appointment->specialist->name;
+                    // Always reload to get the latest specialist data
+                    $freshSpecialist = \App\Models\Specialist::find($appointment->specialist_id);
+                    if ($freshSpecialist) {
+                        $specialistName = $freshSpecialist->name;
+                        $appointment->setRelation('specialist', $freshSpecialist);
+                    } else {
+                        // Fallback to relationship if direct find fails
+                        if (!$appointment->relationLoaded('specialist')) {
+                            $appointment->load('specialist');
+                        }
+                        if ($appointment->specialist) {
+                            $specialistName = $appointment->specialist->name;
+                        }
                     }
                 }
                 
@@ -261,9 +269,9 @@ class AppointmentController extends Controller
                 }
             }
             
-            // Final fallback
+            // Final fallback - use default specialist name when specialist is deleted or missing
             if (empty($specialistName) || $specialistName === 'NULL') {
-                $specialistName = 'Unknown Specialist';
+                $specialistName = 'Paul Henry N. Parrotina, MD.';
             }
             
             // Get specialist data for the appointment

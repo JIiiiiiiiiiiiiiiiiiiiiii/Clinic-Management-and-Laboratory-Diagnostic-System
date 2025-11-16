@@ -131,6 +131,10 @@ class NurseController extends Controller
                     $user->update($userData);
                 }
             }
+            
+            // Clear any potential relationship caches to ensure changes are reflected immediately
+            // This ensures that when a specialist name is updated, all related records show the new name
+            \Illuminate\Support\Facades\Cache::tags(['specialists', 'billing_transactions'])->flush();
 
             return back()->with('success', 'Nurse updated successfully!');
         } catch (\Throwable $e) {

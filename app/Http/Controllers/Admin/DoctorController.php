@@ -122,6 +122,10 @@ class DoctorController extends Controller
 
             // Debug: Log the updated doctor
             \Log::info('Updated doctor:', $doctor->fresh()->toArray());
+            
+            // Clear any potential relationship caches to ensure changes are reflected immediately
+            // This ensures that when a specialist name is updated, all related records show the new name
+            \Illuminate\Support\Facades\Cache::tags(['specialists', 'billing_transactions'])->flush();
 
             return back()->with('success', 'Doctor updated successfully!');
         } catch (\Throwable $e) {
