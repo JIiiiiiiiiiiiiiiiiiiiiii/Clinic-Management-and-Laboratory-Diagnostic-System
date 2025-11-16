@@ -92,6 +92,7 @@ Route::prefix('admin')
                 Route::get('/registrations/{transfer}', [\App\Http\Controllers\PatientTransferRegistrationController::class, 'show'])->name('registrations.show');
                 Route::post('/registrations/{transfer}/approve', [\App\Http\Controllers\PatientTransferRegistrationController::class, 'approve'])->name('registrations.approve');
                 Route::post('/registrations/{transfer}/reject', [\App\Http\Controllers\PatientTransferRegistrationController::class, 'reject'])->name('registrations.reject');
+                Route::delete('/registrations/{transfer}', [\App\Http\Controllers\PatientTransferRegistrationController::class, 'destroy'])->name('registrations.destroy');
                 Route::get('/history', [\App\Http\Controllers\PatientTransferRegistrationController::class, 'history'])->name('history');
             });
         });
