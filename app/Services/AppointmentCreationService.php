@@ -118,6 +118,11 @@ class AppointmentCreationService
         $nextId = $maxId ? $maxId + 1 : 1;
         $patientData['patient_no'] = 'P' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
         
+        // Generate patient_code if not provided
+        if (!isset($patientData['patient_code']) || empty($patientData['patient_code'])) {
+            $patientData['patient_code'] = 'P' . str_pad($nextId, 3, '0', STR_PAD_LEFT);
+        }
+        
         // Add required fields if not provided
         if (!isset($patientData['arrival_date'])) {
             $patientData['arrival_date'] = now()->toDateString();

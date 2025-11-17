@@ -138,6 +138,20 @@ class Patient extends Model
                 $nextId = static::max('id') + 1;
                 $patient->patient_no = 'P' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
             }
+            
+            // Generate patient_code if not provided
+            if (empty($patient->patient_code)) {
+                $nextId = static::max('id') + 1;
+                $patient->patient_code = 'P' . str_pad($nextId, 3, '0', STR_PAD_LEFT);
+            }
+        });
+        
+        // Generate patient_code after insert if it wasn't set (fallback)
+        static::created(function ($patient) {
+            if (empty($patient->patient_code)) {
+                $patient->patient_code = 'P' . str_pad($patient->id, 3, '0', STR_PAD_LEFT);
+                $patient->saveQuietly(); // Save without triggering events
+            }
         });
     }
 
