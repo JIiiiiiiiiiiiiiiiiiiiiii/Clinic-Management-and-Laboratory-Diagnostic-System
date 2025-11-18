@@ -57,12 +57,15 @@ type LabOrder = {
             id: number;
             name: string;
             code: string;
+            fields_schema?: any;
         };
         values: Array<{
             id: number;
             field_name: string;
             value: string;
             unit?: string;
+            parameter_key?: string;
+            parameter_label?: string;
         }>;
         status: string;
         created_at: string;
@@ -137,6 +140,45 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
         }
         
         return age;
+    };
+
+    // Determine patient type based on age and gender
+    const getPatientType = (age: number, gender: string): 'child' | 'male' | 'female' | 'senior' => {
+        if (age < 18) {
+            return 'child';
+        }
+        if (age >= 60) {
+            return 'senior';
+        }
+        if (gender?.toLowerCase() === 'male' || gender?.toLowerCase() === 'm') {
+            return 'male';
+        }
+        return 'female';
+    };
+
+    // Check if a value is within normal range
+    const isValueNormal = (value: string, ranges: any, patientType: string): boolean | null => {
+        if (!ranges || !ranges[patientType] || !ranges[patientType].min || !ranges[patientType].max) {
+            return null; // No range defined
+        }
+        
+        const numValue = parseFloat(value);
+        if (isNaN(numValue)) {
+            return null; // Not a number
+        }
+        
+        const min = parseFloat(ranges[patientType].min);
+        const max = parseFloat(ranges[patientType].max);
+        
+        return numValue >= min && numValue <= max;
+    };
+
+    // Get range for display
+    const getRangeForDisplay = (ranges: any, patientType: string): string | null => {
+        if (!ranges || !ranges[patientType] || !ranges[patientType].min || !ranges[patientType].max) {
+            return null;
+        }
+        return `${ranges[patientType].min} - ${ranges[patientType].max}`;
     };
 
     return (
@@ -407,6 +449,39 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                                 {result.values.length > 0 ? (
                                                     <div className="space-y-4">
                                                         {(() => {
+                                                            // Get patient type
+                                                            const patientAge = formatAge(order.patient.birthdate);
+                                                            const patientType = getPatientType(patientAge, order.patient.gender);
+                                                            
+                                                            // Get field data from test schema
+                                                            const testSchema = result.test?.fields_schema;
+                                                            const getFieldData = (value: any) => {
+                                                                if (!testSchema?.sections) return null;
+                                                                const fieldName = value.parameter_label || value.field_name;
+                                                                const parameterKey = value.parameter_key;
+                                                                
+                                                                for (const section of Object.values(testSchema.sections) as any[]) {
+                                                                    if (section.fields) {
+                                                                        for (const [fieldKey, field] of Object.entries(section.fields)) {
+                                                                            const fieldData = field as any;
+                                                                            // Match by label, field key, or parameter key
+                                                                            if (fieldData.label === fieldName || 
+                                                                                fieldKey === fieldName || 
+                                                                                fieldKey === parameterKey ||
+                                                                                parameterKey?.includes(fieldKey)) {
+                                                                                return {
+                                                                                    ranges: fieldData.ranges,
+                                                                                    reference_range: fieldData.reference_range,
+                                                                                    unit: fieldData.unit,
+                                                                                    type: fieldData.type,
+                                                                                };
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                                return null;
+                                                            };
+                                                            
                                                             // Group values by parameter_key prefix (e.g., "physical_examination", "microscopic")
                                                             const grouped = result.values.reduce((acc: any, value: any) => {
                                                                 const key = value.parameter_key?.split('.')[0] || 'general';
@@ -421,26 +496,54 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                                                         {category.replace(/_/g, ' ')}
                                                                     </h6>
                                                                     <div className="grid gap-3 md:grid-cols-2">
-                                                                        {values.map((value: any) => (
-                                                                            <div key={value.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                                                                <div className="flex-1">
-                                                                                    <p className="font-medium text-gray-900">{value.parameter_label || value.field_name}</p>
-                                                                                    <p className="text-sm text-gray-600">
-                                                                                        {value.value} {value.unit && `(${value.unit})`}
-                                                                                    </p>
-                                                                                    {value.reference_text && (
-                                                                                        <p className="text-xs text-gray-500 mt-1">
-                                                                                            Reference: {value.reference_text}
+                                                                        {values.map((value: any) => {
+                                                                            const fieldName = value.parameter_label || value.field_name;
+                                                                            const fieldData = getFieldData(value);
+                                                                            const ranges = fieldData?.ranges || null;
+                                                                            const referenceRange = fieldData?.reference_range || null;
+                                                                            const fieldType = fieldData?.type || 'text';
+                                                                            const isNormal = fieldType === 'number' ? isValueNormal(value.value, ranges, patientType) : null;
+                                                                            const rangeDisplay = fieldType === 'number' 
+                                                                                ? getRangeForDisplay(ranges, patientType)
+                                                                                : (referenceRange || value.reference_text || 'N/A');
+                                                                            const unitDisplay = value.unit || fieldData?.unit || 'N/A';
+                                                                            
+                                                                            return (
+                                                                                <div key={value.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                                                    <div className="flex-1">
+                                                                                        <div className="flex items-center gap-2 mb-1">
+                                                                                            <p className="font-medium text-gray-900">{fieldName}</p>
+                                                                                            {isNormal !== null && (
+                                                                                                <Badge 
+                                                                                                    variant={isNormal ? 'default' : 'destructive'}
+                                                                                                    className={isNormal ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}
+                                                                                                >
+                                                                                                    {isNormal ? 'Normal' : 'Abnormal'}
+                                                                                                </Badge>
+                                                                                            )}
+                                                                                        </div>
+                                                                                        <p className="text-sm text-gray-600">
+                                                                                            {value.value} {unitDisplay !== 'N/A' && `(${unitDisplay})`}
                                                                                         </p>
-                                                                                    )}
-                                                                                    {(value.reference_min && value.reference_max) && (
-                                                                                        <p className="text-xs text-gray-500 mt-1">
-                                                                                            Range: {value.reference_min} - {value.reference_max}
-                                                                                        </p>
-                                                                                    )}
+                                                                                        {rangeDisplay && rangeDisplay !== 'N/A' && (
+                                                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                                                {fieldType === 'number' ? `Normal Range (${patientType}): ` : 'Reference Range: '}{rangeDisplay}
+                                                                                            </p>
+                                                                                        )}
+                                                                                        {value.reference_text && (
+                                                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                                                Reference: {value.reference_text}
+                                                                                            </p>
+                                                                                        )}
+                                                                                        {(value.reference_min && value.reference_max) && !rangeDisplay && (
+                                                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                                                Range: {value.reference_min} - {value.reference_max}
+                                                                                            </p>
+                                                                                        )}
+                                                                                    </div>
                                                                                 </div>
-                                                                            </div>
-                                                                        ))}
+                                                                            );
+                                                                        })}
                                                                     </div>
                                                                 </div>
                                                             ));

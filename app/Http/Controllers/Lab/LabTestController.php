@@ -30,6 +30,7 @@ class LabTestController extends Controller
             $validated = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
                 'code' => ['required', 'string', 'max:64', 'unique:lab_tests,code'],
+                'price' => ['required', 'numeric', 'min:0'],
                 'fields_schema' => ['nullable', 'array'],
                 'is_active' => ['nullable', 'boolean'],
             ]);
@@ -76,6 +77,7 @@ class LabTestController extends Controller
             $validated = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
                 'code' => ['required', 'string', 'max:64', 'unique:lab_tests,code,'.$labTest->id],
+                'price' => ['required', 'numeric', 'min:0'],
                 'fields_schema' => ['nullable', 'array'],
                 'is_active' => ['nullable', 'boolean'],
             ]);

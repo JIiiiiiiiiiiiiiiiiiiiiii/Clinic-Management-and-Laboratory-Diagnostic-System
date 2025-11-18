@@ -300,8 +300,9 @@ class LabResultController extends Controller
                                 $field = $schema['sections'][$parts[0]]['fields'][$parts[1]];
                                 $label = $field['label'] ?? null;
                                 $unit = $field['unit'] ?? null;
-                                // Normalize reference ranges: accept reference_range string, or range array/min/max numbers
-                                if (isset($field['reference_range']) && is_string($field['reference_range'])) {
+                                // Normalize reference ranges: accept reference_range string (for dropdowns), or range array/min/max numbers
+                                // For dropdown fields, use reference_range if available
+                                if (isset($field['reference_range']) && is_string($field['reference_range']) && !empty($field['reference_range'])) {
                                     $refText = $field['reference_range'];
                                 } elseif (isset($field['range'])) {
                                     if (is_array($field['range'])) {
@@ -311,6 +312,33 @@ class LabResultController extends Controller
                                         $refText = $field['range'];
                                     }
                                 }
+                                // For number fields, check patient-type-specific ranges
+                                if (isset($field['ranges']) && is_array($field['ranges'])) {
+                                    // Determine patient type and get appropriate range
+                                    $patient = $order->patient;
+                                    $age = $patient ? \Carbon\Carbon::parse($patient->birthdate)->age : null;
+                                    $gender = $patient->sex ?? $patient->gender ?? null;
+                                    
+                                    $patientType = null;
+                                    if ($age !== null) {
+                                        if ($age < 18) {
+                                            $patientType = 'child';
+                                        } elseif ($age >= 60) {
+                                            $patientType = 'senior';
+                                        } elseif ($gender && (strtolower($gender) === 'male' || strtolower($gender) === 'm')) {
+                                            $patientType = 'male';
+                                        } else {
+                                            $patientType = 'female';
+                                        }
+                                    }
+                                    
+                                    if ($patientType && isset($field['ranges'][$patientType])) {
+                                        $range = $field['ranges'][$patientType];
+                                        $min = isset($range['min']) && $range['min'] !== '' ? (string) $range['min'] : null;
+                                        $max = isset($range['max']) && $range['max'] !== '' ? (string) $range['max'] : null;
+                                    }
+                                }
+                                // Fallback to generic min/max if patient-type-specific ranges not found
                                 if (isset($field['min']) && $min === null) {
                                     $min = (string) $field['min'];
                                 }

@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { Edit, Eye, Plus, Save, TestTube, Trash2 } from 'lucide-react';
+import { Edit, Eye, Plus, Save, TestTube, Trash2, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 type Test = {
@@ -25,6 +26,7 @@ export default function TestEdit({ test }: TestEditProps): React.ReactElement {
     const [data, setData] = useState({
         name: test.name || '',
         code: test.code || '',
+        price: test.price || '',
         is_active: test.is_active ?? true,
     });
 
@@ -54,6 +56,7 @@ export default function TestEdit({ test }: TestEditProps): React.ReactElement {
         setData({
             name: test.name || '',
             code: test.code || '',
+            price: test.price || '',
             is_active: test.is_active ?? true,
         });
         setSchema(initializeSchema(test.fields_schema));
@@ -105,6 +108,14 @@ export default function TestEdit({ test }: TestEditProps): React.ReactElement {
                             label: 'New Field',
                             type: 'text',
                             placeholder: 'Enter value',
+                            unit: '',
+                            options: [],
+                            ranges: {
+                                child: { min: '', max: '' },
+                                male: { min: '', max: '' },
+                                female: { min: '', max: '' },
+                                senior: { min: '', max: '' },
+                            },
                         },
                     },
                 },
@@ -132,6 +143,7 @@ export default function TestEdit({ test }: TestEditProps): React.ReactElement {
             {
                 name: data.name,
                 code: data.code,
+                price: data.price,
                 is_active: data.is_active,
                 fields_schema: schema,
             },
@@ -253,7 +265,7 @@ export default function TestEdit({ test }: TestEditProps): React.ReactElement {
                             </CardHeader>
                             <CardContent className="p-6">
                                 <div className="space-y-6">
-                                    <div className="grid gap-6 md:grid-cols-2">
+                                    <div className="grid gap-6 md:grid-cols-3">
                                         <div>
                                             <Label htmlFor="name" className="mb-2 block text-sm font-semibold text-gray-700">
                                                 Test Name *
@@ -274,6 +286,21 @@ export default function TestEdit({ test }: TestEditProps): React.ReactElement {
                                                 value={data.code}
                                                 onChange={(e) => setDataAny('code', e.target.value)}
                                                 className="h-12 rounded-xl border-gray-300 shadow-sm focus:border-gray-500 focus:ring-gray-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="price" className="mb-2 block text-sm font-semibold text-gray-700">
+                                                Price (₱) *
+                                            </Label>
+                                            <Input
+                                                id="price"
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                value={data.price}
+                                                onChange={(e) => setDataAny('price', e.target.value)}
+                                                className="h-12 rounded-xl border-gray-300 shadow-sm focus:border-gray-500 focus:ring-gray-500"
+                                                placeholder="0.00"
                                             />
                                         </div>
                                     </div>
@@ -379,9 +406,45 @@ export default function TestEdit({ test }: TestEditProps): React.ReactElement {
                                                                 <Trash2 className="h-4 w-4" />
                                                             </Button>
                                                         </div>
-                                                        <div className="grid gap-4 md:grid-cols-2">
+                                                        <div className="grid gap-4 md:grid-cols-3">
                                                             <div>
-                                                                <Label className="mb-2 block text-sm font-semibold text-gray-700">Label</Label>
+                                                                <Label className="mb-2 block text-sm font-semibold text-gray-700">Field Type *</Label>
+                                                                <Select
+                                                                    value={field.type || 'text'}
+                                                                    onValueChange={(value) => {
+                                                                        setSchema((prev) => ({
+                                                                            ...prev,
+                                                                            sections: {
+                                                                                ...prev.sections,
+                                                                                [sectionKey]: {
+                                                                                    ...prev.sections[sectionKey],
+                                                                                    fields: {
+                                                                                        ...prev.sections[sectionKey].fields,
+                                                                                        [fieldKey]: {
+                                                                                            ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                            type: value,
+                                                                                            // Reset options if not dropdown
+                                                                                            options: value === 'select' ? (prev.sections[sectionKey].fields[fieldKey].options || []) : [],
+                                                                                        },
+                                                                                    },
+                                                                                },
+                                                                            },
+                                                                        }));
+                                                                    }}
+                                                                >
+                                                                    <SelectTrigger className="h-12 rounded-xl border-gray-300 shadow-sm focus:border-gray-500 focus:ring-gray-500">
+                                                                        <SelectValue />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="text">Text</SelectItem>
+                                                                        <SelectItem value="number">Number</SelectItem>
+                                                                        <SelectItem value="select">Dropdown</SelectItem>
+                                                                        <SelectItem value="textarea">Text Area</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+                                                            <div>
+                                                                <Label className="mb-2 block text-sm font-semibold text-gray-700">Label *</Label>
                                                                 <Input
                                                                     value={field.label || ''}
                                                                     onChange={(e) => {
@@ -432,6 +495,447 @@ export default function TestEdit({ test }: TestEditProps): React.ReactElement {
                                                                 />
                                                             </div>
                                                         </div>
+                                                        
+                                                        {/* Unit field for number, text, and select types */}
+                                                        {(field.type === 'number' || field.type === 'text' || field.type === 'select') && (
+                                                            <div className="mt-4">
+                                                                <Label className="mb-2 block text-sm font-semibold text-gray-700">
+                                                                    Unit {field.type === 'select' && '(e.g., N/A, or leave empty)'}
+                                                                    {field.type !== 'select' && '(e.g., g/L, %, x10^9/L)'}
+                                                                </Label>
+                                                                <Input
+                                                                    value={field.unit || ''}
+                                                                    onChange={(e) => {
+                                                                        setSchema((prev) => ({
+                                                                            ...prev,
+                                                                            sections: {
+                                                                                ...prev.sections,
+                                                                                [sectionKey]: {
+                                                                                    ...prev.sections[sectionKey],
+                                                                                    fields: {
+                                                                                        ...prev.sections[sectionKey].fields,
+                                                                                        [fieldKey]: {
+                                                                                            ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                            unit: e.target.value,
+                                                                                        },
+                                                                                    },
+                                                                                },
+                                                                            },
+                                                                        }));
+                                                                    }}
+                                                                    placeholder={field.type === 'select' ? "Unit (e.g., N/A or leave empty)" : "Unit (optional)"}
+                                                                    className="h-12 rounded-xl border-gray-300 shadow-sm focus:border-gray-500 focus:ring-gray-500"
+                                                                />
+                                                            </div>
+                                                        )}
+                                                        
+                                                        {/* Dropdown options configuration */}
+                                                        {field.type === 'select' && (
+                                                            <div className="mt-4 space-y-3">
+                                                                <Label className="mb-2 block text-sm font-semibold text-gray-700">Dropdown Options *</Label>
+                                                                <div className="space-y-2">
+                                                                    {(field.options || []).map((option: string, optionIndex: number) => (
+                                                                        <div key={optionIndex} className="flex items-center gap-2">
+                                                                            <Input
+                                                                                value={option}
+                                                                                onChange={(e) => {
+                                                                                    const newOptions = [...(field.options || [])];
+                                                                                    newOptions[optionIndex] = e.target.value;
+                                                                                    setSchema((prev) => ({
+                                                                                        ...prev,
+                                                                                        sections: {
+                                                                                            ...prev.sections,
+                                                                                            [sectionKey]: {
+                                                                                                ...prev.sections[sectionKey],
+                                                                                                fields: {
+                                                                                                    ...prev.sections[sectionKey].fields,
+                                                                                                    [fieldKey]: {
+                                                                                                        ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                                        options: newOptions,
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                    }));
+                                                                                }}
+                                                                                placeholder="Option value"
+                                                                                className="h-10 rounded-xl border-gray-300 shadow-sm focus:border-gray-500 focus:ring-gray-500"
+                                                                            />
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                onClick={() => {
+                                                                                    const newOptions = (field.options || []).filter((_: any, idx: number) => idx !== optionIndex);
+                                                                                    setSchema((prev) => ({
+                                                                                        ...prev,
+                                                                                        sections: {
+                                                                                            ...prev.sections,
+                                                                                            [sectionKey]: {
+                                                                                                ...prev.sections[sectionKey],
+                                                                                                fields: {
+                                                                                                    ...prev.sections[sectionKey].fields,
+                                                                                                    [fieldKey]: {
+                                                                                                        ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                                        options: newOptions,
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                    }));
+                                                                                }}
+                                                                                className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                                                                            >
+                                                                                <X className="h-4 w-4" />
+                                                                            </Button>
+                                                                        </div>
+                                                                    ))}
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => {
+                                                                            const newOptions = [...(field.options || []), ''];
+                                                                            setSchema((prev) => ({
+                                                                                ...prev,
+                                                                                sections: {
+                                                                                    ...prev.sections,
+                                                                                    [sectionKey]: {
+                                                                                        ...prev.sections[sectionKey],
+                                                                                        fields: {
+                                                                                            ...prev.sections[sectionKey].fields,
+                                                                                            [fieldKey]: {
+                                                                                                ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                                options: newOptions,
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                },
+                                                                            }));
+                                                                        }}
+                                                                        className="w-full border-dashed"
+                                                                    >
+                                                                        <Plus className="mr-2 h-4 w-4" />
+                                                                        Add Option
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        
+                                                        {/* Reference Range Configuration - For number and select fields */}
+                                                        {(field.type === 'number' || field.type === 'select') && (
+                                                        <div className="mt-4 space-y-4">
+                                                            <Label className="mb-3 block text-sm font-semibold text-gray-700">
+                                                                {field.type === 'number' ? 'Normal Range by Patient Type' : 'Reference Range (Optional)'}
+                                                            </Label>
+                                                            {field.type === 'select' ? (
+                                                                <div className="space-y-2">
+                                                                    <Label className="text-xs font-medium text-gray-600">Reference Range (e.g., N/A, or specific range)</Label>
+                                                                    <Input
+                                                                        value={field.reference_range || ''}
+                                                                        onChange={(e) => {
+                                                                            setSchema((prev) => ({
+                                                                                ...prev,
+                                                                                sections: {
+                                                                                    ...prev.sections,
+                                                                                    [sectionKey]: {
+                                                                                        ...prev.sections[sectionKey],
+                                                                                        fields: {
+                                                                                            ...prev.sections[sectionKey].fields,
+                                                                                            [fieldKey]: {
+                                                                                                ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                                reference_range: e.target.value,
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                },
+                                                                            }));
+                                                                        }}
+                                                                        placeholder="Reference Range (e.g., N/A, Normal, etc.)"
+                                                                        className="h-12 rounded-xl border-gray-300 shadow-sm focus:border-gray-500 focus:ring-gray-500"
+                                                                    />
+                                                                </div>
+                                                            ) : (
+                                                            <div className="grid gap-4 md:grid-cols-2">
+                                                                {/* Child Range */}
+                                                                <div className="space-y-2">
+                                                                    <Label className="text-xs font-medium text-gray-600">Child (&lt;18 years)</Label>
+                                                                    <div className="flex gap-2">
+                                                                        <Input
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            placeholder="Min"
+                                                                            value={field.ranges?.child?.min || ''}
+                                                                            onChange={(e) => {
+                                                                                setSchema((prev) => ({
+                                                                                    ...prev,
+                                                                                    sections: {
+                                                                                        ...prev.sections,
+                                                                                        [sectionKey]: {
+                                                                                            ...prev.sections[sectionKey],
+                                                                                            fields: {
+                                                                                                ...prev.sections[sectionKey].fields,
+                                                                                                [fieldKey]: {
+                                                                                                    ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                                    ranges: {
+                                                                                                        ...prev.sections[sectionKey].fields[fieldKey].ranges || {},
+                                                                                                        child: {
+                                                                                                            ...prev.sections[sectionKey].fields[fieldKey].ranges?.child || {},
+                                                                                                            min: e.target.value,
+                                                                                                        },
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                }));
+                                                                            }}
+                                                                            className="h-10 text-sm"
+                                                                        />
+                                                                        <Input
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            placeholder="Max"
+                                                                            value={field.ranges?.child?.max || ''}
+                                                                            onChange={(e) => {
+                                                                                setSchema((prev) => ({
+                                                                                    ...prev,
+                                                                                    sections: {
+                                                                                        ...prev.sections,
+                                                                                        [sectionKey]: {
+                                                                                            ...prev.sections[sectionKey],
+                                                                                            fields: {
+                                                                                                ...prev.sections[sectionKey].fields,
+                                                                                                [fieldKey]: {
+                                                                                                    ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                                    ranges: {
+                                                                                                        ...prev.sections[sectionKey].fields[fieldKey].ranges || {},
+                                                                                                        child: {
+                                                                                                            ...prev.sections[sectionKey].fields[fieldKey].ranges?.child || {},
+                                                                                                            max: e.target.value,
+                                                                                                        },
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                }));
+                                                                            }}
+                                                                            className="h-10 text-sm"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                {/* Male Range */}
+                                                                <div className="space-y-2">
+                                                                    <Label className="text-xs font-medium text-gray-600">Male (18-59 years)</Label>
+                                                                    <div className="flex gap-2">
+                                                                        <Input
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            placeholder="Min"
+                                                                            value={field.ranges?.male?.min || ''}
+                                                                            onChange={(e) => {
+                                                                                setSchema((prev) => ({
+                                                                                    ...prev,
+                                                                                    sections: {
+                                                                                        ...prev.sections,
+                                                                                        [sectionKey]: {
+                                                                                            ...prev.sections[sectionKey],
+                                                                                            fields: {
+                                                                                                ...prev.sections[sectionKey].fields,
+                                                                                                [fieldKey]: {
+                                                                                                    ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                                    ranges: {
+                                                                                                        ...prev.sections[sectionKey].fields[fieldKey].ranges || {},
+                                                                                                        male: {
+                                                                                                            ...prev.sections[sectionKey].fields[fieldKey].ranges?.male || {},
+                                                                                                            min: e.target.value,
+                                                                                                        },
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                }));
+                                                                            }}
+                                                                            className="h-10 text-sm"
+                                                                        />
+                                                                        <Input
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            placeholder="Max"
+                                                                            value={field.ranges?.male?.max || ''}
+                                                                            onChange={(e) => {
+                                                                                setSchema((prev) => ({
+                                                                                    ...prev,
+                                                                                    sections: {
+                                                                                        ...prev.sections,
+                                                                                        [sectionKey]: {
+                                                                                            ...prev.sections[sectionKey],
+                                                                                            fields: {
+                                                                                                ...prev.sections[sectionKey].fields,
+                                                                                                [fieldKey]: {
+                                                                                                    ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                                    ranges: {
+                                                                                                        ...prev.sections[sectionKey].fields[fieldKey].ranges || {},
+                                                                                                        male: {
+                                                                                                            ...prev.sections[sectionKey].fields[fieldKey].ranges?.male || {},
+                                                                                                            max: e.target.value,
+                                                                                                        },
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                }));
+                                                                            }}
+                                                                            className="h-10 text-sm"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                {/* Female Range */}
+                                                                <div className="space-y-2">
+                                                                    <Label className="text-xs font-medium text-gray-600">Female (18-59 years)</Label>
+                                                                    <div className="flex gap-2">
+                                                                        <Input
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            placeholder="Min"
+                                                                            value={field.ranges?.female?.min || ''}
+                                                                            onChange={(e) => {
+                                                                                setSchema((prev) => ({
+                                                                                    ...prev,
+                                                                                    sections: {
+                                                                                        ...prev.sections,
+                                                                                        [sectionKey]: {
+                                                                                            ...prev.sections[sectionKey],
+                                                                                            fields: {
+                                                                                                ...prev.sections[sectionKey].fields,
+                                                                                                [fieldKey]: {
+                                                                                                    ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                                    ranges: {
+                                                                                                        ...prev.sections[sectionKey].fields[fieldKey].ranges || {},
+                                                                                                        female: {
+                                                                                                            ...prev.sections[sectionKey].fields[fieldKey].ranges?.female || {},
+                                                                                                            min: e.target.value,
+                                                                                                        },
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                }));
+                                                                            }}
+                                                                            className="h-10 text-sm"
+                                                                        />
+                                                                        <Input
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            placeholder="Max"
+                                                                            value={field.ranges?.female?.max || ''}
+                                                                            onChange={(e) => {
+                                                                                setSchema((prev) => ({
+                                                                                    ...prev,
+                                                                                    sections: {
+                                                                                        ...prev.sections,
+                                                                                        [sectionKey]: {
+                                                                                            ...prev.sections[sectionKey],
+                                                                                            fields: {
+                                                                                                ...prev.sections[sectionKey].fields,
+                                                                                                [fieldKey]: {
+                                                                                                    ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                                    ranges: {
+                                                                                                        ...prev.sections[sectionKey].fields[fieldKey].ranges || {},
+                                                                                                        female: {
+                                                                                                            ...prev.sections[sectionKey].fields[fieldKey].ranges?.female || {},
+                                                                                                            max: e.target.value,
+                                                                                                        },
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                }));
+                                                                            }}
+                                                                            className="h-10 text-sm"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                {/* Senior Range */}
+                                                                <div className="space-y-2">
+                                                                    <Label className="text-xs font-medium text-gray-600">Senior (≥60 years)</Label>
+                                                                    <div className="flex gap-2">
+                                                                        <Input
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            placeholder="Min"
+                                                                            value={field.ranges?.senior?.min || ''}
+                                                                            onChange={(e) => {
+                                                                                setSchema((prev) => ({
+                                                                                    ...prev,
+                                                                                    sections: {
+                                                                                        ...prev.sections,
+                                                                                        [sectionKey]: {
+                                                                                            ...prev.sections[sectionKey],
+                                                                                            fields: {
+                                                                                                ...prev.sections[sectionKey].fields,
+                                                                                                [fieldKey]: {
+                                                                                                    ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                                    ranges: {
+                                                                                                        ...prev.sections[sectionKey].fields[fieldKey].ranges || {},
+                                                                                                        senior: {
+                                                                                                            ...prev.sections[sectionKey].fields[fieldKey].ranges?.senior || {},
+                                                                                                            min: e.target.value,
+                                                                                                        },
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                }));
+                                                                            }}
+                                                                            className="h-10 text-sm"
+                                                                        />
+                                                                        <Input
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            placeholder="Max"
+                                                                            value={field.ranges?.senior?.max || ''}
+                                                                            onChange={(e) => {
+                                                                                setSchema((prev) => ({
+                                                                                    ...prev,
+                                                                                    sections: {
+                                                                                        ...prev.sections,
+                                                                                        [sectionKey]: {
+                                                                                            ...prev.sections[sectionKey],
+                                                                                            fields: {
+                                                                                                ...prev.sections[sectionKey].fields,
+                                                                                                [fieldKey]: {
+                                                                                                    ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                                    ranges: {
+                                                                                                        ...prev.sections[sectionKey].fields[fieldKey].ranges || {},
+                                                                                                        senior: {
+                                                                                                            ...prev.sections[sectionKey].fields[fieldKey].ranges?.senior || {},
+                                                                                                            max: e.target.value,
+                                                                                                        },
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                }));
+                                                                            }}
+                                                                            className="h-10 text-sm"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            )}
+                                                        </div>
+                                                        )}
                                                     </div>
                                                 ))}
                                                 {Object.keys(section.fields || {}).length === 0 && (

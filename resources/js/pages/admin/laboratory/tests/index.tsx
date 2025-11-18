@@ -27,6 +27,7 @@ type TestRow = {
     id: number;
     name: string;
     code: string;
+    price?: number;
     fields_schema?: any;
     is_active: boolean;
     version: number;
@@ -72,6 +73,14 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
             header: 'Code',
             cell: ({ row }) => {
                 return <span className="text-sm text-gray-600 font-mono">{row.getValue('code')}</span>;
+            },
+        },
+        {
+            accessorKey: 'price',
+            header: 'Price',
+            cell: ({ row }) => {
+                const price = row.getValue('price') as number;
+                return <span className="text-sm text-gray-600">₱{price ? Number(price).toFixed(2) : '0.00'}</span>;
             },
         },
         {

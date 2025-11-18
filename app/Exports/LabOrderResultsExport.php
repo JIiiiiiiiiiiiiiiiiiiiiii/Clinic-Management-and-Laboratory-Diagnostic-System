@@ -23,25 +23,57 @@ class LabOrderResultsExport extends BaseExport implements FromArray, WithHeading
 
         foreach ($this->order->results as $result) {
             $test = $result->test; // may be null if misconfigured
-            $flatResults = $result->values && count($result->values) > 0
-                ? $this->joinValues($result->values)
-                : $this->flattenResults($result->results ?? []);
-            $reference = $result->values && count($result->values) > 0
-                ? $this->joinReferences($result->values)
-                : $this->referenceRangesFor($test, $result->results ?? []);
-            $rows[] = [
-                'Order ID' => $this->order->id,
-                'Patient No' => $patient?->id,
-                'Patient Name' => $patient ? ($patient->last_name . ', ' . $patient->first_name) : 'N/A',
-                'Visit ID' => $this->order->visit?->id,
-                'Visit Date' => optional($this->order->visit?->visit_date_time)->format('Y-m-d'),
-                'Test' => $test->name ?? 'Unknown Test',
-                'Code' => $test->code ?? '',
-                'Parameters' => $flatResults,
-                'Reference Ranges' => $reference,
-                'Verified By' => $result->verified_by ?? '',
-                'Verified At' => optional($result->verified_at)->format('Y-m-d H:i:s'),
-            ];
+            
+            // Get patient type for range determination
+            $patientType = $this->getPatientType($patient);
+            
+            if ($result->values && count($result->values) > 0) {
+                // Use structured values - create one row per parameter
+                foreach ($result->values as $value) {
+                    $parameter = $value->parameter_label ?: $value->parameter_key;
+                    $resultValue = $value->value ?? '';
+                    $unit = $value->unit ?? 'N/A';
+                    $referenceRange = $this->getReferenceRangeForValue($value, $test, $patientType);
+                    $status = $this->determineStatus($value, $test, $patientType);
+                    
+                    $rows[] = [
+                        'Order ID' => $this->order->id,
+                        'Patient No' => $patient?->id,
+                        'Patient Name' => $patient ? ($patient->last_name . ', ' . $patient->first_name) : 'N/A',
+                        'Visit ID' => $this->order->visit?->id,
+                        'Visit Date' => optional($this->order->visit?->visit_date_time)->format('Y-m-d'),
+                        'Test' => $test->name ?? 'Unknown Test',
+                        'Code' => $test->code ?? '',
+                        'Parameter' => $parameter,
+                        'Result' => $resultValue,
+                        'Unit' => $unit,
+                        'Reference Range' => $referenceRange,
+                        'Status' => $status,
+                        'Verified By' => $result->verified_by ?? '',
+                        'Verified At' => optional($result->verified_at)->format('Y-m-d H:i:s'),
+                    ];
+                }
+            } else {
+                // Fallback to flattened format for legacy data
+                $flatResults = $this->flattenResults($result->results ?? []);
+                $reference = $this->referenceRangesFor($test, $result->results ?? []);
+                $rows[] = [
+                    'Order ID' => $this->order->id,
+                    'Patient No' => $patient?->id,
+                    'Patient Name' => $patient ? ($patient->last_name . ', ' . $patient->first_name) : 'N/A',
+                    'Visit ID' => $this->order->visit?->id,
+                    'Visit Date' => optional($this->order->visit?->visit_date_time)->format('Y-m-d'),
+                    'Test' => $test->name ?? 'Unknown Test',
+                    'Code' => $test->code ?? '',
+                    'Parameter' => 'All Parameters',
+                    'Result' => $flatResults,
+                    'Unit' => 'N/A',
+                    'Reference Range' => $reference,
+                    'Status' => 'N/A',
+                    'Verified By' => $result->verified_by ?? '',
+                    'Verified At' => optional($result->verified_at)->format('Y-m-d H:i:s'),
+                ];
+            }
         }
 
         return $rows;
@@ -57,8 +89,11 @@ class LabOrderResultsExport extends BaseExport implements FromArray, WithHeading
             'Visit Date',
             'Test',
             'Code',
-            'Parameters',
-            'Reference Ranges',
+            'Parameter',
+            'Result',
+            'Unit',
+            'Reference Range',
+            'Status',
             'Verified By',
             'Verified At',
         ];
@@ -71,29 +106,58 @@ class LabOrderResultsExport extends BaseExport implements FromArray, WithHeading
 
         $rows = [];
         $patient = $this->order->patient;
+        $patientType = $this->getPatientType($patient);
 
         foreach ($this->order->results as $result) {
             $test = $result->test; // may be null if misconfigured
-            $flatResults = $result->values && count($result->values) > 0
-                ? $this->joinValues($result->values)
-                : $this->flattenResults($result->results ?? []);
-            $reference = $result->values && count($result->values) > 0
-                ? $this->joinReferences($result->values)
-                : $this->referenceRangesFor($test, $result->results ?? []);
             
-            $rows[] = (object) [
-                'Order ID' => $this->order->id,
-                'Patient No' => $patient?->id,
-                'Patient Name' => $patient ? ($patient->last_name . ', ' . $patient->first_name) : 'N/A',
-                'Visit ID' => $this->order->visit?->id,
-                'Visit Date' => optional($this->order->visit?->visit_date_time)->format('Y-m-d'),
-                'Test' => $test->name ?? 'Unknown Test',
-                'Code' => $test->code ?? '',
-                'Parameters' => $flatResults,
-                'Reference Ranges' => $reference,
-                'Verified By' => $result->verified_by ?? '',
-                'Verified At' => optional($result->verified_at)->format('Y-m-d H:i:s'),
-            ];
+            if ($result->values && count($result->values) > 0) {
+                // Use structured values - create one row per parameter
+                foreach ($result->values as $value) {
+                    $parameter = $value->parameter_label ?: $value->parameter_key;
+                    $resultValue = $value->value ?? '';
+                    $unit = $value->unit ?? 'N/A';
+                    $referenceRange = $this->getReferenceRangeForValue($value, $test, $patientType);
+                    $status = $this->determineStatus($value, $test, $patientType);
+                    
+                    $rows[] = (object) [
+                        'Order ID' => $this->order->id,
+                        'Patient No' => $patient?->id,
+                        'Patient Name' => $patient ? ($patient->last_name . ', ' . $patient->first_name) : 'N/A',
+                        'Visit ID' => $this->order->visit?->id,
+                        'Visit Date' => optional($this->order->visit?->visit_date_time)->format('Y-m-d'),
+                        'Test' => $test->name ?? 'Unknown Test',
+                        'Code' => $test->code ?? '',
+                        'Parameter' => $parameter,
+                        'Result' => $resultValue,
+                        'Unit' => $unit,
+                        'Reference Range' => $referenceRange,
+                        'Status' => $status,
+                        'Verified By' => $result->verified_by ?? '',
+                        'Verified At' => optional($result->verified_at)->format('Y-m-d H:i:s'),
+                    ];
+                }
+            } else {
+                // Fallback to flattened format for legacy data
+                $flatResults = $this->flattenResults($result->results ?? []);
+                $reference = $this->referenceRangesFor($test, $result->results ?? []);
+                $rows[] = (object) [
+                    'Order ID' => $this->order->id,
+                    'Patient No' => $patient?->id,
+                    'Patient Name' => $patient ? ($patient->last_name . ', ' . $patient->first_name) : 'N/A',
+                    'Visit ID' => $this->order->visit?->id,
+                    'Visit Date' => optional($this->order->visit?->visit_date_time)->format('Y-m-d'),
+                    'Test' => $test->name ?? 'Unknown Test',
+                    'Code' => $test->code ?? '',
+                    'Parameter' => 'All Parameters',
+                    'Result' => $flatResults,
+                    'Unit' => 'N/A',
+                    'Reference Range' => $reference,
+                    'Status' => 'N/A',
+                    'Verified By' => $result->verified_by ?? '',
+                    'Verified At' => optional($result->verified_at)->format('Y-m-d H:i:s'),
+                ];
+            }
         }
 
         return collect($rows);
@@ -172,6 +236,143 @@ class LabOrderResultsExport extends BaseExport implements FromArray, WithHeading
         };
         $walker($results);
         return implode('; ', $ranges);
+    }
+
+    /**
+     * Get patient type based on age and gender
+     */
+    private function getPatientType($patient): ?string
+    {
+        if (!$patient || !$patient->birthdate) {
+            return null;
+        }
+        
+        $age = \Carbon\Carbon::parse($patient->birthdate)->age;
+        $gender = $patient->sex ?? $patient->gender ?? null;
+        
+        if ($age < 18) {
+            return 'child';
+        }
+        if ($age >= 60) {
+            return 'senior';
+        }
+        if ($gender && (strtolower($gender) === 'male' || strtolower($gender) === 'm')) {
+            return 'male';
+        }
+        return 'female';
+    }
+
+    /**
+     * Get reference range for a specific value
+     */
+    private function getReferenceRangeForValue($value, $test, $patientType): string
+    {
+        // If reference_text is set, use it (for dropdowns)
+        if (!empty($value->reference_text)) {
+            return $value->reference_text;
+        }
+        
+        // If reference_min and reference_max are set, format them
+        if (!empty($value->reference_min) || !empty($value->reference_max)) {
+            $min = $value->reference_min ?? '';
+            $max = $value->reference_max ?? '';
+            return trim($min . '-' . $max);
+        }
+        
+        // Try to get from test schema
+        if ($test && !empty($test->fields_schema)) {
+            $schema = $test->fields_schema;
+            $parameterKey = $value->parameter_key ?? '';
+            $parts = explode('.', $parameterKey);
+            
+            if (count($parts) >= 2 && isset($schema['sections'][$parts[0]]['fields'][$parts[1]])) {
+                $field = $schema['sections'][$parts[0]]['fields'][$parts[1]];
+                
+                // Check for reference_range (for dropdowns)
+                if (isset($field['reference_range']) && is_string($field['reference_range'])) {
+                    return $field['reference_range'];
+                }
+                
+                // Check for patient-type-specific ranges (for numbers)
+                if (isset($field['ranges']) && is_array($field['ranges']) && $patientType) {
+                    if (isset($field['ranges'][$patientType])) {
+                        $range = $field['ranges'][$patientType];
+                        $min = $range['min'] ?? '';
+                        $max = $range['max'] ?? '';
+                        if ($min !== '' || $max !== '') {
+                            return trim($min . '-' . $max);
+                        }
+                    }
+                }
+                
+                // Fallback to generic min/max
+                $min = $field['min'] ?? '';
+                $max = $field['max'] ?? '';
+                if ($min !== '' || $max !== '') {
+                    return trim($min . '-' . $max);
+                }
+            }
+        }
+        
+        return 'N/A';
+    }
+
+    /**
+     * Determine status (Normal/Abnormal) based on value and reference range
+     */
+    private function determineStatus($value, $test, $patientType): string
+    {
+        $resultValue = $value->value ?? '';
+        if (empty($resultValue)) {
+            return 'N/A';
+        }
+        
+        // For dropdowns, if reference_range is set, we might need to check if value is in expected options
+        // For now, default to Normal for dropdowns unless we have specific logic
+        if ($test && !empty($test->fields_schema)) {
+            $schema = $test->fields_schema;
+            $parameterKey = $value->parameter_key ?? '';
+            $parts = explode('.', $parameterKey);
+            
+            if (count($parts) >= 2 && isset($schema['sections'][$parts[0]]['fields'][$parts[1]])) {
+                $field = $schema['sections'][$parts[0]]['fields'][$parts[1]];
+                $fieldType = $field['type'] ?? 'text';
+                
+                // For number fields, check if value is within range
+                if ($fieldType === 'number') {
+                    $numValue = is_numeric($resultValue) ? (float) $resultValue : null;
+                    if ($numValue === null) {
+                        return 'N/A';
+                    }
+                    
+                    // Check patient-type-specific ranges
+                    if (isset($field['ranges']) && is_array($field['ranges']) && $patientType) {
+                        if (isset($field['ranges'][$patientType])) {
+                            $range = $field['ranges'][$patientType];
+                            $min = isset($range['min']) && $range['min'] !== '' ? (float) $range['min'] : null;
+                            $max = isset($range['max']) && $range['max'] !== '' ? (float) $range['max'] : null;
+                            
+                            if ($min !== null && $max !== null) {
+                                return ($numValue >= $min && $numValue <= $max) ? 'Normal' : 'Abnormal';
+                            }
+                        }
+                    }
+                    
+                    // Fallback to generic min/max
+                    $min = isset($field['min']) && $field['min'] !== '' ? (float) $field['min'] : null;
+                    $max = isset($field['max']) && $field['max'] !== '' ? (float) $field['max'] : null;
+                    
+                    if ($min !== null && $max !== null) {
+                        return ($numValue >= $min && $numValue <= $max) ? 'Normal' : 'Abnormal';
+                    }
+                }
+                
+                // For dropdowns and other types, default to Normal
+                return 'Normal';
+            }
+        }
+        
+        return 'N/A';
     }
 }
 
