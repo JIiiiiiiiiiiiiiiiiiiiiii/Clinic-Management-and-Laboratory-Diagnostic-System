@@ -101,6 +101,11 @@ class Visit extends Model
         return $this->belongsTo(\App\Models\User::class, 'attending_staff_id', 'id');
     }
 
+    public function labOrders()
+    {
+        return $this->hasMany(\App\Models\LabOrder::class, 'patient_visit_id', 'id');
+    }
+
     public function billingTransaction()
     {
         return $this->hasOneThrough(

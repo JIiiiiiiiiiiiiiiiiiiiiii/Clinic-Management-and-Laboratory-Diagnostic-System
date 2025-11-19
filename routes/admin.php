@@ -464,69 +464,11 @@ Route::prefix('admin')
                 ]);
             })->name('availability')->middleware(['role:admin,doctor,nurse']);
 
-            // Walk-in routes MUST be before parameterized routes to avoid collision
-            Route::get('/walk-in', function () {
-                // Get available doctors and medtechs with schedule data (matching online appointment)
-                $doctors = \App\Models\Specialist::where('role', 'Doctor')
-                    ->when(\Schema::hasColumn('specialists', 'status'), function($query) {
-                        return $query->where('status', 'Active');
-                    })
-                    ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id', 'schedule_data')
-                    ->get()
-                    ->map(function ($doctor) {
-                        return [
-                            'id' => $doctor->id,
-                            'name' => $doctor->name,
-                            'specialization' => $doctor->specialization ?? 'General Medicine',
-                            'employee_id' => $doctor->employee_id,
-                            'availability' => 'Mon-Fri 9AM-5PM',
-                            'rating' => 4.8,
-                            'experience' => '10+ years',
-                            'nextAvailable' => now()->addDays(1)->format('M d, Y g:i A'),
-                            'schedule_data' => $doctor->schedule_data,
-                        ];
-                    });
-
-                $medtechs = \App\Models\Specialist::where('role', 'MedTech')
-                    ->when(\Schema::hasColumn('specialists', 'status'), function($query) {
-                        return $query->where('status', 'Active');
-                    })
-                    ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id', 'schedule_data')
-                    ->get()
-                    ->map(function ($medtech) {
-                        return [
-                            'id' => $medtech->id,
-                            'name' => $medtech->name,
-                            'specialization' => $medtech->specialization ?? 'Medical Technology',
-                            'employee_id' => $medtech->employee_id,
-                            'availability' => 'Mon-Fri 9AM-5PM',
-                            'rating' => 4.5,
-                            'experience' => '5+ years',
-                            'nextAvailable' => now()->addDays(1)->format('M d, Y g:i A'),
-                            'schedule_data' => $medtech->schedule_data,
-                        ];
-                    });
-                
-                $appointmentTypes = [
-                    'general_consultation' => 'General Consultation',
-                    'cbc' => 'Complete Blood Count (CBC)',
-                    'fecalysis_test' => 'Fecalysis Test',
-                    'urinarysis_test' => 'Urinalysis Test',
-                ];
-                
-                return Inertia::render('shared/appointment-booking', [
-                    'user' => auth()->user(),
-                    'patient' => null,
-                    'doctors' => $doctors,
-                    'medtechs' => $medtechs,
-                    'appointmentTypes' => $appointmentTypes,
-                    'isExistingPatient' => false,
-                    'isAdmin' => true,
-                    'backUrl' => route('admin.appointments.index'),
-                    'nextPatientId' => 'P001'
-                ]);
-            })->name('walk-in');
+            // Walk-in appointment is now handled via modal on the appointments index page
             Route::post('/walk-in', [AppointmentController::class, 'storeWalkIn'])->name('walk-in.store');
+
+            // API route for checking appointment availability
+            Route::get('/api/check-availability', [AppointmentController::class, 'checkAvailability'])->name('api.check-availability');
 
             // Parameterized routes MUST come after all specific routes (walk-in, availability, etc.)
             Route::get('/{appointment}', [AppointmentController::class, 'show'])->name('show');
@@ -557,6 +499,10 @@ Route::prefix('admin')
             Route::get('/{visit}/edit', [\App\Http\Controllers\Admin\VisitController::class, 'edit'])->name('edit');
             Route::put('/{visit}', [\App\Http\Controllers\Admin\VisitController::class, 'update'])->name('update');
             Route::delete('/{visit}', [\App\Http\Controllers\Admin\VisitController::class, 'destroy'])->name('destroy');
+            
+            // Lab Test Routes
+            Route::get('/{visit}/add-lab-tests', [\App\Http\Controllers\Admin\VisitController::class, 'showAddLabTests'])->name('add-lab-tests');
+            Route::post('/{visit}/add-lab-tests', [\App\Http\Controllers\Admin\VisitController::class, 'addLabTests'])->name('add-lab-tests.store');
             
             // Follow-up visit routes
             Route::get('/{visit}/follow-up', [\App\Http\Controllers\Admin\VisitController::class, 'createFollowUp'])->name('follow-up.create');

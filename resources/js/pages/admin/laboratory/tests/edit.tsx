@@ -533,69 +533,107 @@ export default function TestEdit({ test }: TestEditProps): React.ReactElement {
                                                         {field.type === 'select' && (
                                                             <div className="mt-4 space-y-3">
                                                                 <Label className="mb-2 block text-sm font-semibold text-gray-700">Dropdown Options *</Label>
+                                                                <p className="text-xs text-gray-500 mb-3">Set the status (Normal/Abnormal) for each option</p>
                                                                 <div className="space-y-2">
-                                                                    {(field.options || []).map((option: string, optionIndex: number) => (
-                                                                        <div key={optionIndex} className="flex items-center gap-2">
-                                                                            <Input
-                                                                                value={option}
-                                                                                onChange={(e) => {
-                                                                                    const newOptions = [...(field.options || [])];
-                                                                                    newOptions[optionIndex] = e.target.value;
-                                                                                    setSchema((prev) => ({
-                                                                                        ...prev,
-                                                                                        sections: {
-                                                                                            ...prev.sections,
-                                                                                            [sectionKey]: {
-                                                                                                ...prev.sections[sectionKey],
-                                                                                                fields: {
-                                                                                                    ...prev.sections[sectionKey].fields,
-                                                                                                    [fieldKey]: {
-                                                                                                        ...prev.sections[sectionKey].fields[fieldKey],
-                                                                                                        options: newOptions,
+                                                                    {(field.options || []).map((option: any, optionIndex: number) => {
+                                                                        // Handle both old format (string) and new format (object)
+                                                                        const optionValue = typeof option === 'string' ? option : (option?.value || '');
+                                                                        const optionStatus = typeof option === 'string' ? 'normal' : (option?.status || 'normal');
+                                                                        
+                                                                        return (
+                                                                            <div key={optionIndex} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                                                                                <Input
+                                                                                    value={optionValue}
+                                                                                    onChange={(e) => {
+                                                                                        const newOptions = [...(field.options || [])];
+                                                                                        newOptions[optionIndex] = { value: e.target.value, status: optionStatus };
+                                                                                        setSchema((prev) => ({
+                                                                                            ...prev,
+                                                                                            sections: {
+                                                                                                ...prev.sections,
+                                                                                                [sectionKey]: {
+                                                                                                    ...prev.sections[sectionKey],
+                                                                                                    fields: {
+                                                                                                        ...prev.sections[sectionKey].fields,
+                                                                                                        [fieldKey]: {
+                                                                                                            ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                                            options: newOptions,
+                                                                                                        },
                                                                                                     },
                                                                                                 },
                                                                                             },
-                                                                                        },
-                                                                                    }));
-                                                                                }}
-                                                                                placeholder="Option value"
-                                                                                className="h-10 rounded-xl border-gray-300 shadow-sm focus:border-gray-500 focus:ring-gray-500"
-                                                                            />
-                                                                            <Button
-                                                                                type="button"
-                                                                                variant="ghost"
-                                                                                size="sm"
-                                                                                onClick={() => {
-                                                                                    const newOptions = (field.options || []).filter((_: any, idx: number) => idx !== optionIndex);
-                                                                                    setSchema((prev) => ({
-                                                                                        ...prev,
-                                                                                        sections: {
-                                                                                            ...prev.sections,
-                                                                                            [sectionKey]: {
-                                                                                                ...prev.sections[sectionKey],
-                                                                                                fields: {
-                                                                                                    ...prev.sections[sectionKey].fields,
-                                                                                                    [fieldKey]: {
-                                                                                                        ...prev.sections[sectionKey].fields[fieldKey],
-                                                                                                        options: newOptions,
+                                                                                        }));
+                                                                                    }}
+                                                                                    placeholder="Option value"
+                                                                                    className="h-10 flex-1 rounded-xl border-gray-300 shadow-sm focus:border-gray-500 focus:ring-gray-500"
+                                                                                />
+                                                                                <Select
+                                                                                    value={optionStatus}
+                                                                                    onValueChange={(value) => {
+                                                                                        const newOptions = [...(field.options || [])];
+                                                                                        newOptions[optionIndex] = { value: optionValue, status: value };
+                                                                                        setSchema((prev) => ({
+                                                                                            ...prev,
+                                                                                            sections: {
+                                                                                                ...prev.sections,
+                                                                                                [sectionKey]: {
+                                                                                                    ...prev.sections[sectionKey],
+                                                                                                    fields: {
+                                                                                                        ...prev.sections[sectionKey].fields,
+                                                                                                        [fieldKey]: {
+                                                                                                            ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                                            options: newOptions,
+                                                                                                        },
                                                                                                     },
                                                                                                 },
                                                                                             },
-                                                                                        },
-                                                                                    }));
-                                                                                }}
-                                                                                className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                                                                            >
-                                                                                <X className="h-4 w-4" />
-                                                                            </Button>
-                                                                        </div>
-                                                                    ))}
+                                                                                        }));
+                                                                                    }}
+                                                                                >
+                                                                                    <SelectTrigger className="h-10 w-32">
+                                                                                        <SelectValue />
+                                                                                    </SelectTrigger>
+                                                                                    <SelectContent>
+                                                                                        <SelectItem value="normal">Normal</SelectItem>
+                                                                                        <SelectItem value="abnormal">Abnormal</SelectItem>
+                                                                                    </SelectContent>
+                                                                                </Select>
+                                                                                <Button
+                                                                                    type="button"
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    onClick={() => {
+                                                                                        const newOptions = (field.options || []).filter((_: any, idx: number) => idx !== optionIndex);
+                                                                                        setSchema((prev) => ({
+                                                                                            ...prev,
+                                                                                            sections: {
+                                                                                                ...prev.sections,
+                                                                                                [sectionKey]: {
+                                                                                                    ...prev.sections[sectionKey],
+                                                                                                    fields: {
+                                                                                                        ...prev.sections[sectionKey].fields,
+                                                                                                        [fieldKey]: {
+                                                                                                            ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                                            options: newOptions,
+                                                                                                        },
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                        }));
+                                                                                    }}
+                                                                                    className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                                                                                >
+                                                                                    <X className="h-4 w-4" />
+                                                                                </Button>
+                                                                            </div>
+                                                                        );
+                                                                    })}
                                                                     <Button
                                                                         type="button"
                                                                         variant="outline"
                                                                         size="sm"
                                                                         onClick={() => {
-                                                                            const newOptions = [...(field.options || []), ''];
+                                                                            const newOptions = [...(field.options || []), { value: '', status: 'normal' }];
                                                                             setSchema((prev) => ({
                                                                                 ...prev,
                                                                                 sections: {

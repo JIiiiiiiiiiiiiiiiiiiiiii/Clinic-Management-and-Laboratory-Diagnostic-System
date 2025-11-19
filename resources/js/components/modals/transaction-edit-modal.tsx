@@ -456,7 +456,7 @@ export default function TransactionEditModal({
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="cash">Cash</SelectItem>
-                                                        <SelectItem value="health_card">Health Card (HMO)</SelectItem>
+                                                        <SelectItem value="hmo">HMO</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                                 {errors.payment_type && <p className="text-sm text-red-600">{errors.payment_type}</p>}
@@ -464,7 +464,7 @@ export default function TransactionEditModal({
                                         </div>
 
                                         {/* HMO Information */}
-                                        {data.payment_type === 'health_card' && (
+                                        {data.payment_type === 'hmo' && (
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <div className="space-y-2">
                                                     <Label htmlFor="hmo_provider" className="text-sm font-medium text-gray-700">

@@ -203,9 +203,157 @@
                 {{ $test->name ?? 'Unknown Test' }} @if(!empty($test?->code)) ({{ $test->code }}) @endif
             </div>
             <div class="test-content">
-                @if(!empty($result?->results) && !empty($test?->fields_schema))
+                @if($result && $result->values && count($result->values) > 0)
                     @php
-                        $schema = $test->fields_schema;
+                        // Decode fields_schema if needed
+                        $schema = is_string($test->fields_schema ?? null) 
+                            ? json_decode($test->fields_schema, true) 
+                            : ($test->fields_schema ?? []);
+                        $sections = $schema['sections'] ?? [];
+                        
+                        // Group values by section (parameter_key prefix)
+                        $groupedValues = [];
+                        foreach ($result->values as $value) {
+                            $key = $value->parameter_key ? explode('.', $value->parameter_key)[0] : 'general';
+                            if (!isset($groupedValues[$key])) {
+                                $groupedValues[$key] = [];
+                            }
+                            $groupedValues[$key][] = $value;
+                        }
+                    @endphp
+
+                    @foreach($groupedValues as $sectionKey => $values)
+                        @php
+                            $section = $sections[$sectionKey] ?? null;
+                            $sectionTitle = $section['title'] ?? ucfirst(str_replace('_', ' ', $sectionKey));
+                        @endphp
+                        <div style="margin-bottom: 15px;">
+                            <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #495057;">
+                                {{ $sectionTitle }}
+                            </h4>
+
+                            <table class="result-table">
+                                <thead>
+                                    <tr>
+                                        <th>Parameter</th>
+                                        <th>Result</th>
+                                        <th>Unit</th>
+                                        <th>Reference Range</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($values as $value)
+                                        @php
+                                            $parameterLabel = $value->parameter_label ?? $value->parameter_key ?? 'N/A';
+                                            $resultValue = $value->value ?? '';
+                                            $unit = $value->unit ?? 'N/A';
+                                            
+                                            // Find field in schema
+                                            $field = null;
+                                            $fieldType = 'text';
+                                            $referenceRange = 'N/A';
+                                            $status = 'N/A';
+                                            
+                                            if ($schema && isset($schema['sections'])) {
+                                                $parameterKey = $value->parameter_key ?? '';
+                                                $parts = explode('.', $parameterKey);
+                                                
+                                                // Try to find field
+                                                if (count($parts) >= 2 && isset($schema['sections'][$parts[0]]['fields'][$parts[1]])) {
+                                                    $field = $schema['sections'][$parts[0]]['fields'][$parts[1]];
+                                                } else {
+                                                    // Search through all sections
+                                                    foreach ($schema['sections'] as $sk => $section) {
+                                                        if (isset($section['fields'])) {
+                                                            foreach ($section['fields'] as $fk => $fieldData) {
+                                                                $fieldLabel = $fieldData['label'] ?? '';
+                                                                if ($fieldLabel === $parameterLabel || 
+                                                                    $fk === $parameterLabel || 
+                                                                    $fk === $parameterKey ||
+                                                                    (strpos($parameterKey, $fk) !== false)) {
+                                                                    $field = $fieldData;
+                                                                    break 2;
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                if ($field) {
+                                                    $fieldType = $field['type'] ?? 'text';
+                                                    
+                                                    // Get reference range
+                                                    if (!empty($value->reference_text)) {
+                                                        $referenceRange = $value->reference_text;
+                                                    } elseif (!empty($value->reference_min) || !empty($value->reference_max)) {
+                                                        $referenceRange = trim(($value->reference_min ?? '') . '-' . ($value->reference_max ?? ''));
+                                                    } elseif (isset($field['reference_range']) && !empty($field['reference_range'])) {
+                                                        $referenceRange = $field['reference_range'];
+                                                    } elseif (isset($field['ranges']) && is_array($field['ranges']) && $patientType && isset($field['ranges'][$patientType])) {
+                                                        $range = $field['ranges'][$patientType];
+                                                        $min = $range['min'] ?? '';
+                                                        $max = $range['max'] ?? '';
+                                                        if ($min !== '' || $max !== '') {
+                                                            $referenceRange = trim($min . '-' . $max);
+                                                        }
+                                                    }
+                                                    
+                                                    // Determine status
+                                                    if ($fieldType === 'number' && is_numeric($resultValue)) {
+                                                        $numValue = (float) $resultValue;
+                                                        if (isset($field['ranges']) && is_array($field['ranges']) && $patientType && isset($field['ranges'][$patientType])) {
+                                                            $range = $field['ranges'][$patientType];
+                                                            $min = isset($range['min']) && $range['min'] !== '' ? (float) $range['min'] : null;
+                                                            $max = isset($range['max']) && $range['max'] !== '' ? (float) $range['max'] : null;
+                                                            if ($min !== null && $max !== null) {
+                                                                $status = ($numValue >= $min && $numValue <= $max) ? 'Normal' : 'Abnormal';
+                                                            }
+                                                        } elseif (isset($field['min']) && isset($field['max'])) {
+                                                            $min = (float) ($field['min'] ?? 0);
+                                                            $max = (float) ($field['max'] ?? 0);
+                                                            if ($min > 0 || $max > 0) {
+                                                                $status = ($numValue >= $min && $numValue <= $max) ? 'Normal' : 'Abnormal';
+                                                            }
+                                                        }
+                                                    } elseif ($fieldType === 'select' && isset($field['options']) && is_array($field['options'])) {
+                                                        foreach ($field['options'] as $option) {
+                                                            $optionValue = is_string($option) ? $option : ($option['value'] ?? '');
+                                                            if ($optionValue === $resultValue) {
+                                                                $optionStatus = is_string($option) ? 'normal' : ($option['status'] ?? 'normal');
+                                                                $status = ucfirst($optionStatus);
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            
+                                            // Use unit from value or field
+                                            if ($unit === 'N/A' && $field && isset($field['unit']) && !empty($field['unit'])) {
+                                                $unit = $field['unit'];
+                                            }
+                                        @endphp
+                                        <tr>
+                                            <td>{{ $parameterLabel }}</td>
+                                            <td>{{ $resultValue }}</td>
+                                            <td>{{ $unit !== 'N/A' ? $unit : '' }}</td>
+                                            <td>{{ $referenceRange }}</td>
+                                            <td class="{{ strtolower($status) === 'normal' ? 'normal' : (strtolower($status) === 'abnormal' ? 'abnormal' : '') }}">
+                                                {{ $status }}
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endforeach
+                @elseif(!empty($result?->results) && !empty($test?->fields_schema))
+                    @php
+                        // Fallback to old format for legacy data
+                        $schema = is_string($test->fields_schema) 
+                            ? json_decode($test->fields_schema, true) 
+                            : ($test->fields_schema ?? []);
                         $sections = $schema['sections'] ?? [];
                     @endphp
 
@@ -231,7 +379,7 @@
                                             @php
                                                 $fieldPath = $sectionKey . '.' . $fieldKey;
                                                 $fieldValue = data_get($result->results ?? [], $fieldPath, '');
-                                                $isNormal = true; // This could be enhanced with actual reference range checking
+                                                $isNormal = true; // Legacy data - default to normal
                                             @endphp
                                             <tr>
                                                 <td>{{ $field['label'] ?? ucfirst(str_replace('_', ' ', $fieldKey)) }}</td>

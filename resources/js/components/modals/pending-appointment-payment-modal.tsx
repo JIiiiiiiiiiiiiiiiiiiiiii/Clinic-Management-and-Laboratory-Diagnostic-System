@@ -19,7 +19,9 @@ import {
     Save,
     AlertCircle,
     CheckCircle,
-    Receipt
+    Receipt,
+    Stethoscope,
+    TestTube
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useForm, router } from '@inertiajs/react';
@@ -56,6 +58,12 @@ type PendingAppointment = {
         mobile_no?: string;
         birth_date?: string;
         gender?: string;
+        is_senior_citizen?: boolean;
+        age?: number;
+        hmo_name?: string;
+        hmo_id_no?: string;
+        approval_code?: string;
+        validity?: string;
     };
     specialist?: {
         id: number;
@@ -68,6 +76,27 @@ type PendingAppointment = {
         lab_test_name: string;
         price: number;
         status: string;
+        source?: 'appointment' | 'visit';
+        ordered_by?: string;
+        lab_order_id?: number;
+    }>;
+    visit?: {
+        id: number;
+        visit_code: string;
+        visit_date_time_time: string;
+        status: string;
+        attending_staff?: {
+            id: number;
+            name: string;
+            role: string;
+        };
+    };
+    visit_lab_orders?: Array<{
+        id: number;
+        status: string;
+        ordered_by: string;
+        notes: string;
+        created_at: string;
     }>;
 };
 
@@ -102,12 +131,6 @@ interface PendingAppointmentPaymentModalProps {
     hmoProviders?: HmoProvider[];
 }
 
-const paymentTypeOptions = [
-    { value: 'cash', label: 'Cash' },
-    { value: 'health_card', label: 'Health Card' },
-    { value: 'discount', label: 'Discount' },
-];
-
 const paymentMethodOptions = [
     { value: 'cash', label: 'Cash' },
     { value: 'hmo', label: 'HMO' },
@@ -126,14 +149,15 @@ export default function PendingAppointmentPaymentModal({
     const [isSeniorCitizen, setIsSeniorCitizen] = useState(false);
     const [discountAmount, setDiscountAmount] = useState(0);
     const [seniorDiscountAmount, setSeniorDiscountAmount] = useState(0);
+    const [amountPaid, setAmountPaid] = useState(0);
 
     const { data, setData, post, processing, errors } = useForm({
         patient_id: '',
         doctor_id: '',
-        payment_type: 'cash',
         payment_method: 'cash',
         total_amount: 0,
         amount: 0,
+        amount_paid: 0,
         discount_amount: 0,
         discount_percentage: 0,
         is_senior_citizen: false,
@@ -142,7 +166,6 @@ export default function PendingAppointmentPaymentModal({
         hmo_provider: '',
         hmo_reference: '',
         hmo_reference_number: '',
-        payment_reference: '',
         description: '',
         notes: '',
         transaction_date: new Date().toISOString().split('T')[0],
@@ -154,7 +177,21 @@ export default function PendingAppointmentPaymentModal({
     // Update form data when appointment changes
     useEffect(() => {
         if (appointment) {
-            const totalAmount = appointment.final_total_amount || appointment.price || 0;
+            // Calculate base consultation price (not including lab tests)
+            const baseConsultationPrice = appointment.price || 0;
+            
+            // Auto-detect senior citizen status from patient
+            const patientIsSenior = appointment.patient?.is_senior_citizen ?? false;
+            setIsSeniorCitizen(patientIsSenior);
+            setData('is_senior_citizen', patientIsSenior);
+            
+            // Auto-fetch HMO details from patient if available
+            if (appointment.patient?.hmo_name) {
+                setData('hmo_provider', appointment.patient.hmo_name);
+            }
+            if (appointment.patient?.hmo_id_no) {
+                setData('hmo_reference_number', appointment.patient.hmo_id_no);
+            }
             
             // Create items array for the billing transaction
             const items = [
@@ -163,18 +200,22 @@ export default function PendingAppointmentPaymentModal({
                     item_name: `${appointment.appointment_type.replace(/_/g, ' ').toUpperCase()} Appointment`,
                     item_description: `Appointment for ${appointment.patient_name} on ${appointment.appointment_date} at ${appointment.appointment_time}`,
                     quantity: 1,
-                    unit_price: totalAmount,
-                    total_price: totalAmount,
+                    unit_price: baseConsultationPrice,
+                    total_price: baseConsultationPrice,
                 }
             ];
 
-            // Add lab test items if they exist
+            // Add lab test items if they exist (from both appointment and visit)
             if (appointment.labTests && appointment.labTests.length > 0) {
                 appointment.labTests.forEach((labTest: any) => {
+                    const description = labTest.source === 'visit' 
+                        ? `Lab test from visit consultation: ${labTest.lab_test_name}${labTest.ordered_by ? ` (Ordered by: ${labTest.ordered_by})` : ''}`
+                        : `Laboratory test: ${labTest.lab_test_name}`;
+                    
                     items.push({
                         item_type: 'laboratory',
                         item_name: labTest.lab_test_name,
-                        item_description: `Laboratory test for ${appointment.patient_name}`,
+                        item_description: description,
                         quantity: 1,
                         unit_price: labTest.price,
                         total_price: labTest.price,
@@ -182,23 +223,29 @@ export default function PendingAppointmentPaymentModal({
                     } as any);
                 });
             }
+            
+            // Calculate total amount including all lab tests (ensure it's a number)
+            const totalAmount = Number(items.reduce((sum, item) => sum + (Number(item.total_price) || 0), 0));
 
             setData('patient_id', appointment.patient?.id?.toString() || appointment.patient_id || '');
             setData('doctor_id', appointment.specialist?.id?.toString() || appointment.specialist_id?.toString() || '');
             setData('total_amount', totalAmount);
             setData('amount', totalAmount);
+            setData('amount_paid', totalAmount); // Default amount paid equals total
             setData('description', `Payment for appointment #${appointment.id} - ${appointment.appointment_type}`);
             setData('notes', appointment.notes || '');
             setData('items', items as any);
             setDiscountAmount(0);
             setSeniorDiscountAmount(0);
+            setAmountPaid(totalAmount);
         }
     }, [appointment]);
 
     // Calculate senior citizen discount
     useEffect(() => {
-        if (isSeniorCitizen && data.total_amount > 0) {
-            const seniorDiscount = data.total_amount * 0.20; // 20% discount
+        const totalAmount = Number(data.total_amount) || 0;
+        if (isSeniorCitizen && totalAmount > 0 && data.payment_method !== 'hmo') {
+            const seniorDiscount = totalAmount * 0.20; // 20% discount
             setSeniorDiscountAmount(seniorDiscount);
             setData('senior_discount_amount', seniorDiscount);
             setData('senior_discount_percentage', 20);
@@ -207,7 +254,7 @@ export default function PendingAppointmentPaymentModal({
             setData('senior_discount_amount', 0);
             setData('senior_discount_percentage', 0);
         }
-    }, [isSeniorCitizen, data.total_amount]);
+    }, [isSeniorCitizen, data.total_amount, data.payment_method]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -218,20 +265,43 @@ export default function PendingAppointmentPaymentModal({
             return;
         }
 
-        // Validate HMO provider when payment method is HMO
-        if (data.payment_method === 'hmo' && !data.hmo_provider) {
-            setValidationErrors(['HMO Provider is required when payment method is HMO']);
-            return;
+        // Validate HMO provider and reference when payment method is HMO
+        if (data.payment_method === 'hmo') {
+            const hmoErrors: string[] = [];
+            if (!data.hmo_provider || data.hmo_provider.trim() === '') {
+                hmoErrors.push('HMO Provider is required when payment method is HMO');
+            }
+            if (!data.hmo_reference_number || data.hmo_reference_number.trim() === '') {
+                hmoErrors.push('HMO Reference Number is required when payment method is HMO');
+            }
+            if (hmoErrors.length > 0) {
+                setValidationErrors(hmoErrors);
+                return;
+            }
         }
 
         // Ensure required fields are set before submission
-        const formData = {
+        const totalAmount = Number(data.total_amount) || 0;
+        const discount = Number(discountAmount) || 0;
+        const seniorDiscount = Number(seniorDiscountAmount) || 0;
+        const finalAmount = Math.max(0, totalAmount - discount - seniorDiscount);
+        const paid = Number(amountPaid) || 0;
+        
+        if (paid <= 0) {
+            setValidationErrors(['Amount Paid must be greater than 0']);
+            return;
+        }
+        
+        const formData: any = {
             ...data,
-            payment_type: data.payment_type || 'cash',
             transaction_date: data.transaction_date || new Date().toISOString().split('T')[0],
             // Ensure the backend receives the final payable amount after discounts
-            amount: Math.max(0, (data.total_amount || 0) - (discountAmount || 0) - (seniorDiscountAmount || 0)),
+            amount: finalAmount,
+            amount_paid: paid,
         };
+        
+        // Remove payment_reference - will be auto-generated by backend after payment
+        delete formData.payment_reference;
 
         router.post('/admin/billing/transactions', formData, {
             onSuccess: () => {
@@ -280,20 +350,22 @@ export default function PendingAppointmentPaymentModal({
     };
 
     const handleDiscountChange = (value: string) => {
-        const discount = parseFloat(value) || 0;
+        const discount = Number(parseFloat(value) || 0);
         setDiscountAmount(discount);
         setData('discount_amount', discount);
         
-        if (data.total_amount > 0) {
-            const percentage = (discount / data.total_amount) * 100;
+        const totalAmount = Number(data.total_amount) || 0;
+        if (totalAmount > 0) {
+            const percentage = (discount / totalAmount) * 100;
             setData('discount_percentage', percentage);
         }
     };
 
     const calculateFinalAmount = () => {
-        let finalAmount = data.total_amount;
-        finalAmount -= discountAmount;
-        finalAmount -= seniorDiscountAmount;
+        const totalAmount = Number(data.total_amount) || 0;
+        const discount = Number(discountAmount) || 0;
+        const seniorDiscount = Number(seniorDiscountAmount) || 0;
+        const finalAmount = totalAmount - discount - seniorDiscount;
         return Math.max(0, finalAmount);
     };
 
@@ -383,29 +455,12 @@ export default function PendingAppointmentPaymentModal({
                                 <CardContent className="space-y-4">
                                     <div className="space-y-4">
                                         <div>
-                                            <Label htmlFor="payment_type">Payment Type</Label>
-                                            <Select value={data.payment_type} onValueChange={(value) => setData('payment_type', value)}>
-                                                <SelectTrigger className="mt-1">
-                                                    <SelectValue placeholder="Select payment type" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {paymentTypeOptions.map((option) => (
-                                                        <SelectItem key={option.value} value={option.value}>
-                                                            {option.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="payment_method">Payment Method</Label>
+                                            <Label htmlFor="payment_method">Payment Method *</Label>
                                             <Select value={data.payment_method || 'cash'} onValueChange={(value) => {
                                                 setData('payment_method', value);
-                                                // Set payment_type based on payment_method
+                                                // Reset senior citizen discount if HMO is selected
                                                 if (value === 'hmo') {
-                                                    setData('payment_type', 'health_card');
-                                                } else {
-                                                    setData('payment_type', 'cash');
+                                                    setIsSeniorCitizen(false);
                                                 }
                                             }}>
                                                 <SelectTrigger className="mt-1">
@@ -421,15 +476,12 @@ export default function PendingAppointmentPaymentModal({
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label htmlFor="total_amount">Total Amount (₱)</Label>
+                                            <Label htmlFor="total_amount">Total Amount Due (₱)</Label>
                                             <Input
                                                 id="total_amount"
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                value={data.total_amount}
-                                                onChange={(e) => setData('total_amount', parseFloat(e.target.value) || 0)}
-                                                className="mt-1"
+                                                type="text"
+                                                value={`₱${Number(data.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                                className="mt-1 bg-gray-50 font-semibold"
                                                 required
                                                 readOnly
                                             />
@@ -446,6 +498,27 @@ export default function PendingAppointmentPaymentModal({
                                                 className="mt-1"
                                                 placeholder="0.00"
                                             />
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="amount_paid">Amount Paid (₱) *</Label>
+                                            <Input
+                                                id="amount_paid"
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                value={amountPaid}
+                                                onChange={(e) => {
+                                                    const paid = Number(parseFloat(e.target.value) || 0);
+                                                    setAmountPaid(paid);
+                                                    setData('amount_paid', paid);
+                                                }}
+                                                className="mt-1"
+                                                placeholder="0.00"
+                                                required
+                                            />
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                Enter the amount the patient is paying
+                                            </p>
                                         </div>
                                     </div>
 
@@ -464,9 +537,14 @@ export default function PendingAppointmentPaymentModal({
                                                 Senior Citizen (20% discount)
                                             </Label>
                                         </div>
+                                        {appointment?.patient?.is_senior_citizen && (
+                                            <div className="text-xs text-blue-600 mb-2">
+                                                ✓ Auto-detected from patient record
+                                            </div>
+                                        )}
                                         {isSeniorCitizen && (
                                             <div className="text-sm text-blue-700">
-                                                <p>Senior Citizen Discount: ₱{seniorDiscountAmount.toLocaleString()}</p>
+                                                <p>Senior Citizen Discount: ₱{Number(seniorDiscountAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                             </div>
                                         )}
                                     </div>
@@ -502,18 +580,157 @@ export default function PendingAppointmentPaymentModal({
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label htmlFor="hmo_reference">HMO Reference</Label>
+                                            <Label htmlFor="hmo_reference_number">HMO Reference Number *</Label>
                                             <Input
-                                                id="hmo_reference"
-                                                value={data.hmo_reference}
-                                                onChange={(e) => setData('hmo_reference', e.target.value)}
+                                                id="hmo_reference_number"
+                                                value={data.hmo_reference_number}
+                                                onChange={(e) => setData('hmo_reference_number', e.target.value)}
                                                 className="mt-1"
-                                                placeholder="HMO reference number"
+                                                placeholder="Enter HMO reference number"
+                                                required
                                             />
                                         </div>
+                                        {appointment?.patient?.approval_code && (
+                                            <div>
+                                                <Label htmlFor="approval_code">Approval Code</Label>
+                                                <Input
+                                                    id="approval_code"
+                                                    value={appointment.patient.approval_code}
+                                                    className="mt-1 bg-gray-50"
+                                                    readOnly
+                                                />
+                                            </div>
+                                        )}
+                                        {appointment?.patient?.validity && (
+                                            <div>
+                                                <Label htmlFor="validity">Validity</Label>
+                                                <Input
+                                                    id="validity"
+                                                    value={appointment.patient.validity}
+                                                    className="mt-1 bg-gray-50"
+                                                    readOnly
+                                                />
+                                            </div>
+                                        )}
                                     </CardContent>
                                 </Card>
                             )}
+
+                            {/* Visit Information */}
+                            {appointment?.visit && (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Stethoscope className="h-5 w-5" />
+                                            Visit Information
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-3">
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-500">Visit Code</label>
+                                            <p className="text-sm font-semibold">{appointment.visit.visit_code}</p>
+                                        </div>
+                                        {appointment.visit.visit_date_time_time && (
+                                            <div>
+                                                <label className="text-sm font-medium text-gray-500">Visit Date & Time</label>
+                                                <p className="text-sm text-gray-700">{safeFormatDate(appointment.visit.visit_date_time_time)} {safeFormatTime(appointment.visit.visit_date_time_time)}</p>
+                                            </div>
+                                        )}
+                                        {appointment.visit.attending_staff && (
+                                            <div>
+                                                <label className="text-sm font-medium text-gray-500">Attending Staff</label>
+                                                <p className="text-sm text-gray-700">{appointment.visit.attending_staff.name} ({appointment.visit.attending_staff.role})</p>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Billing Breakdown */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Receipt className="h-5 w-5" />
+                                        Billing Breakdown
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-3">
+                                        {/* Consultation */}
+                                        <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                            <div>
+                                                <span className="font-medium text-sm">Consultation Fee</span>
+                                                <p className="text-xs text-gray-600">{appointment?.appointment_type.replace(/_/g, ' ').toUpperCase()}</p>
+                                            </div>
+                                            <span className="text-sm font-semibold">₱{appointment?.price.toLocaleString() || '0'}</span>
+                                        </div>
+
+                                        {/* Lab Tests from Appointment */}
+                                        {appointment?.labTests && appointment.labTests.filter((test: any) => test.source === 'appointment').length > 0 && (
+                                            <div>
+                                                <h4 className="text-xs font-semibold text-gray-600 mb-2">Lab Tests from Appointment</h4>
+                                                {appointment.labTests.filter((test: any) => test.source === 'appointment').map((test: any) => (
+                                                    <div key={test.id} className="flex justify-between items-center p-2 bg-gray-50 rounded mb-2">
+                                                        <span className="text-sm">{test.lab_test_name}</span>
+                                                        <span className="text-sm font-semibold">₱{test.price.toLocaleString()}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Lab Tests from Visit */}
+                                        {appointment?.labTests && appointment.labTests.filter((test: any) => test.source === 'visit').length > 0 && (
+                                            <div>
+                                                <h4 className="text-xs font-semibold text-gray-600 mb-2">Lab Tests from Visit (Ordered by Doctor/Staff)</h4>
+                                                {appointment.labTests.filter((test: any) => test.source === 'visit').map((test: any) => (
+                                                    <div key={test.id} className="flex justify-between items-start p-2 bg-blue-50 rounded mb-2 border border-blue-200">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-sm font-medium">{test.lab_test_name}</span>
+                                                                <Badge className="bg-blue-100 text-blue-800 text-xs">Visit</Badge>
+                                                            </div>
+                                                            {test.ordered_by && (
+                                                                <p className="text-xs text-gray-600 mt-1">Ordered by: {test.ordered_by}</p>
+                                                            )}
+                                                        </div>
+                                                        <span className="text-sm font-semibold">₱{test.price.toLocaleString()}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Totals */}
+                                        <div className="border-t pt-3 space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm font-medium text-gray-700">Consultation Fee:</span>
+                                                <span className="text-sm font-semibold">₱{Number(appointment?.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            </div>
+                                            {appointment?.total_lab_amount > 0 && (
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-medium text-gray-700">Lab Tests:</span>
+                                                    <span className="text-sm font-semibold">₱{Number(appointment.total_lab_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between items-center pt-2 border-t">
+                                                <span className="text-base font-bold text-gray-900">Subtotal:</span>
+                                                <span className="text-base font-bold text-gray-900">₱{Number(data.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            </div>
+                                            {discountAmount > 0 && (
+                                                <div className="flex justify-between items-center text-red-600">
+                                                    <span className="text-sm font-medium">Discount:</span>
+                                                    <span className="text-sm font-semibold">-₱{Number(discountAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                </div>
+                                            )}
+                                            {seniorDiscountAmount > 0 && (
+                                                <div className="flex justify-between items-center text-blue-600">
+                                                    <span className="text-sm font-medium">Senior Citizen Discount (20%):</span>
+                                                    <span className="text-sm font-semibold">-₱{Number(seniorDiscountAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
 
                             {/* Final Amount Display */}
                             <Card>
@@ -524,11 +741,25 @@ export default function PendingAppointmentPaymentModal({
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="bg-green-100 border border-green-200 rounded-lg p-4">
+                                    <div className="bg-green-100 border border-green-200 rounded-lg p-4 space-y-3">
                                         <div className="flex items-center justify-between">
-                                            <span className="text-lg font-medium text-green-800">Total:</span>
-                                            <span className="text-2xl font-bold text-green-900">₱{calculateFinalAmount().toLocaleString()}</span>
+                                            <span className="text-lg font-medium text-green-800">Total Amount Due:</span>
+                                            <span className="text-2xl font-bold text-green-900">₱{Number(calculateFinalAmount()).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                         </div>
+                                        <div className="flex items-center justify-between pt-2 border-t border-green-300">
+                                            <span className="text-base font-medium text-green-800">Amount Paid:</span>
+                                            <span className="text-xl font-bold text-green-900">₱{Number(amountPaid || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+                                        {amountPaid > 0 && calculateFinalAmount() > 0 && (
+                                            <div className="flex items-center justify-between pt-2 border-t border-green-300">
+                                                <span className={`text-base font-medium ${amountPaid >= calculateFinalAmount() ? 'text-green-800' : 'text-orange-800'}`}>
+                                                    {amountPaid >= calculateFinalAmount() ? 'Change:' : 'Balance:'}
+                                                </span>
+                                                <span className={`text-xl font-bold ${amountPaid >= calculateFinalAmount() ? 'text-green-900' : 'text-orange-900'}`}>
+                                                    ₱{Math.abs(Number(amountPaid) - Number(calculateFinalAmount())).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
@@ -542,28 +773,19 @@ export default function PendingAppointmentPaymentModal({
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <Label htmlFor="transaction_date">Transaction Date</Label>
-                                            <Input
-                                                id="transaction_date"
-                                                type="date"
-                                                value={data.transaction_date}
-                                                onChange={(e) => setData('transaction_date', e.target.value)}
-                                                className="mt-1"
-                                                required
-                                            />
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="payment_reference">Payment Reference</Label>
-                                            <Input
-                                                id="payment_reference"
-                                                value={data.payment_reference}
-                                                onChange={(e) => setData('payment_reference', e.target.value)}
-                                                className="mt-1"
-                                                placeholder="Payment reference number"
-                                            />
-                                        </div>
+                                    <div>
+                                        <Label htmlFor="transaction_date">Transaction Date *</Label>
+                                        <Input
+                                            id="transaction_date"
+                                            type="date"
+                                            value={data.transaction_date}
+                                            onChange={(e) => setData('transaction_date', e.target.value)}
+                                            className="mt-1"
+                                            required
+                                        />
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Payment reference will be auto-generated after payment is processed
+                                        </p>
                                     </div>
                                     <div>
                                         <Label htmlFor="notes">Notes</Label>

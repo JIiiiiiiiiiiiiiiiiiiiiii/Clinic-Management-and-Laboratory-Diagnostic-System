@@ -345,25 +345,26 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                         <div className="flex items-center gap-2">
                                             <FileText className="h-4 w-4 text-gray-500" />
                                             <p className="text-sm font-semibold text-gray-900">Doctor's Remarks</p>
-                                            {order.visit?.attending_staff?.name && (
+                                            {(order.visit?.attending_staff?.name || order.visit?.attendingStaff?.name) && (
                                                 <span className="text-xs text-gray-500">
-                                                    (Dr. {order.visit.attending_staff.name})
-                                                </span>
-                                            )}
-                                            {!order.visit?.attending_staff?.name && order.visit?.attendingStaff?.name && (
-                                                <span className="text-xs text-gray-500">
-                                                    (Dr. {order.visit.attendingStaff.name})
+                                                    ({order.visit?.attending_staff?.name || order.visit?.attendingStaff?.name})
                                                 </span>
                                             )}
                                         </div>
-                                        {order.visit?.notes ? (
+                                        {/* Priority: Show lab order notes first (contains doctor's specific remarks for this order) */}
+                                        {order.notes ? (
                                             <div className="bg-blue-50 rounded-lg border border-blue-200 p-3 mt-2">
+                                                <p className="text-sm text-gray-800 whitespace-pre-wrap">{order.notes}</p>
+                                            </div>
+                                        ) : order.visit?.notes ? (
+                                            <div className="bg-blue-50 rounded-lg border border-blue-200 p-3 mt-2">
+                                                <p className="text-xs text-gray-600 mb-1 italic">From visit notes:</p>
                                                 <p className="text-sm text-gray-800 whitespace-pre-wrap">{order.visit.notes}</p>
                                             </div>
                                         ) : (
                                             <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 mt-2">
                                                 <p className="text-sm text-gray-500 italic">
-                                                    {order.visit ? 'No remarks available for this visit.' : 'This lab order is not linked to a patient visit. No doctor remarks available.'}
+                                                    {order.visit ? 'No remarks available for this lab order or visit.' : 'This lab order is not linked to a patient visit. No doctor remarks available.'}
                                                 </p>
                                             </div>
                                         )}
@@ -474,6 +475,7 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                                                                     reference_range: fieldData.reference_range,
                                                                                     unit: fieldData.unit,
                                                                                     type: fieldData.type,
+                                                                                    options: fieldData.options,
                                                                                 };
                                                                             }
                                                                         }
@@ -502,7 +504,25 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                                                             const ranges = fieldData?.ranges || null;
                                                                             const referenceRange = fieldData?.reference_range || null;
                                                                             const fieldType = fieldData?.type || 'text';
-                                                                            const isNormal = fieldType === 'number' ? isValueNormal(value.value, ranges, patientType) : null;
+                                                                            
+                                                                            // Determine status based on field type
+                                                                            let isNormal: boolean | null = null;
+                                                                            if (fieldType === 'number') {
+                                                                                isNormal = isValueNormal(value.value, ranges, patientType);
+                                                                            } else if (fieldType === 'select') {
+                                                                                // For dropdowns, check the status of the selected option
+                                                                                const selectedValue = value.value;
+                                                                                const options = fieldData?.options || [];
+                                                                                const selectedOption = options.find((opt: any) => {
+                                                                                    const optValue = typeof opt === 'string' ? opt : (opt?.value || '');
+                                                                                    return optValue === selectedValue;
+                                                                                });
+                                                                                if (selectedOption) {
+                                                                                    const optionStatus = typeof selectedOption === 'string' ? 'normal' : (selectedOption?.status || 'normal');
+                                                                                    isNormal = optionStatus === 'normal';
+                                                                                }
+                                                                            }
+                                                                            
                                                                             const rangeDisplay = fieldType === 'number' 
                                                                                 ? getRangeForDisplay(ranges, patientType)
                                                                                 : (referenceRange || value.reference_text || 'N/A');
@@ -513,12 +533,12 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                                                                     <div className="flex-1">
                                                                                         <div className="flex items-center gap-2 mb-1">
                                                                                             <p className="font-medium text-gray-900">{fieldName}</p>
-                                                                                            {isNormal !== null && (
+                                                                                            {(isNormal !== null || fieldType === 'select') && (
                                                                                                 <Badge 
-                                                                                                    variant={isNormal ? 'default' : 'destructive'}
-                                                                                                    className={isNormal ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}
+                                                                                                    variant={isNormal === true ? 'default' : 'destructive'}
+                                                                                                    className={isNormal === true ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}
                                                                                                 >
-                                                                                                    {isNormal ? 'Normal' : 'Abnormal'}
+                                                                                                    {isNormal === true ? 'Normal' : (isNormal === false ? 'Abnormal' : 'N/A')}
                                                                                                 </Badge>
                                                                                             )}
                                                                                         </div>

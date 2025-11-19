@@ -601,7 +601,11 @@ export default function VisitShow({ visit, patient }: VisitShowProps) {
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-sm font-medium text-gray-500">Specialist</label>
-                                            <p className="text-lg font-semibold">{visit.appointment.specialist_name}</p>
+                                            <p className="text-lg font-semibold">
+                                                {visit.appointment.specialist_name || 
+                                                 (visit.appointment.specialist?.name) || 
+                                                 'Not assigned'}
+                                            </p>
                                         </div>
                                         <div className="pt-2">
                                             <Link href={`/admin/appointments/${visit.appointment.id}`}>

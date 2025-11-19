@@ -21,7 +21,8 @@ class PatientController extends Controller
     {
         try {
             // Get patients with pagination and search
-            $query = Patient::query();
+            // Explicitly exclude soft-deleted records (SoftDeletes trait should handle this, but being explicit)
+            $query = Patient::query()->whereNull('deleted_at');
 
             // Apply search filter
             if ($request->filled('p_search')) {
@@ -201,14 +202,36 @@ class PatientController extends Controller
         // Check if visit_date column exists in visits table
         if (!\Schema::hasColumn('visits', 'visit_date')) {
             // If visit_date column doesn't exist, order by created_at
-            $patient->load(['visits' => function ($query) {
-                $query->orderBy('created_at', 'desc');
-            }, 'labOrders.labTests', 'labOrders.orderedBy']);
+            $patient->load([
+                'visits' => function ($query) {
+                    $query->with(['attendingStaff'])->orderBy('created_at', 'desc');
+                }, 
+                'labOrders' => function ($query) {
+                    $query->with([
+                        'labTests',
+                        'orderedBy',
+                        'results' => function ($q) {
+                            $q->with(['values', 'test']);
+                        }
+                    ]);
+                }
+            ]);
         } else {
             // If visit_date column exists, order by it
-            $patient->load(['visits' => function ($query) {
-                $query->orderBy('visit_date', 'desc');
-            }, 'labOrders.labTests', 'labOrders.orderedBy']);
+            $patient->load([
+                'visits' => function ($query) {
+                    $query->with(['attendingStaff'])->orderBy('visit_date', 'desc');
+                }, 
+                'labOrders' => function ($query) {
+                    $query->with([
+                        'labTests',
+                        'orderedBy',
+                        'results' => function ($q) {
+                            $q->with(['values', 'test']);
+                        }
+                    ]);
+                }
+            ]);
         }
 
         return Inertia::render('admin/patient/show', [

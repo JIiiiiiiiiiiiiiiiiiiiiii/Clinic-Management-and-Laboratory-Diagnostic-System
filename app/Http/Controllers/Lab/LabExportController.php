@@ -82,7 +82,24 @@ class LabExportController extends Controller
 
     public function exportOrderResults(Request $request, LabOrder $order)
     {
-        $order->load(['patient', 'labTests', 'results.test']);
+        // Ensure all relationships are loaded from database before export
+        $order->load([
+            'patient',
+            'visit',
+            'labTests',
+            'results' => function ($query) {
+                $query->with([
+                    'test' => function ($q) {
+                        // Explicitly select fields_schema to ensure it's loaded
+                        $q->select('id', 'name', 'code', 'fields_schema', 'price', 'is_active');
+                    },
+                    'values' => function ($q) {
+                        $q->orderBy('parameter_key');
+                    }
+                ]);
+            }
+        ]);
+        
         $format = strtolower((string) $request->get('format', 'excel'));
         $export = new LabOrderResultsExport($order);
         if (in_array($format, ['pdf', 'word', 'doc', 'docx'])) {

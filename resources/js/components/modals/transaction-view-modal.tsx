@@ -49,7 +49,7 @@ type BillingTransaction = {
     hmo_provider: string | null;
     hmo_reference: string | null;
     hmo_reference_number: string | null;
-    payment_method: 'cash' | 'card' | 'bank_transfer' | 'check' | 'hmo';
+    payment_method: 'cash' | 'hmo';
     payment_reference: string | null;
     status: 'draft' | 'pending' | 'paid' | 'cancelled' | 'refunded';
     description: string | null;
@@ -89,9 +89,6 @@ const statusConfig = {
 
 const paymentMethodConfig = {
     cash: { label: 'Cash', color: 'bg-green-100 text-green-800' },
-    card: { label: 'Card', color: 'bg-blue-100 text-blue-800' },
-    bank_transfer: { label: 'Bank Transfer', color: 'bg-purple-100 text-purple-800' },
-    check: { label: 'Check', color: 'bg-yellow-100 text-yellow-800' },
     hmo: { label: 'HMO', color: 'bg-indigo-100 text-indigo-800' },
 };
 

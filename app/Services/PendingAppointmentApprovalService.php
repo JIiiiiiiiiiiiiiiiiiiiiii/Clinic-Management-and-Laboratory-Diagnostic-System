@@ -151,24 +151,42 @@ class PendingAppointmentApprovalService
      */
     private function createAppointmentFromPending(PendingAppointment $pendingAppointment, Patient $patient, array $adminData): Appointment
     {
+        // Map appointment_source to source (appointments table uses 'source', not 'appointment_source')
+        $source = 'Online'; // Default
+        if ($pendingAppointment->appointment_source) {
+            // Map pending appointment_source values to appointments source enum values
+            $appointmentSource = strtolower($pendingAppointment->appointment_source);
+            if ($appointmentSource === 'online' || $appointmentSource === 'Online') {
+                $source = 'Online';
+            } elseif ($appointmentSource === 'walk_in' || $appointmentSource === 'walk-in' || $appointmentSource === 'Walk-in') {
+                $source = 'Walk-in';
+            }
+        } elseif ($pendingAppointment->source) {
+            // Use source field if available
+            $source = $pendingAppointment->source === 'Online' ? 'Online' : 'Walk-in';
+        }
+        
+        // Generate appointment_code before creation
+        // Get the next appointment ID to generate the code
+        $lastAppointment = Appointment::orderBy('id', 'desc')->first();
+        $nextId = $lastAppointment ? $lastAppointment->id + 1 : 1;
+        $appointmentCode = 'A' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        
         $appointmentData = [
-            'patient_name' => $pendingAppointment->patient_name,
+            'appointment_code' => $appointmentCode, // Required field - generate before creation
             'patient_id' => $patient->id,
-            'contact_number' => $pendingAppointment->contact_number,
-            'specialist_id' => $pendingAppointment->specialist_id,
-            'specialist_name' => $pendingAppointment->specialist_name,
+            'specialist_id' => $pendingAppointment->specialist_id ? (int) $pendingAppointment->specialist_id : null,
             'appointment_type' => $pendingAppointment->appointment_type,
             'specialist_type' => $pendingAppointment->specialist_type,
             'appointment_date' => $pendingAppointment->appointment_date,
             'appointment_time' => $pendingAppointment->appointment_time,
             'duration' => $pendingAppointment->duration,
             'price' => null, // Will be calculated after creation
-            'notes' => $pendingAppointment->notes,
-            'special_requirements' => $pendingAppointment->special_requirements,
-            'source' => 'Online',
+            'additional_info' => $pendingAppointment->notes ?? $pendingAppointment->special_requirements ?? null,
+            'source' => $source, // Use 'source' field, not 'appointment_source'
             'status' => 'Confirmed',
-            'appointment_source' => $pendingAppointment->appointment_source,
-            'booking_method' => $pendingAppointment->booking_method,
+            // Note: appointment_source and booking_method columns were removed from appointments table
+            // They only exist in pending_appointments table
         ];
 
         $appointment = Appointment::create($appointmentData);
@@ -198,24 +216,179 @@ class PendingAppointmentApprovalService
      */
     private function createVisitFromAppointment(Appointment $appointment): Visit
     {
-        // Use the appointment's specialist_id directly if it exists
-        // The specialist_id in appointments table should reference users.id
-        $staffId = $appointment->specialist_id;
+        // Load the appointment's specialist relationship
+        $appointment->load('specialist');
         
-        // If specialist_id is not a user ID, try to find the corresponding user
-        if (!$staffId) {
-            // Try to find user by specialist name or type
-            if ($appointment->specialist_type === 'doctor' || $appointment->specialist_type === 'Doctor') {
-                $doctor = User::where('role', 'doctor')->first();
-                $staffId = $doctor ? $doctor->id : null;
-            } elseif ($appointment->specialist_type === 'medtech' || $appointment->specialist_type === 'MedTech') {
-                $medtech = User::where('role', 'medtech')->first();
-                $staffId = $medtech ? $medtech->id : null;
+        $staffId = null;
+        
+        // Try to find a user that matches the specialist
+        if ($appointment->specialist) {
+            $specialist = $appointment->specialist;
+            
+            // Normalize specialist name: remove titles, suffixes, and extra spaces
+            $normalizeName = function($name) {
+                // Remove common titles and suffixes (case insensitive)
+                $name = preg_replace('/\b(MD\.?|Dr\.?|Doctor|Mr\.?|Mrs\.?|Ms\.?)\b\.?/i', '', $name);
+                // Remove extra spaces and trim
+                $name = preg_replace('/\s+/', ' ', trim($name));
+                return $name;
+            };
+            
+            $normalizedSpecialistName = $normalizeName($specialist->name);
+            
+            // Extract first and last name parts for better matching
+            $nameParts = array_filter(explode(' ', $normalizedSpecialistName)); // Filter empty parts
+            $firstName = $nameParts[0] ?? '';
+            $lastName = end($nameParts) ?? '';
+            
+            Log::info('Mapping specialist to user', [
+                'specialist_id' => $specialist->specialist_id,
+                'specialist_name' => $specialist->name,
+                'normalized_name' => $normalizedSpecialistName,
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'specialist_role' => $specialist->role
+            ]);
+            
+            // Strategy 1: Exact match (normalized) - normalize user names too
+            $allUsers = User::all();
+            $user = null;
+            foreach ($allUsers as $u) {
+                $normalizedUserName = $normalizeName($u->name);
+                if (strcasecmp($normalizedUserName, $normalizedSpecialistName) === 0) {
+                    $user = $u;
+                    break;
+                }
+            }
+            
+            // Strategy 2: Match by first and last name (both must match)
+            if (!$user && $firstName && $lastName) {
+                $allUsers = User::all();
+                foreach ($allUsers as $u) {
+                    $normalizedUserName = $normalizeName($u->name);
+                    $userNameParts = array_filter(explode(' ', $normalizedUserName));
+                    $userFirstName = $userNameParts[0] ?? '';
+                    $userLastName = end($userNameParts) ?? '';
+                    
+                    if (strcasecmp($firstName, $userFirstName) === 0 && strcasecmp($lastName, $userLastName) === 0) {
+                        $user = $u;
+                        break;
+                    }
+                }
+            }
+            
+            // Strategy 3: Match by last name only (more flexible)
+            if (!$user && $lastName) {
+                $allUsers = User::all();
+                foreach ($allUsers as $u) {
+                    $normalizedUserName = $normalizeName($u->name);
+                    $userNameParts = array_filter(explode(' ', $normalizedUserName));
+                    $userLastName = end($userNameParts) ?? '';
+                    
+                    if (strcasecmp($lastName, $userLastName) === 0) {
+                        $user = $u;
+                        break;
+                    }
+                }
+            }
+            
+            // Strategy 4: Match by role and last name (most specific fallback)
+            if (!$user) {
+                $roleMapping = [
+                    'Doctor' => 'doctor',
+                    'Nurse' => 'nurse',
+                    'MedTech' => 'medtech',
+                ];
+                
+                $userRole = $roleMapping[$specialist->role] ?? null;
+                
+                if ($userRole && $lastName) {
+                    $usersWithRole = User::where('role', $userRole)->get();
+                    foreach ($usersWithRole as $u) {
+                        $normalizedUserName = $normalizeName($u->name);
+                        $userNameParts = array_filter(explode(' ', $normalizedUserName));
+                        $userLastName = end($userNameParts) ?? '';
+                        
+                        if (strcasecmp($lastName, $userLastName) === 0) {
+                            $user = $u;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if ($user) {
+                $staffId = $user->id;
+                Log::info('Successfully mapped specialist to user', [
+                    'specialist_name' => $specialist->name,
+                    'user_id' => $user->id,
+                    'user_name' => $user->name,
+                    'user_role' => $user->role
+                ]);
+            } else {
+                Log::warning('Could not find matching user for specialist', [
+                    'specialist_id' => $specialist->specialist_id,
+                    'specialist_name' => $specialist->name,
+                    'specialist_role' => $specialist->role
+                ]);
             }
         }
         
-        // Fallback to current user or admin
+        // If still no staff ID, try to find by specialist_type from appointment (only if we have a specialist name to match)
+        if (!$staffId && $appointment->specialist_type && $appointment->specialist) {
+            $roleMapping = [
+                'doctor' => 'doctor',
+                'Doctor' => 'doctor',
+                'medtech' => 'medtech',
+                'MedTech' => 'medtech',
+                'nurse' => 'nurse',
+                'Nurse' => 'nurse',
+            ];
+            
+            $userRole = $roleMapping[$appointment->specialist_type] ?? null;
+            if ($userRole && $appointment->specialist) {
+                // Try to match by specialist name parts with role
+                $specialist = $appointment->specialist;
+                $normalizeName = function($name) {
+                    $name = preg_replace('/\b(MD\.?|Dr\.?|Doctor|Mr\.?|Mrs\.?|Ms\.?)\b\.?/i', '', $name);
+                    $name = preg_replace('/\s+/', ' ', trim($name));
+                    return $name;
+                };
+                
+                $normalizedSpecialistName = $normalizeName($specialist->name);
+                $nameParts = array_filter(explode(' ', $normalizedSpecialistName));
+                $lastName = end($nameParts) ?? '';
+                
+                if ($lastName) {
+                    $usersWithRole = User::where('role', $userRole)->get();
+                    foreach ($usersWithRole as $u) {
+                        $normalizedUserName = $normalizeName($u->name);
+                        $userNameParts = array_filter(explode(' ', $normalizedUserName));
+                        $userLastName = end($userNameParts) ?? '';
+                        
+                        if (strcasecmp($lastName, $userLastName) === 0) {
+                            $staffId = $u->id;
+                            Log::info('Matched specialist to user by role and last name', [
+                                'specialist_name' => $specialist->name,
+                                'user_id' => $u->id,
+                                'user_name' => $u->name
+                            ]);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Final fallback to current user or admin (only if we couldn't find a match)
+        // This ensures we always have an attending staff, but logs a warning
         if (!$staffId) {
+            Log::warning('No matching user found for appointment specialist, using fallback', [
+                'appointment_id' => $appointment->id,
+                'specialist_id' => $appointment->specialist_id,
+                'specialist_name' => $appointment->specialist ? $appointment->specialist->name : null
+            ]);
+            
             $staffId = auth()->id();
             if (!$staffId) {
                 $adminUser = User::where('role', 'admin')->first();
@@ -242,22 +415,36 @@ class PendingAppointmentApprovalService
         
         $visitDateTime = $appointmentDate . ' ' . $appointmentTime;
         
+        // Generate visit_code before creation
+        $lastVisit = Visit::orderBy('id', 'desc')->first();
+        $nextVisitId = $lastVisit ? $lastVisit->id + 1 : 1;
+        $visitCode = 'V' . str_pad($nextVisitId, 4, '0', STR_PAD_LEFT);
+        
         $visitData = [
             'appointment_id' => $appointment->id,
             'patient_id' => $appointment->patient_id,
-            'visit_date_time_time' => $visitDateTime,
-            'visit_date_time' => $visitDateTime,
+            'visit_date_time_time' => $visitDateTime, // Only this column exists in the database
             'purpose' => $appointment->appointment_type,
             'status' => 'scheduled',
             'attending_staff_id' => $staffId,
+            'visit_code' => $visitCode, // Required field - generate before creation
         ];
 
         $visit = Visit::create($visitData);
         
         Log::info('Visit created from appointment', [
             'visit_id' => $visit->id,
+            'visit_code' => $visit->visit_code,
             'appointment_id' => $appointment->id,
-            'patient_id' => $appointment->patient_id
+            'appointment_code' => $appointment->appointment_code,
+            'patient_id' => $appointment->patient_id,
+            'attending_staff_id' => $staffId,
+            'specialist_id' => $appointment->specialist_id,
+            'specialist_name' => $appointment->specialist ? $appointment->specialist->name : null,
+            'specialist_type' => $appointment->specialist_type,
+            'purpose' => $appointment->appointment_type,
+            'visit_date_time_time' => $visitDateTime,
+            'status' => 'scheduled'
         ]);
 
         return $visit;

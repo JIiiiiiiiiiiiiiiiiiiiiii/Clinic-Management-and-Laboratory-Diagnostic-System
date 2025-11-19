@@ -93,6 +93,27 @@ type PendingAppointment = {
         lab_test_name: string;
         price: number;
         status: string;
+        source?: 'appointment' | 'visit';
+        ordered_by?: string;
+        lab_order_id?: number;
+    }>;
+    visit?: {
+        id: number;
+        visit_code: string;
+        visit_date_time_time: string;
+        status: string;
+        attending_staff?: {
+            id: number;
+            name: string;
+            role: string;
+        };
+    };
+    visit_lab_orders?: Array<{
+        id: number;
+        status: string;
+        ordered_by: string;
+        notes: string;
+        created_at: string;
     }>;
 };
 

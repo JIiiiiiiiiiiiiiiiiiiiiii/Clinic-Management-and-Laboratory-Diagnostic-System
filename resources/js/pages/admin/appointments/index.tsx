@@ -12,8 +12,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
     DropdownMenu,
     DropdownMenuCheckboxItem,
@@ -93,7 +96,7 @@ const appointmentTypes = [
 ];
 
 // Column definitions for the appointments data table
-const createColumns = (handleDeleteAppointment: (appointment: any) => void, handleEditAppointment: (appointment: any) => void, handleViewAppointment: (appointment: any) => void, handleAddLabTests: (appointment: any) => void): ColumnDef<any>[] => [
+const createColumns = (handleDeleteAppointment: (appointment: any) => void, handleEditAppointment: (appointment: any) => void, handleViewAppointment: (appointment: any) => void, handleAddLabTests: (appointment: any) => void, handleViewVisit: (appointment: any) => void): ColumnDef<any>[] => [
     {
         accessorKey: "patient_id_display",
         header: ({ column }) => {
@@ -290,6 +293,12 @@ const createColumns = (handleDeleteAppointment: (appointment: any) => void, hand
                             <Eye className="mr-2 h-4 w-4" />
                             View appointment
                         </DropdownMenuItem>
+                        {appointment.visit_id && (
+                            <DropdownMenuItem onClick={() => handleViewVisit(appointment)}>
+                                <Stethoscope className="mr-2 h-4 w-4" />
+                                View Visit
+                            </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => handleEditAppointment(appointment)}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit appointment
@@ -375,9 +384,10 @@ interface AppointmentsIndexProps {
     doctors?: any[];
     medtechs?: any[];
     appointmentTypes?: Array<{ value: string; label: string }>;
+    patients?: Array<{ id: number; first_name: string; last_name: string; middle_name?: string; patient_no: string }>;
 }
 
-export default function AppointmentsIndex({ appointments, filters, nextPatientId, doctors = [], medtechs = [], appointmentTypes = [] }: AppointmentsIndexProps & { nextPatientId?: string }) {
+export default function AppointmentsIndex({ appointments, filters, nextPatientId, doctors = [], medtechs = [], appointmentTypes = [], patients = [] }: AppointmentsIndexProps & { nextPatientId?: string }) {
     const { permissions } = useRoleAccess();
     const [appointmentsList, setAppointmentsList] = useState(appointments.data);
     const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list' as 'list' | 'calendar');
@@ -450,6 +460,7 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
     // Modal states
     const [showEditModal, setShowEditModal] = useState(false);
     const [showViewModal, setShowViewModal] = useState(false);
+    const [showWalkInModal, setShowWalkInModal] = useState(false);
     const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
     const [notifications, setNotifications] = useState<any[]>([]);
     const [showNotifications, setShowNotifications] = useState(false);
@@ -482,15 +493,26 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
     }, [showNotifications]);
     const [editForm, setEditForm] = useState({
         patientName: '',
-        doctor: '',
+        specialist_type: 'doctor',
+        specialist_id: '',
         date: '',
         time: '',
         type: '',
         status: '',
         duration: '',
         notes: '',
-        contactNumber: ''
+        contactNumber: '',
+        additional_info: ''
     });
+    
+    // Debug: Log editForm changes
+    useEffect(() => {
+        if (showEditModal) {
+            console.log('Edit form state updated:', editForm);
+        }
+    }, [editForm, showEditModal]);
+    const [editAvailableTimeSlots, setEditAvailableTimeSlots] = useState<Array<{ value: string; label: string }>>([]);
+    const [isLoadingEditTimeSlots, setIsLoadingEditTimeSlots] = useState(false);
 
     // Calculate price based on appointment type
     const calculatePrice = (appointmentType: string) => {
@@ -568,19 +590,216 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
             }
         }
         
-        setEditForm({
+        // Determine specialist_type and specialist_id
+        let specialistType = appointment.specialist_type || 'doctor';
+        let specialistId = appointment.specialist_id || '';
+        
+        // If we have a specialist relationship, use it
+        if (!specialistId && appointment.specialist) {
+            specialistId = appointment.specialist.specialist_id || appointment.specialist.id || '';
+            specialistType = appointment.specialist.role === 'MedTech' ? 'medtech' : 'doctor';
+        }
+        
+        // Find the specialist in doctors/medtechs arrays to ensure ID matches
+        const allSpecialists = [...doctors, ...medtechs];
+        let foundSpecialist = null;
+        
+        if (specialistId) {
+            foundSpecialist = allSpecialists.find(s => {
+                // Try multiple ways to match
+                return s.id?.toString() === specialistId.toString() ||
+                       s.specialist_id?.toString() === specialistId.toString();
+            });
+        }
+        
+        // If not found by ID, try to find by name
+        if (!foundSpecialist && appointment.specialist_name) {
+            foundSpecialist = allSpecialists.find(s => 
+                s.name === appointment.specialist_name || 
+                s.name?.toLowerCase() === appointment.specialist_name?.toLowerCase()
+            );
+        }
+        
+        // If found, use the ID from the array (to ensure it matches)
+        if (foundSpecialist) {
+            specialistId = foundSpecialist.id?.toString() || foundSpecialist.specialist_id?.toString() || '';
+            // Determine type based on which array it's in
+            if (doctors.find(d => (d.id || d.specialist_id)?.toString() === specialistId)) {
+                specialistType = 'doctor';
+            } else if (medtechs.find(m => (m.id || m.specialist_id)?.toString() === specialistId)) {
+                specialistType = 'medtech';
+            }
+        } else if (specialistId) {
+            // If not found but we have an ID, try to determine type from appointment
+            specialistType = appointment.specialist_type === 'medtech' ? 'medtech' : 'doctor';
+            console.warn('Specialist not found in doctors/medtechs arrays', {
+                specialistId,
+                specialistName: appointment.specialist_name,
+                availableDoctors: doctors.map(d => ({ id: d.id, name: d.name })),
+                availableMedtechs: medtechs.map(m => ({ id: m.id, name: m.name }))
+            });
+        } else {
+            // No specialist ID, default to doctor
+            specialistType = 'doctor';
+            specialistId = '';
+        }
+        
+        // Format time to 12-hour format for display
+        let formattedTimeDisplay = '';
+        if (formattedTime) {
+            const [hours, minutes] = formattedTime.split(':');
+            const date = new Date();
+            date.setHours(parseInt(hours), parseInt(minutes || '0'), 0, 0);
+            formattedTimeDisplay = date.toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit', 
+                hour12: true 
+            });
+        }
+        
+        // Debug logging
+        console.log('Setting edit form with:', {
+            specialistType,
+            specialistId,
+            specialistIdString: specialistId ? specialistId.toString() : 'EMPTY',
+            appointment_type: appointment.appointment_type,
+            status: appointment.status,
+            duration: appointment.duration,
+            availableDoctors: doctors.map(d => ({ id: d.id, idString: d.id?.toString(), name: d.name })),
+            availableMedtechs: medtechs.map(m => ({ id: m.id, idString: m.id?.toString(), name: m.name }))
+        });
+        
+        // Find matching appointment type from available types
+        let matchedAppointmentType = appointment.appointment_type ? String(appointment.appointment_type) : '';
+        if (matchedAppointmentType && appointmentTypes.length > 0) {
+            // Try to find exact match first
+            const exactMatch = appointmentTypes.find(t => t.value === matchedAppointmentType);
+            if (!exactMatch) {
+                // Try case-insensitive match
+                const caseInsensitiveMatch = appointmentTypes.find(t => 
+                    t.value.toLowerCase() === matchedAppointmentType.toLowerCase() ||
+                    t.label.toLowerCase() === matchedAppointmentType.toLowerCase()
+                );
+                if (caseInsensitiveMatch) {
+                    matchedAppointmentType = caseInsensitiveMatch.value;
+                    console.log('Matched appointment type (case-insensitive):', matchedAppointmentType);
+                } else {
+                    console.warn('Could not find matching appointment type for:', matchedAppointmentType, 'Available:', appointmentTypes.map(t => t.value));
+                }
+            }
+        }
+        
+        const formData = {
             patientName: appointment.patient_name || '',
-            doctor: appointment.specialist_name || '',
-            date: formattedDate,
-            time: formattedTime,
-            type: appointment.appointment_type || '',
+            specialist_type: specialistType || 'doctor',
+            specialist_id: specialistId ? specialistId.toString() : '',
+            date: formattedDate || '',
+            time: formattedTimeDisplay || '',
+            type: matchedAppointmentType || '',
             status: appointment.status || '',
             duration: appointment.duration || '',
-            notes: appointment.notes || '',
-            contactNumber: appointment.contact_number || ''
-        });
+            notes: appointment.notes || appointment.admin_notes || '',
+            contactNumber: appointment.contact_number || '',
+            additional_info: appointment.additional_info || appointment.special_requirements || ''
+        };
+        
+        setEditForm(formData);
+        
+        // Open modal immediately - React will batch the state updates
         setShowEditModal(true);
-    }, []);
+    }, [doctors, medtechs, appointmentTypes]);
+    
+    // Fetch available time slots for edit modal
+    useEffect(() => {
+        const fetchEditTimeSlots = async () => {
+            if (!editForm.specialist_id || !editForm.date || !showEditModal) {
+                setEditAvailableTimeSlots([]);
+                return;
+            }
+
+            setIsLoadingEditTimeSlots(true);
+            try {
+                const allSpecialists = [...doctors, ...medtechs];
+                const specialist = allSpecialists.find(s => s.id.toString() === editForm.specialist_id);
+                if (!specialist || !specialist.schedule_data) {
+                    setEditAvailableTimeSlots([]);
+                    setIsLoadingEditTimeSlots(false);
+                    return;
+                }
+
+                const selectedDate = new Date(editForm.date);
+                const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+                const daySchedule = (specialist.schedule_data as any)[dayOfWeek] || [];
+                
+                if (daySchedule.length === 0) {
+                    setEditAvailableTimeSlots([]);
+                    setIsLoadingEditTimeSlots(false);
+                    return;
+                }
+
+                const response = await fetch(`/admin/appointments/api/check-availability?specialist_id=${editForm.specialist_id}&date=${editForm.date}`);
+                const bookedTimes = response.ok ? await response.json() : [];
+
+                const bookedTimeStrings = bookedTimes.map((time: string) => {
+                    let hours: number, minutes: number;
+                    if (time.includes(':')) {
+                        const parts = time.split(':');
+                        hours = parseInt(parts[0] || '0');
+                        minutes = parseInt(parts[1] || '0');
+                    } else {
+                        const parsed = new Date(`2000-01-01 ${time}`);
+                        if (!isNaN(parsed.getTime())) {
+                            hours = parsed.getHours();
+                            minutes = parsed.getMinutes();
+                        } else {
+                            return time;
+                        }
+                    }
+                    const date = new Date();
+                    date.setHours(hours, minutes, 0, 0);
+                    return date.toLocaleTimeString('en-US', { 
+                        hour: 'numeric', 
+                        minute: '2-digit', 
+                        hour12: true 
+                    });
+                });
+
+                const slots = daySchedule
+                    .map((time: string) => {
+                        const [hours, minutes] = time.split(':');
+                        const date = new Date();
+                        date.setHours(parseInt(hours), parseInt(minutes || '0'), 0, 0);
+                        const timeString = date.toLocaleTimeString('en-US', { 
+                            hour: 'numeric', 
+                            minute: '2-digit', 
+                            hour12: true 
+                        });
+                        return {
+                            value: timeString,
+                            label: timeString,
+                            raw: time
+                        };
+                    })
+                    .filter((slot: any) => {
+                        // Include current time even if booked, or if not booked
+                        return slot.value === editForm.time || !bookedTimeStrings.includes(slot.value);
+                    })
+                    .map((slot: any) => ({
+                        value: slot.value,
+                        label: slot.label
+                    }));
+
+                setEditAvailableTimeSlots(slots);
+            } catch (error) {
+                console.error('Error fetching edit time slots:', error);
+                setEditAvailableTimeSlots([]);
+            } finally {
+                setIsLoadingEditTimeSlots(false);
+            }
+        };
+
+        fetchEditTimeSlots();
+    }, [editForm.specialist_id, editForm.date, showEditModal, doctors, medtechs, editForm.time]);
 
     const handleViewAppointment = useCallback((appointment: any) => {
         // For now, use the appointment data from the list
@@ -589,8 +808,14 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
         setShowViewModal(true);
     }, []);
 
+    const handleViewVisit = useCallback((appointment: any) => {
+        if (appointment.visit_id) {
+            router.get(`/admin/visits/${appointment.visit_id}/edit`);
+        }
+    }, []);
+
     const handleSaveEdit = () => {
-        if (!editForm.patientName || !editForm.doctor || !editForm.date || !editForm.time) {
+        if (!editForm.patientName || !editForm.specialist_id || !editForm.date || !editForm.time) {
             alert('Please fill in all required fields');
             return;
         }
@@ -602,42 +827,26 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
             patientId = selectedAppointment.patient.id || selectedAppointment.patient.patient_id || null;
         }
         
-        // Extract specialist_id - first check if doctor was changed in the form
-        let specialistId = selectedAppointment.specialist_id;
+        // Use specialist_id and specialist_type from form
+        const specialistId = editForm.specialist_id;
+        const specialistType = editForm.specialist_type === 'doctor' ? 'doctor' : 'medtech';
         
-        // If doctor name changed, find the doctor by name and get their ID
-        if (editForm.doctor && editForm.doctor !== selectedAppointment.specialist_name) {
-            const selectedDoctor = doctors.find(d => d.name === editForm.doctor);
-            if (selectedDoctor) {
-                // Doctors array has 'id' which is mapped from specialist_id
-                specialistId = selectedDoctor.id || selectedDoctor.specialist_id || null;
-                console.log('Doctor changed, found specialist_id:', specialistId, 'from doctor:', selectedDoctor);
-            } else {
-                console.warn('Doctor not found in doctors array:', editForm.doctor, 'Available doctors:', doctors.map(d => d.name));
+        // Convert time from 12-hour format to 24-hour format for database
+        let timeForDb = editForm.time;
+        if (timeForDb) {
+            try {
+                const [timePart, period] = timeForDb.split(' ');
+                const [hours, minutes] = timePart.split(':');
+                let hour24 = parseInt(hours);
+                if (period === 'PM' && hour24 !== 12) {
+                    hour24 += 12;
+                } else if (period === 'AM' && hour24 === 12) {
+                    hour24 = 0;
+                }
+                timeForDb = `${hour24.toString().padStart(2, '0')}:${minutes}:00`;
+            } catch (e) {
+                console.error('Error converting time format:', e);
             }
-        }
-        
-        // If still not found, try to get from appointment data
-        if (!specialistId && selectedAppointment.specialist) {
-            // Try to get from specialist relationship
-            specialistId = selectedAppointment.specialist.specialist_id || selectedAppointment.specialist.id || null;
-        }
-        
-        // Extract specialist_type
-        let specialistType = selectedAppointment.specialist_type;
-        
-        // If doctor was changed, get type from the selected doctor
-        if (editForm.doctor && editForm.doctor !== selectedAppointment.specialist_name) {
-            const selectedDoctor = doctors.find(d => d.name === editForm.doctor);
-            if (selectedDoctor) {
-                specialistType = selectedDoctor.role || 'Doctor';
-            }
-        }
-        
-        // If still not found, try to get from appointment data
-        if (!specialistType && selectedAppointment.specialist) {
-            // Try to get from specialist relationship
-            specialistType = selectedAppointment.specialist.role || null;
         }
         
         // Only include specialist_id if it's not null/undefined
@@ -648,10 +857,12 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
         const updatePayload: any = {
             patient_id: patientId || undefined, // Send undefined instead of null
             appointment_date: editForm.date,
-            appointment_time: editForm.time,
+            appointment_time: timeForDb,
             appointment_type: editForm.type,
             status: editForm.status,
             duration: editForm.duration,
+            specialist_id: specialistId,
+            specialist_type: specialistType,
         };
         
         // Map notes to admin_notes (database column name)
@@ -659,17 +870,9 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
             updatePayload.admin_notes = editForm.notes;
         }
         
-        // Map special_requirements to additional_info (database column name)
-        if (selectedAppointment.special_requirements) {
-            updatePayload.additional_info = selectedAppointment.special_requirements;
-        }
-        
-        // Only add specialist_id and specialist_type if they have values
-        if (specialistId !== null && specialistId !== undefined) {
-            updatePayload.specialist_id = specialistId;
-        }
-        if (specialistType) {
-            updatePayload.specialist_type = specialistType;
+        // Map additional_info
+        if (editForm.additional_info !== undefined) {
+            updatePayload.additional_info = editForm.additional_info;
         }
         
         console.log('Sending update with:', {
@@ -796,12 +999,12 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
     const handleCloseModals = () => {
         setShowEditModal(false);
         setShowViewModal(false);
+        setShowWalkInModal(false);
         setSelectedAppointment(null);
     };
 
     const handleNewAppointment = () => {
-        // Redirect to the shared appointment booking page (explicit path to avoid relative routing issues)
-        router.visit('/admin/appointments/walk-in');
+        setShowWalkInModal(true);
     };
 
     const handleAddLabTests = useCallback((appointment: any) => {
@@ -889,8 +1092,8 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
 
     // Initialize table - optimized columns with useMemo
     const columns = useMemo(() => 
-        createColumns(handleDeleteAppointment, handleEditAppointment, handleViewAppointment, handleAddLabTests), 
-        [handleDeleteAppointment, handleEditAppointment, handleViewAppointment, handleAddLabTests]
+        createColumns(handleDeleteAppointment, handleEditAppointment, handleViewAppointment, handleAddLabTests, handleViewVisit), 
+        [handleDeleteAppointment, handleEditAppointment, handleViewAppointment, handleAddLabTests, handleViewVisit]
     );
     const table = useReactTable({
         data: preFilteredData || [],
@@ -1306,7 +1509,10 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                 {/* Edit Appointment Modal */}
                 {showEditModal && selectedAppointment && (
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4" onClick={handleCloseModals}>
-                        <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto z-[101]" onClick={(e) => e.stopPropagation()}>
+                        <div 
+                            className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto z-[101]" 
+                            onClick={(e) => e.stopPropagation()}
+                        >
                             <Card className="border-0">
                                 <CardHeader className="bg-white border-b border-gray-200">
                                     <div className="flex items-center justify-between">
@@ -1326,26 +1532,62 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                 </CardHeader>
                                 <CardContent className="p-6">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-black mb-2">Patient Name</label>
+                                        {/* Patient Name - Read Only */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_patient_name">Patient Name</Label>
                                             <Input
                                                 value={editForm.patientName}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, patientName: e.target.value }))}
-                                                placeholder="Enter patient name"
+                                                readOnly
+                                                disabled
+                                                className="bg-gray-50 cursor-not-allowed"
+                                                placeholder="Patient name"
                                             />
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-black mb-2">Doctor</label>
-                                            <select
-                                                value={editForm.doctor}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, doctor: e.target.value }))}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                                        {/* Specialist Type */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_specialist_type">Specialist Type *</Label>
+                                            <Select
+                                                value={editForm.specialist_type}
+                                                onValueChange={(value) => {
+                                                    setEditForm(prev => ({ ...prev, specialist_type: value, specialist_id: '', time: '' }));
+                                                    setEditAvailableTimeSlots([]);
+                                                }}
                                             >
-                                                <option value="">Select doctor...</option>
-                                                {doctors.map(doctor => (
-                                                    <option key={doctor.id} value={doctor.name}>{doctor.name}</option>
-                                                ))}
-                                            </select>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select specialist type" />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[110]" position="item-aligned">
+                                                    <SelectItem value="doctor">Doctor</SelectItem>
+                                                    <SelectItem value="medtech">MedTech</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        
+                                        {/* Specialist Selection */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_specialist_id">Attending {editForm.specialist_type === 'doctor' ? 'Physician' : 'MedTech'} *</Label>
+                                            <Select
+                                                value={editForm.specialist_id}
+                                                onValueChange={(value) => {
+                                                    setEditForm(prev => ({ ...prev, specialist_id: value, time: '' }));
+                                                    setEditAvailableTimeSlots([]);
+                                                }}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={`Select ${editForm.specialist_type === 'doctor' ? 'doctor' : 'medtech'}`} />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[110]" position="item-aligned">
+                                                    {(editForm.specialist_type === 'doctor' ? doctors : medtechs).length > 0 ? (
+                                                        (editForm.specialist_type === 'doctor' ? doctors : medtechs).map((specialist) => (
+                                                            <SelectItem key={specialist.id} value={specialist.id.toString()}>
+                                                                {specialist.name} {specialist.specialization ? `(${specialist.specialization})` : ''}
+                                                            </SelectItem>
+                                                        ))
+                                                    ) : (
+                                                        <div className="p-2 text-sm text-gray-500">No {editForm.specialist_type === 'doctor' ? 'doctors' : 'medtechs'} available</div>
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-black mb-2">Date</label>
@@ -1355,90 +1597,128 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                                 onChange={(e) => setEditForm(prev => ({ ...prev, date: e.target.value }))}
                                             />
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-black mb-2">Time</label>
-                                            <Input
-                                                type="time"
+                                        {/* Appointment Time */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_appointment_time">Appointment Time *</Label>
+                                            <Select
                                                 value={editForm.time}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, time: e.target.value }))}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-black mb-2">Appointment Type</label>
-                                            <select
-                                                value={editForm.type}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, type: e.target.value }))}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                                                onValueChange={(value) => setEditForm(prev => ({ ...prev, time: value }))}
+                                                disabled={!editForm.specialist_id || !editForm.date || isLoadingEditTimeSlots || editAvailableTimeSlots.length === 0}
                                             >
-                                                <option value="">Select type...</option>
-                                                {appointmentTypes.length > 0 ? (
-                                                    appointmentTypes.map((type) => (
-                                                        <option key={type.value} value={type.value}>
-                                                            {type.label}
-                                                        </option>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={
+                                                        !editForm.specialist_id ? "Select specialist first" :
+                                                        !editForm.date ? "Select date first" :
+                                                        isLoadingEditTimeSlots ? "Loading available times..." :
+                                                        editAvailableTimeSlots.length === 0 ? "No available times" :
+                                                        "Select time"
+                                                    } />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[110]" position="item-aligned">
+                                                    {editAvailableTimeSlots.length > 0 ? (
+                                                        editAvailableTimeSlots.map((slot) => (
+                                                            <SelectItem key={slot.value} value={slot.value}>
+                                                                {slot.label}
+                                                            </SelectItem>
                                                     ))
                                                 ) : (
-                                                    // Fallback options if no appointment types from database
-                                                    <>
-                                                        <option value="consultation">Consultation</option>
-                                                        <option value="general_consultation">General Consultation</option>
-                                                        <option value="checkup">Check-up</option>
-                                                        <option value="Follow-up">Follow-up</option>
-                                                        <option value="fecalysis">Fecalysis</option>
-                                                        <option value="fecalysis_test">Fecalysis Test</option>
-                                                        <option value="cbc">CBC (Complete Blood Count)</option>
-                                                        <option value="urinalysis">Urinalysis</option>
-                                                        <option value="urinarysis_test">Urinarysis Test</option>
-                                                        <option value="x-ray">X-Ray</option>
-                                                        <option value="ultrasound">Ultrasound</option>
-                                                        <option value="Emergency">Emergency</option>
-                                                        <option value="Routine Checkup">Routine Checkup</option>
-                                                    </>
-                                                )}
-                                            </select>
+                                                        <div className="p-2 text-sm text-gray-500">
+                                                            {!editForm.specialist_id ? "Please select a specialist first" :
+                                                             !editForm.date ? "Please select a date first" :
+                                                             isLoadingEditTimeSlots ? "Loading..." :
+                                                             "No available time slots for this date"}
+                                                        </div>
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                            {editForm.specialist_id && editForm.date && editAvailableTimeSlots.length === 0 && !isLoadingEditTimeSlots && (
+                                                <p className="text-xs text-amber-600">
+                                                    No available time slots. The specialist may not have a schedule for this day or all slots are booked.
+                                                </p>
+                                            )}
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-black mb-2">Status</label>
-                                            <select
+                                        {/* Appointment Type */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_appointment_type">Appointment Type *</Label>
+                                            <Select
+                                                value={editForm.type}
+                                                onValueChange={(value) => setEditForm(prev => ({ ...prev, type: value }))}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select appointment type" />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[110]" position="item-aligned">
+                                                    {appointmentTypes.map((type) => (
+                                                        <SelectItem key={type.value} value={type.value}>
+                                                            {type.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        {/* Status */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_status">Status *</Label>
+                                            <Select
                                                 value={editForm.status}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                                                onValueChange={(value) => setEditForm(prev => ({ ...prev, status: value }))}
                                             >
-                                                <option value="">Select status...</option>
-                                                <option value="Confirmed">Confirmed</option>
-                                                <option value="Pending">Pending</option>
-                                                <option value="Cancelled">Cancelled</option>
-                                                <option value="Completed">Completed</option>
-                                            </select>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select status" />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[110]" position="item-aligned">
+                                                    <SelectItem value="Confirmed">Confirmed</SelectItem>
+                                                    <SelectItem value="Pending">Pending</SelectItem>
+                                                    <SelectItem value="Cancelled">Cancelled</SelectItem>
+                                                    <SelectItem value="Completed">Completed</SelectItem>
+                                                </SelectContent>
+                                            </Select>
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-black mb-2">Duration</label>
-                                            <select
+                                        {/* Duration */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_duration">Duration *</Label>
+                                            <Select
                                                 value={editForm.duration}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, duration: e.target.value }))}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                                                onValueChange={(value) => setEditForm(prev => ({ ...prev, duration: value }))}
                                             >
-                                                <option value="">Select duration...</option>
-                                                <option value="30 min">30 minutes</option>
-                                                <option value="45 min">45 minutes</option>
-                                                <option value="60 min">60 minutes</option>
-                                            </select>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select duration" />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[110]" position="item-aligned">
+                                                    <SelectItem value="30 min">30 minutes</SelectItem>
+                                                    <SelectItem value="45 min">45 minutes</SelectItem>
+                                                    <SelectItem value="60 min">60 minutes</SelectItem>
+                                                </SelectContent>
+                                            </Select>
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-black mb-2">Contact Number</label>
+                                        {/* Contact Number */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_contact_number">Contact Number</Label>
                                             <Input
                                                 value={editForm.contactNumber}
                                                 onChange={(e) => setEditForm(prev => ({ ...prev, contactNumber: e.target.value }))}
                                                 placeholder="Enter contact number"
                                             />
                                         </div>
-                                        <div className="md:col-span-2">
-                                            <label className="block text-sm font-medium text-black mb-2">Notes</label>
-                                            <textarea
+                                        
+                                        {/* Additional Notes */}
+                                        <div className="md:col-span-2 space-y-2">
+                                            <Label htmlFor="edit_additional_info">Additional Notes (Optional)</Label>
+                                            <Textarea
+                                                value={editForm.additional_info || ''}
+                                                onChange={(e) => setEditForm(prev => ({ ...prev, additional_info: e.target.value }))}
+                                                placeholder="Enter any additional information or special requirements..."
+                                                rows={3}
+                                            />
+                                        </div>
+                                        
+                                        {/* Admin Notes */}
+                                        <div className="md:col-span-2 space-y-2">
+                                            <Label htmlFor="edit_notes">Admin Notes</Label>
+                                            <Textarea
                                                 value={editForm.notes}
                                                 onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
-                                                placeholder="Enter appointment notes..."
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                                                placeholder="Enter admin notes..."
                                                 rows={3}
                                             />
                                         </div>
@@ -1578,6 +1858,18 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                         >
                                             Close
                                         </Button>
+                                        {selectedAppointment.visit_id && (
+                                            <Button
+                                                onClick={() => {
+                                                    handleCloseModals();
+                                                    router.get(`/admin/visits/${selectedAppointment.visit_id}/edit`);
+                                                }}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 flex items-center gap-2"
+                                            >
+                                                <Stethoscope className="h-4 w-4" />
+                                                View Visit
+                                            </Button>
+                                        )}
                                         <Button
                                             onClick={() => {
                                                 handleCloseModals();
@@ -1707,7 +1999,452 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                         </Card>
                     </div>
                 )}
+
+                {/* Walk-in Appointment Modal */}
+                <Dialog open={showWalkInModal} onOpenChange={setShowWalkInModal}>
+                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <CalendarDays className="h-5 w-5" />
+                                Create Walk-in Appointment
+                            </DialogTitle>
+                            <DialogDescription>
+                                Create a new appointment for an existing patient. If the patient doesn't exist, please create their profile first.
+                            </DialogDescription>
+                        </DialogHeader>
+                        
+                        <WalkInAppointmentForm
+                            patients={patients}
+                            doctors={doctors}
+                            medtechs={medtechs}
+                            appointmentTypes={appointmentTypes}
+                            onClose={() => setShowWalkInModal(false)}
+                            onSuccess={() => {
+                                setShowWalkInModal(false);
+                                router.reload({ only: ['appointments'] });
+                                toast.success('Walk-in appointment created successfully!');
+                            }}
+                        />
+                    </DialogContent>
+                </Dialog>
             </div>
         </AppLayout>
+    );
+}
+
+// Walk-in Appointment Form Component
+function WalkInAppointmentForm({
+    patients,
+    doctors,
+    medtechs,
+    appointmentTypes,
+    onClose,
+    onSuccess
+}: {
+    patients: Array<{ id: number; first_name: string; last_name: string; middle_name?: string; patient_no: string; mobile_no?: string; telephone_no?: string; email?: string }>;
+    doctors: any[];
+    medtechs: any[];
+    appointmentTypes: Array<{ value: string; label: string }>;
+    onClose: () => void;
+    onSuccess: () => void;
+}) {
+    const [formData, setFormData] = useState({
+        patient_id: '',
+        appointment_type: '',
+        specialist_type: 'doctor',
+        specialist_id: '',
+        appointment_date: new Date().toISOString().split('T')[0],
+        appointment_time: '',
+        additional_info: ''
+    });
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [availableSpecialists, setAvailableSpecialists] = useState<any[]>([]);
+    const [availableTimeSlots, setAvailableTimeSlots] = useState<Array<{ value: string; label: string }>>([]);
+    const [isLoadingTimeSlots, setIsLoadingTimeSlots] = useState(false);
+
+    // Update available specialists when specialist_type changes
+    useEffect(() => {
+        if (formData.specialist_type === 'doctor') {
+            setAvailableSpecialists(doctors);
+        } else if (formData.specialist_type === 'medtech') {
+            setAvailableSpecialists(medtechs);
+        } else {
+            setAvailableSpecialists([]);
+        }
+        // Reset specialist_id and time when type changes
+        setFormData(prev => ({ ...prev, specialist_id: '', appointment_time: '' }));
+        setAvailableTimeSlots([]);
+    }, [formData.specialist_type, doctors, medtechs]);
+
+    // Fetch available time slots based on specialist schedule and existing appointments
+    useEffect(() => {
+        const fetchAvailableTimeSlots = async () => {
+            if (!formData.specialist_id || !formData.appointment_date) {
+                setAvailableTimeSlots([]);
+                return;
+            }
+
+            setIsLoadingTimeSlots(true);
+            try {
+                // Get selected specialist
+                const specialist = availableSpecialists.find(s => s.id.toString() === formData.specialist_id);
+                if (!specialist || !specialist.schedule_data) {
+                    setAvailableTimeSlots([]);
+                    setIsLoadingTimeSlots(false);
+                    return;
+                }
+
+                // Get day of week from selected date
+                const selectedDate = new Date(formData.appointment_date);
+                const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+                
+                // Get available times for that day from specialist's schedule
+                const daySchedule = (specialist.schedule_data as any)[dayOfWeek] || [];
+                
+                if (daySchedule.length === 0) {
+                    setAvailableTimeSlots([]);
+                    setIsLoadingTimeSlots(false);
+                    return;
+                }
+
+                // Get existing appointments for this specialist on this date
+                const response = await fetch(`/admin/appointments/api/check-availability?specialist_id=${formData.specialist_id}&date=${formData.appointment_date}`);
+                const bookedTimes = response.ok ? await response.json() : [];
+
+                // Convert booked times to comparable format
+                const bookedTimeStrings = bookedTimes.map((time: string) => {
+                    // Handle different time formats: "16:00:00", "16:00", or already formatted
+                    let hours: number, minutes: number;
+                    if (time.includes(':')) {
+                        const parts = time.split(':');
+                        hours = parseInt(parts[0] || '0');
+                        minutes = parseInt(parts[1] || '0');
+                    } else {
+                        // Try to parse as formatted time
+                        const parsed = new Date(`2000-01-01 ${time}`);
+                        if (!isNaN(parsed.getTime())) {
+                            hours = parsed.getHours();
+                            minutes = parsed.getMinutes();
+                        } else {
+                            return time; // Return as-is if can't parse
+                        }
+                    }
+                    const date = new Date();
+                    date.setHours(hours, minutes, 0, 0);
+                    return date.toLocaleTimeString('en-US', { 
+                        hour: 'numeric', 
+                        minute: '2-digit', 
+                        hour12: true 
+                    });
+                });
+
+                // Convert schedule times to display format and filter out booked times
+                const slots = daySchedule
+                    .map((time: string) => {
+                        // Convert 24-hour format (e.g., "08:00") to 12-hour format (e.g., "8:00 AM")
+                        const [hours, minutes] = time.split(':');
+                        const date = new Date();
+                        date.setHours(parseInt(hours), parseInt(minutes || '0'), 0, 0);
+                        const timeString = date.toLocaleTimeString('en-US', { 
+                            hour: 'numeric', 
+                            minute: '2-digit', 
+                            hour12: true 
+                        });
+                        return {
+                            value: timeString,
+                            label: timeString,
+                            raw: time
+                        };
+                    })
+                    .filter((slot: any) => !bookedTimeStrings.includes(slot.value))
+                    .map((slot: any) => ({
+                        value: slot.value,
+                        label: slot.label
+                    }));
+
+                setAvailableTimeSlots(slots);
+            } catch (error) {
+                console.error('Error fetching available time slots:', error);
+                setAvailableTimeSlots([]);
+            } finally {
+                setIsLoadingTimeSlots(false);
+            }
+        };
+
+        fetchAvailableTimeSlots();
+    }, [formData.specialist_id, formData.appointment_date, availableSpecialists]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setErrors({});
+        setIsSubmitting(true);
+
+        router.post('/admin/appointments/walk-in', formData, {
+            onSuccess: () => {
+                onSuccess();
+            },
+            onError: (errors) => {
+                if (errors && typeof errors === 'object') {
+                    setErrors(errors.errors || errors);
+                }
+                setIsSubmitting(false);
+            },
+            onFinish: () => {
+                setIsSubmitting(false);
+            }
+        });
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Patient Selection */}
+                <div className="space-y-2">
+                    <Label htmlFor="patient_id">Patient *</Label>
+                    <Select
+                        value={formData.patient_id}
+                        onValueChange={(value) => {
+                            // Find the selected patient
+                            const selectedPatient = patients.find(p => p.id.toString() === value);
+                            if (selectedPatient) {
+                                // Auto-populate contact number (prefer mobile_no, fallback to telephone_no)
+                                const contactNumber = selectedPatient.mobile_no || selectedPatient.telephone_no || '';
+                                setFormData(prev => ({ 
+                                    ...prev, 
+                                    patient_id: value,
+                                    contact_number: contactNumber
+                                }));
+                            } else {
+                                setFormData(prev => ({ ...prev, patient_id: value }));
+                            }
+                        }}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select patient" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {patients.length > 0 ? (
+                                patients.map((patient) => (
+                                    <SelectItem key={patient.id} value={patient.id.toString()}>
+                                        {patient.last_name}, {patient.first_name} {patient.middle_name ? patient.middle_name + ' ' : ''}({patient.patient_no})
+                                    </SelectItem>
+                                ))
+                            ) : (
+                                <div className="p-2 text-sm text-gray-500">No patients found. Please create a patient profile first.</div>
+                            )}
+                        </SelectContent>
+                    </Select>
+                    {errors.patient_id && <p className="text-sm text-red-600">{errors.patient_id}</p>}
+                </div>
+
+                {/* Appointment Type */}
+                <div className="space-y-2">
+                    <Label htmlFor="appointment_type">Appointment Type *</Label>
+                    <Select
+                        value={formData.appointment_type}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, appointment_type: value }))}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select appointment type" />
+                        </SelectTrigger>
+                        <SelectContent position="item-aligned">
+                            {appointmentTypes.map((type) => (
+                                <SelectItem key={type.value} value={type.value}>
+                                    {type.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    {errors.appointment_type && <p className="text-sm text-red-600">{errors.appointment_type}</p>}
+                </div>
+
+                {/* Specialist Type */}
+                <div className="space-y-2">
+                    <Label htmlFor="specialist_type">Specialist Type *</Label>
+                    <Select
+                        value={formData.specialist_type}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, specialist_type: value as 'doctor' | 'medtech' }))}
+                    >
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent position="item-aligned">
+                            <SelectItem value="doctor">Doctor</SelectItem>
+                            <SelectItem value="medtech">MedTech</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    {errors.specialist_type && <p className="text-sm text-red-600">{errors.specialist_type}</p>}
+                </div>
+
+                {/* Specialist Selection */}
+                <div className="space-y-2">
+                    <Label htmlFor="specialist_id">Attending {formData.specialist_type === 'doctor' ? 'Physician' : 'MedTech'} *</Label>
+                    <Select
+                        value={formData.specialist_id}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, specialist_id: value }))}
+                        disabled={availableSpecialists.length === 0}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder={`Select ${formData.specialist_type === 'doctor' ? 'doctor' : 'medtech'}`} />
+                        </SelectTrigger>
+                        <SelectContent position="item-aligned">
+                            {availableSpecialists.length > 0 ? (
+                                availableSpecialists.map((specialist) => (
+                                    <SelectItem key={specialist.id} value={specialist.id.toString()}>
+                                        {specialist.name} {specialist.specialization ? `- ${specialist.specialization}` : ''}
+                                    </SelectItem>
+                                ))
+                            ) : (
+                                <div className="p-2 text-sm text-gray-500">No {formData.specialist_type === 'doctor' ? 'doctors' : 'medtechs'} available</div>
+                            )}
+                        </SelectContent>
+                    </Select>
+                    {errors.specialist_id && <p className="text-sm text-red-600">{errors.specialist_id}</p>}
+                </div>
+
+                {/* Appointment Date */}
+                <div className="space-y-2">
+                    <Label htmlFor="appointment_date">Appointment Date *</Label>
+                    <Input
+                        id="appointment_date"
+                        type="date"
+                        value={formData.appointment_date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, appointment_date: e.target.value }))}
+                        min={new Date().toISOString().split('T')[0]}
+                    />
+                    {errors.appointment_date && <p className="text-sm text-red-600">{errors.appointment_date}</p>}
+                </div>
+
+                {/* Appointment Time */}
+                <div className="space-y-2">
+                    <Label htmlFor="appointment_time">Appointment Time *</Label>
+                    <Select
+                        value={formData.appointment_time}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, appointment_time: value }))}
+                        disabled={!formData.specialist_id || !formData.appointment_date || isLoadingTimeSlots || availableTimeSlots.length === 0}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder={
+                                !formData.specialist_id ? "Select specialist first" :
+                                !formData.appointment_date ? "Select date first" :
+                                isLoadingTimeSlots ? "Loading available times..." :
+                                availableTimeSlots.length === 0 ? "No available times" :
+                                "Select time"
+                            } />
+                        </SelectTrigger>
+                        <SelectContent position="item-aligned">
+                            {availableTimeSlots.length > 0 ? (
+                                availableTimeSlots.map((slot) => (
+                                    <SelectItem key={slot.value} value={slot.value}>
+                                        {slot.label}
+                                    </SelectItem>
+                                ))
+                            ) : (
+                                <div className="p-2 text-sm text-gray-500">
+                                    {!formData.specialist_id ? "Please select a specialist first" :
+                                     !formData.appointment_date ? "Please select a date first" :
+                                     isLoadingTimeSlots ? "Loading..." :
+                                     "No available time slots for this date"}
+                                </div>
+                            )}
+                        </SelectContent>
+                    </Select>
+                    {errors.appointment_time && <p className="text-sm text-red-600">{errors.appointment_time}</p>}
+                    {formData.specialist_id && formData.appointment_date && availableTimeSlots.length === 0 && !isLoadingTimeSlots && (
+                        <p className="text-xs text-amber-600">
+                            No available time slots. The specialist may not have a schedule for this day or all slots are booked.
+                        </p>
+                    )}
+                </div>
+
+                {/* Status */}
+                <div className="space-y-2">
+                    <Label htmlFor="status">Status *</Label>
+                    <Select
+                        value={formData.status}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent position="item-aligned">
+                            <SelectItem value="Confirmed">Confirmed</SelectItem>
+                            <SelectItem value="Pending">Pending</SelectItem>
+                            <SelectItem value="Cancelled">Cancelled</SelectItem>
+                            <SelectItem value="Completed">Completed</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    {errors.status && <p className="text-sm text-red-600">{errors.status}</p>}
+                </div>
+
+                {/* Duration */}
+                <div className="space-y-2">
+                    <Label htmlFor="duration">Duration *</Label>
+                    <Select
+                        value={formData.duration}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, duration: value }))}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select duration" />
+                        </SelectTrigger>
+                        <SelectContent position="item-aligned">
+                            <SelectItem value="30 min">30 minutes</SelectItem>
+                            <SelectItem value="45 min">45 minutes</SelectItem>
+                            <SelectItem value="60 min">60 minutes</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    {errors.duration && <p className="text-sm text-red-600">{errors.duration}</p>}
+                </div>
+
+                {/* Contact Number */}
+                <div className="space-y-2">
+                    <Label htmlFor="contact_number">Contact Number</Label>
+                    <Input
+                        id="contact_number"
+                        type="text"
+                        value={formData.contact_number}
+                        onChange={(e) => setFormData(prev => ({ ...prev, contact_number: e.target.value }))}
+                        placeholder="Enter contact number"
+                    />
+                    {errors.contact_number && <p className="text-sm text-red-600">{errors.contact_number}</p>}
+                </div>
+            </div>
+
+            {/* Additional Info */}
+            <div className="space-y-2">
+                <Label htmlFor="additional_info">Additional Notes (Optional)</Label>
+                <Textarea
+                    id="additional_info"
+                    value={formData.additional_info}
+                    onChange={(e) => setFormData(prev => ({ ...prev, additional_info: e.target.value }))}
+                    placeholder="Enter any additional information or special requirements..."
+                    rows={3}
+                />
+                {errors.additional_info && <p className="text-sm text-red-600">{errors.additional_info}</p>}
+            </div>
+
+            {/* Admin Notes */}
+            <div className="space-y-2">
+                <Label htmlFor="notes">Admin Notes</Label>
+                <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Enter admin notes..."
+                    rows={3}
+                />
+                {errors.notes && <p className="text-sm text-red-600">{errors.notes}</p>}
+            </div>
+
+            <DialogFooter>
+                <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+                    Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting || patients.length === 0}>
+                    {isSubmitting ? 'Creating...' : 'Create Appointment'}
+                </Button>
+            </DialogFooter>
+        </form>
     );
 }

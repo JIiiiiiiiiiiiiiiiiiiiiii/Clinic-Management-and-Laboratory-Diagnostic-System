@@ -298,6 +298,7 @@ class BillingController extends Controller
 
             // Get pending appointments - eager load relationships for patient/specialist data
             $pendingAppointments = $query->orderBy('appointments.appointment_date', 'asc')
+                ->with(['visit.labOrders.results.test', 'labTests.labTest', 'patient']) // Load visit with lab orders and patient
                 ->get()
                 ->map(function ($appointment) {
                     // Access joined columns from attributes (they should be preserved)
@@ -432,6 +433,83 @@ class BillingController extends Controller
                         $specialistName = 'Paul Henry N. Parrotina, MD.';
                     }
                     
+                    // Get visit information
+                    $visit = $appointment->visit;
+                    $visitData = null;
+                    if ($visit) {
+                        $visitData = [
+                            'id' => $visit->id,
+                            'visit_code' => $visit->visit_code,
+                            'visit_date_time_time' => $visit->visit_date_time_time ? $visit->visit_date_time_time->format('Y-m-d H:i:s') : null,
+                            'status' => $visit->status,
+                            'attending_staff' => $visit->attendingStaff ? [
+                                'id' => $visit->attendingStaff->id,
+                                'name' => $visit->attendingStaff->name,
+                                'role' => $visit->attendingStaff->role,
+                            ] : null,
+                        ];
+                    }
+                    
+                    // Get lab tests from appointment_lab_tests
+                    $appointmentLabTests = [];
+                    if ($appointment->labTests) {
+                        foreach ($appointment->labTests as $appointmentLabTest) {
+                            if ($appointmentLabTest->labTest) {
+                                $appointmentLabTests[] = [
+                                    'id' => $appointmentLabTest->lab_test_id,
+                                    'lab_test_name' => $appointmentLabTest->labTest->name,
+                                    'price' => $appointmentLabTest->unit_price ?? $appointmentLabTest->labTest->price ?? 0,
+                                    'status' => 'pending',
+                                    'source' => 'appointment',
+                                ];
+                            }
+                        }
+                    }
+                    
+                    // Get lab orders from visit (added by doctors during consultation)
+                    $visitLabOrders = [];
+                    $visitLabTests = [];
+                    if ($visit) {
+                        $labOrders = \App\Models\LabOrder::where('patient_visit_id', $visit->id)
+                            ->with('results.test', 'orderedBy')
+                            ->get();
+                        
+                        foreach ($labOrders as $labOrder) {
+                            foreach ($labOrder->results as $result) {
+                                if ($result->test) {
+                                    // Check if this lab test is already in appointment lab tests to avoid duplicates
+                                    $alreadyInAppointment = collect($appointmentLabTests)->contains(function ($test) use ($result) {
+                                        return $test['id'] === $result->lab_test_id;
+                                    });
+                                    
+                                    if (!$alreadyInAppointment) {
+                                        $visitLabTests[] = [
+                                            'id' => $result->lab_test_id,
+                                            'lab_test_name' => $result->test->name,
+                                            'price' => $result->test->price ?? 0,
+                                            'status' => 'pending',
+                                            'source' => 'visit',
+                                            'ordered_by' => $labOrder->orderedBy ? $labOrder->orderedBy->name : null,
+                                            'lab_order_id' => $labOrder->id,
+                                        ];
+                                    }
+                                }
+                            }
+                            
+                            $visitLabOrders[] = [
+                                'id' => $labOrder->id,
+                                'status' => $labOrder->status,
+                                'ordered_by' => $labOrder->orderedBy ? $labOrder->orderedBy->name : null,
+                                'notes' => $labOrder->notes,
+                                'created_at' => $labOrder->created_at,
+                            ];
+                        }
+                    }
+                    
+                    // Combine all lab tests
+                    $allLabTests = array_merge($appointmentLabTests, $visitLabTests);
+                    $totalLabAmount = collect($allLabTests)->sum('price');
+                    
                     return [
                         'id' => $appointment->id,
                         'patient_name' => $patientName,
@@ -446,15 +524,17 @@ class BillingController extends Controller
                         'duration' => $appointment->duration ?? '30 min',
                         'status' => $appointment->status ?? 'pending',
                         'price' => $appointment->price,
-                        'total_lab_amount' => $appointment->total_lab_amount ?? 0,
-                        'final_total_amount' => $appointment->final_total_amount ?? $appointment->price,
+                        'total_lab_amount' => $totalLabAmount,
+                        'final_total_amount' => $appointment->price + $totalLabAmount,
                         'billing_status' => $appointment->billing_status,
                         'source' => $appointment->source ?? 'online',
-                        'lab_tests_count' => 0, // Simplified for now
+                        'lab_tests_count' => count($allLabTests),
                         'notes' => $appointment->additional_info ?? null,
                         'special_requirements' => null, // This column doesn't exist in appointments table
                         'created_at' => $appointment->created_at,
                         'updated_at' => $appointment->updated_at,
+                        'visit' => $visitData,
+                        'visit_lab_orders' => $visitLabOrders,
                         'patient' => $appointment->patient_id ? [
                             'id' => $appointment->patient_id,
                             'first_name' => $appointment->patient_first_name ?? '',
@@ -462,8 +542,14 @@ class BillingController extends Controller
                             'patient_no' => $patientIdDisplay,
                             'present_address' => null, // Would need to join to get this
                             'mobile_no' => $contactNumber,
-                            'birth_date' => null, // Would need to join to get this
-                            'gender' => null, // Would need to join to get this
+                            'birth_date' => $appointment->patient ? ($appointment->patient->birthdate ? $appointment->patient->birthdate->format('Y-m-d') : null) : null,
+                            'gender' => $appointment->patient ? ($appointment->patient->sex ?? null) : null,
+                            'is_senior_citizen' => $appointment->patient ? ($appointment->patient->is_senior_citizen ?? ($appointment->patient->shouldBeSeniorCitizen() ?? false)) : false,
+                            'age' => $appointment->patient ? ($appointment->patient->getAge() ?? null) : null,
+                            'hmo_name' => $appointment->patient ? ($appointment->patient->hmo_name ?? null) : null,
+                            'hmo_id_no' => $appointment->patient ? ($appointment->patient->hmo_id_no ?? null) : null,
+                            'approval_code' => $appointment->patient ? ($appointment->patient->approval_code ?? null) : null,
+                            'validity' => $appointment->patient ? ($appointment->patient->validity ?? null) : null,
                         ] : null,
                         'specialist' => $appointment->specialist_id ? [
                             'id' => $appointment->specialist_id,
@@ -471,7 +557,7 @@ class BillingController extends Controller
                             'role' => $appointment->specialist_type ?? 'doctor',
                             'employee_id' => null, // Would need to join specialists table to get specialist_code
                         ] : null,
-                        'labTests' => [], // Simplified for now
+                        'labTests' => $allLabTests,
                     ];
                 });
 
@@ -678,9 +764,13 @@ class BillingController extends Controller
             $transaction = \App\Models\BillingTransaction::create($transactionData);
             
             // Update appointment billing status if payment is complete
+            // Use saveQuietly to skip model events and prevent duplicate check
             if ($request->status === 'paid') {
-                \App\Models\Appointment::where('id', $request->appointment_id)
-                    ->update(['billing_status' => 'paid']);
+                $appointment = \App\Models\Appointment::find($request->appointment_id);
+                if ($appointment) {
+                    $appointment->billing_status = 'paid';
+                    $appointment->saveQuietly();
+                }
             }
             
             \Log::info('Billing transaction created successfully:', ['id' => $transaction->id]);
@@ -908,7 +998,7 @@ class BillingController extends Controller
                           ->orWhere('billing_status', 'not_billed');
                 })
                 ->whereDoesntHave('billingTransactions') // Exclude appointments that already have billing transactions
-                ->with(['labTests.labTest']) // Load lab tests relationship
+                ->with(['labTests.labTest', 'visit']) // Load lab tests and visit
                 ->get();
 
             \Log::info('Found appointments:', ['count' => $appointments->count()]);
@@ -934,7 +1024,7 @@ class BillingController extends Controller
             // Calculate total amount including lab tests
             $totalAmount = $appointments->sum('price');
             
-            // Add lab test amounts to total
+            // Add lab test amounts to total (from both appointments and visits)
             $totalLabAmount = 0;
             foreach ($appointments as $appointment) {
                 $labAmount = $appointment->total_lab_amount ?? 0;
@@ -948,6 +1038,29 @@ class BillingController extends Controller
                     ]);
                 }
                 
+                // CRITICAL: Also include lab orders from the visit (added by doctors during consultation)
+                if ($appointment->visit) {
+                    $visitLabOrders = \App\Models\LabOrder::where('patient_visit_id', $appointment->visit->id)
+                        ->with('results.test')
+                        ->get();
+                    
+                    foreach ($visitLabOrders as $labOrder) {
+                        foreach ($labOrder->results as $result) {
+                            if ($result->test) {
+                                $labTestPrice = $result->test->price ?? 0;
+                                $labAmount += $labTestPrice;
+                                \Log::info('Added visit lab order to total', [
+                                    'appointment_id' => $appointment->id,
+                                    'visit_id' => $appointment->visit->id,
+                                    'lab_order_id' => $labOrder->id,
+                                    'lab_test' => $result->test->name,
+                                    'price' => $labTestPrice
+                                ]);
+                            }
+                        }
+                    }
+                }
+                
                 $totalLabAmount += $labAmount;
                 
                 \Log::info('Appointment lab test debug', [
@@ -955,7 +1068,9 @@ class BillingController extends Controller
                     'appointment_price' => $appointment->price,
                     'total_lab_amount' => $labAmount,
                     'final_total_amount' => $appointment->final_total_amount ?? 0,
-                    'lab_tests_count' => $appointment->labTests->count()
+                    'lab_tests_count' => $appointment->labTests->count(),
+                    'has_visit' => $appointment->visit ? true : false,
+                    'visit_id' => $appointment->visit ? $appointment->visit->id : null
                 ]);
             }
             
@@ -995,7 +1110,7 @@ class BillingController extends Controller
                 'specialist_id' => $doctorId, // Use specialist_id which exists in database
                 'amount' => $finalAmount, // Only 'amount' exists in database (not 'total_amount')
                 'payment_method' => $request->payment_method,
-                'payment_reference' => $request->payment_reference,
+                'amount_paid' => $request->amount_paid ?? $finalAmount,
                 'status' => 'pending',
                 'description' => 'Payment for ' . $appointments->count() . ' appointment(s)',
                 'notes' => $request->notes,
@@ -1028,6 +1143,20 @@ class BillingController extends Controller
             \Log::info('Creating transaction with data:', $transactionData);
             
             $transaction = BillingTransaction::create($transactionData);
+            
+            // Auto-generate payment reference after transaction is created
+            // Format: PAY-YYYYMMDD-HHMMSS-XXX (where XXX is transaction ID padded to 3 digits)
+            if (empty($transaction->reference_no)) {
+                if ($request->payment_method === 'hmo' && $request->hmo_reference_number) {
+                    // For HMO, use the HMO reference number as payment reference
+                    $transaction->update(['reference_no' => $request->hmo_reference_number]);
+                } elseif ($request->payment_method !== 'hmo' && $request->has('amount_paid') && $request->amount_paid > 0) {
+                    // For non-HMO payments, generate payment reference
+                    $paymentRef = 'PAY-' . date('Ymd-His') . '-' . str_pad($transaction->id, 3, '0', STR_PAD_LEFT);
+                    $transaction->update(['reference_no' => $paymentRef]);
+                }
+                $transaction->refresh();
+            }
             
             \Log::info('Billing transaction created with ID:', ['id' => $transaction->id]);
             
@@ -1117,6 +1246,53 @@ class BillingController extends Controller
                     ]);
                 }
 
+                // CRITICAL: Also add lab orders from the visit (added by doctors during consultation)
+                if ($appointment->visit) {
+                    $visitLabOrders = \App\Models\LabOrder::where('patient_visit_id', $appointment->visit->id)
+                        ->with('results.test')
+                        ->get();
+                    
+                    \Log::info("Processing visit lab orders for appointment {$appointment->id}", [
+                        'visit_id' => $appointment->visit->id,
+                        'lab_orders_count' => $visitLabOrders->count()
+                    ]);
+                    
+                    foreach ($visitLabOrders as $labOrder) {
+                        foreach ($labOrder->results as $result) {
+                            if ($result->test) {
+                                $unitPrice = $result->test->price ?? 0;
+                                $totalPrice = $result->test->price ?? 0;
+                                
+                                // Check if this lab test is already added from appointment_lab_tests to avoid duplicates
+                                $alreadyAdded = \App\Models\AppointmentLabTest::where('appointment_id', $appointment->id)
+                                    ->where('lab_test_id', $result->lab_test_id)
+                                    ->exists();
+                                
+                                if (!$alreadyAdded) {
+                                    \App\Models\BillingTransactionItem::create([
+                                        'billing_transaction_id' => $transaction->id,
+                                        'item_type' => 'laboratory',
+                                        'lab_test_id' => $result->lab_test_id,
+                                        'item_name' => $result->test->name,
+                                        'item_description' => "Lab test from visit consultation: {$result->test->name}",
+                                        'quantity' => 1,
+                                        'unit_price' => $unitPrice,
+                                        'total_price' => $totalPrice
+                                    ]);
+                                    
+                                    \Log::info("Created lab test item from visit: {$result->test->name}", [
+                                        'unit_price' => $unitPrice,
+                                        'total_price' => $totalPrice,
+                                        'visit_id' => $appointment->visit->id
+                                    ]);
+                                } else {
+                                    \Log::info("Skipped duplicate lab test from visit: {$result->test->name} (already in appointment_lab_tests)");
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Check if billing link already exists to avoid duplicates
                 $existingLink = AppointmentBillingLink::where('appointment_id', $appointment->id)
                     ->where('billing_transaction_id', $transaction->id)
@@ -1133,7 +1309,9 @@ class BillingController extends Controller
                 }
 
                 // Update appointment billing status to indicate it's now in a transaction
-                $appointment->update(['billing_status' => 'in_transaction']);
+                // Use saveQuietly to skip model events and prevent duplicate check
+                $appointment->billing_status = 'in_transaction';
+                $appointment->saveQuietly();
             }
 
             DB::commit();
@@ -1183,8 +1361,11 @@ class BillingController extends Controller
             // Update appointment billing links
             $transaction->appointmentLinks()->update(['status' => 'paid']);
 
-            // Update appointments billing status
-            $transaction->appointments()->update(['billing_status' => 'paid']);
+            // Update appointments billing status - use saveQuietly to skip duplicate checks
+            foreach ($transaction->appointments as $appointment) {
+                $appointment->billing_status = 'paid';
+                $appointment->saveQuietly(); // Skip events to prevent duplicate check
+            }
 
             DB::commit();
 
@@ -1280,7 +1461,7 @@ class BillingController extends Controller
             ];
 
             // Add conditional validation for HMO provider
-            if ($request->payment_type === 'health_card' || $request->payment_method === 'hmo') {
+            if ($request->payment_method === 'hmo') {
                 $rules['hmo_provider'] = 'required|string|max:255';
             }
 
@@ -1304,17 +1485,8 @@ class BillingController extends Controller
             $transactionDate = \Carbon\Carbon::parse($request->transaction_date);
             \Log::info('Creating billing transaction...');
             
-            // Set payment_method based on payment_type or use the provided payment_method
-            $paymentMethod = $request->payment_method ?? match($request->payment_type) {
-                'health_card' => 'hmo',
-                'discount' => 'cash',
-                default => 'cash'
-            };
-            
-            // Ensure payment_type is set correctly based on payment_method
-            if ($paymentMethod === 'hmo' && $request->payment_type !== 'health_card') {
-                $request->merge(['payment_type' => 'health_card']);
-            }
+            // Use payment_method directly (payment_type has been removed)
+            $paymentMethod = $request->payment_method ?? 'cash';
             
             // Create a dummy appointment for manual transactions since appointment_id is required
             $patient = \App\Models\Patient::find($request->patient_id);
@@ -1390,8 +1562,9 @@ class BillingController extends Controller
                 $transactionData['hmo_reference_number'] = $request->hmo_reference_number;
             }
             
-            if ($request->has('payment_reference') && $request->payment_reference) {
-                $transactionData['reference_no'] = $request->payment_reference; // Map payment_reference to reference_no
+            // Add amount_paid if provided
+            if ($request->has('amount_paid')) {
+                $transactionData['amount_paid'] = $request->amount_paid;
             }
             
             // Add created_by if the column exists (for tracking who created the transaction)
@@ -1414,19 +1587,32 @@ class BillingController extends Controller
             
             $transaction = BillingTransaction::create($transactionData);
             
+            // Auto-generate payment reference after transaction is created
+            // Format: PAY-YYYYMMDD-HHMMSS-XXX (where XXX is transaction ID padded to 3 digits)
+            if (empty($transaction->reference_no)) {
+                if ($paymentMethod === 'hmo' && $request->has('hmo_reference_number') && $request->hmo_reference_number) {
+                    // For HMO, use the HMO reference number as payment reference
+                    $transaction->update(['reference_no' => $request->hmo_reference_number]);
+                } elseif ($paymentMethod !== 'hmo' && $request->has('amount_paid') && $request->amount_paid > 0) {
+                    // For non-HMO payments, generate payment reference
+                    $paymentRef = 'PAY-' . date('Ymd-His') . '-' . str_pad($transaction->id, 3, '0', STR_PAD_LEFT);
+                    $transaction->update(['reference_no' => $paymentRef]);
+                }
+                $transaction->refresh();
+            }
+            
             // Update the dummy appointment with the actual transaction amount
-            // CRITICAL: Preserve appointment_type to ensure duplicate checks are skipped
+            // CRITICAL: Use saveQuietly to skip model events and prevent duplicate check
             \Log::info('Updating manual_transaction appointment with amount', [
                 'appointment_id' => $dummyAppointment->id,
                 'current_appointment_type' => $dummyAppointment->appointment_type,
                 'total_amount' => $request->total_amount,
             ]);
             
-            $dummyAppointment->update([
-                'price' => $request->total_amount,
-                'final_total_amount' => $request->amount ?? $request->total_amount,
-                'appointment_type' => 'manual_transaction', // Ensure it stays as manual_transaction
-            ]);
+            // Use saveQuietly to skip model events (including duplicate check)
+            $dummyAppointment->price = $request->total_amount;
+            $dummyAppointment->final_total_amount = $request->amount ?? $request->total_amount;
+            $dummyAppointment->saveQuietly(); // Skip events to prevent duplicate check
             
             \Log::info('Manual_transaction appointment updated successfully', [
                 'appointment_id' => $dummyAppointment->id,

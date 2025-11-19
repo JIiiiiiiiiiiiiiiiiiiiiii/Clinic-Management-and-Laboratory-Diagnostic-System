@@ -236,6 +236,14 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                 );
 
             case 'select':
+                // Handle both old format (string array) and new format (object array)
+                const selectOptions = (field.options || []).map((opt: any) => {
+                    if (typeof opt === 'string') {
+                        return { value: opt, status: 'normal' };
+                    }
+                    return opt;
+                });
+                
                 return (
                     <div key={fieldKey} className="space-y-2">
                         <Label htmlFor={fieldId} className="text-sm font-semibold text-gray-700">
@@ -247,13 +255,14 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                                 <SelectValue placeholder={field.placeholder || 'Select...'} />
                             </SelectTrigger>
                             <SelectContent>
-                                {field.options?.map((option: string) => (
-                                    <SelectItem key={option} value={option}>
-                                        {option}
+                                {selectOptions.map((option: any) => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                        {option.value}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
+                        {field.unit && <span className="ml-2 text-sm text-gray-500">{field.unit}</span>}
                     </div>
                 );
 

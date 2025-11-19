@@ -27,14 +27,16 @@ class Appointment extends Model
         "appointment_time",
         "duration",
         "status",
-        "appointment_source",
-        "booking_method",
+        // Note: appointment_source and booking_method were removed from appointments table
+        // They are kept here for backward compatibility but should not be used in create/update
+        // "appointment_source", // Column removed - use 'source' instead
+        // "booking_method", // Column removed
         "billing_status",
         "billing_reference",
         "confirmation_sent",
         "admin_notes",
         "additional_info",
-        "source",
+        "source", // Use this instead of appointment_source
         "patient_id_fk",
         "unique_appointment_key",
         "created_by",

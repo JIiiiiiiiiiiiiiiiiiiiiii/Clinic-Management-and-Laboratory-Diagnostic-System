@@ -69,6 +69,27 @@ type PendingAppointment = {
         lab_test_name: string;
         price: number;
         status: string;
+        source?: 'appointment' | 'visit';
+        ordered_by?: string;
+        lab_order_id?: number;
+    }>;
+    visit?: {
+        id: number;
+        visit_code: string;
+        visit_date_time_time: string;
+        status: string;
+        attending_staff?: {
+            id: number;
+            name: string;
+            role: string;
+        };
+    };
+    visit_lab_orders?: Array<{
+        id: number;
+        status: string;
+        ordered_by: string;
+        notes: string;
+        created_at: string;
     }>;
 };
 
@@ -326,26 +347,106 @@ export default function PendingAppointmentViewModal({
                                     </CardContent>
                                 </Card>
 
-                                {/* Lab Tests */}
+                                {/* Visit Information */}
+                                {appointment.visit && (
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle className="flex items-center gap-2">
+                                                <Stethoscope className="h-5 w-5" />
+                                                Visit Information
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-4">
+                                            <div className="space-y-3">
+                                                <div>
+                                                    <label className="text-sm font-medium text-gray-500">Visit Code</label>
+                                                    <p className="text-lg font-semibold">{appointment.visit.visit_code}</p>
+                                                </div>
+                                                {appointment.visit.visit_date_time_time && (
+                                                    <div>
+                                                        <label className="text-sm font-medium text-gray-500">Visit Date & Time</label>
+                                                        <p className="text-sm text-gray-700">{safeFormatDate(appointment.visit.visit_date_time_time)} {safeFormatTime(appointment.visit.visit_date_time_time)}</p>
+                                                    </div>
+                                                )}
+                                                {appointment.visit.attending_staff && (
+                                                    <div>
+                                                        <label className="text-sm font-medium text-gray-500">Attending Staff</label>
+                                                        <p className="text-sm text-gray-700">{appointment.visit.attending_staff.name} ({appointment.visit.attending_staff.role})</p>
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <label className="text-sm font-medium text-gray-500">Visit Status</label>
+                                                    <div className="mt-1">
+                                                        <Badge className="bg-blue-100 text-blue-800">{appointment.visit.status}</Badge>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                )}
+
+                                {/* Lab Tests Breakdown */}
                                 {appointment.labTests && appointment.labTests.length > 0 && (
                                     <Card>
                                         <CardHeader>
                                             <CardTitle className="flex items-center gap-2">
                                                 <TestTube className="h-5 w-5" />
-                                                Lab Tests ({appointment.lab_tests_count})
+                                                Lab Tests Breakdown ({appointment.lab_tests_count})
                                             </CardTitle>
                                         </CardHeader>
                                         <CardContent>
-                                            <div className="space-y-2">
-                                                {appointment.labTests.map((test) => (
-                                                    <div key={test.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                                                        <span className="font-medium text-sm">{test.lab_test_name}</span>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-sm">₱{test.price.toLocaleString()}</span>
-                                                            <Badge variant="outline" className="text-xs">{test.status}</Badge>
-                                                        </div>
+                                            {/* Lab Tests from Appointment */}
+                                            {appointment.labTests.filter((test: any) => test.source === 'appointment').length > 0 && (
+                                                <div className="mb-4">
+                                                    <h4 className="text-sm font-semibold text-gray-700 mb-2">From Appointment</h4>
+                                                    <div className="space-y-2">
+                                                        {appointment.labTests.filter((test: any) => test.source === 'appointment').map((test: any) => (
+                                                            <div key={test.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                                <div className="flex-1">
+                                                                    <span className="font-medium text-sm">{test.lab_test_name}</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-sm">₱{test.price.toLocaleString()}</span>
+                                                                    <Badge variant="outline" className="text-xs">{test.status}</Badge>
+                                                                </div>
+                                                            </div>
+                                                        ))}
                                                     </div>
-                                                ))}
+                                                </div>
+                                            )}
+                                            
+                                            {/* Lab Tests from Visit (Ordered by Doctors) */}
+                                            {appointment.labTests.filter((test: any) => test.source === 'visit').length > 0 && (
+                                                <div>
+                                                    <h4 className="text-sm font-semibold text-gray-700 mb-2">From Visit Consultation (Ordered by Doctor/Staff)</h4>
+                                                    <div className="space-y-2">
+                                                        {appointment.labTests.filter((test: any) => test.source === 'visit').map((test: any) => (
+                                                            <div key={test.id} className="flex justify-between items-start p-2 bg-blue-50 rounded border border-blue-200">
+                                                                <div className="flex-1">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="font-medium text-sm">{test.lab_test_name}</span>
+                                                                        <Badge className="bg-blue-100 text-blue-800 text-xs">Visit</Badge>
+                                                                    </div>
+                                                                    {test.ordered_by && (
+                                                                        <p className="text-xs text-gray-600 mt-1">Ordered by: {test.ordered_by}</p>
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-sm font-semibold">₱{test.price.toLocaleString()}</span>
+                                                                    <Badge variant="outline" className="text-xs">{test.status}</Badge>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            {/* Total Lab Amount */}
+                                            <div className="mt-4 pt-4 border-t">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="font-semibold text-gray-700">Total Lab Tests Amount</span>
+                                                    <span className="text-lg font-bold text-blue-600">₱{appointment.total_lab_amount.toLocaleString()}</span>
+                                                </div>
                                             </div>
                                         </CardContent>
                                     </Card>

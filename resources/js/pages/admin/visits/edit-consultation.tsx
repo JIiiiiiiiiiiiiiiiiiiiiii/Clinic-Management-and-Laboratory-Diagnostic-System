@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -10,7 +11,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { Calendar, Edit, ArrowLeft, Save, X, User, FileText, Activity, Heart, Stethoscope, ClipboardList, ArrowRightLeft, AlertCircle } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/admin/dashboard' },
@@ -44,6 +45,28 @@ interface PatientData {
     food_allergies?: string;
 }
 
+interface LabOrder {
+    id: number;
+    status: string;
+    notes?: string;
+    created_at: string;
+    ordered_by?: {
+        name: string;
+    } | null;
+    tests: Array<{
+        id: number;
+        name: string;
+        code: string;
+    }>;
+}
+
+interface LabTest {
+    id: number;
+    name: string;
+    code: string;
+    price: number;
+}
+
 interface VisitEditProps {
     visit: {
         id: number;
@@ -70,6 +93,7 @@ interface VisitEditProps {
         pertinent_physical_findings?: string;
         assessment_diagnosis?: string;
         plan_management?: string;
+        attending_staff_id?: number;
         attending_staff?: {
             id: number;
             name: string;
@@ -82,9 +106,11 @@ interface VisitEditProps {
         name: string;
         role: string;
     }>;
+    labOrders?: LabOrder[];
+    availableLabTests?: LabTest[];
 }
 
-export default function VisitEditConsultation({ visit, patient, staff }: VisitEditProps) {
+export default function VisitEditConsultation({ visit, patient, staff, labOrders = [], availableLabTests = [] }: VisitEditProps) {
     const { hasPermission } = useRoleAccess();
     
     // Format time for input (HH:mm)
@@ -96,14 +122,49 @@ export default function VisitEditConsultation({ visit, patient, staff }: VisitEd
         return time;
     };
     
+    // Normalize mode of arrival to match dropdown values
+    const normalizeModeOfArrival = (mode: string | undefined): string => {
+        if (!mode) return '';
+        const normalized = mode.toLowerCase().trim();
+        // Map common variations to dropdown values
+        if (normalized.includes('walk') || normalized === 'walk-in') return 'walk-in';
+        if (normalized.includes('online') || normalized === 'online') return 'online';
+        if (normalized.includes('ambulance') || normalized.includes('emergency')) return 'ambulance';
+        if (normalized.includes('referral')) return 'referral';
+        if (normalized.includes('appointment')) return 'appointment';
+        if (normalized.includes('other')) return 'other';
+        // If it matches one of our values exactly, return it
+        if (['walk-in', 'online', 'ambulance', 'referral', 'appointment', 'other'].includes(normalized)) {
+            return normalized;
+        }
+        return mode; // Return original if no match
+    };
+
+    // Helper function to extract doctor's remarks from notes (remove "Attending Physician: ..." prefix)
+    const extractDoctorRemarks = (notes: string | undefined | null): string => {
+        if (!notes) return '';
+        // Remove "Attending Physician: ..." prefix if present (handles both with and without newline)
+        const attendingPhysicianPattern = /^Attending Physician:\s*[^\n]+\n?/i;
+        const cleaned = notes.replace(attendingPhysicianPattern, '').trim();
+        return cleaned;
+    };
+
+    // Helper function to get attending physician from notes
+    const getAttendingPhysicianFromNotes = (notes: string | undefined | null): string | null => {
+        if (!notes) return null;
+        // Match "Attending Physician: [name]" at the start, optionally followed by newline
+        const match = notes.match(/^Attending Physician:\s*([^\n]+)/i);
+        return match ? match[1].trim() : null;
+    };
+
     const [formData, setFormData] = useState({
         // Arrival Information
         arrival_date: visit.arrival_date || (visit.visit_date_time_time ? visit.visit_date_time_time.split('T')[0] : ''),
         arrival_time: formatTime(visit.arrival_time),
-        mode_of_arrival: visit.mode_of_arrival || '',
+        mode_of_arrival: normalizeModeOfArrival(visit.mode_of_arrival),
         
-        // Attending Physician
-        attending_staff_id: visit.attending_staff?.id?.toString() || '',
+        // Attending Physician - check both attending_staff_id and attending_staff.id
+        attending_staff_id: visit.attending_staff_id?.toString() || visit.attending_staff?.id?.toString() || '',
         
         // Vital Signs
         blood_pressure: visit.blood_pressure || '',
@@ -134,14 +195,69 @@ export default function VisitEditConsultation({ visit, patient, staff }: VisitEd
     
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // State for lab test selection
+    const [selectedLabTests, setSelectedLabTests] = useState<number[]>([]);
+    const [labTestNotes, setLabTestNotes] = useState('');
+    const [isAddingLabTests, setIsAddingLabTests] = useState(false);
+    
+
+    // Update formData when visit prop changes (e.g., after page refresh or data update)
+    useEffect(() => {
+        setFormData({
+            // Arrival Information
+            arrival_date: visit.arrival_date || (visit.visit_date_time_time ? visit.visit_date_time_time.split('T')[0] : ''),
+            arrival_time: formatTime(visit.arrival_time),
+            mode_of_arrival: normalizeModeOfArrival(visit.mode_of_arrival),
+            
+            // Attending Physician
+            attending_staff_id: visit.attending_staff_id?.toString() || visit.attending_staff?.id?.toString() || '',
+            
+            // Vital Signs
+            blood_pressure: visit.blood_pressure || '',
+            heart_rate: visit.heart_rate || '',
+            respiratory_rate: visit.respiratory_rate || '',
+            temperature: visit.temperature || '',
+            weight_kg: visit.weight_kg?.toString() || '',
+            height_cm: visit.height_cm?.toString() || '',
+            pain_assessment_scale: visit.pain_assessment_scale || '',
+            oxygen_saturation: visit.oxygen_saturation || '',
+            
+            // Clinical Information
+            reason_for_consult: visit.reason_for_consult || '',
+            time_seen: formatTime(visit.time_seen),
+            history_of_present_illness: visit.history_of_present_illness || '',
+            pertinent_physical_findings: visit.pertinent_physical_findings || '',
+            assessment_diagnosis: visit.assessment_diagnosis || '',
+            plan_management: visit.plan_management || '',
+            
+            // Transfer Information
+            transfer_required: visit.transfer_required || false,
+            transfer_reason_notes: visit.transfer_reason_notes || '',
+            
+            // Basic Visit Info
+            status: visit.status,
+            notes: visit.notes || '',
+        });
+    }, [visit]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
         setErrors({});
 
-        router.put(`/admin/visits/${visit.id}`, formData, {
+        const submitData = {
+            ...formData,
+            // Include lab test requests if any are selected
+            lab_test_ids: selectedLabTests.length > 0 ? selectedLabTests : undefined,
+            lab_test_notes: selectedLabTests.length > 0 ? labTestNotes : undefined,
+        };
+
+        router.put(`/admin/visits/${visit.id}`, submitData, {
             onSuccess: () => {
+                // Clear lab test selections after successful save
+                setSelectedLabTests([]);
+                setLabTestNotes('');
                 // Success handled by controller redirect
             },
             onError: (errors) => {
@@ -167,6 +283,64 @@ export default function VisitEditConsultation({ visit, patient, staff }: VisitEd
                 [field]: ''
             }));
         }
+    };
+
+    const handleLabTestToggle = (testId: number) => {
+        setSelectedLabTests(prev => 
+            prev.includes(testId) 
+                ? prev.filter(id => id !== testId)
+                : [...prev, testId]
+        );
+    };
+
+    const handleAddLabTests = (e?: React.MouseEvent) => {
+        if (e) {
+            e.preventDefault();
+        }
+        
+        if (selectedLabTests.length === 0) {
+            console.warn('No lab tests selected');
+            return;
+        }
+
+        console.log('Submitting lab tests:', {
+            visitId: visit.id,
+            labTestIds: selectedLabTests,
+            notes: labTestNotes
+        });
+
+        setIsAddingLabTests(true);
+
+        router.post(route('admin.visits.add-lab-tests.store', visit.id), {
+            lab_test_ids: selectedLabTests,
+            notes: labTestNotes
+        }, {
+            preserveScroll: true,
+            onSuccess: (page) => {
+                console.log('Lab tests added successfully');
+                // Clear selections after successful addition
+                setSelectedLabTests([]);
+                setLabTestNotes('');
+                setIsAddingLabTests(false);
+                // The page will reload with updated lab orders automatically via Inertia
+            },
+            onError: (errors) => {
+                console.error('Error adding lab tests:', errors);
+                setIsAddingLabTests(false);
+            },
+            onFinish: () => {
+                setIsAddingLabTests(false);
+            }
+        });
+    };
+
+    const calculateTotalPrice = () => {
+        return availableLabTests
+            .filter(test => selectedLabTests.includes(test.id))
+            .reduce((sum, test) => {
+                const price = typeof test.price === 'number' ? test.price : parseFloat(test.price || 0);
+                return sum + price;
+            }, 0);
     };
 
     return (
@@ -325,13 +499,32 @@ export default function VisitEditConsultation({ visit, patient, staff }: VisitEd
 
                                     <div className="space-y-2">
                                         <Label htmlFor="mode_of_arrival">Mode of Arrival</Label>
-                                        <Input
-                                            id="mode_of_arrival"
-                                            value={formData.mode_of_arrival}
-                                            onChange={(e) => handleInputChange('mode_of_arrival', e.target.value)}
-                                            placeholder="e.g., Ambulance, Walk-in, etc."
-                                            className={errors.mode_of_arrival ? 'border-red-500' : ''}
-                                        />
+                                        <Select
+                                            value={formData.mode_of_arrival || ''}
+                                            onValueChange={(value) => handleInputChange('mode_of_arrival', value)}
+                                        >
+                                            <SelectTrigger className={errors.mode_of_arrival ? 'border-red-500' : ''}>
+                                                <SelectValue placeholder="Select mode of arrival">
+                                                    {formData.mode_of_arrival ? 
+                                                        (formData.mode_of_arrival === 'walk-in' ? 'Walk-in' :
+                                                         formData.mode_of_arrival === 'online' ? 'Online' :
+                                                         formData.mode_of_arrival === 'ambulance' ? 'Ambulance/Emergency' :
+                                                         formData.mode_of_arrival === 'referral' ? 'Referral' :
+                                                         formData.mode_of_arrival === 'appointment' ? 'Appointment' :
+                                                         formData.mode_of_arrival === 'other' ? 'Other' :
+                                                         formData.mode_of_arrival)
+                                                        : 'Select mode of arrival'}
+                                                </SelectValue>
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="walk-in">Walk-in</SelectItem>
+                                                <SelectItem value="online">Online</SelectItem>
+                                                <SelectItem value="ambulance">Ambulance/Emergency</SelectItem>
+                                                <SelectItem value="referral">Referral</SelectItem>
+                                                <SelectItem value="appointment">Appointment</SelectItem>
+                                                <SelectItem value="other">Other</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                         {errors.mode_of_arrival && (
                                             <p className="text-sm text-red-500 mt-1">{errors.mode_of_arrival}</p>
                                         )}
@@ -348,15 +541,32 @@ export default function VisitEditConsultation({ visit, patient, staff }: VisitEd
                                     Attending Physician
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent>
+                            <CardContent className="space-y-4">
+                                {/* Display Current Attending Physician */}
+                                {visit.attending_staff && (
+                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                        <Label className="text-xs text-gray-600 mb-2 block">Current Attending Physician</Label>
+                                        <p className="text-lg font-semibold text-gray-900">
+                                            {visit.attending_staff.name} <span className="text-sm font-normal text-gray-500">({visit.attending_staff.role})</span>
+                                        </p>
+                                    </div>
+                                )}
+                                
+                                {/* Select New Attending Physician */}
                                 <div className="space-y-2">
-                                    <Label htmlFor="attending_staff_id">Attending Physician *</Label>
+                                    <Label htmlFor="attending_staff_id">Change Attending Physician *</Label>
                                     <Select
-                                        value={formData.attending_staff_id}
+                                        value={formData.attending_staff_id || visit.attending_staff?.id?.toString() || ''}
                                         onValueChange={(value) => handleInputChange('attending_staff_id', value)}
                                     >
                                         <SelectTrigger className={errors.attending_staff_id ? 'border-red-500' : ''}>
-                                            <SelectValue placeholder="Select attending physician" />
+                                            <SelectValue placeholder="Select attending physician">
+                                                {formData.attending_staff_id 
+                                                    ? staff.find(s => s.id.toString() === formData.attending_staff_id)?.name + ' (' + staff.find(s => s.id.toString() === formData.attending_staff_id)?.role + ')'
+                                                    : visit.attending_staff 
+                                                        ? `${visit.attending_staff.name} (${visit.attending_staff.role})`
+                                                        : 'Select attending physician'}
+                                            </SelectValue>
                                         </SelectTrigger>
                                         <SelectContent>
                                             {staff.map((s) => (
@@ -695,6 +905,179 @@ export default function VisitEditConsultation({ visit, patient, staff }: VisitEd
                                     </Select>
                                     {errors.status && (
                                         <p className="text-sm text-red-500 mt-1">{errors.status}</p>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Lab Tests Section */}
+                        <Card className="border-blue-200 bg-blue-50">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <ClipboardList className="h-5 w-5 text-blue-600" />
+                                    Laboratory Tests
+                                </CardTitle>
+                                <CardDescription>
+                                    Request laboratory tests if needed based on your consultation
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {/* Existing Lab Orders */}
+                                {labOrders && labOrders.length > 0 ? (
+                                    <div className="space-y-3">
+                                        <Label className="text-sm font-semibold text-gray-700">Existing Lab Orders</Label>
+                                        {labOrders.map((order) => (
+                                            <div key={order.id} className="bg-white border border-blue-200 rounded-lg p-4 space-y-3">
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <Label className="font-semibold text-gray-900">
+                                                                Lab Order #{order.id}
+                                                            </Label>
+                                                            <Badge variant="outline" className="text-xs">
+                                                                {order.status}
+                                                            </Badge>
+                                                        </div>
+                                                        <div className="text-sm text-gray-600 space-y-1">
+                                                            {order.tests.length > 0 && (
+                                                                <div>
+                                                                    <span className="font-medium">Tests: </span>
+                                                                    {order.tests.map((test, idx) => (
+                                                                        <span key={test.id}>
+                                                                            {test.name}{idx < order.tests.length - 1 ? ', ' : ''}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                            {order.ordered_by && (
+                                                                <div>
+                                                                    <span className="font-medium">Ordered by: </span>
+                                                                    {order.ordered_by.name}
+                                                                </div>
+                                                            )}
+                                                            <div>
+                                                                <span className="font-medium">Date: </span>
+                                                                {new Date(order.created_at).toLocaleDateString('en-US', {
+                                                                    year: 'numeric',
+                                                                    month: 'long',
+                                                                    day: 'numeric',
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit'
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {/* Remarks for this lab order (Read-only) */}
+                                                <div className="space-y-2">
+                                                    <Label className="text-sm font-medium text-gray-700">
+                                                        Doctor's Remarks for this Order
+                                                    </Label>
+                                                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                                        {order.notes ? (
+                                                            <div className="space-y-2">
+                                                                {getAttendingPhysicianFromNotes(order.notes) && (
+                                                                    <p className="text-xs font-medium text-gray-600">
+                                                                        Attending Physician: {getAttendingPhysicianFromNotes(order.notes)}
+                                                                    </p>
+                                                                )}
+                                                                {extractDoctorRemarks(order.notes) ? (
+                                                                    <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                                                                        {extractDoctorRemarks(order.notes)}
+                                                                    </p>
+                                                                ) : (
+                                                                    <p className="text-sm text-gray-500 italic">
+                                                                        No additional remarks provided.
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-sm text-gray-500 italic">
+                                                                No remarks available for this order.
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-4">
+                                        <p className="text-sm text-gray-500 mb-2">No lab orders have been requested for this visit yet.</p>
+                                    </div>
+                                )}
+
+                                {/* Request New Lab Tests */}
+                                <div className={labOrders && labOrders.length > 0 ? 'border-t pt-4 mt-4' : ''}>
+                                    <Label className="text-sm font-semibold text-gray-700 mb-3 block">
+                                        {labOrders && labOrders.length > 0 ? 'Request Additional Lab Tests' : 'Request Lab Tests'}
+                                    </Label>
+                                    
+                                    {availableLabTests && availableLabTests.length > 0 ? (
+                                        <div className="space-y-4">
+                                            {/* Lab Test Selection */}
+                                            <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-3 bg-white">
+                                                <div className="space-y-2">
+                                                    {availableLabTests.map(test => (
+                                                        <div key={test.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
+                                                            <Checkbox
+                                                                id={`lab-test-${test.id}`}
+                                                                checked={selectedLabTests.includes(test.id)}
+                                                                onCheckedChange={() => handleLabTestToggle(test.id)}
+                                                            />
+                                                            <label htmlFor={`lab-test-${test.id}`} className="flex-1 cursor-pointer">
+                                                                <div className="flex justify-between items-center">
+                                                                    <div>
+                                                                        <span className="font-medium text-gray-900">{test.name}</span>
+                                                                        <p className="text-xs text-gray-500">{test.code}</p>
+                                                                    </div>
+                                                                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                                                                        ₱{typeof test.price === 'number' ? test.price.toFixed(2) : parseFloat(test.price || 0).toFixed(2)}
+                                                                    </Badge>
+                                                                </div>
+                                                            </label>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Remarks */}
+                                            <div>
+                                                <Label htmlFor="lab-test-notes" className="text-sm font-medium text-gray-700 mb-2 block">
+                                                    Remarks (Optional)
+                                                </Label>
+                                                <Textarea
+                                                    id="lab-test-notes"
+                                                    value={labTestNotes}
+                                                    onChange={(e) => setLabTestNotes(e.target.value)}
+                                                    placeholder="Add remarks about why these tests are needed..."
+                                                    className="w-full text-sm"
+                                                    rows={2}
+                                                />
+                                            </div>
+
+                                            {/* Total Price */}
+                                            {selectedLabTests.length > 0 && (
+                                                <div className="bg-blue-50 p-3 rounded-lg">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-sm font-medium text-gray-700">
+                                                            Selected Tests: {selectedLabTests.length}
+                                                        </span>
+                                                        <span className="text-lg font-bold text-blue-700">
+                                                            Total: ₱{calculateTotalPrice().toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-4">
+                                            <p className="text-sm text-gray-500 mb-2">
+                                                {labOrders && labOrders.length > 0 
+                                                    ? 'All available lab tests have already been requested for this visit.'
+                                                    : 'No lab tests available'}
+                                            </p>
+                                        </div>
                                     )}
                                 </div>
                             </CardContent>

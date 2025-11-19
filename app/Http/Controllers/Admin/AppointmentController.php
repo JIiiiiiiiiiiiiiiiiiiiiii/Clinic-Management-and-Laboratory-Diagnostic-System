@@ -346,6 +346,7 @@ class AppointmentController extends Controller
                         'created_at' => $transaction->created_at,
                     ];
                 }) : [],
+                'visit_id' => $appointment->visit ? $appointment->visit->id : null,
                 'visit' => $appointment->visit ? [
                     'id' => $appointment->visit->id,
                     'visit_code' => $appointment->visit->visit_code,
@@ -380,13 +381,37 @@ class AppointmentController extends Controller
         // Get next available patient ID with smart reset logic
         $nextPatientId = $this->getNextAvailablePatientId();
 
-        // Get doctors and medtechs for the component
+        // Get doctors and medtechs for the component (include schedule_data)
         $doctors = \App\Models\Specialist::where('role', 'Doctor')
-            ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id')
-            ->get();
+            ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id', 'schedule_data')
+            ->get()
+            ->map(function($doctor) {
+                return [
+                    'id' => $doctor->id,
+                    'name' => $doctor->name,
+                    'specialization' => $doctor->specialization,
+                    'employee_id' => $doctor->employee_id,
+                    'schedule_data' => $doctor->schedule_data ?? []
+                ];
+            });
 
         $medtechs = \App\Models\Specialist::where('role', 'MedTech')
-            ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id')
+            ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id', 'schedule_data')
+            ->get()
+            ->map(function($medtech) {
+                return [
+                    'id' => $medtech->id,
+                    'name' => $medtech->name,
+                    'specialization' => $medtech->specialization,
+                    'employee_id' => $medtech->employee_id,
+                    'schedule_data' => $medtech->schedule_data ?? []
+                ];
+            });
+
+        // Get patients for walk-in appointment modal
+        $patients = \App\Models\Patient::select('id', 'first_name', 'last_name', 'middle_name', 'patient_no', 'mobile_no', 'telephone_no', 'email')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
             ->get();
 
         // Convert collection to array for Inertia
@@ -438,19 +463,29 @@ class AppointmentController extends Controller
         };
 
         // Get active lab tests (test templates) - this is the primary scalable source
+        // ONLY fetch from actual test templates, NO duplicates
         $appointmentTypesFromLabTests = [];
         if (Schema::hasTable('lab_tests')) {
-            $appointmentTypesFromLabTests = DB::table('lab_tests')
+            // First get all DISTINCT names from database (removes exact duplicates at DB level)
+            $uniqueTestNames = DB::table('lab_tests')
                 ->where('is_active', true)
-                ->select('name', 'code')
+                ->select('name')
+                ->distinct()
                 ->orderBy('name')
-                ->get()
-                ->map(function($test) use ($formatAppointmentTypeName) {
+                ->pluck('name')
+                ->toArray();
+            
+            // Then map to appointment type format
+            $appointmentTypesFromLabTests = collect($uniqueTestNames)
+                ->map(function($name) use ($formatAppointmentTypeName) {
                     return [
-                        'value' => $test->name, // Use the actual name from database
-                        'label' => $formatAppointmentTypeName($test->name) // Clean formatted name for display
+                        'value' => $name, // Use the actual name from database
+                        'label' => $formatAppointmentTypeName($name), // Clean formatted name for display
+                        'source' => 'lab_test'
                     ];
                 })
+                ->unique('value') // Remove duplicates by value (shouldn't be any, but just in case)
+                ->values()
                 ->toArray();
         }
 
@@ -466,13 +501,15 @@ class AppointmentController extends Controller
                 ->map(function($procedure) use ($formatAppointmentTypeName) {
                     return [
                         'value' => $procedure->name,
-                        'label' => $formatAppointmentTypeName($procedure->name)
+                        'label' => $formatAppointmentTypeName($procedure->name),
+                        'source' => 'clinic_procedure'
                     ];
                 })
                 ->toArray();
         }
 
         // Helper function to normalize appointment type names for comparison
+        // This is used to catch duplicates like "Fecalysis" vs "Fecalysis Test"
         $normalizeTypeName = function($name) {
             $name = strtolower(trim($name));
             // Remove common suffixes
@@ -482,46 +519,83 @@ class AppointmentController extends Controller
             $name = preg_replace('/\s+/', ' ', $name); // Multiple spaces to single space
             return trim($name);
         };
+        
+        // Log for debugging - check what we're getting from database
+        \Log::info('Appointment Types Debug', [
+            'lab_tests_count' => count($appointmentTypesFromLabTests),
+            'lab_tests' => $appointmentTypesFromLabTests,
+            'clinic_procedures_count' => count($appointmentTypesFromProcedures),
+            'clinic_procedures' => $appointmentTypesFromProcedures
+        ]);
 
-        // Get distinct appointment types from existing appointments (for backward compatibility)
-        // Only include if they don't already exist in lab_tests or clinic_procedures
-        $existingTypeNamesNormalized = collect(array_merge($appointmentTypesFromLabTests, $appointmentTypesFromProcedures))
-            ->pluck('value')
-            ->map($normalizeTypeName)
-            ->toArray();
+        // REMOVED: No longer fetching from appointments table to avoid duplicates
+        // Only use lab_tests and clinic_procedures as the source of truth
+        $appointmentTypesFromAppointments = [];
 
-        $appointmentTypesFromAppointments = DB::table('appointments')
-            ->whereNotNull('appointment_type')
-            ->where('appointment_type', '!=', '')
-            ->where('appointment_type', '!=', 'manual_transaction')
-            ->distinct()
-            ->pluck('appointment_type')
-            ->map(function($type) use ($formatAppointmentTypeName, $normalizeTypeName, $existingTypeNamesNormalized) {
-                // Only include if not already in lab_tests or clinic_procedures (normalized comparison)
-                $normalized = $normalizeTypeName($type);
-                if (!in_array($normalized, $existingTypeNamesNormalized)) {
-                    return [
-                        'value' => $type,
-                        'label' => $formatAppointmentTypeName($type)
-                    ];
-                }
-                return null;
-            })
-            ->filter() // Remove null values
-            ->values()
-            ->toArray();
+        // Add default appointment types (consultations)
+        $defaultAppointmentTypes = [
+            [
+                'value' => 'general_consultation',
+                'label' => 'General Consultation',
+                'source' => 'default'
+            ],
+            [
+                'value' => 'follow-up',
+                'label' => 'Follow-up',
+                'source' => 'default'
+            ],
+            [
+                'value' => 'check-up',
+                'label' => 'Check-up',
+                'source' => 'default'
+            ]
+        ];
 
-        // Merge all sources: lab_tests (primary), clinic_procedures, then existing appointments
-        // Deduplicate by normalized value to catch variations like "Fecalysis" vs "Fecalysis Test"
-        $allAppointmentTypes = collect(array_merge($appointmentTypesFromLabTests, $appointmentTypesFromProcedures, $appointmentTypesFromAppointments))
+        // Merge all sources: default types, lab_tests (primary), clinic_procedures
+        // Deduplicate by normalized value FIRST to catch "Fecalysis" vs "Fecalysis Test"
+        // Then deduplicate by exact value to catch exact duplicates
+        $allAppointmentTypes = collect(array_merge($defaultAppointmentTypes, $appointmentTypesFromLabTests, $appointmentTypesFromProcedures))
             ->unique(function($item) use ($normalizeTypeName) {
-                // Use normalized name for deduplication
+                // Use normalized name for deduplication - this catches "Fecalysis" vs "Fecalysis Test"
                 return $normalizeTypeName($item['value']);
             })
+            ->unique('value') // Also deduplicate by exact value to catch exact duplicates
             ->values()
-            ->sortBy('label') // Sort alphabetically by display name
+            ->sortBy('label')
             ->values()
             ->toArray();
+        
+        // Final aggressive pass: ensure absolutely no duplicates
+        // Check both normalized AND exact values to be 100% sure
+        $seenNormalized = [];
+        $seenExact = [];
+        $finalTypes = [];
+        
+        foreach ($allAppointmentTypes as $type) {
+            $normalized = $normalizeTypeName($type['value']);
+            $exact = $type['value'];
+            
+            // Skip if we've seen this normalized name OR exact value before
+            // This ensures we only keep the FIRST occurrence
+            if (!isset($seenNormalized[$normalized]) && !isset($seenExact[$exact])) {
+                $seenNormalized[$normalized] = true;
+                $seenExact[$exact] = true;
+                $finalTypes[] = $type;
+            }
+        }
+        
+        // Sort final types by label
+        usort($finalTypes, function($a, $b) {
+            return strcmp($a['label'], $b['label']);
+        });
+        
+        // Log final result for debugging
+        \Log::info('Final Appointment Types', [
+            'count' => count($finalTypes),
+            'types' => array_map(function($t) { return $t['label']; }, $finalTypes)
+        ]);
+        
+        $allAppointmentTypes = $finalTypes;
 
         return Inertia::render('admin/appointments/index', [
             'appointments' => [
@@ -535,7 +609,8 @@ class AppointmentController extends Controller
             'nextPatientId' => $nextPatientId,
             'doctors' => $doctors,
             'medtechs' => $medtechs,
-            'appointmentTypes' => $allAppointmentTypes
+            'appointmentTypes' => $allAppointmentTypes,
+            'patients' => $patients
         ]);
     }
 
@@ -1601,101 +1676,58 @@ class AppointmentController extends Controller
         try {
             DB::beginTransaction();
 
-            // Validate the request
+            // Validate the request - only appointment fields, patient must exist
             $validator = Validator::make($request->all(), [
-                // Patient fields
-                'last_name' => 'required|string|max:255',
-                'first_name' => 'required|string|max:255',
-                'middle_name' => 'nullable|string|max:255',
-                'birthdate' => 'required|date',
-                'age' => 'required|integer|min:0',
-                'sex' => 'required|in:male,female',
-                'civil_status' => 'required|string',
-                'nationality' => 'nullable|string|max:255',
-                'present_address' => 'required|string',
-                'telephone_no' => 'nullable|string|max:20',
-                'mobile_no' => 'required|string|max:20',
-                'emergency_name' => 'nullable|string|max:255',
-                'emergency_relation' => 'nullable|string|max:255',
-                'informant_name' => 'nullable|string|max:255',
-                'relationship' => 'nullable|string|max:255',
-                'company_name' => 'nullable|string|max:255',
-                'hmo_name' => 'nullable|string|max:255',
-                'hmo_company_id_no' => 'nullable|string|max:255',
-                'validation_approval_code' => 'nullable|string|max:255',
-                'validity' => 'nullable|string|max:255',
-                'drug_allergies' => 'nullable|string',
-                'food_allergies' => 'nullable|string',
-                'past_medical_history' => 'nullable|string',
-                'family_history' => 'nullable|string',
-                'social_personal_history' => 'nullable|string',
-                'obstetrics_gynecology_history' => 'nullable|string',
+                // Patient must exist
+                'patient_id' => 'required|integer|exists:patients,id',
                 
                 // Appointment fields
                 'appointment_type' => 'required|string',
                 'specialist_type' => 'required|in:doctor,medtech',
-                'specialist_id' => 'required|integer',
+                'specialist_id' => 'required|integer|exists:specialists,specialist_id',
                 'appointment_date' => 'required|date',
                 'appointment_time' => 'required|string',
-                'notes' => 'nullable|string',
-                'special_requirements' => 'nullable|string',
+                'status' => 'nullable|string|in:Confirmed,Pending,Cancelled,Completed',
+                'duration' => 'nullable|string',
+                'contact_number' => 'nullable|string|max:20',
+                'additional_info' => 'nullable|string|max:1000',
+                'notes' => 'nullable|string|max:1000',
             ]);
 
             if ($validator->fails()) {
                 return back()->withErrors($validator)->withInput();
             }
 
+            // Get patient - must exist
+            $patient = \App\Models\Patient::findOrFail($request->patient_id);
+            
             // Get specialist info
-            $specialist = \App\Models\Staff::findOrFail($request->specialist_id);
+            $specialist = \App\Models\Specialist::findOrFail($request->specialist_id);
             
             // Convert time format from "3:30 PM" to "15:30:00"
             $timeFormatted = Carbon::createFromFormat('g:i A', $request->appointment_time)->format('H:i:s');
-            
-            // Prepare patient data
-            $patientData = [
-                'last_name' => $request->last_name,
-                'first_name' => $request->first_name,
-                'middle_name' => $request->middle_name,
-                'birthdate' => $request->birthdate,
-                'age' => $request->age,
-                'sex' => $request->sex,
-                'civil_status' => $request->civil_status,
-                'nationality' => $request->nationality,
-                'present_address' => $request->present_address,
-                'telephone_no' => $request->telephone_no,
-                'mobile_no' => $request->mobile_no,
-                'emergency_name' => $request->emergency_name ?? $request->informant_name,
-                'emergency_relation' => $request->emergency_relation ?? $request->relationship,
-                'company_name' => $request->company_name,
-                'hmo_name' => $request->hmo_name,
-                'hmo_company_id_no' => $request->hmo_company_id_no,
-                'validation_approval_code' => $request->validation_approval_code,
-                'validity' => $request->validity,
-                'drug_allergies' => $request->drug_allergies,
-                'food_allergies' => $request->food_allergies,
-                'past_medical_history' => $request->past_medical_history,
-                'family_history' => $request->family_history,
-                'social_personal_history' => $request->social_personal_history,
-                'obstetrics_gynecology_history' => $request->obstetrics_gynecology_history,
-            ];
 
-            // Create patient directly
-            $patient = \App\Models\Patient::create($patientData);
+            // Generate appointment_code before creation
+            $lastAppointment = \App\Models\Appointment::orderBy('id', 'desc')->first();
+            $nextId = $lastAppointment ? $lastAppointment->id + 1 : 1;
+            $appointmentCode = 'A' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
 
             // Create appointment data
             $appointmentData = [
-                'patient_id' => $patient->patient_id,
+                'appointment_code' => $appointmentCode,
+                'patient_id' => $patient->id, // Use id as primary key
                 'specialist_id' => $request->specialist_id,
                 'appointment_type' => $request->appointment_type,
                 'specialist_type' => $request->specialist_type,
                 'appointment_date' => $request->appointment_date,
                 'appointment_time' => $timeFormatted,
-                'duration' => '30 min',
+                'duration' => $request->duration ?? '30 min',
                 'price' => null, // Will be calculated using Appointment model's calculatePrice method
-                'additional_info' => $request->notes,
-                'admin_notes' => $request->special_requirements,
+                'additional_info' => $request->additional_info,
+                'notes' => $request->notes,
+                'contact_number' => $request->contact_number,
                 'source' => 'Walk-in',
-                'status' => 'Confirmed',
+                'status' => $request->status ?? 'Pending',
             ];
 
             // Create appointment
@@ -1703,11 +1735,16 @@ class AppointmentController extends Controller
 
             // Calculate and set price using the model's calculatePrice method
             $calculatedPrice = $appointment->calculatePrice();
-            $appointment->update(['price' => $calculatedPrice]);
+            $appointment->update([
+                'price' => $calculatedPrice,
+                'final_total_amount' => $calculatedPrice,
+                'total_lab_amount' => 0
+            ]);
 
             // Generate visit code before creation
-            $nextId = \App\Models\Visit::max('id') + 1;
-            $visitCode = 'V' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+            $lastVisit = \App\Models\Visit::orderBy('id', 'desc')->first();
+            $nextVisitId = $lastVisit ? $lastVisit->id + 1 : 1;
+            $visitCode = 'V' . str_pad($nextVisitId, 4, '0', STR_PAD_LEFT);
 
             // Create visit automatically for walk-in appointments
             // Format the visit date properly - combine appointment date and time
@@ -1729,35 +1766,167 @@ class AppointmentController extends Controller
             
             $visitDateTime = $appointmentDate . ' ' . $appointmentTime;
             
+            // Map specialist to user for attending_staff_id
+            $attendingStaffId = null;
+            if ($specialist) {
+                // Try to find a user that matches the specialist
+                $normalizeName = function($name) {
+                    // Remove titles (MD, Dr., Doctor, etc.)
+                    $name = preg_replace('/\b(MD\.?|Dr\.?|Doctor|Mr\.?|Mrs\.?|Ms\.?)\b\.?/i', '', $name);
+                    // Remove commas and extra spaces
+                    $name = str_replace(',', '', $name);
+                    $name = preg_replace('/\s+/', ' ', trim($name));
+                    return $name;
+                };
+                
+                $normalizedSpecialistName = $normalizeName($specialist->name);
+                $nameParts = array_filter(explode(' ', $normalizedSpecialistName));
+                $firstName = $nameParts[0] ?? '';
+                $lastName = end($nameParts) ?? '';
+                
+                \Log::info('Attempting to match specialist to user', [
+                    'specialist_name' => $specialist->name,
+                    'normalized_name' => $normalizedSpecialistName,
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'specialist_role' => $specialist->role
+                ]);
+                
+                // Try to match by role
+                $roleMapping = [
+                    'Doctor' => 'doctor',
+                    'MedTech' => 'medtech',
+                ];
+                
+                $userRole = $roleMapping[$specialist->role] ?? null;
+                if ($userRole) {
+                    $usersWithRole = \App\Models\User::where('role', $userRole)->get();
+                    
+                    // Strategy 1: Exact normalized name match
+                    foreach ($usersWithRole as $user) {
+                        $normalizedUserName = $normalizeName($user->name);
+                        if (strcasecmp($normalizedSpecialistName, $normalizedUserName) === 0) {
+                            $attendingStaffId = $user->id;
+                            \Log::info('Matched specialist to user by exact name', [
+                                'specialist' => $specialist->name,
+                                'user' => $user->name,
+                                'user_id' => $user->id
+                            ]);
+                            break;
+                        }
+                    }
+                    
+                    // Strategy 2: First name + last name match
+                    if (!$attendingStaffId && $firstName && $lastName) {
+                        foreach ($usersWithRole as $user) {
+                            $normalizedUserName = $normalizeName($user->name);
+                            $userNameParts = array_filter(explode(' ', $normalizedUserName));
+                            $userFirstName = $userNameParts[0] ?? '';
+                            $userLastName = end($userNameParts) ?? '';
+                            
+                            if (strcasecmp($firstName, $userFirstName) === 0 && 
+                                strcasecmp($lastName, $userLastName) === 0) {
+                                $attendingStaffId = $user->id;
+                                \Log::info('Matched specialist to user by first+last name', [
+                                    'specialist' => $specialist->name,
+                                    'user' => $user->name,
+                                    'user_id' => $user->id
+                                ]);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Strategy 3: Last name only match
+                    if (!$attendingStaffId && $lastName) {
+                        foreach ($usersWithRole as $user) {
+                            $normalizedUserName = $normalizeName($user->name);
+                            $userNameParts = array_filter(explode(' ', $normalizedUserName));
+                            $userLastName = end($userNameParts) ?? '';
+                            
+                            if (strcasecmp($lastName, $userLastName) === 0) {
+                                $attendingStaffId = $user->id;
+                                \Log::info('Matched specialist to user by last name', [
+                                    'specialist' => $specialist->name,
+                                    'user' => $user->name,
+                                    'user_id' => $user->id
+                                ]);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Log if no match was found
+            if (!$attendingStaffId) {
+                \Log::warning('Could not match specialist to user, using fallback', [
+                    'specialist_id' => $specialist->specialist_id ?? null,
+                    'specialist_name' => $specialist->name ?? null,
+                    'specialist_role' => $specialist->role ?? null,
+                    'auth_user_id' => auth()->id()
+                ]);
+            }
+            
+            // Fallback to current user or admin
+            if (!$attendingStaffId) {
+                $attendingStaffId = auth()->id();
+                if (!$attendingStaffId) {
+                    $adminUser = \App\Models\User::where('role', 'admin')->first();
+                    $attendingStaffId = $adminUser ? $adminUser->id : 1;
+                }
+            }
+
             $visit = \App\Models\Visit::create([
                 'appointment_id' => $appointment->id,
                 'patient_id' => $appointment->patient_id,
                 'visit_date_time_time' => $visitDateTime,
-                'visit_date_time' => $visitDateTime,
                 'purpose' => $appointment->appointment_type,
-                'attending_staff_id' => $appointment->specialist_id,
-                'status' => 'Ongoing',
+                'attending_staff_id' => $attendingStaffId,
+                'status' => 'scheduled',
                 'visit_code' => $visitCode,
             ]);
 
             // Billing transaction will be created by AppointmentAutomationService
             // to prevent duplicates and ensure proper specialist mapping
 
-            DB::commit();
-
             \Log::info('Walk-in appointment created successfully', [
                 'appointment_id' => $appointment->id,
-                'patient_id' => $patient->patient_id,
-                'visit_id' => $visit->visit_id
+                'appointment_code' => $appointment->appointment_code,
+                'patient_id' => $patient->id,
+                'visit_id' => $visit->id,
+                'visit_code' => $visit->visit_code
             ]);
 
+            DB::commit();
+
             return redirect()->route('admin.appointments.index')
-                ->with('success', 'Walk-in appointment created successfully for ' . $patient->first_name . ' ' . $patient->last_name . '. Visit has been created. Billing transaction can be created from the billing section.');
+                ->with('success', 'Walk-in appointment created successfully for ' . $patient->first_name . ' ' . $patient->last_name . '. Visit has been created.');
 
         } catch (\Exception $e) {
             DB::rollback();
             return back()->with('error', 'Failed to create walk-in appointment: ' . $e->getMessage())->withInput();
         }
+    }
+
+    /**
+     * Check appointment availability for a specialist on a specific date
+     */
+    public function checkAvailability(Request $request)
+    {
+        $request->validate([
+            'specialist_id' => 'required|integer|exists:specialists,specialist_id',
+            'date' => 'required|date',
+        ]);
+
+        // Get existing appointments for this specialist on this date
+        $bookedTimes = Appointment::where('specialist_id', $request->specialist_id)
+            ->where('appointment_date', $request->date)
+            ->whereIn('status', ['Pending', 'Confirmed', 'Completed'])
+            ->pluck('appointment_time')
+            ->toArray();
+
+        return response()->json($bookedTimes);
     }
 
     /**
