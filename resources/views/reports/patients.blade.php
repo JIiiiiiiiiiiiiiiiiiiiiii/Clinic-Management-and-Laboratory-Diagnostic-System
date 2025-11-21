@@ -29,6 +29,12 @@
             font-size: 16px;
             font-weight: normal;
         }
+        .header .date-range {
+            color: #666;
+            margin: 10px 0 0 0;
+            font-size: 14px;
+            font-weight: normal;
+        }
         .summary-section {
             margin-bottom: 30px;
         }
@@ -129,6 +135,15 @@
         </div>
         <h1>Patient Report</h1>
         <h2>{{ $title ?? 'Patient Statistics and Details' }}</h2>
+        <div class="date-range">
+            @if(isset($filters) && (isset($filters['date_from']) || isset($filters['date_to'])))
+                Date Range: From {{ $filters['date_from'] ?? 'N/A' }} To {{ $filters['date_to'] ?? 'N/A' }}
+            @elseif(isset($dateRange))
+                Date Range: {{ $dateRange }}
+            @else
+                Date Range: All Time
+            @endif
+        </div>
     </div>
 
     <div class="summary-section">

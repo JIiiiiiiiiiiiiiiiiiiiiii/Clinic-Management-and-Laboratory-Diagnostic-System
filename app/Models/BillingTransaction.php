@@ -31,8 +31,8 @@ class BillingTransaction extends Model
         'lab_amount',
         'follow_up_amount',
         'total_visits',
-        'created_by',
-        'updated_by',
+        // Note: created_by and updated_by columns don't exist in billing_transactions table
+        // Removed from fillable to match actual database structure
     ];
 
     protected $casts = [
@@ -207,7 +207,24 @@ class BillingTransaction extends Model
             return $this->patient;
         }
         
-        // Try to get patient from appointment
+        // Try to get patient from appointment links (preferred method)
+        if ($this->relationLoaded('appointmentLinks')) {
+            foreach ($this->appointmentLinks as $link) {
+                if ($link->appointment && $link->appointment->patient) {
+                    return $link->appointment->patient;
+                }
+            }
+        } else {
+            // Load appointment links if not already loaded
+            $this->load('appointmentLinks.appointment.patient');
+            foreach ($this->appointmentLinks as $link) {
+                if ($link->appointment && $link->appointment->patient) {
+                    return $link->appointment->patient;
+                }
+            }
+        }
+        
+        // Fallback: Try to get patient from appointments relationship
         $appointment = $this->appointments()->first();
         if ($appointment && $appointment->patient) {
             return $appointment->patient;

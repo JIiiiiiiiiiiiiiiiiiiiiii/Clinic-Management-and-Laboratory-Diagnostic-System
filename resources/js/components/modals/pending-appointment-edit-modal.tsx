@@ -19,7 +19,9 @@ import {
     Stethoscope,
     Save,
     AlertCircle,
-    TestTube
+    TestTube,
+    Phone,
+    MapPin
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useForm } from '@inertiajs/react';
@@ -153,15 +155,18 @@ export default function PendingAppointmentEditModal({
         special_requirements: '',
     });
 
-    // Update form data when appointment changes
+    // Update form data when appointment changes - AUTO-FETCH all data from appointment
     useEffect(() => {
         if (appointment) {
             setAppointmentData(appointment);
+            // CRITICAL: Auto-fetch all data from appointment object to ensure consistency with view modal
             setData({
-                patient_name: appointment.patient_name || '',
-                patient_id: appointment.patient_id || '',
+                patient_name: appointment.patient_name || (appointment.patient?.first_name && appointment.patient?.last_name 
+                    ? `${appointment.patient.first_name} ${appointment.patient.last_name}`.trim() 
+                    : ''),
+                patient_id: appointment.patient_id?.toString() || appointment.patient?.patient_no || appointment.patient_id || '',
                 appointment_type: appointment.appointment_type || '',
-                specialist_name: appointment.specialist_name || '',
+                specialist_name: appointment.specialist_name || appointment.specialist?.name || '',
                 specialist_id: appointment.specialist?.id?.toString() || appointment.specialist_id?.toString() || '',
                 appointment_date: appointment.appointment_date || '',
                 appointment_time: appointment.appointment_time || '',
@@ -172,7 +177,7 @@ export default function PendingAppointmentEditModal({
                 special_requirements: appointment.special_requirements || '',
             });
         }
-    }, [appointment]);
+    }, [appointment, setData]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -277,6 +282,24 @@ export default function PendingAppointmentEditModal({
                                             required
                                         />
                                     </div>
+                                    {appointment?.contact_number && (
+                                        <div>
+                                            <Label>Contact Number</Label>
+                                            <p className="text-sm text-gray-700 bg-gray-50 p-2 rounded mt-1 flex items-center gap-2">
+                                                <Phone className="h-4 w-4" />
+                                                {appointment.contact_number}
+                                            </p>
+                                        </div>
+                                    )}
+                                    {appointment?.patient?.present_address && (
+                                        <div>
+                                            <Label>Address</Label>
+                                            <p className="text-sm text-gray-700 bg-gray-50 p-2 rounded mt-1 flex items-center gap-2">
+                                                <MapPin className="h-4 w-4" />
+                                                {appointment.patient.present_address}
+                                            </p>
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
 
@@ -401,7 +424,7 @@ export default function PendingAppointmentEditModal({
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     <div>
-                                        <Label htmlFor="price">Price (₱)</Label>
+                                        <Label htmlFor="price">Base Price (₱)</Label>
                                         <Input
                                             id="price"
                                             type="number"
@@ -413,6 +436,22 @@ export default function PendingAppointmentEditModal({
                                             required
                                         />
                                     </div>
+                                    {appointment && (
+                                        <>
+                                            <div>
+                                                <Label>Lab Tests Amount</Label>
+                                                <p className="text-lg font-semibold text-blue-600 mt-1">
+                                                    ₱{appointment.total_lab_amount?.toLocaleString() || '0.00'}
+                                                </p>
+                                            </div>
+                                            <div className="border-t pt-3">
+                                                <Label>Total Amount</Label>
+                                                <p className="text-xl font-bold text-green-600 mt-1">
+                                                    ₱{((data.price || 0) + (appointment.total_lab_amount || 0)).toLocaleString()}
+                                                </p>
+                                            </div>
+                                        </>
+                                    )}
                                 </CardContent>
                             </Card>
 
@@ -546,6 +585,34 @@ export default function PendingAppointmentEditModal({
                                     </div>
                                 </CardContent>
                             </Card>
+
+                            {/* Timestamps */}
+                            {appointment && (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Clock className="h-5 w-5" />
+                                            Timestamps
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <Label>Created At</Label>
+                                                <p className="text-sm text-gray-700 mt-1">
+                                                    {safeFormatDate(appointment.created_at)} {safeFormatTime(appointment.created_at)}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <Label>Last Updated</Label>
+                                                <p className="text-sm text-gray-700 mt-1">
+                                                    {safeFormatDate(appointment.updated_at)} {safeFormatTime(appointment.updated_at)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
                         </div>
                     </div>
 

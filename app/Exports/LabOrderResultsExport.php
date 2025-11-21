@@ -72,22 +72,22 @@ class LabOrderResultsExport extends BaseExport implements FromArray, WithHeading
                 // Fallback to flattened format for legacy data
                 $flatResults = $this->flattenResults($result->results ?? []);
                 $reference = $this->referenceRangesFor($test, $result->results ?? []);
-                $rows[] = [
-                    'Order ID' => $this->order->id,
-                    'Patient No' => $patient?->id,
-                    'Patient Name' => $patient ? ($patient->last_name . ', ' . $patient->first_name) : 'N/A',
-                    'Visit ID' => $this->order->visit?->id,
-                    'Visit Date' => optional($this->order->visit?->visit_date_time)->format('Y-m-d'),
-                    'Test' => $test->name ?? 'Unknown Test',
-                    'Code' => $test->code ?? '',
+            $rows[] = [
+                'Order ID' => $this->order->id,
+                'Patient No' => $patient?->id,
+                'Patient Name' => $patient ? ($patient->last_name . ', ' . $patient->first_name) : 'N/A',
+                'Visit ID' => $this->order->visit?->id,
+                'Visit Date' => optional($this->order->visit?->visit_date_time)->format('Y-m-d'),
+                'Test' => $test->name ?? 'Unknown Test',
+                'Code' => $test->code ?? '',
                     'Parameter' => 'All Parameters',
                     'Result' => $flatResults,
                     'Unit' => 'N/A',
                     'Reference Range' => $reference,
                     'Status' => 'N/A',
-                    'Verified By' => $result->verified_by ?? '',
-                    'Verified At' => optional($result->verified_at)->format('Y-m-d H:i:s'),
-                ];
+                'Verified By' => $result->verified_by ?? '',
+                'Verified At' => optional($result->verified_at)->format('Y-m-d H:i:s'),
+            ];
             }
         }
 
@@ -171,22 +171,22 @@ class LabOrderResultsExport extends BaseExport implements FromArray, WithHeading
                 // Fallback to flattened format for legacy data
                 $flatResults = $this->flattenResults($result->results ?? []);
                 $reference = $this->referenceRangesFor($test, $result->results ?? []);
-                $rows[] = (object) [
-                    'Order ID' => $this->order->id,
-                    'Patient No' => $patient?->id,
-                    'Patient Name' => $patient ? ($patient->last_name . ', ' . $patient->first_name) : 'N/A',
-                    'Visit ID' => $this->order->visit?->id,
-                    'Visit Date' => optional($this->order->visit?->visit_date_time)->format('Y-m-d'),
-                    'Test' => $test->name ?? 'Unknown Test',
-                    'Code' => $test->code ?? '',
+            $rows[] = (object) [
+                'Order ID' => $this->order->id,
+                'Patient No' => $patient?->id,
+                'Patient Name' => $patient ? ($patient->last_name . ', ' . $patient->first_name) : 'N/A',
+                'Visit ID' => $this->order->visit?->id,
+                'Visit Date' => optional($this->order->visit?->visit_date_time)->format('Y-m-d'),
+                'Test' => $test->name ?? 'Unknown Test',
+                'Code' => $test->code ?? '',
                     'Parameter' => 'All Parameters',
                     'Result' => $flatResults,
                     'Unit' => 'N/A',
                     'Reference Range' => $reference,
                     'Status' => 'N/A',
-                    'Verified By' => $result->verified_by ?? '',
-                    'Verified At' => optional($result->verified_at)->format('Y-m-d H:i:s'),
-                ];
+                'Verified By' => $result->verified_by ?? '',
+                'Verified At' => optional($result->verified_at)->format('Y-m-d H:i:s'),
+            ];
             }
         }
 

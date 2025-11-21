@@ -630,6 +630,27 @@ class Appointment extends Model
                 return; // Early return - no duplicate check for manual transactions
             }
             
+            // CRITICAL: Skip duplicate check if ONLY billing_status is being updated
+            // Billing status updates should never trigger duplicate checks
+            $dirtyFields = $appointment->getDirty();
+            $onlyBillingStatus = count($dirtyFields) === 1 && isset($dirtyFields['billing_status']);
+            
+            // Also check if billing_status is in the dirty fields (even if there are other fields)
+            // This is a safety net - billing_status updates should never trigger duplicate checks
+            $hasBillingStatus = isset($dirtyFields['billing_status']);
+            $keyFieldsDirty = $appointment->isDirty(["patient_id", "specialist_id", "appointment_date", "appointment_time"]);
+            
+            // If billing_status is being updated AND key fields are NOT dirty, skip duplicate check
+            if ($hasBillingStatus && !$keyFieldsDirty) {
+                \Log::info('Skipping duplicate check - billing_status is being updated and key fields are not dirty', [
+                    'appointment_id' => $appointment->id,
+                    'dirty_fields' => $dirtyFields,
+                    'only_billing_status' => $onlyBillingStatus,
+                    'key_fields_dirty' => $keyFieldsDirty,
+                ]);
+                return; // Early return - no duplicate check for billing_status updates
+            }
+            
             // For regular appointments, check for duplicates only if key fields changed
             if ($appointment->isDirty(["patient_id", "specialist_id", "appointment_date", "appointment_time"])) {
                 $appointment->unique_appointment_key = $appointment->generateUniqueKey();

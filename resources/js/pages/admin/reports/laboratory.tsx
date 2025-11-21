@@ -673,15 +673,21 @@ export default function LaboratoryReportsIndex({
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200 bg-white">
-                                        {Object.entries(data.test_summary).map(([testType, count]) => (
-                                            <tr key={testType}>
-                                                <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">{testType}</td>
-                                                <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">{count}</td>
-                                                <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
-                                                    {data.total_orders > 0 ? ((count / data.total_orders) * 100).toFixed(1) : 0}%
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {Object.entries(data.test_summary).map(([testType, count]) => {
+                                            // CRITICAL: Calculate percentage based on total_tests, not total_orders
+                                            // This ensures percentages don't exceed 100%
+                                            const totalTests = data.total_tests || 0;
+                                            const percentage = totalTests > 0 ? ((count as number / totalTests) * 100) : 0;
+                                            return (
+                                                <tr key={testType}>
+                                                    <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">{testType}</td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">{count}</td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
+                                                        {percentage.toFixed(1)}%
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>

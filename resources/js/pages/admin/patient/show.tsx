@@ -25,7 +25,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { PatientItem } from '@/types/patients';
 import { Head, router } from '@inertiajs/react';
-import { Calendar, Edit, MapPin, Phone, Plus, Stethoscope, TestTube, User, Mail, Clock, FileText, Eye, ExternalLink, Heart, Activity, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Calendar, Edit, MapPin, Phone, Plus, Stethoscope, TestTube, User, Mail, Clock, FileText, Eye, ExternalLink, Heart, Activity, CheckCircle2, AlertCircle, Shield } from 'lucide-react';
 import * as React from 'react';
 
 const buildBreadcrumbs = (patientId: number): BreadcrumbItem[] => [
@@ -243,6 +243,57 @@ export default function ShowPatient({ patient, labOrders = [], visits = [] }: Sh
                                             <div>
                                                 <p className="text-sm font-medium text-gray-600">Relationship</p>
                                                 <p className="text-sm font-semibold text-gray-900">{patient.emergency_relation || 'Not provided'}</p>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* Financial/Insurance Information */}
+                                <Card className="shadow-sm md:col-span-2">
+                                    <div className="flex items-center gap-3 border-b bg-gray-50 p-4">
+                                        <div className="rounded-lg bg-gray-100 p-2">
+                                            <Shield className="h-5 w-5 text-black" />
+                                        </div>
+                                        <h4 className="text-lg font-semibold text-gray-900">Financial/Insurance Information</h4>
+                                    </div>
+                                    <CardContent className="space-y-4 p-6">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-600">Company Name</p>
+                                                <p className="text-sm font-semibold text-gray-900">{(patient as any).insurance_company || patient.company_name || 'Not provided'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-600">HMO Name</p>
+                                                <p className="text-sm font-semibold text-gray-900">{patient.hmo_name || (patient as any).hmo_name || 'Not provided'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-600">HMO Company ID No</p>
+                                                <p className="text-sm font-semibold text-gray-900">{(patient as any).hmo_id_no || patient.hmo_company_id_no || 'Not provided'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-600">Validation Approval Code</p>
+                                                <p className="text-sm font-semibold text-gray-900">{(patient as any).approval_code || patient.validation_approval_code || 'Not provided'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-600">Validity</p>
+                                                <p className="text-sm font-semibold text-gray-900">
+                                                    {(() => {
+                                                        const validityValue = patient.validity || (patient as any).validity;
+                                                        if (!validityValue) return 'Not provided';
+                                                        if (typeof validityValue === 'string' && (validityValue.includes('-') || validityValue.includes('/'))) {
+                                                            try {
+                                                                return new Date(validityValue).toLocaleDateString('en-US', {
+                                                                    year: 'numeric',
+                                                                    month: 'long',
+                                                                    day: 'numeric',
+                                                                });
+                                                            } catch {
+                                                                return validityValue;
+                                                            }
+                                                        }
+                                                        return validityValue;
+                                                    })()}
+                                                </p>
                                             </div>
                                         </div>
                                     </CardContent>
@@ -480,8 +531,8 @@ export default function ShowPatient({ patient, labOrders = [], visits = [] }: Sh
                                                     <div className="flex items-start justify-between">
                                                         <div className="flex-1">
                                                             <div className="mb-3 flex items-center gap-3">
-                                                                <div className="rounded-lg bg-gray-100 p-2">
-                                                                    <TestTube className="h-4 w-4 text-black" />
+                                                            <div className="rounded-lg bg-gray-100 p-2">
+                                                                <TestTube className="h-4 w-4 text-black" />
                                                                 </div>
                                                                 <div className="flex-1">
                                                                     <div className="flex items-center gap-2">
@@ -584,7 +635,7 @@ export default function ShowPatient({ patient, labOrders = [], visits = [] }: Sh
                                                                         </div>
                                                                     )}
                                                                     {order.updated_at && (
-                                                                        <div>
+                                                            <div>
                                                                             <p className="text-gray-600">Last Updated:</p>
                                                                             <p className="font-semibold text-gray-900">
                                                                                 {new Date(order.updated_at).toLocaleString('en-US', {

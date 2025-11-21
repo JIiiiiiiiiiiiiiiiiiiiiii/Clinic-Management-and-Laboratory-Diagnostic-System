@@ -77,7 +77,9 @@ class LaboratoryReportController extends Controller
         $completedOrders = $labOrders->where('status', 'completed')->count();
 
         // Get test summary
-        $testSummary = $this->getTestSummary($labOrders);
+        $testSummaryData = $this->getTestSummary($labOrders);
+        $testSummary = $testSummaryData['test_counts'] ?? [];
+        $totalTests = $testSummaryData['total_tests'] ?? 0;
 
         // Get order details
         $orderDetails = $labOrders->map(function ($order) {
@@ -100,6 +102,7 @@ class LaboratoryReportController extends Controller
             'completed_orders' => $completedOrders,
             'completion_rate' => $totalOrders > 0 ? round(($completedOrders / $totalOrders) * 100, 2) : 0,
             'test_summary' => $testSummary,
+            'total_tests' => $totalTests, // Add total_tests for percentage calculation
             'order_details' => $orderDetails->toArray(),
             'period' => $this->getPeriodLabel($filter, $date),
             'start_date' => $startDate->format('Y-m-d'),
@@ -151,12 +154,14 @@ class LaboratoryReportController extends Controller
     private function getTestSummary($labOrders)
     {
         $testCounts = [];
+        $totalTests = 0; // Track total number of tests (not orders)
 
         foreach ($labOrders as $order) {
             foreach ($order->results as $result) {
                 $test = $result->test;
                 if (!$test) continue;
                 $testName = strtolower($test->name);
+                $totalTests++; // Count each test
 
                 // Categorize tests
                 if (strpos($testName, 'fecal') !== false || strpos($testName, 'stool') !== false) {
@@ -171,7 +176,11 @@ class LaboratoryReportController extends Controller
             }
         }
 
-        return $testCounts;
+        // Add total_tests to the result for percentage calculation
+        return [
+            'test_counts' => $testCounts,
+            'total_tests' => $totalTests
+        ];
     }
 
     private function getPeriodLabel($filter, $date)

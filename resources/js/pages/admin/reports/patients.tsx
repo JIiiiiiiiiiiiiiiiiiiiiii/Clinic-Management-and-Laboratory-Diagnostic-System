@@ -49,6 +49,7 @@ interface Patient {
     created_at: string;
     appointments_count: number;
     lab_orders_count: number;
+    billing_transactions_count?: number;
 }
 
 interface Summary {
@@ -180,6 +181,13 @@ const columns: ColumnDef<Patient>[] = [
         header: "Lab Orders",
         cell: ({ row }) => (
             <div className="text-center">{row.getValue("lab_orders_count")}</div>
+        ),
+    },
+    {
+        accessorKey: 'billing_transactions_count',
+        header: "Transactions",
+        cell: ({ row }) => (
+            <div className="text-center">{row.getValue("billing_transactions_count") || 0}</div>
         ),
     },
     {

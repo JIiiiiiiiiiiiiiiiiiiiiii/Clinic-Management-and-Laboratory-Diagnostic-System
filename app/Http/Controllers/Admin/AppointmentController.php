@@ -519,7 +519,7 @@ class AppointmentController extends Controller
             $name = preg_replace('/\s+/', ' ', $name); // Multiple spaces to single space
             return trim($name);
         };
-        
+
         // Log for debugging - check what we're getting from database
         \Log::info('Appointment Types Debug', [
             'lab_tests_count' => count($appointmentTypesFromLabTests),
@@ -1700,13 +1700,13 @@ class AppointmentController extends Controller
 
             // Get patient - must exist
             $patient = \App\Models\Patient::findOrFail($request->patient_id);
-            
+
             // Get specialist info
             $specialist = \App\Models\Specialist::findOrFail($request->specialist_id);
             
             // Convert time format from "3:30 PM" to "15:30:00"
             $timeFormatted = Carbon::createFromFormat('g:i A', $request->appointment_time)->format('H:i:s');
-
+            
             // Generate appointment_code before creation
             $lastAppointment = \App\Models\Appointment::orderBy('id', 'desc')->first();
             $nextId = $lastAppointment ? $lastAppointment->id + 1 : 1;
@@ -1876,7 +1876,7 @@ class AppointmentController extends Controller
                     $attendingStaffId = $adminUser ? $adminUser->id : 1;
                 }
             }
-
+            
             $visit = \App\Models\Visit::create([
                 'appointment_id' => $appointment->id,
                 'patient_id' => $appointment->patient_id,
@@ -1965,9 +1965,10 @@ class AppointmentController extends Controller
                 'new_billing_status' => $request->billing_status
             ]);
 
-            $appointment->update([
-                'billing_status' => $request->billing_status
-            ]);
+            // Use direct DB update to completely bypass model events when updating billing_status
+            \DB::table('appointments')
+                ->where('id', $appointment->id)
+                ->update(['billing_status' => $request->billing_status]);
 
             \Log::info('Appointment billing status updated successfully', [
                 'appointment_id' => $appointment->id,

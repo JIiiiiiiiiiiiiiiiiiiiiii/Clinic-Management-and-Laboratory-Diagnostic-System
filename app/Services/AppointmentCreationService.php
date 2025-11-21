@@ -56,12 +56,12 @@ class AppointmentCreationService
             $appointment = Appointment::create($appointmentData);
 
             // Calculate and set price using the model's calculatePrice method
+            // Use saveQuietly to skip model events when updating price fields
             $calculatedPrice = $appointment->calculatePrice();
-            $appointment->update([
-                'price' => $calculatedPrice,
-                'final_total_amount' => $calculatedPrice, // Set final_total_amount to the same as price when no lab tests
-                'total_lab_amount' => 0 // No lab tests initially
-            ]);
+            $appointment->price = $calculatedPrice;
+            $appointment->final_total_amount = $calculatedPrice; // Set final_total_amount to the same as price when no lab tests
+            $appointment->total_lab_amount = 0; // No lab tests initially
+            $appointment->saveQuietly();
 
             Log::info('Appointment created successfully', [
                 'appointment_id' => $appointment->id,
@@ -74,7 +74,9 @@ class AppointmentCreationService
             $visit = $this->createVisit($appointment);
 
             // Set billing status to pending for manual processing
-            $appointment->update(['billing_status' => 'pending']);
+            // Use saveQuietly to skip model events and prevent duplicate check
+            $appointment->billing_status = 'pending';
+            $appointment->saveQuietly();
             
             // Skip auto-generating billing transaction - admin will handle this manually
             // $billingTransaction = null;

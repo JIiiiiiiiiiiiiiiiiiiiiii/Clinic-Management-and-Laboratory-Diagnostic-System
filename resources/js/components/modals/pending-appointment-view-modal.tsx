@@ -399,18 +399,18 @@ export default function PendingAppointmentViewModal({
                                             {appointment.labTests.filter((test: any) => test.source === 'appointment').length > 0 && (
                                                 <div className="mb-4">
                                                     <h4 className="text-sm font-semibold text-gray-700 mb-2">From Appointment</h4>
-                                                    <div className="space-y-2">
+                                            <div className="space-y-2">
                                                         {appointment.labTests.filter((test: any) => test.source === 'appointment').map((test: any) => (
-                                                            <div key={test.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                    <div key={test.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
                                                                 <div className="flex-1">
-                                                                    <span className="font-medium text-sm">{test.lab_test_name}</span>
+                                                        <span className="font-medium text-sm">{test.lab_test_name}</span>
                                                                 </div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-sm">₱{test.price.toLocaleString()}</span>
-                                                                    <Badge variant="outline" className="text-xs">{test.status}</Badge>
-                                                                </div>
-                                                            </div>
-                                                        ))}
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-sm">₱{test.price.toLocaleString()}</span>
+                                                            <Badge variant="outline" className="text-xs">{test.status}</Badge>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                                     </div>
                                                 </div>
                                             )}

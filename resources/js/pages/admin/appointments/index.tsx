@@ -842,7 +842,7 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                     hour24 += 12;
                 } else if (period === 'AM' && hour24 === 12) {
                     hour24 = 0;
-                }
+            }
                 timeForDb = `${hour24.toString().padStart(2, '0')}:${minutes}:00`;
             } catch (e) {
                 console.error('Error converting time format:', e);
@@ -1635,7 +1635,7 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                                 <p className="text-xs text-amber-600">
                                                     No available time slots. The specialist may not have a schedule for this day or all slots are booked.
                                                 </p>
-                                            )}
+                                                )}
                                         </div>
                                         {/* Appointment Type */}
                                         <div className="space-y-2">

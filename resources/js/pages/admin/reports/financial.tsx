@@ -344,12 +344,17 @@ export default function FinancialReports({ filter, date, reportType, data, trans
         }, 0);
         const averageTransaction = total > 0 ? totalRevenue / total : 0;
         
-        // Payment summary from filtered data
+        // Payment summary from filtered data - include both count and amount
         const paymentSummary = currentTransactions.reduce((acc, t) => {
             const method = t.payment_method || 'Unknown';
-            acc[method] = (acc[method] || 0) + 1;
+            if (!acc[method]) {
+                acc[method] = { count: 0, amount: 0 };
+            }
+            acc[method].count += 1;
+            const amount = typeof t.total_amount === 'string' ? parseFloat(t.total_amount) : (t.total_amount || 0);
+            acc[method].amount += amount;
             return acc;
-        }, {} as Record<string, number>);
+        }, {} as Record<string, { count: number; amount: number }>);
 
         const result = {
             total_transactions: total,
@@ -858,11 +863,6 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                                     {(filteredData.total_transactions || 0) > 0 ? (((filteredData.completed_transactions || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0}%
                                                 </td>
                                             </tr>
-                                            <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Revenue</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(filteredData.total_revenue || 0)}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
-                                            </tr>
                                         </>
                                     ) : currentReportType === 'cash' ? (
                                         <>
@@ -886,8 +886,16 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Cash Revenue</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(filteredData.total_revenue || 0)}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Cash Amount</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {formatCurrency(
+                                                        filteredData.payment_summary && typeof filteredData.payment_summary['cash'] === 'object' 
+                                                            ? (filteredData.payment_summary['cash'] as any).amount 
+                                                            : (filteredData.payment_summary && typeof filteredData.payment_summary['cash'] === 'number' 
+                                                                ? 0 
+                                                                : (data?.summary?.cash_total || 0))
+                                                    )}
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
                                             </tr>
                                         </>
@@ -913,8 +921,16 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">HMO Revenue</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(filteredData.total_revenue || 0)}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">HMO Amount</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {formatCurrency(
+                                                        filteredData.payment_summary && typeof filteredData.payment_summary['hmo'] === 'object' 
+                                                            ? (filteredData.payment_summary['hmo'] as any).amount 
+                                                            : (filteredData.payment_summary && typeof filteredData.payment_summary['hmo'] === 'number' 
+                                                                ? 0 
+                                                                : (data?.summary?.hmo_total || 0))
+                                                    )}
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
                                             </tr>
                                         </>
@@ -934,19 +950,30 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                         <tr>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
-                                        {filteredData.payment_summary && Object.entries(filteredData.payment_summary).map(([paymentMethod, count]) => (
+                                        {filteredData.payment_summary && Object.entries(filteredData.payment_summary).map(([paymentMethod, paymentData]) => {
+                                            // Handle both old format (number) and new format (object with count and amount)
+                                            const count = typeof paymentData === 'object' && paymentData !== null ? (paymentData as any).count : (paymentData as number);
+                                            const amount = typeof paymentData === 'object' && paymentData !== null ? (paymentData as any).amount : 0;
+                                            const totalTransactions = filteredData.total_transactions || 0;
+                                            const percentage = totalTransactions > 0 ? ((count / totalTransactions) * 100) : 0;
+                                            return (
                                             <tr key={paymentMethod}>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{paymentMethod}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{count}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                                                    {formatCurrency(amount)}
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {(filteredData.total_transactions || 0) > 0 ? ((count / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0}%
+                                                    {percentage.toFixed(1)}%
                                                 </td>
                                             </tr>
-                                        ))}
+                                        );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>

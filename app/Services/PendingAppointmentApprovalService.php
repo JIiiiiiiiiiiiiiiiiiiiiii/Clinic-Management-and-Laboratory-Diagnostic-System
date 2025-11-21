@@ -43,7 +43,9 @@ class PendingAppointmentApprovalService
                 $visit = $this->createVisitFromAppointment($appointment);
 
                 // Step 4: Set billing status to pending for manual processing
-                $appointment->update(['billing_status' => 'pending']);
+                // Use saveQuietly to skip model events and prevent duplicate check
+                $appointment->billing_status = 'pending';
+                $appointment->saveQuietly();
 
                 // Step 5: Skip auto-generating billing transaction - admin will handle this manually
                 // $billingTransaction = $this->createBillingTransactionFromAppointment($appointment);
@@ -193,11 +195,12 @@ class PendingAppointmentApprovalService
         
         // Calculate and set price using the Appointment model's calculatePrice method
         $calculatedPrice = $appointment->calculatePrice();
-        $appointment->update([
-            'price' => $calculatedPrice,
-            'final_total_amount' => $calculatedPrice, // Set final_total_amount to the same as price when no lab tests
-            'total_lab_amount' => 0 // No lab tests initially
-        ]);
+        // Use saveQuietly to skip model events when updating price fields
+        // These fields don't affect duplicate checks, but saveQuietly prevents any event issues
+        $appointment->price = $calculatedPrice;
+        $appointment->final_total_amount = $calculatedPrice; // Set final_total_amount to the same as price when no lab tests
+        $appointment->total_lab_amount = 0; // No lab tests initially
+        $appointment->saveQuietly();
         
         Log::info('Appointment created from pending', [
             'appointment_id' => $appointment->id,

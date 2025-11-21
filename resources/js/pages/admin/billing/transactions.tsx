@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { toast } from 'sonner';
 import TransactionViewModal from '@/components/modals/transaction-view-modal';
 import TransactionEditModal from '@/components/modals/transaction-edit-modal';
 import { 
@@ -129,6 +130,19 @@ export default function BillingTransactions({
     hmoProviders,
     filters
 }: BillingTransactionsProps) {
+    // Get flash messages from Inertia
+    const { flash } = usePage().props as any;
+    
+    // Show toast notifications for flash messages
+    React.useEffect(() => {
+        if (flash?.success) {
+            toast.success(flash.success);
+        }
+        if (flash?.error) {
+            toast.error(flash.error);
+        }
+    }, [flash]);
+    
     // Column definitions for the transactions table
     const createTransactionColumns = (handleViewTransaction: (id: number) => void, handleEditTransaction: (id: number) => void): ColumnDef<BillingTransaction>[] => [
     {
@@ -165,11 +179,20 @@ export default function BillingTransactions({
         },
         cell: ({ row }) => {
             const patient = row.getValue("patient") as any;
-            return (
-                <div className="font-medium">
-                    {patient ? `${patient.last_name}, ${patient.first_name}` : 'Loading...'}
-                </div>
-            );
+            if (patient && patient.first_name && patient.last_name) {
+                return (
+                    <div className="font-medium">
+                        {`${patient.last_name}, ${patient.first_name}`}
+                    </div>
+                );
+            }
+            // Try to get patient from transaction data if not in patient object
+            const transaction = row.original as any;
+            if (transaction.patient_id) {
+                // Return empty or try to find in patients list if available
+                return <div className="font-medium text-gray-400">-</div>;
+            }
+            return <div className="font-medium text-gray-400">-</div>;
         },
     },
     {
@@ -323,19 +346,20 @@ export default function BillingTransactions({
     // Ensure we have data to work with
     const transactionsData = transactions?.data || [];
     
-    // Debug: Log first transaction to check doctor relationship
+    // Debug: Log transactions data
     useEffect(() => {
+        console.log('Transactions data received:', {
+            total: transactions?.total || 0,
+            count: transactionsData.length,
+            firstTransaction: transactionsData[0] || null,
+            allTransactionIds: transactionsData.map((t: BillingTransaction) => t.id),
+            allStatuses: transactionsData.map((t: BillingTransaction) => t.status),
+        });
         if (transactionsData.length > 0) {
             console.log('First transaction data:', transactionsData[0]);
             console.log('Doctor in first transaction:', transactionsData[0]?.doctor);
-            console.log('Full first transaction:', transactionsData[0]);
-            if (transactionsData[0]?.doctor) {
-                console.log('Doctor name:', transactionsData[0].doctor.name);
-            } else {
-                console.log('Doctor is null or undefined');
-            }
         }
-    }, [transactionsData]);
+    }, [transactions, transactionsData]);
     
     // View modal handlers
     const handleViewTransaction = (transactionId: number) => {

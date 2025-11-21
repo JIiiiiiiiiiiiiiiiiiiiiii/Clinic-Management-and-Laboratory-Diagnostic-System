@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { safeFormatDate, safeFormatTime } from '@/utils/dateTime';
+import { toast } from 'sonner';
 import PendingAppointmentViewModal from '@/components/modals/pending-appointment-view-modal';
 import PendingAppointmentEditModal from '@/components/modals/pending-appointment-edit-modal';
 import PendingAppointmentDeleteModal from '@/components/modals/pending-appointment-delete-modal';
@@ -306,6 +307,19 @@ export default function PendingAppointments({
     hmoProviders = [],
     filters
 }: PendingAppointmentsProps) {
+    // Get flash messages from Inertia
+    const { flash } = usePage().props as any;
+    
+    // Show toast notifications for flash messages
+    React.useEffect(() => {
+        if (flash?.success) {
+            toast.success(flash.success);
+        }
+        if (flash?.error) {
+            toast.error(flash.error);
+        }
+    }, [flash]);
+    
     // Debug: Log the data being passed to the component
     console.log('PendingAppointments component received data:', {
         pendingAppointments: pendingAppointments?.length || 0,

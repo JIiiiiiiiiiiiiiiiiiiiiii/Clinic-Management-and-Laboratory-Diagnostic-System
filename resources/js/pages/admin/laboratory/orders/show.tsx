@@ -529,8 +529,8 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                                                             const unitDisplay = value.unit || fieldData?.unit || 'N/A';
                                                                             
                                                                             return (
-                                                                                <div key={value.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                                                                    <div className="flex-1">
+                                                                            <div key={value.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                                                <div className="flex-1">
                                                                                         <div className="flex items-center gap-2 mb-1">
                                                                                             <p className="font-medium text-gray-900">{fieldName}</p>
                                                                                             {(isNormal !== null || fieldType === 'select') && (
@@ -542,26 +542,26 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                                                                                 </Badge>
                                                                                             )}
                                                                                         </div>
-                                                                                        <p className="text-sm text-gray-600">
+                                                                                    <p className="text-sm text-gray-600">
                                                                                             {value.value} {unitDisplay !== 'N/A' && `(${unitDisplay})`}
-                                                                                        </p>
+                                                                                    </p>
                                                                                         {rangeDisplay && rangeDisplay !== 'N/A' && (
                                                                                             <p className="text-xs text-gray-500 mt-1">
                                                                                                 {fieldType === 'number' ? `Normal Range (${patientType}): ` : 'Reference Range: '}{rangeDisplay}
                                                                                             </p>
                                                                                         )}
-                                                                                        {value.reference_text && (
-                                                                                            <p className="text-xs text-gray-500 mt-1">
-                                                                                                Reference: {value.reference_text}
-                                                                                            </p>
-                                                                                        )}
+                                                                                    {value.reference_text && (
+                                                                                        <p className="text-xs text-gray-500 mt-1">
+                                                                                            Reference: {value.reference_text}
+                                                                                        </p>
+                                                                                    )}
                                                                                         {(value.reference_min && value.reference_max) && !rangeDisplay && (
-                                                                                            <p className="text-xs text-gray-500 mt-1">
-                                                                                                Range: {value.reference_min} - {value.reference_max}
-                                                                                            </p>
-                                                                                        )}
-                                                                                    </div>
+                                                                                        <p className="text-xs text-gray-500 mt-1">
+                                                                                            Range: {value.reference_min} - {value.reference_max}
+                                                                                        </p>
+                                                                                    )}
                                                                                 </div>
+                                                                            </div>
                                                                             );
                                                                         })}
                                                                     </div>

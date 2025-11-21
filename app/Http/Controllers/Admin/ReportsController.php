@@ -373,7 +373,7 @@ class ReportsController extends Controller
                 }
             }
 
-            $patientsQuery = $query->withCount(['appointments', 'labOrders'])
+            $patientsQuery = $query->withCount(['appointments', 'labOrders', 'billingTransactions'])
                 ->orderBy('created_at', 'desc');
             
             // Get all patients for summary calculations (not paginated)
@@ -396,6 +396,7 @@ class ReportsController extends Controller
                     'created_at' => $patient->created_at,
                     'appointments_count' => $patient->appointments_count,
                     'lab_orders_count' => $patient->lab_orders_count,
+                    'billing_transactions_count' => $patient->billing_transactions_count ?? 0,
                 ];
             });
 
@@ -1529,10 +1530,13 @@ class ReportsController extends Controller
             $pendingTransactions = $transactions->where('status', 'pending')->count();
             $completedTransactions = $transactions->where('status', 'paid')->count();
             
-            // Get payment summary
+            // Get payment summary with both count and amount
             $paymentSummary = $transactions->groupBy('payment_method')
                 ->map(function ($group) {
-                    return $group->count();
+                    return [
+                        'count' => $group->count(),
+                        'amount' => $group->sum('amount') ?? 0
+                    ];
                 })->toArray();
             
             // Get transaction details
@@ -3499,12 +3503,25 @@ class ReportsController extends Controller
     }
 
     /**
-     * Get date range string for reports
+     * Get date range string for reports - dynamically based on filtered dates
      */
     private function getDateRangeString(Request $request)
     {
+        // Try to get date_from and date_to from request first
         $from = $request->get('date_from');
         $to = $request->get('date_to');
+
+        // If not available, try to get from filter and date parameters
+        if (!$from || !$to) {
+            $filter = $request->get('filter', 'daily');
+            $date = $request->get('date', now()->format('Y-m-d'));
+            
+            $startDate = $this->getStartDate($filter, $date);
+            $endDate = $this->getEndDate($filter, $date);
+            
+            $from = $startDate->format('Y-m-d');
+            $to = $endDate->format('Y-m-d');
+        }
 
         if ($from && $to) {
             return "From: {$from} To: {$to}";
