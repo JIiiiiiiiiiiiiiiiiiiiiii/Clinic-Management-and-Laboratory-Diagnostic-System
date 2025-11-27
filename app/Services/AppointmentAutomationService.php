@@ -134,15 +134,31 @@ class AppointmentAutomationService
             ? date('H:i:s', strtotime($appointment->appointment_time))
             : $appointment->appointment_time->format('H:i:s');
         
-        // Get a valid attending staff ID - use current user or find a doctor
-        $attendingStaffId = null;
-        if (auth()->check()) {
-            $attendingStaffId = auth()->id();
-        } else {
-            // Find any doctor or admin user as fallback
-            $staffUser = \App\Models\User::whereIn('role', ['doctor', 'admin'])->first();
-            if ($staffUser) {
-                $attendingStaffId = $staffUser->id;
+        // Get a valid attending staff ID - use appointment's specialist_id first
+        $attendingStaffId = $appointment->specialist_id;
+        
+        // If specialist_id is not a user ID, try to find the corresponding user
+        if (!$attendingStaffId) {
+            // Try to find user by specialist type
+            if ($appointment->specialist_type === 'doctor' || $appointment->specialist_type === 'Doctor') {
+                $doctor = \App\Models\User::where('role', 'doctor')->first();
+                $attendingStaffId = $doctor ? $doctor->id : null;
+            } elseif ($appointment->specialist_type === 'medtech' || $appointment->specialist_type === 'MedTech') {
+                $medtech = \App\Models\User::where('role', 'medtech')->first();
+                $attendingStaffId = $medtech ? $medtech->id : null;
+            }
+        }
+        
+        // Fallback to current user or admin
+        if (!$attendingStaffId) {
+            if (auth()->check()) {
+                $attendingStaffId = auth()->id();
+            } else {
+                // Find any doctor or admin user as fallback
+                $staffUser = \App\Models\User::whereIn('role', ['doctor', 'admin'])->first();
+                if ($staffUser) {
+                    $attendingStaffId = $staffUser->id;
+                }
             }
         }
         

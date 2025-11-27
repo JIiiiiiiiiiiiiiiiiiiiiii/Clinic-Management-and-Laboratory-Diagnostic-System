@@ -21,7 +21,8 @@ class PatientController extends Controller
     {
         try {
             // Get patients with pagination and search
-            $query = Patient::query();
+            // Explicitly exclude soft-deleted records (SoftDeletes trait should handle this, but being explicit)
+            $query = Patient::query()->whereNull('deleted_at');
 
             // Apply search filter
             if ($request->filled('p_search')) {
@@ -172,37 +173,14 @@ class PatientController extends Controller
             // Validate the request data
             $validated = $request->validated();
 
-            // Instead of creating patient directly, create a transfer record
-            $user = auth()->user();
-            
-            // Determine registration type based on user role for cross-approval system
-            // Hospital users create hospital registrations (for admin approval)
-            // Admin users create admin registrations (for hospital approval)
-            $registrationType = in_array($user->role, ['hospital_admin', 'hospital_staff']) ? 'hospital' : 'admin';
-            
-            $transfer = \App\Models\PatientTransfer::create([
-                'patient_id' => null, // Will be set when approved
-                'patient_data' => $validated,
-                'registration_type' => $registrationType,
-                'approval_status' => 'pending',
-                'requested_by' => $user->id,
-                'transfer_reason' => $registrationType === 'hospital' ? 'Hospital patient registration request' : 'Admin patient registration request',
-                'priority' => 'medium',
-                'status' => 'pending',
-                'transferred_by' => $user->id,
-                'transfer_date' => now(),
-            ]);
+            // Create patient directly using PatientService
+            $patient = $patientService->createPatient($validated);
 
-            // Create history record
-            $historyMessage = $registrationType === 'hospital' ? 'Hospital patient registration request created' : 'Admin patient registration request created';
-            $transfer->createHistoryRecord('created', $user->id, $historyMessage);
-
-            $approvalMessage = $registrationType === 'hospital' ? 'Waiting for admin approval.' : 'Waiting for hospital approval.';
-            return redirect()->route('admin.patient.transfer.registrations.index')
-                ->with('success', 'Patient registration request submitted successfully. ' . $approvalMessage);
+            return redirect()->route('admin.patient.show', $patient)
+                ->with('success', 'Patient created successfully.');
         } catch (\Throwable $e) {
             return back()
-                ->with('error', 'Failed to create patient registration request: '.($e->getMessage()))
+                ->with('error', 'Failed to create patient: '.($e->getMessage()))
                 ->withInput();
         }
     }
@@ -224,14 +202,36 @@ class PatientController extends Controller
         // Check if visit_date column exists in visits table
         if (!\Schema::hasColumn('visits', 'visit_date')) {
             // If visit_date column doesn't exist, order by created_at
-            $patient->load(['visits' => function ($query) {
-                $query->orderBy('created_at', 'desc');
-            }, 'labOrders.labTests', 'labOrders.orderedBy']);
+            $patient->load([
+                'visits' => function ($query) {
+                    $query->with(['attendingStaff'])->orderBy('created_at', 'desc');
+                }, 
+                'labOrders' => function ($query) {
+                    $query->with([
+                        'labTests',
+                        'orderedBy',
+                        'results' => function ($q) {
+                            $q->with(['values', 'test']);
+                        }
+                    ]);
+                }
+            ]);
         } else {
             // If visit_date column exists, order by it
-            $patient->load(['visits' => function ($query) {
-                $query->orderBy('visit_date', 'desc');
-            }, 'labOrders.labTests', 'labOrders.orderedBy']);
+            $patient->load([
+                'visits' => function ($query) {
+                    $query->with(['attendingStaff'])->orderBy('visit_date', 'desc');
+                }, 
+                'labOrders' => function ($query) {
+                    $query->with([
+                        'labTests',
+                        'orderedBy',
+                        'results' => function ($q) {
+                            $q->with(['values', 'test']);
+                        }
+                    ]);
+                }
+            ]);
         }
 
         return Inertia::render('admin/patient/show', [
@@ -260,22 +260,38 @@ class PatientController extends Controller
             $validated = $request->validated();
 
             // Map old field names to new field names for backward compatibility
-            if (isset($validated['informant_name']) && !isset($validated['emergency_name'])) {
+            // Prioritize emergency_name/emergency_relation, but fallback to informant_name/relationship
+            if (empty($validated['emergency_name']) && !empty($validated['informant_name'])) {
                 $validated['emergency_name'] = $validated['informant_name'];
-                unset($validated['informant_name']);
             }
-            if (isset($validated['relationship']) && !isset($validated['emergency_relation'])) {
+            if (empty($validated['emergency_relation']) && !empty($validated['relationship'])) {
                 $validated['emergency_relation'] = $validated['relationship'];
-                unset($validated['relationship']);
             }
+            
+            // Remove the old field names to avoid confusion
+            unset($validated['informant_name']);
+            unset($validated['relationship']);
+
+            \Log::info('Updating patient', [
+                'patient_id' => $patient->id,
+                'validated_fields' => array_keys($validated),
+                'emergency_name' => $validated['emergency_name'] ?? 'NOT SET',
+                'emergency_relation' => $validated['emergency_relation'] ?? 'NOT SET',
+            ]);
 
             // Update the patient via service
             $patientService->updatePatient($patient, $validated);
 
             return redirect()->route('admin.patient.index')->with('success', 'Patient updated successfully!');
         } catch (\Throwable $e) {
+            \Log::error('Failed to update patient', [
+                'patient_id' => $patient->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
             return back()
-                ->with('error', 'Failed to update patient: '.($e->getMessage()))
+                ->withErrors(['update_error' => 'Failed to update patient: '.($e->getMessage())])
                 ->withInput();
         }
     }

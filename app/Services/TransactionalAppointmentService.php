@@ -107,7 +107,9 @@ class TransactionalAppointmentService
                 $appointment = $this->createAppointment($appointmentData, $patientId, 'Walk-in', 'Confirmed');
                 
                 // Set billing status to pending for manual processing
-                $appointment->update(['billing_status' => 'pending']);
+                // Use saveQuietly to skip model events and prevent duplicate check
+                $appointment->billing_status = 'pending';
+                $appointment->saveQuietly();
                 
                 // Create visit automatically
                 $visit = $this->createVisit($appointment);
@@ -164,12 +166,15 @@ class TransactionalAppointmentService
                 }
 
                 // Update appointment status
-                $appointment->update([
-                    'status' => 'Confirmed',
-                    'admin_notes' => $adminNotes,
-                    'specialist_id' => $assignedStaffId ?? $appointment->specialist_id,
-                    'billing_status' => 'pending' // Set billing status to pending for manual processing
-                ]);
+                // Use saveQuietly to skip model events when updating status/billing fields
+                // Only update fields that don't affect duplicate checks
+                $appointment->status = 'Confirmed';
+                $appointment->admin_notes = $adminNotes;
+                if ($assignedStaffId) {
+                    $appointment->specialist_id = $assignedStaffId;
+                }
+                $appointment->billing_status = 'pending'; // Set billing status to pending for manual processing
+                $appointment->saveQuietly();
 
                 // Create visit
                 $visit = $this->createVisit($appointment);
@@ -248,10 +253,10 @@ class TransactionalAppointmentService
         // Calculate and set price if not provided
         $calculatedPrice = $appointmentData['price'] ?? $appointment->calculatePrice();
         
-        $appointment->update([
-            'appointment_code' => $appointmentCode,
-            'price' => $calculatedPrice
-        ]);
+        // Use saveQuietly to skip model events when updating code/price fields
+        $appointment->appointment_code = $appointmentCode;
+        $appointment->price = $calculatedPrice;
+        $appointment->saveQuietly();
 
         return $appointment->fresh();
     }
@@ -360,9 +365,10 @@ class TransactionalAppointmentService
                     'reference_no' => $referenceNo
                 ]);
 
-                // Update appointment status
+                // Update appointment status - use saveQuietly to skip model events
                 $appointment = $transaction->appointment;
-                $appointment->update(['status' => 'Completed']);
+                $appointment->status = 'Completed';
+                $appointment->saveQuietly();
 
                 // Update visit status
                 $visit = Visit::where('appointment_id', $appointment->id)->first();

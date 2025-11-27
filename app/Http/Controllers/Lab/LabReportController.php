@@ -12,18 +12,53 @@ class LabReportController extends Controller
 {
     public function generateReport(Request $request, LabOrder $order)
     {
-        $order->load(['patient', 'results.test']);
+        // Load all necessary relationships with fields_schema
+        $order->load([
+            'patient',
+            'visit',
+            'results' => function ($query) {
+                $query->with([
+                    'test' => function ($q) {
+                        // Explicitly select fields_schema to ensure it's loaded
+                        $q->select('id', 'name', 'code', 'fields_schema', 'price', 'is_active');
+                    },
+                    'values' => function ($q) {
+                        $q->orderBy('parameter_key');
+                    }
+                ]);
+            }
+        ]);
 
         $results = $order->results->groupBy('lab_test_id');
+
+        // Calculate patient type for range determination
+        $patient = $order->patient;
+        $patientType = null;
+        if ($patient && $patient->birthdate) {
+            $age = \Carbon\Carbon::parse($patient->birthdate)->age;
+            $gender = $patient->sex ?? $patient->gender ?? null;
+            
+            if ($age < 18) {
+                $patientType = 'child';
+            } elseif ($age >= 60) {
+                $patientType = 'senior';
+            } elseif ($gender && (strtolower($gender) === 'male' || strtolower($gender) === 'm')) {
+                $patientType = 'male';
+            } else {
+                $patientType = 'female';
+            }
+        }
 
         $data = [
             'order' => $order,
             'patient' => $order->patient,
             'results' => $results,
+            'patientType' => $patientType,
             'generated_at' => now(),
-            'clinic_name' => 'St. James Clinic',
-            'clinic_address' => '123 Medical Street, Health City',
-            'clinic_phone' => '(555) 123-4567',
+            'clinic_name' => 'St. James Hospital Clinic, Inc.',
+            'clinic_address' => 'San Isidro City of Cabuyao Laguna',
+            'clinic_phone' => '02.85844533; 049.5341254; 049.5020058; Fax No.: local 307',
+            'clinic_email' => 'info@stjameshospital.com.ph',
         ];
 
         $pdf = Pdf::loadView('lab.reports.generic', $data);

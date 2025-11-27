@@ -1,23 +1,21 @@
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import {
+    DropdownMenu,
+    DropdownMenuCheckboxItem,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { ReportDatePicker } from '@/components/ui/report-date-picker';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import Heading from '@/components/heading';
-import { 
-    BarChart3, FileDown, Filter, Search, Eye, Calendar, TestTube, Users, TrendingUp, Download,
-    ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
-    MoreHorizontal, FileText, Heart, UserCheck, Activity, Plus
-} from 'lucide-react';
-import { useMemo, useState } from 'react';
 import {
     ColumnDef,
     ColumnFiltersState,
@@ -30,6 +28,23 @@ import {
     useReactTable,
     VisibilityState,
 } from '@tanstack/react-table';
+import {
+    Activity,
+    ArrowUpDown,
+    Calendar,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
+    Clock,
+    Download,
+    Eye,
+    FileDown,
+    FlaskConical,
+    Link as LinkIcon,
+    MoreHorizontal,
+} from 'lucide-react';
 import * as React from 'react';
 
 type LabTest = { id: number; name: string; code: string };
@@ -49,40 +64,30 @@ const breadcrumbs: BreadcrumbItem[] = [
 // Column definitions for the laboratory orders table
 const createColumns = (): ColumnDef<OrderLite>[] => [
     {
-        accessorKey: "id",
+        accessorKey: 'id',
         header: ({ column }) => {
             return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
+                <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')} className="h-8 px-2 lg:px-3">
                     Order ID
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
-            )
-        },
-        cell: ({ row }) => (
-            <div className="font-medium">#{row.getValue("id")}</div>
-        ),
-    },
-    {
-        accessorKey: "patient",
-        header: "Patient Name",
-        cell: ({ row }) => {
-            const patient = row.getValue("patient") as Patient | null;
-            return (
-                <div className="font-medium">
-                    {patient ? `${patient.last_name}, ${patient.first_name}` : 'N/A'}
-                </div>
             );
         },
+        cell: ({ row }) => <div className="font-medium">#{row.getValue('id')}</div>,
     },
     {
-        accessorKey: "lab_tests",
-        header: "Tests",
+        accessorKey: 'patient',
+        header: 'Patient Name',
         cell: ({ row }) => {
-            const tests = row.getValue("lab_tests") as LabTest[];
+            const patient = row.getValue('patient') as Patient | null;
+            return <div className="font-medium">{patient ? `${patient.last_name}, ${patient.first_name}` : 'N/A'}</div>;
+        },
+    },
+    {
+        accessorKey: 'lab_tests',
+        header: 'Tests',
+        cell: ({ row }) => {
+            const tests = row.getValue('lab_tests') as LabTest[];
             return (
                 <div className="flex flex-wrap gap-1">
                     {tests?.slice(0, 2).map((test, index) => (
@@ -100,21 +105,17 @@ const createColumns = (): ColumnDef<OrderLite>[] => [
         },
     },
     {
-        accessorKey: "created_at",
+        accessorKey: 'created_at',
         header: ({ column }) => {
             return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
+                <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')} className="h-8 px-2 lg:px-3">
                     Date Created
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
-            )
+            );
         },
         cell: ({ row }) => {
-            const date = new Date(row.getValue("created_at"));
+            const date = new Date(row.getValue('created_at'));
             return (
                 <div className="text-sm">
                     {date.toLocaleDateString('en-US', {
@@ -122,14 +123,14 @@ const createColumns = (): ColumnDef<OrderLite>[] => [
                         month: '2-digit',
                         day: '2-digit',
                         hour: '2-digit',
-                        minute: '2-digit'
+                        minute: '2-digit',
                     })}
                 </div>
             );
         },
     },
     {
-        id: "actions",
+        id: 'actions',
         enableHiding: false,
         cell: ({ row }) => {
             const order = row.original;
@@ -144,11 +145,7 @@ const createColumns = (): ColumnDef<OrderLite>[] => [
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem
-                            onClick={() => navigator.clipboard.writeText(order.id.toString())}
-                        >
-                            Copy order ID
-                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigator.clipboard.writeText(order.id.toString())}>Copy order ID</DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => router.visit(`/admin/laboratory/orders/${order.id}`)}>
                             <Eye className="mr-2 h-4 w-4" />
@@ -156,22 +153,41 @@ const createColumns = (): ColumnDef<OrderLite>[] => [
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
-            )
+            );
         },
     },
 ];
 
-export default function LaboratoryReportsIndex({ 
-    orders = [], 
+type AnalyticsData = {
+    most_used_tests?: Array<{
+        id: number;
+        name: string;
+        code: string;
+        count: number;
+    }>;
+    most_common_combinations?: Array<{
+        test_ids: number[];
+        test_names: string[];
+        display_name: string;
+        count: number;
+    }>;
+};
+
+export default function LaboratoryReportsIndex({
+    orders = [],
     tests = [],
     statistics = {
         total_orders: 0,
         completed_orders: 0,
         pending_orders: 0,
-        orders_this_month: 0
-    }
-}: { 
-    orders?: OrderLite[]; 
+        orders_this_month: 0,
+    },
+    analytics = {
+        most_used_tests: [],
+        most_common_combinations: [],
+    },
+}: {
+    orders?: OrderLite[];
     tests?: LabTest[];
     statistics?: {
         total_orders?: number;
@@ -179,6 +195,7 @@ export default function LaboratoryReportsIndex({
         pending_orders?: number;
         orders_this_month?: number;
     };
+    analytics?: AnalyticsData;
 }) {
     // TanStack Table state
     const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -205,12 +222,8 @@ export default function LaboratoryReportsIndex({
             const search = value.toLowerCase();
             const order = row.original;
             const patientName = order.patient ? `${order.patient.first_name} ${order.patient.last_name}`.toLowerCase() : '';
-            const testNames = (order.lab_tests || []).map(t => t.name.toLowerCase()).join(' ');
-            return (
-                patientName.includes(search) ||
-                order.id.toString().includes(search) ||
-                testNames.includes(search)
-            );
+            const testNames = (order.lab_tests || []).map((t) => t.name.toLowerCase()).join(' ');
+            return patientName.includes(search) || order.id.toString().includes(search) || testNames.includes(search);
         },
         state: {
             sorting,
@@ -232,7 +245,7 @@ export default function LaboratoryReportsIndex({
         totalOrders: statistics?.total_orders || orders.length,
         completedOrders: statistics?.completed_orders || 0,
         pendingOrders: statistics?.pending_orders || 0,
-        ordersThisMonth: statistics?.orders_this_month || 0
+        ordersThisMonth: statistics?.orders_this_month || 0,
     };
 
     return (
@@ -241,23 +254,23 @@ export default function LaboratoryReportsIndex({
             <div className="min-h-screen bg-gray-50">
                 <div className="p-6">
                     {/* Statistics Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                        <Card className="bg-white border border-gray-200">
+                    <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                        <Card className="border border-gray-200 bg-white">
                             <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm font-medium text-gray-600">Completed Orders</p>
                                         <p className="text-3xl font-bold text-gray-900">{stats.completedOrders}</p>
                                         <p className="text-sm text-gray-500">Finished tests</p>
-                        </div>
-                                    <div className="p-3 rounded-full border">
+                                    </div>
+                                    <div className="rounded-full border p-3">
                                         <Activity className="h-6 w-6 text-gray-600" />
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-white border border-gray-200">
+                        <Card className="border border-gray-200 bg-white">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
@@ -265,14 +278,14 @@ export default function LaboratoryReportsIndex({
                                         <p className="text-3xl font-bold text-gray-900">{stats.pendingOrders}</p>
                                         <p className="text-sm text-gray-500">In progress</p>
                                     </div>
-                                    <div className="p-3 rounded-full border">
+                                    <div className="rounded-full border p-3">
                                         <Clock className="h-6 w-6 text-gray-600" />
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-white border border-gray-200">
+                        <Card className="border border-gray-200 bg-white">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
@@ -280,47 +293,122 @@ export default function LaboratoryReportsIndex({
                                         <p className="text-3xl font-bold text-gray-900">{stats.ordersThisMonth}</p>
                                         <p className="text-sm text-gray-500">New orders</p>
                                     </div>
-                                    <div className="p-3 rounded-full border">
+                                    <div className="rounded-full border p-3">
                                         <Calendar className="h-6 w-6 text-gray-600" />
                                     </div>
-                        </div>
+                                </div>
                             </CardContent>
                         </Card>
-                </div>
+                    </div>
+
+                    {/* Analytics Cards - Most Used Tests & Combinations */}
+                    <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+                        {/* Most Used Tests */}
+                        <Card className="border border-gray-200 bg-white">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <FlaskConical className="h-5 w-5 text-blue-600" />
+                                    Most Frequently Used Tests
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {analytics?.most_used_tests && analytics.most_used_tests.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {analytics.most_used_tests.map((test, index) => (
+                                            <div key={test.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">
+                                                        {index + 1}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-gray-900">{test.name}</p>
+                                                        <p className="text-xs text-gray-500">{test.code}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="font-bold text-gray-900">{test.count}</p>
+                                                    <p className="text-xs text-gray-500">times used</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="py-4 text-center text-sm text-gray-500">No test usage data available</p>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Most Common Combinations */}
+                        <Card className="border border-gray-200 bg-white">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <LinkIcon className="h-5 w-5 text-green-600" />
+                                    Most Common Test Combinations
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {analytics?.most_common_combinations && analytics.most_common_combinations.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {analytics.most_common_combinations.map((combination, index) => (
+                                            <div key={index} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                                                <div className="flex flex-1 items-center gap-3">
+                                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-sm font-bold text-green-700">
+                                                        {index + 1}
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="truncate font-medium text-gray-900">{combination.display_name}</p>
+                                                        <p className="text-xs text-gray-500">
+                                                            {combination.test_names.length} test{combination.test_names.length > 1 ? 's' : ''}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="ml-2 text-right">
+                                                    <p className="font-bold text-gray-900">{combination.count}</p>
+                                                    <p className="text-xs text-gray-500">orders</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="py-4 text-center text-sm text-gray-500">No combination data available</p>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
 
                     {/* Data Table */}
-                    <Card className="bg-white border border-gray-200">
+                    <Card className="border border-gray-200 bg-white">
                         <CardContent className="p-6">
                             {/* Table Controls */}
                             <div className="flex items-center py-4">
                                 <Input
                                     placeholder="Search orders..."
-                                    value={globalFilter ?? ""}
+                                    value={globalFilter ?? ''}
                                     onChange={(event) => setGlobalFilter(event.target.value)}
                                     className="max-w-sm"
                                 />
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
                                         <Button variant="outline" className="ml-4">
-                                            <Download className="h-4 w-4 mr-2" />
-                                    Export Data
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleExportOrders('excel')}>
-                                    <FileDown className="mr-2 h-4 w-4" />
-                                    Excel Spreadsheet
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleExportOrders('pdf')}>
-                                    <FileDown className="mr-2 h-4 w-4" />
-                                    PDF Report
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleExportOrders('word')}>
-                                    <FileDown className="mr-2 h-4 w-4" />
-                                    Word Document
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                                            <Download className="mr-2 h-4 w-4" />
+                                            Export Data
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => handleExportOrders('excel')}>
+                                            <FileDown className="mr-2 h-4 w-4" />
+                                            Excel Spreadsheet
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleExportOrders('pdf')}>
+                                            <FileDown className="mr-2 h-4 w-4" />
+                                            PDF Report
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleExportOrders('word')}>
+                                            <FileDown className="mr-2 h-4 w-4" />
+                                            Word Document
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <Button variant="outline" className="ml-auto">
@@ -346,12 +434,12 @@ export default function LaboratoryReportsIndex({
                                                     >
                                                         {column.id}
                                                     </DropdownMenuCheckboxItem>
-                                                )
+                                                );
                                             })}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
-                    </div>
-                                    
+                            </div>
+
                             {/* Table */}
                             <div className="rounded-md border">
                                 <Table>
@@ -363,12 +451,9 @@ export default function LaboratoryReportsIndex({
                                                         <TableHead key={header.id}>
                                                             {header.isPlaceholder
                                                                 ? null
-                                                                : flexRender(
-                                                                    header.column.columnDef.header,
-                                                                    header.getContext()
-                                                                )}
+                                                                : flexRender(header.column.columnDef.header, header.getContext())}
                                                         </TableHead>
-                                                    )
+                                                    );
                                                 })}
                                             </TableRow>
                                         ))}
@@ -376,39 +461,29 @@ export default function LaboratoryReportsIndex({
                                     <TableBody>
                                         {table.getRowModel().rows?.length ? (
                                             table.getRowModel().rows.map((row) => (
-                                                <TableRow
-                                                    key={row.id}
-                                                    data-state={row.getIsSelected() && "selected"}
-                                                >
+                                                <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
                                                     {row.getVisibleCells().map((cell) => (
                                                         <TableCell key={cell.id}>
-                                                            {flexRender(
-                                                                cell.column.columnDef.cell,
-                                                                cell.getContext()
-                                                            )}
+                                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                                         </TableCell>
                                                     ))}
                                                 </TableRow>
                                             ))
                                         ) : (
                                             <TableRow>
-                                                <TableCell
-                                                    colSpan={columns.length}
-                                                    className="h-24 text-center"
-                                                >
+                                                <TableCell colSpan={columns.length} className="h-24 text-center">
                                                     No results.
                                                 </TableCell>
                                             </TableRow>
                                         )}
                                     </TableBody>
                                 </Table>
-                        </div>
+                            </div>
 
                             {/* Pagination */}
                             <div className="flex items-center justify-between px-2 py-4">
-                                <div className="text-muted-foreground flex-1 text-sm">
-                                    {table.getFilteredSelectedRowModel().rows.length} of{" "}
-                                    {table.getFilteredRowModel().rows.length} row(s) selected.
+                                <div className="flex-1 text-sm text-muted-foreground">
+                                    {table.getFilteredSelectedRowModel().rows.length} of {table.getFilteredRowModel().rows.length} row(s) selected.
                                 </div>
                                 <div className="flex items-center space-x-6 lg:space-x-8">
                                     <div className="flex items-center space-x-2">
@@ -416,7 +491,7 @@ export default function LaboratoryReportsIndex({
                                         <Select
                                             value={`${table.getState().pagination.pageSize}`}
                                             onValueChange={(value) => {
-                                                table.setPageSize(Number(value))
+                                                table.setPageSize(Number(value));
                                             }}
                                         >
                                             <SelectTrigger className="h-8 w-[70px]">
@@ -432,8 +507,7 @@ export default function LaboratoryReportsIndex({
                                         </Select>
                                     </div>
                                     <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-                                        Page {table.getState().pagination.pageIndex + 1} of{" "}
-                                        {table.getPageCount()}
+                                        Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
                                     </div>
                                     <div className="flex items-center space-x-2">
                                         <Button
@@ -466,8 +540,8 @@ export default function LaboratoryReportsIndex({
                                             <span className="sr-only">Go to next page</span>
                                             <ChevronRight className="h-4 w-4" />
                                         </Button>
-                                                        <Button
-                                                            variant="outline"
+                                        <Button
+                                            variant="outline"
                                             size="icon"
                                             className="hidden size-8 lg:flex"
                                             onClick={() => table.setPageIndex(table.getPageCount() - 1)}
@@ -475,13 +549,13 @@ export default function LaboratoryReportsIndex({
                                         >
                                             <span className="sr-only">Go to last page</span>
                                             <ChevronsRight className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
-                        </div>
+                </div>
             </div>
         </AppLayout>
     );

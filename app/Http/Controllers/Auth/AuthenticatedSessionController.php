@@ -22,7 +22,9 @@ class AuthenticatedSessionController extends Controller
      */
     public function create(Request $request): Response
     {
+        $user = auth()->user();
         return Inertia::render('auth/login', [
+            'user' => $user,
             'canResetPassword' => Route::has('password.request'),
             'status' => $request->session()->get('status'),
         ]);
@@ -48,74 +50,117 @@ class AuthenticatedSessionController extends Controller
             // First try database authentication
             $user = \App\Models\User::where('email', $email)->first();
             
+            // Check if user exists and password is correct
+            $isValidPassword = false;
             if ($user && \Hash::check($password, $user->password)) {
-                // Database user found and password matches
-                \Log::info('Database user authenticated successfully', [
-                    'user_id' => $user->id,
-                    'email' => $user->email,
-                    'role' => $user->role
-                ]);
+                $isValidPassword = true;
+                } else {
+            // Fallback to temporary credentials for development
+            $validCredentials = $this->getTemporaryCredentials();
+            if (isset($validCredentials[$email]) && $validCredentials[$email] === $password) {
+                    $isValidPassword = true;
+                }
+            }
+            
+            if (!$isValidPassword) {
+                $errorMessage = 'Invalid credentials. Please check your email and password.';
+                if (!$user && !isset($this->getTemporaryCredentials()[$email])) {
+                    $errorMessage = 'Email not found. Please use one of the valid email addresses.';
+                } elseif ($user && !\Hash::check($password, $user->password)) {
+                    $errorMessage = 'Incorrect password. Please try again.';
+                }
                 
-                // Login the user using Laravel's standard authentication
-                Auth::login($user);
+                throw ValidationException::withMessages([
+                    'email' => $errorMessage,
+                ]);
+            }
+            
+            // Determine user role for OTP bypass logic
+            $userRole = null;
+            if ($user) {
+                $userRole = $user->getMappedRole();
+            } else {
+                // For temporary credentials, get role from email mapping
+                $roleMap = [
+                    'admin@clinic.com' => 'admin',
+                    'doctor@clinic.com' => 'doctor',
+                    'labtech@clinic.com' => 'laboratory_technologist',
+                    'medtech@clinic.com' => 'medtech',
+                    'cashier@clinic.com' => 'cashier',
+                    'patient@clinic.com' => 'patient',
+                    'ron@patient.com' => 'patient',
+                    'hospital@stjames.com' => 'admin',
+                ];
+                $userRole = $roleMap[$email] ?? 'patient';
+            }
+            
+            // Skip OTP verification for admin and staff (only require for patients)
+            $staffRoles = [
+                'admin',
+                'doctor',
+                'medtech',
+                'cashier',
+                'laboratory_technologist',
+                'nurse',
+                'hospital_admin',
+                'hospital_staff'
+            ];
+            
+            $isStaff = in_array($userRole, $staffRoles);
+            
+            if ($isStaff) {
+                // Direct login for staff/admin - no OTP required
+                $remember = $request->boolean('remember');
+                
+                if ($user) {
+                    // Login real user
+                    Auth::login($user, $remember);
+                } else {
+                    // Create temporary session for development credentials
+                    $tempUser = $this->createTemporaryUser($email);
+                    $request->session()->put('auth.user', $tempUser);
+                    $request->session()->put('auth.login', true);
+                    $request->session()->regenerate();
+                }
                 
                 // Redirect based on role
-                if ($user->role === 'patient') {
+                if ($userRole === 'patient') {
                     return redirect()->route('home');
                 } else {
                     return redirect()->route('admin.dashboard');
                 }
             }
             
-            // Fallback to temporary credentials for development
-            $validCredentials = $this->getTemporaryCredentials();
+            // For patients, require OTP verification
+            $otpService = new \App\Services\OtpService();
+            $otp = $otpService->createAndSendOtp($email, 'login', $request->ip());
             
-            if (isset($validCredentials[$email]) && $validCredentials[$email] === $password) {
-                // Create a temporary user object
-                $tempUser = $this->createTemporaryUser($email);
-                
-                // Store user in session for custom provider
-                $request->session()->put('auth.user', $tempUser);
-                $request->session()->put('auth.login', true);
-                $request->session()->regenerate();
-
-                // Debug: Log the authenticated user
-                \Log::info('Temporary user authenticated successfully', [
-                    'user_id' => $tempUser->id ?? 'temp',
-                    'email' => $tempUser->email,
-                    'role' => $tempUser->role ?? 'admin',
-                    'mapped_role' => $tempUser->getMappedRole()
-                ]);
-
-                // Redirect based on mapped role (admin -> admin.dashboard, patient -> patient.dashboard.simple)
-                \Log::info('Redirecting user to: ' . $tempUser->getRedirectPath());
-                return redirect($tempUser->getRedirectPath());
-            } else {
-                // Provide more specific error message
-                $errorMessage = 'Invalid credentials. Please check your email and password.';
-                if (!$user && !isset($validCredentials[$email])) {
-                    $errorMessage = 'Email not found. Please use one of the valid email addresses.';
-                } elseif ($user && !\Hash::check($password, $user->password)) {
-                    $errorMessage = 'Incorrect password. Please try again.';
-                }
-                
-                \Log::warning('Login failed', [
-                    'email' => $email,
-                    'password_provided' => !empty($password),
-                    'user_found_in_db' => $user ? true : false,
-                    'temp_credentials_exist' => isset($validCredentials[$email])
-                ]);
-                
-                throw ValidationException::withMessages([
-                    'email' => $errorMessage,
-                ]);
+            // Store email in session for OTP verification
+            $request->session()->put('otp_email', $email);
+            $request->session()->put('otp_type', 'login');
+            $request->session()->put('login_remember', $request->boolean('remember'));
+            
+            // In development, show OTP code if email is not configured
+            $statusMessage = 'A verification code has been sent to your email address.';
+            if (app()->environment('local', 'development') && config('mail.default') === 'log') {
+                $statusMessage .= ' (Development Mode: Check logs for OTP code or check your email configuration)';
+                // Store OTP in session for development debugging (will be removed after verification)
+                $request->session()->put('dev_otp_code', $otp->code);
             }
+            
+            return redirect()->route('otp.show')
+                ->with('status', $statusMessage);
+                
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             \Log::error('Authentication failed', [
                 'email' => $request->email,
                 'error' => $e->getMessage()
             ]);
-            throw $e;
+            throw ValidationException::withMessages([
+                'email' => 'An error occurred. Please try again.',
+            ]);
         }
     }
 

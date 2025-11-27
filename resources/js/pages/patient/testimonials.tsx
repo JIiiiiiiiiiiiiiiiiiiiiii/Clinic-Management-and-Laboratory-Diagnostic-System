@@ -1,6 +1,7 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import SharedNavigation from '@/components/SharedNavigation';
+import PublicFooter from '@/components/PublicFooter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,20 +32,20 @@ import {
 } from 'lucide-react';
 
 interface PatientTestimonialsProps {
-    user: {
+    user?: {
         id: number;
         name: string;
         email: string;
         role: string;
         created_at: string;
-    };
+    } | null;
     patient?: {
         id: number;
         first_name: string;
         last_name: string;
         patient_no: string;
     };
-    notifications: Array<{
+    notifications?: Array<{
         id: number;
         type: string;
         title: string;
@@ -53,7 +54,7 @@ interface PatientTestimonialsProps {
         created_at: string;
         data: any;
     }>;
-    unreadCount: number;
+    unreadCount?: number;
 }
 
 export default function PatientTestimonials({ 
@@ -155,18 +156,15 @@ export default function PatientTestimonials({
 
     return (
         <div className="min-h-screen bg-white">
-            <Head title="Testimonials - SJHI Industrial Clinic" />
+            <Head title="Testimonials" />
             
             {/* Shared Navigation */}
-            <SharedNavigation user={user} currentPath="/patient/testimonials" />
+            <SharedNavigation user={user || undefined} currentPath="/testimonials" notifications={notifications || []} unreadCount={unreadCount || 0} />
             
             {/* Hero Section */}
             <section className="bg-gradient-to-br from-green-50 via-white to-blue-50 py-20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center">
-                        <Badge className="bg-green-100 text-green-800 border-green-200 mb-6">
-                            Patient Testimonials
-                        </Badge>
                         <h1 className="text-5xl font-bold text-gray-900 mb-6">
                             What Our Patients Say
                         </h1>
@@ -407,7 +405,7 @@ export default function PatientTestimonials({
                             </Button>
                         </Link>
                         <Link href="/patient/contact">
-                            <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-green-600 px-8 py-4 text-lg">
+                            <Button variant="outline" size="lg" className="border-2 border-white bg-white/10 text-white hover:bg-white hover:text-green-600 px-8 py-4 text-lg backdrop-blur-sm">
                                 <MessageCircle className="mr-2 h-5 w-5" />
                                 Share Your Experience
                             </Button>
@@ -415,6 +413,9 @@ export default function PatientTestimonials({
                     </div>
                 </div>
             </section>
+
+            {/* Footer */}
+            <PublicFooter />
         </div>
     );
 }

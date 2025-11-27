@@ -62,16 +62,24 @@ export default function AddMovement({ item }: AddMovementProps) {
         quantity: '',
         date: new Date().toISOString().split('T')[0],
         handled_by: '',
-        reason: ''
+        reason: '',
+        expiry_date: ''
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleInputChange = (field: string, value: string) => {
-        setFormData(prev => ({
-            ...prev,
-            [field]: value
-        }));
+        setFormData(prev => {
+            const newData = {
+                ...prev,
+                [field]: value
+            };
+            // Clear expiry_date when switching to OUT
+            if (field === 'movement_type' && value === 'OUT') {
+                newData.expiry_date = '';
+            }
+            return newData;
+        });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -80,8 +88,10 @@ export default function AddMovement({ item }: AddMovementProps) {
         
         try {
             await router.post(`/admin/inventory/${item.id}/movement`, {
-                ...formData,
-                quantity: parseInt(formData.quantity)
+                movement_type: formData.movement_type,
+                quantity: parseInt(formData.quantity),
+                remarks: formData.reason,
+                expiry_date: formData.expiry_date || null,
             });
         } catch (error) {
             console.error('Error submitting movement:', error);
@@ -299,6 +309,26 @@ export default function AddMovement({ item }: AddMovementProps) {
                                                 />
                                             </div>
                                         </div>
+
+                                        {/* Expiry Date - Only for IN movements */}
+                                        {formData.movement_type === 'IN' && (
+                                            <div>
+                                                <Label htmlFor="expiry_date" className="text-sm font-semibold text-gray-600">
+                                                    Expiry Date (Optional)
+                                                </Label>
+                                                <Input
+                                                    id="expiry_date"
+                                                    type="date"
+                                                    value={formData.expiry_date || ''}
+                                                    onChange={(e) => handleInputChange('expiry_date', e.target.value)}
+                                                    className="mt-1"
+                                                    placeholder="Select expiry date for this batch"
+                                                />
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    Set expiration date for this batch of items to track when to restock
+                                                </p>
+                                            </div>
+                                        )}
 
                                         <div>
                                             <Label htmlFor="handled_by" className="text-sm font-medium text-gray-600">

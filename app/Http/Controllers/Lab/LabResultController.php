@@ -15,28 +15,113 @@ class LabResultController extends Controller
 {
     public function show(Request $request, LabOrder $order)
     {
-        $order->load(['patient', 'results.test', 'results.values']);
+        $order->load(['patient', 'results.test', 'results.values', 'visit.attendingStaff', 'orderedBy', 'appointments.labTests.labTest']);
+        
+        \Log::info('Lab results show - loading data', [
+            'order_id' => $order->id,
+            'results_count' => $order->results->count(),
+            'result_ids' => $order->results->pluck('id')->toArray(),
+        ]);
+        
+        // Format results for frontend
+        $formattedResults = $order->results->map(function ($result) {
+            \Log::info('Formatting result', [
+                'result_id' => $result->id,
+                'lab_test_id' => $result->lab_test_id,
+                'has_results' => !empty($result->results),
+                'results_data' => $result->results,
+                'values_count' => $result->values->count(),
+            ]);
+            
+            return [
+                'id' => $result->id,
+                'lab_order_id' => $result->lab_order_id,
+                'lab_test_id' => $result->lab_test_id,
+                'test' => $result->test ? [
+                    'id' => $result->test->id,
+                    'name' => $result->test->name,
+                    'code' => $result->test->code,
+                    'description' => $result->test->description ?? null,
+                    'fields_schema' => $result->test->fields_schema ?? null,
+                ] : null,
+                'results' => $result->results ?? [],
+                'values' => $result->values->map(function ($value) {
+                    return [
+                        'id' => $value->id,
+                        'parameter_key' => $value->parameter_key,
+                        'parameter_label' => $value->parameter_label,
+                        'value' => $value->value,
+                        'unit' => $value->unit,
+                        'reference_text' => $value->reference_text,
+                        'reference_min' => $value->reference_min,
+                        'reference_max' => $value->reference_max,
+                    ];
+                }),
+                'verified_by' => $result->verified_by,
+                'verified_at' => $result->verified_at ? $result->verified_at->format('Y-m-d H:i:s') : null,
+                'created_at' => $result->created_at ? $result->created_at->format('Y-m-d H:i:s') : null,
+                'updated_at' => $result->updated_at ? $result->updated_at->format('Y-m-d H:i:s') : null,
+            ];
+        });
 
         return Inertia::render('admin/laboratory/results/show', [
             'patient' => $order->patient,
             'order' => $order,
-            'results' => $order->results,
+            'results' => $formattedResults,
         ]);
     }
 
     public function entry(Request $request, LabOrder $order)
     {
-        $order->load(['patient', 'results.test', 'results.values']);
+        $order->load(['patient', 'results.test', 'results.values', 'visit.attendingStaff', 'orderedBy', 'appointments.labTests.labTest']);
 
-        // Get tests through the results relationship
+        // Get tests from results if they exist, otherwise get from appointment's lab tests
+        $tests = collect();
+
+        // First, try to get tests from existing results
+        if ($order->results->isNotEmpty()) {
         $tests = $order->results->map(function ($result) {
             return $result->test;
         })->filter();
+        }
+        
+        // If no tests from results, get from appointment's lab tests
+        if ($tests->isEmpty() && $order->appointments->isNotEmpty()) {
+            foreach ($order->appointments as $appointment) {
+                $appointment->load('labTests.labTest');
+                foreach ($appointment->labTests as $appointmentLabTest) {
+                    if ($appointmentLabTest->labTest) {
+                        $tests->push($appointmentLabTest->labTest);
+                    }
+                }
+            }
+            $tests = $tests->unique('id')->values();
+        }
+        
+        // If still no tests, get from lab_results that were pre-created (even if empty)
+        if ($tests->isEmpty()) {
+            $results = LabResult::where('lab_order_id', $order->id)->with('test')->get();
+            $tests = $results->map(function ($result) {
+                return $result->test;
+            })->filter()->unique('id')->values();
+        }
+        
+        \Log::info('Lab result entry - tests loaded', [
+            'order_id' => $order->id,
+            'tests_count' => $tests->count(),
+            'test_ids' => $tests->pluck('id')->toArray(),
+        ]);
         
         $existingResults = [];
 
         // Load existing results if any (prefer structured values, fallback to JSON)
         $results = LabResult::where('lab_order_id', $order->id)->with('values')->get();
+        \Log::info('Lab result entry - existing results loaded', [
+            'order_id' => $order->id,
+            'results_count' => $results->count(),
+            'result_ids' => $results->pluck('id')->toArray(),
+        ]);
+        
         foreach ($results as $result) {
             if ($result->values && $result->values->count() > 0) {
                 $built = [];
@@ -98,31 +183,89 @@ class LabResultController extends Controller
             Log::info('Incoming lab results payload', [
                 'order_id' => $order->id,
                 'payload_keys' => array_keys($validated['results'] ?? []),
+                'request_all' => $request->all(),
             ]);
-            \DB::transaction(function () use ($validated, $order, $request) {
+            
+            $savedResults = [];
+            \DB::transaction(function () use ($validated, $order, $request, &$savedResults) {
                 foreach ($validated['results'] as $testId => $testResults) {
                     $normalized = is_array($testResults)
                         ? $testResults
                         : (is_string($testResults) ? json_decode($testResults, true) ?? [] : []);
+                    
                     Log::info('Normalized test results', [
                         'order_id' => $order->id,
                         'lab_test_id' => (int) $testId,
                         'has_sections' => array_keys($normalized ?? []),
+                        'normalized_data' => $normalized,
                     ]);
 
                     $existing = LabResult::where('lab_order_id', $order->id)
                         ->where('lab_test_id', (int) $testId)
                         ->first();
 
-                    $labResult = LabResult::updateOrCreate(
-                        [
+                    Log::info('Existing result check', [
+                        'order_id' => $order->id,
+                        'lab_test_id' => (int) $testId,
+                        'existing_id' => $existing?->id,
+                        'existing_results' => $existing?->results,
+                    ]);
+
+                    // Ensure normalized is a valid array (allow empty arrays, but not null or non-array)
+                    if (!is_array($normalized)) {
+                        Log::warning('Skipping invalid normalized data (not an array)', [
+                            'order_id' => $order->id,
+                            'lab_test_id' => (int) $testId,
+                            'normalized' => $normalized,
+                            'normalized_type' => gettype($normalized),
+                        ]);
+                        continue;
+                    }
+
+                    // Use updateOrCreate but ensure we're actually saving the data
+                    $labResult = LabResult::where('lab_order_id', $order->id)
+                        ->where('lab_test_id', (int) $testId)
+                        ->first();
+                    
+                    if ($labResult) {
+                        // Update existing
+                        $labResult->results = $normalized;
+                        $labResult->save();
+                        Log::info('LabResult updated', [
+                            'order_id' => $order->id,
+                            'lab_test_id' => (int) $testId,
+                            'result_id' => $labResult->id,
+                        ]);
+                    } else {
+                        // Create new
+                        $labResult = LabResult::create([
                             'lab_order_id' => $order->id,
                             'lab_test_id' => (int) $testId,
-                        ],
-                        [
                             'results' => $normalized,
-                        ]
-                    );
+                        ]);
+                        Log::info('LabResult created', [
+                            'order_id' => $order->id,
+                            'lab_test_id' => (int) $testId,
+                            'result_id' => $labResult->id,
+                        ]);
+                    }
+                    
+                    // Refresh to ensure we have the latest data from database
+                    $labResult->refresh();
+                    
+                    // Verify the data was actually saved
+                    $verifyResult = LabResult::find($labResult->id);
+                    Log::info('LabResult saved/updated - verification', [
+                        'order_id' => $order->id,
+                        'lab_test_id' => (int) $testId,
+                        'result_id' => $labResult->id,
+                        'saved_results' => $verifyResult->results,
+                        'results_type' => gettype($verifyResult->results),
+                        'results_is_array' => is_array($verifyResult->results),
+                        'results_count' => is_array($verifyResult->results) ? count($verifyResult->results) : 0,
+                    ]);
+                    
+                    $savedResults[] = $labResult->id;
 
                     // Persist flattened values with labels/ranges/units for reporting
                     $flat = [];
@@ -157,8 +300,9 @@ class LabResultController extends Controller
                                 $field = $schema['sections'][$parts[0]]['fields'][$parts[1]];
                                 $label = $field['label'] ?? null;
                                 $unit = $field['unit'] ?? null;
-                                // Normalize reference ranges: accept reference_range string, or range array/min/max numbers
-                                if (isset($field['reference_range']) && is_string($field['reference_range'])) {
+                                // Normalize reference ranges: accept reference_range string (for dropdowns), or range array/min/max numbers
+                                // For dropdown fields, use reference_range if available
+                                if (isset($field['reference_range']) && is_string($field['reference_range']) && !empty($field['reference_range'])) {
                                     $refText = $field['reference_range'];
                                 } elseif (isset($field['range'])) {
                                     if (is_array($field['range'])) {
@@ -168,6 +312,33 @@ class LabResultController extends Controller
                                         $refText = $field['range'];
                                     }
                                 }
+                                // For number fields, check patient-type-specific ranges
+                                if (isset($field['ranges']) && is_array($field['ranges'])) {
+                                    // Determine patient type and get appropriate range
+                                    $patient = $order->patient;
+                                    $age = $patient ? \Carbon\Carbon::parse($patient->birthdate)->age : null;
+                                    $gender = $patient->sex ?? $patient->gender ?? null;
+                                    
+                                    $patientType = null;
+                                    if ($age !== null) {
+                                        if ($age < 18) {
+                                            $patientType = 'child';
+                                        } elseif ($age >= 60) {
+                                            $patientType = 'senior';
+                                        } elseif ($gender && (strtolower($gender) === 'male' || strtolower($gender) === 'm')) {
+                                            $patientType = 'male';
+                                        } else {
+                                            $patientType = 'female';
+                                        }
+                                    }
+                                    
+                                    if ($patientType && isset($field['ranges'][$patientType])) {
+                                        $range = $field['ranges'][$patientType];
+                                        $min = isset($range['min']) && $range['min'] !== '' ? (string) $range['min'] : null;
+                                        $max = isset($range['max']) && $range['max'] !== '' ? (string) $range['max'] : null;
+                                    }
+                                }
+                                // Fallback to generic min/max if patient-type-specific ranges not found
                                 if (isset($field['min']) && $min === null) {
                                     $min = (string) $field['min'];
                                 }
@@ -188,20 +359,46 @@ class LabResultController extends Controller
                         ]);
                     }
 
-                    Log::info('LabResult saved', [
-                        'user_id' => $request->user()?->id,
+                    Log::info('LabResultValue records created', [
                         'order_id' => $order->id,
                         'lab_test_id' => (int) $testId,
-                        'before' => $existing?->results,
-                        'after' => $normalized,
+                        'result_id' => $labResult->id,
+                        'values_count' => count($flat),
                     ]);
                 }
             });
+            
+            // Verify the data was actually saved
+            $verificationResults = LabResult::where('lab_order_id', $order->id)
+                ->with('test', 'values')
+                ->get();
+            
+            Log::info('Verification after save', [
+                'order_id' => $order->id,
+                'saved_result_ids' => $savedResults,
+                'verification_count' => $verificationResults->count(),
+                'verification_data' => $verificationResults->map(function ($r) {
+                    return [
+                        'id' => $r->id,
+                        'lab_test_id' => $r->lab_test_id,
+                        'has_results' => !empty($r->results),
+                        'results_count' => is_array($r->results) ? count($r->results) : 0,
+                        'values_count' => $r->values->count(),
+                    ];
+                })->toArray(),
+            ]);
 
             $order->load(['patient', 'labTests', 'results.test', 'results.values']);
             return redirect()->route('admin.laboratory.results.show', $order)
                 ->with('success', 'Lab results saved successfully');
         } catch (\Throwable $e) {
+            Log::error('Failed to save lab results', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
             return back()->with('error', 'Failed to save results: ' . $e->getMessage())->withInput();
         }
     }

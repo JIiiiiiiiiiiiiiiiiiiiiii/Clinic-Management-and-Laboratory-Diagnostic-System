@@ -29,6 +29,11 @@ class AppointmentLabService
 
         // Allow lab tests to be added to appointments without requiring existing billing transactions
         // The billing transaction will be created later with the complete total including lab tests
+        
+        // Load visit relationship to get patient_id if appointment doesn't have it
+        if (!$appointment->relationLoaded('visit')) {
+            $appointment->load('visit');
+        }
 
         return DB::transaction(function () use ($appointment, $labTestIds, $addedBy, $notes) {
             try {
@@ -61,17 +66,22 @@ class AppointmentLabService
                     ]);
                 }
 
+                // Get AppointmentLabTest records (not just LabTest models)
+                $appointmentLabTests = $appointment->labTests()->with('labTest')->get();
+                
                 // Update billing transaction with lab tests (if it exists)
-                $billingTransaction = $this->updateBillingTransactionIfExists($appointment, $labTests);
+                $billingTransaction = $this->updateBillingTransactionIfExists($appointment, $appointmentLabTests);
 
                 // Create lab order
                 $labOrder = $this->createLabOrder($appointment, $labTests, $addedBy, $notes);
 
-                // Link appointment to lab order
-                AppointmentLabOrder::create([
-                    'appointment_id' => $appointment->id,
-                    'lab_order_id' => $labOrder->id
-                ]);
+                // Link appointment to lab order (use firstOrCreate to prevent duplicates)
+                AppointmentLabOrder::firstOrCreate(
+                    [
+                        'appointment_id' => $appointment->id,
+                        'lab_order_id' => $labOrder->id
+                    ]
+                );
 
                 Log::info('Lab tests added to appointment', [
                     'appointment_id' => $appointment->id,
@@ -103,19 +113,26 @@ class AppointmentLabService
     /**
      * Update billing transaction with lab tests (if it exists)
      */
-    private function updateBillingTransactionIfExists(Appointment $appointment, $labTests): ?BillingTransaction
+    private function updateBillingTransactionIfExists(Appointment $appointment, $appointmentLabTests): ?BillingTransaction
     {
-        // Get existing billing transaction
+        // Get existing billing transaction through appointment billing links
         $billingTransaction = $appointment->billingTransactions()->first();
 
         if (!$billingTransaction) {
             // No existing billing transaction - this is fine, it will be created later
             Log::info('No existing billing transaction found for appointment. Lab tests added, transaction will be created later.', [
                 'appointment_id' => $appointment->id,
-                'lab_tests_count' => $labTests->count()
+                'lab_tests_count' => $appointmentLabTests->count()
             ]);
             return null;
         }
+
+        Log::info('Updating existing billing transaction with lab tests', [
+            'billing_transaction_id' => $billingTransaction->id,
+            'appointment_id' => $appointment->id,
+            'appointment_lab_tests_count' => $appointmentLabTests->count(),
+            'final_total_amount' => $appointment->final_total_amount
+        ]);
 
         // Update transaction total
         $billingTransaction->update([
@@ -125,35 +142,66 @@ class AppointmentLabService
         ]);
 
         // Clear existing lab test items (keep appointment items)
-        $billingTransaction->items()->where('item_type', 'laboratory')->delete();
+        $deletedCount = $billingTransaction->items()->where('item_type', 'laboratory')->delete();
+        Log::info("Deleted {$deletedCount} existing lab test items");
 
-        // Ensure consultation item exists
+        // Ensure consultation item exists with proper label
         $consultationItem = $billingTransaction->items()->where('item_type', 'consultation')->first();
         if (!$consultationItem) {
+            $appointmentTypeLabel = $appointment->appointment_type === 'general_consultation' ? 'Consultation' : ucfirst($appointment->appointment_type);
             BillingTransactionItem::create([
                 'billing_transaction_id' => $billingTransaction->id,
                 'item_type' => 'consultation',
-                'item_name' => ucfirst($appointment->appointment_type),
-                'item_description' => "Appointment: {$appointment->appointment_type}",
+                'item_name' => $appointmentTypeLabel . ' Appointment',
+                'item_description' => "Appointment for {$appointment->patient_name} on " . ($appointment->appointment_date ? $appointment->appointment_date->format('M d, Y') : 'N/A') . " at " . ($appointment->appointment_time ? $appointment->appointment_time->format('g:i A') : 'N/A'),
                 'quantity' => 1,
                 'unit_price' => $appointment->price,
                 'total_price' => $appointment->price
             ]);
+            Log::info('Created consultation item for billing transaction');
+        } else {
+            // Update existing consultation item if needed
+            $appointmentTypeLabel = $appointment->appointment_type === 'general_consultation' ? 'Consultation' : ucfirst($appointment->appointment_type);
+            if (!str_contains($consultationItem->item_name, $appointmentTypeLabel)) {
+                $consultationItem->update([
+                    'item_name' => $appointmentTypeLabel . ' Appointment',
+                ]);
+            }
         }
 
-        // Add lab test items to transaction
-        foreach ($labTests as $labTest) {
-            BillingTransactionItem::create([
-                'billing_transaction_id' => $billingTransaction->id,
-                'item_type' => 'laboratory',
-                'lab_test_id' => $labTest->id,
-                'item_name' => $labTest->name,
-                'item_description' => "Lab test: {$labTest->name}",
-                'quantity' => 1,
-                'unit_price' => $labTest->price,
-                'total_price' => $labTest->price
-            ]);
+        // Add lab test items to transaction using AppointmentLabTest records
+        $itemsCreated = 0;
+        foreach ($appointmentLabTests as $appointmentLabTest) {
+            // Ensure labTest relationship is loaded
+            if (!$appointmentLabTest->relationLoaded('labTest')) {
+                $appointmentLabTest->load('labTest');
+            }
+            
+            if ($appointmentLabTest->labTest) {
+                BillingTransactionItem::create([
+                    'billing_transaction_id' => $billingTransaction->id,
+                    'item_type' => 'laboratory',
+                    'lab_test_id' => $appointmentLabTest->lab_test_id,
+                    'item_name' => $appointmentLabTest->labTest->name,
+                    'item_description' => "Lab test: {$appointmentLabTest->labTest->name}",
+                    'quantity' => 1,
+                    'unit_price' => $appointmentLabTest->unit_price ?? $appointmentLabTest->labTest->price,
+                    'total_price' => $appointmentLabTest->total_price ?? $appointmentLabTest->labTest->price
+                ]);
+                $itemsCreated++;
+                Log::info("Created billing item for lab test: {$appointmentLabTest->labTest->name}", [
+                    'unit_price' => $appointmentLabTest->unit_price ?? $appointmentLabTest->labTest->price,
+                    'total_price' => $appointmentLabTest->total_price ?? $appointmentLabTest->labTest->price
+                ]);
+            } else {
+                Log::warning("AppointmentLabTest {$appointmentLabTest->id} has no labTest relationship");
+            }
         }
+
+        Log::info("Successfully updated billing transaction with {$itemsCreated} lab test items", [
+            'billing_transaction_id' => $billingTransaction->id,
+            'total_items' => $billingTransaction->items()->count()
+        ]);
 
         return $billingTransaction;
     }
@@ -164,12 +212,33 @@ class AppointmentLabService
      */
     private function createLabOrder(Appointment $appointment, $labTests, int $orderedBy, string $notes = null): LabOrder
     {
+        // Get patient_id from appointment or fall back to visit
+        // This handles cases where appointment.patient_id is NULL but visit.patient_id exists
+        $patientId = $appointment->patient_id ?? $appointment->visit?->patient_id;
+        
+        if (!$patientId) {
+            throw new \Exception('Cannot create lab order: patient_id is required but not found in appointment or visit');
+        }
+        
+        // Get attending physician/doctor from appointment using comprehensive lookup
+        $attendingPhysician = $this->getAttendingPhysician($appointment);
+        
+        // Build notes with attending physician information
+        $orderNotes = [];
+        if ($attendingPhysician) {
+            $orderNotes[] = "Attending Physician: {$attendingPhysician}";
+        }
+        if ($notes) {
+            $orderNotes[] = $notes;
+        }
+        $finalNotes = !empty($orderNotes) ? implode("\n", $orderNotes) : null;
+        
         $labOrder = LabOrder::create([
-            'patient_id' => $appointment->patient_id,
+            'patient_id' => $patientId,
             'patient_visit_id' => $appointment->visit?->id,
             'ordered_by' => $orderedBy,
             'status' => 'ordered',
-            'notes' => $notes
+            'notes' => $finalNotes
         ]);
 
         // Create lab results for each test
@@ -183,6 +252,65 @@ class AppointmentLabService
         }
 
         return $labOrder;
+    }
+
+    /**
+     * Get attending physician/doctor from appointment
+     */
+    private function getAttendingPhysician(Appointment $appointment): ?string
+    {
+        // Try to get specialist from appointment relationship
+        if ($appointment->specialist_id) {
+            if (!$appointment->relationLoaded('specialist')) {
+                $appointment->load('specialist');
+            }
+            if ($appointment->specialist) {
+                return $appointment->specialist->name;
+            }
+        }
+        
+        // Try to get from visit relationships
+        if (!$appointment->relationLoaded('visit')) {
+            $appointment->load('visit');
+        }
+        
+        if ($appointment->visit) {
+            $visit = $appointment->visit;
+            
+            // Check doctor_id
+            if ($visit->doctor_id) {
+                $doctor = \App\Models\Specialist::find($visit->doctor_id);
+                if ($doctor) {
+                    return $doctor->name;
+                }
+            }
+            
+            // Check attending_staff_id
+            if ($visit->attending_staff_id) {
+                $attending = \App\Models\Specialist::find($visit->attending_staff_id);
+                if ($attending) {
+                    return $attending->name;
+                }
+            }
+            
+            // Check nurse_id
+            if ($visit->nurse_id) {
+                $nurse = \App\Models\Specialist::find($visit->nurse_id);
+                if ($nurse) {
+                    return $nurse->name;
+                }
+            }
+            
+            // Check medtech_id
+            if ($visit->medtech_id) {
+                $medtech = \App\Models\Specialist::find($visit->medtech_id);
+                if ($medtech) {
+                    return $medtech->name;
+                }
+            }
+        }
+        
+        return null;
     }
 
     /**

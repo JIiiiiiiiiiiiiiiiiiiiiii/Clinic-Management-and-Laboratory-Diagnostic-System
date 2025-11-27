@@ -79,7 +79,7 @@ export default function PatientAppointmentShow({ appointment }: PatientAppointme
                                     <div>
                                         <CardTitle className="text-2xl">{appointment.appointment_type}</CardTitle>
                                         <CardDescription>
-                                            {appointment.specialist_name || 'General Consultation'}
+                                            {appointment.specialist_name || 'Consultation'}
                                         </CardDescription>
                                     </div>
                                     <Badge className={`${getStatusColor(appointment.status)} flex items-center space-x-1`}>

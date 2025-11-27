@@ -9,6 +9,9 @@ class LabResultValue extends Model
 {
     use HasFactory;
 
+    protected $primaryKey = 'id';
+    public $incrementing = true;
+
     protected $fillable = [
         'lab_result_id',
         'parameter_key',

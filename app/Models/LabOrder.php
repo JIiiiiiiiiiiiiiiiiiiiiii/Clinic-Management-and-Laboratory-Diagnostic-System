@@ -22,6 +22,10 @@ class LabOrder extends Model
         return $this->belongsTo(Patient::class);
     }
 
+    public function visit()
+    {
+        return $this->belongsTo(Visit::class, 'patient_visit_id');
+    }
 
     public function orderedBy()
     {

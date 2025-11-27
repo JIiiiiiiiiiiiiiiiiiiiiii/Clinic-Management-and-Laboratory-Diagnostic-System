@@ -137,7 +137,13 @@
     <div class="report-title">Financial Report</div>
     <div class="report-meta">
         Generated on: {{ now()->format('M d, Y H:i A') }} | 
-        Date Range: {{ $dateRange ?? 'N/A' }}
+        @if(isset($filters) && (isset($filters['date_from']) || isset($filters['date_to'])))
+            Date Range: From {{ $filters['date_from'] ?? 'N/A' }} To {{ $filters['date_to'] ?? 'N/A' }}
+        @elseif(isset($dateRange))
+            Date Range: {{ $dateRange }}
+        @else
+            Date Range: All Time
+        @endif
     </div>
 
     <div class="section">
@@ -157,7 +163,7 @@
                                 <td>{{ ucfirst(str_replace('_', ' ', $key)) }}</td>
                                 <td>
                                     @if($key === 'total_revenue')
-                                        PHP {{ number_format($value, 2) }}
+                                        ₱{{ number_format($value, 2) }}
                                     @elseif($key === 'total_transactions')
                                         {{ $value }}
                                     @else
@@ -195,7 +201,7 @@
                             <td>{{ $transaction['id'] }}</td>
                             <td>{{ $transaction['patient_name'] }}</td>
                             <td>{{ $transaction['doctor_name'] }}</td>
-                            <td>PHP {{ number_format($transaction['total_amount'], 2) }}</td>
+                            <td>₱{{ number_format($transaction['total_amount'], 2) }}</td>
                             <td>{{ $transaction['payment_method'] }}</td>
                             <td>{{ \Carbon\Carbon::parse($transaction['transaction_date'])->format('M d, Y') }}</td>
                             <td>{{ $transaction['status'] }}</td>

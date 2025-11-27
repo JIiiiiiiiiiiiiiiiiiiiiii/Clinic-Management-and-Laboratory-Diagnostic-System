@@ -11,6 +11,10 @@ class DoctorPayment extends Model
     use HasFactory, SoftDeletes;
 
     protected $table = 'doctor_payments';
+    
+    // Explicitly set primary key and incrementing
+    protected $primaryKey = 'id';
+    public $incrementing = true;
 
     protected $fillable = [
         'doctor_id',

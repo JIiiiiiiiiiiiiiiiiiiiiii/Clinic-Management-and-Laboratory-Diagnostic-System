@@ -517,11 +517,11 @@ class DoctorSummaryReportController extends Controller
                 
                 $exportData[] = [
                     'Doctor Name' => $paymentData['doctor']['name'],
-                    'Total Paid' => 'PHP ' . number_format($paymentData['total_paid'], 2),
-                    'Pending Amount' => 'PHP ' . number_format($paymentData['pending_amount'], 2),
+                    'Total Paid' => '₱' . number_format($paymentData['total_paid'], 2),
+                    'Pending Amount' => '₱' . number_format($paymentData['pending_amount'], 2),
                     'Payment Count' => $paymentData['payment_count'],
                     'Paid Payments' => $paymentData['paid_payments'],
-                    'Total Revenue' => 'PHP ' . number_format($revenueData['total_revenue'], 2),
+                    'Total Revenue' => '₱' . number_format($revenueData['total_revenue'], 2),
                     'Transaction Count' => $revenueData['transaction_count'],
                 ];
             }
@@ -625,11 +625,11 @@ class DoctorSummaryReportController extends Controller
                 
                 $exportData[] = [
                     'Doctor Name' => $paymentData['doctor']['name'],
-                    'Total Paid' => 'PHP ' . number_format($paymentData['total_paid'], 2),
-                    'Pending Amount' => 'PHP ' . number_format($paymentData['pending_amount'], 2),
+                    'Total Paid' => '₱' . number_format($paymentData['total_paid'], 2),
+                    'Pending Amount' => '₱' . number_format($paymentData['pending_amount'], 2),
                     'Payment Count' => $paymentData['payment_count'],
                     'Paid Payments' => $paymentData['paid_payments'],
-                    'Total Revenue' => 'PHP ' . number_format($revenueData['total_revenue'], 2),
+                    'Total Revenue' => '₱' . number_format($revenueData['total_revenue'], 2),
                     'Transaction Count' => $revenueData['transaction_count'],
                 ];
             }
@@ -731,11 +731,11 @@ class DoctorSummaryReportController extends Controller
                 
                 $exportData[] = [
                     'Doctor Name' => $paymentData['doctor']['name'],
-                    'Total Paid' => 'PHP ' . number_format($paymentData['total_paid'], 2),
-                    'Pending Amount' => 'PHP ' . number_format($paymentData['pending_amount'], 2),
+                    'Total Paid' => '₱' . number_format($paymentData['total_paid'], 2),
+                    'Pending Amount' => '₱' . number_format($paymentData['pending_amount'], 2),
                     'Payment Count' => $paymentData['payment_count'],
                     'Paid Payments' => $paymentData['paid_payments'],
-                    'Total Revenue' => 'PHP ' . number_format($revenueData['total_revenue'], 2),
+                    'Total Revenue' => '₱' . number_format($revenueData['total_revenue'], 2),
                     'Transaction Count' => $revenueData['transaction_count'],
                 ];
             }

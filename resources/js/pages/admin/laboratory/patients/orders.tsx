@@ -34,6 +34,18 @@ type LabOrder = {
     created_at: string;
     notes?: string;
     lab_tests: LabTest[];
+    visit?: {
+        id: number;
+        notes?: string;
+        attending_staff?: {
+            id: number;
+            name: string;
+        } | null;
+    } | null;
+    ordered_by?: {
+        id: number;
+        name: string;
+    } | null;
 };
 
 const breadcrumbs = (patient: Patient): BreadcrumbItem[] => [
@@ -227,9 +239,27 @@ export default function PatientLabOrders({
                                                     <div className="text-sm text-muted-foreground">
                                                         <strong>Ordered:</strong> {new Date(order.created_at).toLocaleString()}
                                                     </div>
+                                                    {order.ordered_by && (
+                                                        <div className="mt-2 text-sm text-muted-foreground">
+                                                            <strong>Requested By:</strong> {order.ordered_by.name}
+                                                        </div>
+                                                    )}
+                                                    {order.visit?.notes && (
+                                                        <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                                            <div className="text-sm font-semibold text-blue-900 mb-1">
+                                                                Doctor's Remarks:
+                                                                {order.visit.attending_staff && (
+                                                                    <span className="ml-2 text-xs font-normal text-blue-700">
+                                                                        (Dr. {order.visit.attending_staff.name})
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-sm text-blue-800">{order.visit.notes}</p>
+                                                        </div>
+                                                    )}
                                                     {order.notes && (
                                                         <div className="mt-2 text-sm text-muted-foreground">
-                                                            <strong>Notes:</strong> {order.notes}
+                                                            <strong>Order Notes:</strong> {order.notes}
                                                         </div>
                                                     )}
                                                 </div>

@@ -317,7 +317,7 @@ export default function PatientAppointments({
 
     return (
         <div className="min-h-screen bg-white">
-            <Head title="My Appointments - SJHI Industrial Clinic" />
+            <Head title="My Appointments" />
             
             {/* Shared Navigation */}
             <SharedNavigation user={user} currentPath="/patient/appointments" notifications={notificationsList} unreadCount={unreadCountState} />

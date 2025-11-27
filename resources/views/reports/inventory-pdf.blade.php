@@ -373,6 +373,7 @@
                     <th>Movement Type</th>
                     <th>Quantity</th>
                     <th>Handled By</th>
+                    <th>Expiry Date</th>
                     <th>Remarks</th>
                 </tr>
             </thead>
@@ -384,6 +385,7 @@
                     <td>{{ $movement['movement_type'] ?? 'N/A' }}</td>
                     <td>{{ $movement['quantity'] ?? 0 }}</td>
                     <td>{{ $movement['created_by'] ?? 'N/A' }}</td>
+                    <td>{{ isset($movement['expiry_date']) && $movement['expiry_date'] ? \Carbon\Carbon::parse($movement['expiry_date'])->format('Y-m-d') : 'N/A' }}</td>
                     <td>{{ $movement['remarks'] ?? 'N/A' }}</td>
                 </tr>
                 @endforeach

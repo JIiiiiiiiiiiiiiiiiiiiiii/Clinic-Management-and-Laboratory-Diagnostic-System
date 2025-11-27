@@ -57,12 +57,15 @@ type LabOrder = {
             id: number;
             name: string;
             code: string;
+            fields_schema?: any;
         };
         values: Array<{
             id: number;
             field_name: string;
             value: string;
             unit?: string;
+            parameter_key?: string;
+            parameter_label?: string;
         }>;
         status: string;
         created_at: string;
@@ -72,6 +75,18 @@ type LabOrder = {
         id: number;
         name: string;
     };
+    visit?: {
+        id: number;
+        notes?: string;
+        attending_staff?: {
+            id: number;
+            name: string;
+        } | null;
+        attendingStaff?: {
+            id: number;
+            name: string;
+        } | null;
+    } | null;
 };
 
 type LabOrderShowProps = {
@@ -125,6 +140,45 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
         }
         
         return age;
+    };
+
+    // Determine patient type based on age and gender
+    const getPatientType = (age: number, gender: string): 'child' | 'male' | 'female' | 'senior' => {
+        if (age < 18) {
+            return 'child';
+        }
+        if (age >= 60) {
+            return 'senior';
+        }
+        if (gender?.toLowerCase() === 'male' || gender?.toLowerCase() === 'm') {
+            return 'male';
+        }
+        return 'female';
+    };
+
+    // Check if a value is within normal range
+    const isValueNormal = (value: string, ranges: any, patientType: string): boolean | null => {
+        if (!ranges || !ranges[patientType] || !ranges[patientType].min || !ranges[patientType].max) {
+            return null; // No range defined
+        }
+        
+        const numValue = parseFloat(value);
+        if (isNaN(numValue)) {
+            return null; // Not a number
+        }
+        
+        const min = parseFloat(ranges[patientType].min);
+        const max = parseFloat(ranges[patientType].max);
+        
+        return numValue >= min && numValue <= max;
+    };
+
+    // Get range for display
+    const getRangeForDisplay = (ranges: any, patientType: string): string | null => {
+        if (!ranges || !ranges[patientType] || !ranges[patientType].min || !ranges[patientType].max) {
+            return null;
+        }
+        return `${ranges[patientType].min} - ${ranges[patientType].max}`;
     };
 
     return (
@@ -284,6 +338,37 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                             <p className="text-sm text-gray-600">{formatDate(order.updated_at)}</p>
                                         </div>
                                     </div>
+
+                                    {/* Doctor's Remarks Section */}
+                                    <Separator className="my-4" />
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <FileText className="h-4 w-4 text-gray-500" />
+                                            <p className="text-sm font-semibold text-gray-900">Doctor's Remarks</p>
+                                            {(order.visit?.attending_staff?.name || order.visit?.attendingStaff?.name) && (
+                                                <span className="text-xs text-gray-500">
+                                                    ({order.visit?.attending_staff?.name || order.visit?.attendingStaff?.name})
+                                                </span>
+                                            )}
+                                        </div>
+                                        {/* Priority: Show lab order notes first (contains doctor's specific remarks for this order) */}
+                                        {order.notes ? (
+                                            <div className="bg-blue-50 rounded-lg border border-blue-200 p-3 mt-2">
+                                                <p className="text-sm text-gray-800 whitespace-pre-wrap">{order.notes}</p>
+                                            </div>
+                                        ) : order.visit?.notes ? (
+                                            <div className="bg-blue-50 rounded-lg border border-blue-200 p-3 mt-2">
+                                                <p className="text-xs text-gray-600 mb-1 italic">From visit notes:</p>
+                                                <p className="text-sm text-gray-800 whitespace-pre-wrap">{order.visit.notes}</p>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 mt-2">
+                                                <p className="text-sm text-gray-500 italic">
+                                                    {order.visit ? 'No remarks available for this lab order or visit.' : 'This lab order is not linked to a patient visit. No doctor remarks available.'}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -363,17 +448,126 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                                 </div>
                                                 
                                                 {result.values.length > 0 ? (
-                                                    <div className="grid gap-3 md:grid-cols-2">
-                                                        {result.values.map((value) => (
-                                                            <div key={value.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                                                <div>
-                                                                    <p className="font-medium text-gray-900">{value.field_name}</p>
-                                                                    <p className="text-sm text-gray-600">
-                                                                        {value.value} {value.unit && `(${value.unit})`}
-                                                                    </p>
+                                                    <div className="space-y-4">
+                                                        {(() => {
+                                                            // Get patient type
+                                                            const patientAge = formatAge(order.patient.birthdate);
+                                                            const patientType = getPatientType(patientAge, order.patient.gender);
+                                                            
+                                                            // Get field data from test schema
+                                                            const testSchema = result.test?.fields_schema;
+                                                            const getFieldData = (value: any) => {
+                                                                if (!testSchema?.sections) return null;
+                                                                const fieldName = value.parameter_label || value.field_name;
+                                                                const parameterKey = value.parameter_key;
+                                                                
+                                                                for (const section of Object.values(testSchema.sections) as any[]) {
+                                                                    if (section.fields) {
+                                                                        for (const [fieldKey, field] of Object.entries(section.fields)) {
+                                                                            const fieldData = field as any;
+                                                                            // Match by label, field key, or parameter key
+                                                                            if (fieldData.label === fieldName || 
+                                                                                fieldKey === fieldName || 
+                                                                                fieldKey === parameterKey ||
+                                                                                parameterKey?.includes(fieldKey)) {
+                                                                                return {
+                                                                                    ranges: fieldData.ranges,
+                                                                                    reference_range: fieldData.reference_range,
+                                                                                    unit: fieldData.unit,
+                                                                                    type: fieldData.type,
+                                                                                    options: fieldData.options,
+                                                                                };
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                                return null;
+                                                            };
+                                                            
+                                                            // Group values by parameter_key prefix (e.g., "physical_examination", "microscopic")
+                                                            const grouped = result.values.reduce((acc: any, value: any) => {
+                                                                const key = value.parameter_key?.split('.')[0] || 'general';
+                                                                if (!acc[key]) acc[key] = [];
+                                                                acc[key].push(value);
+                                                                return acc;
+                                                            }, {});
+                                                            
+                                                            return Object.entries(grouped).map(([category, values]: [string, any]) => (
+                                                                <div key={category} className="border border-gray-200 rounded-lg p-4">
+                                                                    <h6 className="font-semibold text-gray-900 mb-3 capitalize">
+                                                                        {category.replace(/_/g, ' ')}
+                                                                    </h6>
+                                                                    <div className="grid gap-3 md:grid-cols-2">
+                                                                        {values.map((value: any) => {
+                                                                            const fieldName = value.parameter_label || value.field_name;
+                                                                            const fieldData = getFieldData(value);
+                                                                            const ranges = fieldData?.ranges || null;
+                                                                            const referenceRange = fieldData?.reference_range || null;
+                                                                            const fieldType = fieldData?.type || 'text';
+                                                                            
+                                                                            // Determine status based on field type
+                                                                            let isNormal: boolean | null = null;
+                                                                            if (fieldType === 'number') {
+                                                                                isNormal = isValueNormal(value.value, ranges, patientType);
+                                                                            } else if (fieldType === 'select') {
+                                                                                // For dropdowns, check the status of the selected option
+                                                                                const selectedValue = value.value;
+                                                                                const options = fieldData?.options || [];
+                                                                                const selectedOption = options.find((opt: any) => {
+                                                                                    const optValue = typeof opt === 'string' ? opt : (opt?.value || '');
+                                                                                    return optValue === selectedValue;
+                                                                                });
+                                                                                if (selectedOption) {
+                                                                                    const optionStatus = typeof selectedOption === 'string' ? 'normal' : (selectedOption?.status || 'normal');
+                                                                                    isNormal = optionStatus === 'normal';
+                                                                                }
+                                                                            }
+                                                                            
+                                                                            const rangeDisplay = fieldType === 'number' 
+                                                                                ? getRangeForDisplay(ranges, patientType)
+                                                                                : (referenceRange || value.reference_text || 'N/A');
+                                                                            const unitDisplay = value.unit || fieldData?.unit || 'N/A';
+                                                                            
+                                                                            return (
+                                                                            <div key={value.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                                                <div className="flex-1">
+                                                                                        <div className="flex items-center gap-2 mb-1">
+                                                                                            <p className="font-medium text-gray-900">{fieldName}</p>
+                                                                                            {(isNormal !== null || fieldType === 'select') && (
+                                                                                                <Badge 
+                                                                                                    variant={isNormal === true ? 'default' : 'destructive'}
+                                                                                                    className={isNormal === true ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}
+                                                                                                >
+                                                                                                    {isNormal === true ? 'Normal' : (isNormal === false ? 'Abnormal' : 'N/A')}
+                                                                                                </Badge>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    <p className="text-sm text-gray-600">
+                                                                                            {value.value} {unitDisplay !== 'N/A' && `(${unitDisplay})`}
+                                                                                    </p>
+                                                                                        {rangeDisplay && rangeDisplay !== 'N/A' && (
+                                                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                                                {fieldType === 'number' ? `Normal Range (${patientType}): ` : 'Reference Range: '}{rangeDisplay}
+                                                                                            </p>
+                                                                                        )}
+                                                                                    {value.reference_text && (
+                                                                                        <p className="text-xs text-gray-500 mt-1">
+                                                                                            Reference: {value.reference_text}
+                                                                                        </p>
+                                                                                    )}
+                                                                                        {(value.reference_min && value.reference_max) && !rangeDisplay && (
+                                                                                        <p className="text-xs text-gray-500 mt-1">
+                                                                                            Range: {value.reference_min} - {value.reference_max}
+                                                                                        </p>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        ))}
+                                                            ));
+                                                        })()}
                                                     </div>
                                                 ) : (
                                                     <div className="text-center py-8">
@@ -412,28 +606,6 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                 )}
                             </CardContent>
                         </Card>
-
-                        {/* Notes Section */}
-                        {order.notes && (
-                            <Card className="shadow-lg">
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-gray-100 rounded-lg">
-                                            <FileText className="h-6 w-6 text-black" />
-                                        </div>
-                                        <div>
-                                            <CardTitle className="text-lg font-semibold text-gray-900">Order Notes</CardTitle>
-                                            <p className="text-sm text-gray-500 mt-1">Additional information for this order</p>
-                                        </div>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="p-6">
-                                    <div className="bg-gray-50 rounded-lg p-4">
-                                        <p className="text-gray-700">{order.notes}</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
                     </div>
                 </div>
             </div>

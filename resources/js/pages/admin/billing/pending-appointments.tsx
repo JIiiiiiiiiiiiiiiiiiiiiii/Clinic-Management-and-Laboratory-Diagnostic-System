@@ -7,18 +7,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { safeFormatDate, safeFormatTime } from '@/utils/dateTime';
+import { toast } from 'sonner';
 import PendingAppointmentViewModal from '@/components/modals/pending-appointment-view-modal';
 import PendingAppointmentEditModal from '@/components/modals/pending-appointment-edit-modal';
-import PendingAppointmentCreateModal from '@/components/modals/pending-appointment-create-modal';
 import PendingAppointmentDeleteModal from '@/components/modals/pending-appointment-delete-modal';
 import PendingAppointmentPaymentModal from '@/components/modals/pending-appointment-payment-modal';
 import { 
     CheckCircle, 
     Clock, 
     Eye, 
-    Plus, 
     Calendar,
     ArrowUpDown,
     ChevronDown,
@@ -95,6 +94,27 @@ type PendingAppointment = {
         lab_test_name: string;
         price: number;
         status: string;
+        source?: 'appointment' | 'visit';
+        ordered_by?: string;
+        lab_order_id?: number;
+    }>;
+    visit?: {
+        id: number;
+        visit_code: string;
+        visit_date_time_time: string;
+        status: string;
+        attending_staff?: {
+            id: number;
+            name: string;
+            role: string;
+        };
+    };
+    visit_lab_orders?: Array<{
+        id: number;
+        status: string;
+        ordered_by: string;
+        notes: string;
+        created_at: string;
     }>;
 };
 
@@ -287,6 +307,19 @@ export default function PendingAppointments({
     hmoProviders = [],
     filters
 }: PendingAppointmentsProps) {
+    // Get flash messages from Inertia
+    const { flash } = usePage().props as any;
+    
+    // Show toast notifications for flash messages
+    React.useEffect(() => {
+        if (flash?.success) {
+            toast.success(flash.success);
+        }
+        if (flash?.error) {
+            toast.error(flash.error);
+        }
+    }, [flash]);
+    
     // Debug: Log the data being passed to the component
     console.log('PendingAppointments component received data:', {
         pendingAppointments: pendingAppointments?.length || 0,
@@ -307,7 +340,6 @@ export default function PendingAppointments({
     // Modal state
     const [viewModalOpen, setViewModalOpen] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
-    const [createModalOpen, setCreateModalOpen] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
     const [selectedAppointmentId, setSelectedAppointmentId] = useState<number | null>(null);
@@ -371,14 +403,6 @@ export default function PendingAppointments({
         setSelectedAppointmentId(null);
     };
 
-    // Create modal handlers
-    const handleCreateAppointment = () => {
-        setCreateModalOpen(true);
-    };
-
-    const handleCreateModalClose = () => {
-        setCreateModalOpen(false);
-    };
 
     // Payment modal handlers
     const handlePaymentAppointment = (appointmentId: number) => {
@@ -586,13 +610,6 @@ export default function PendingAppointments({
                                         <option value="walk_in">Walk-in</option>
                                         <option value="phone">Phone</option>
                                     </select>
-                                    <Button
-                                        onClick={handleCreateAppointment}
-                                        className="bg-green-600 hover:bg-green-700 text-white"
-                                    >
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Create Appointment
-                                    </Button>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <Button variant="outline">
@@ -788,15 +805,6 @@ export default function PendingAppointments({
                 onSuccess={handleModalSuccess}
                 appointment={appointmentsData.find(apt => apt.id === selectedAppointmentId) as any || null}
                 doctors={doctors}
-            />
-
-            {/* Pending Appointment Create Modal */}
-            <PendingAppointmentCreateModal
-                isOpen={createModalOpen}
-                onClose={handleCreateModalClose}
-                onSuccess={handleModalSuccess}
-                doctors={doctors}
-                patients={patients}
             />
 
             {/* Pending Appointment Delete Modal */}

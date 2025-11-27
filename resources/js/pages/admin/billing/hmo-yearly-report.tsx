@@ -9,7 +9,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { 
-    DollarSign,
+    Coins,
     TrendingUp,
     FileText,
     Download,
@@ -304,7 +304,7 @@ export default function HmoYearlyReport({
                                         <p className="text-sm text-gray-500">Annual HMO revenue</p>
                                     </div>
                                     <div className="p-3 bg-green-100 rounded-full">
-                                        <DollarSign className="h-6 w-6 text-green-600" />
+                                        <Coins className="h-6 w-6 text-green-600" />
                                     </div>
                                 </div>
                             </CardContent>

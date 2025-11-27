@@ -8,7 +8,7 @@ import {
     FileText, 
     TrendingUp, 
     Download, 
-    DollarSign, 
+    Coins, 
     Users, 
     Calendar 
 } from 'lucide-react';
@@ -65,7 +65,7 @@ export default function BillingReports({ summary }: { summary: BillingSummary })
                                         </p>
                                     </div>
                                     <div className="p-3 bg-green-100 rounded-full">
-                                        <DollarSign className="h-6 w-6 text-green-600" />
+                                        <Coins className="h-6 w-6 text-green-600" />
                                     </div>
                                 </div>
                             </CardContent>

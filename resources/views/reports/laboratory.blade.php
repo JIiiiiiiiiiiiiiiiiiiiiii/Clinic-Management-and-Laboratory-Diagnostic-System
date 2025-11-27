@@ -29,6 +29,12 @@
             font-size: 16px;
             font-weight: normal;
         }
+        .header .date-range {
+            color: #666;
+            margin: 10px 0 0 0;
+            font-size: 14px;
+            font-weight: normal;
+        }
         .summary-section {
             margin-bottom: 30px;
         }
@@ -133,6 +139,15 @@
         </div>
         <h1>Laboratory Report</h1>
         <h2>{{ $title ?? 'Laboratory Statistics and Details' }}</h2>
+        <div class="date-range">
+            @if(isset($filters) && (isset($filters['date_from']) || isset($filters['date_to'])))
+                Date Range: From {{ $filters['date_from'] ?? 'N/A' }} To {{ $filters['date_to'] ?? 'N/A' }}
+            @elseif(isset($dateRange))
+                Date Range: {{ $dateRange }}
+            @else
+                Date Range: All Time
+            @endif
+        </div>
     </div>
 
     <div class="section">
@@ -187,10 +202,16 @@
             </thead>
             <tbody>
                 @foreach($data['test_summary'] as $testType => $count)
+                    @php
+                        // CRITICAL: Calculate percentage based on total_tests, not total_orders
+                        // This ensures percentages don't exceed 100%
+                        $totalTests = $data['total_tests'] ?? 0;
+                        $percentage = $totalTests > 0 ? round(($count / $totalTests) * 100, 1) : 0;
+                    @endphp
                     <tr>
                         <td>{{ $testType }}</td>
                         <td>{{ $count }}</td>
-                        <td>{{ $data['total_orders'] > 0 ? round(($count / $data['total_orders']) * 100, 1) : 0 }}%</td>
+                        <td>{{ $percentage }}%</td>
                     </tr>
                 @endforeach
             </tbody>

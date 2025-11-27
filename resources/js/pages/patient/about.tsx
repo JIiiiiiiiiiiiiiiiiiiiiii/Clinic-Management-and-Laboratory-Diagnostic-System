@@ -1,6 +1,7 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import SharedNavigation from '@/components/SharedNavigation';
+import PublicFooter from '@/components/PublicFooter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,20 +29,20 @@ import {
 } from 'lucide-react';
 
 interface PatientAboutProps {
-    user: {
+    user?: {
         id: number;
         name: string;
         email: string;
         role: string;
         created_at: string;
-    };
+    } | null;
     patient?: {
         id: number;
         first_name: string;
         last_name: string;
         patient_no: string;
     };
-    notifications: Array<{
+    notifications?: Array<{
         id: number;
         type: string;
         title: string;
@@ -50,7 +51,7 @@ interface PatientAboutProps {
         created_at: string;
         data: any;
     }>;
-    unreadCount: number;
+    unreadCount?: number;
 }
 
 export default function PatientAbout({ 
@@ -139,18 +140,15 @@ export default function PatientAbout({
 
     return (
         <div className="min-h-screen bg-white">
-            <Head title="About Us - SJHI Industrial Clinic" />
+            <Head title="About Us" />
             
             {/* Shared Navigation */}
-            <SharedNavigation user={user} currentPath="/patient/about" />
+            <SharedNavigation user={user || undefined} currentPath="/about" notifications={notifications || []} unreadCount={unreadCount || 0} />
             
             {/* Hero Section */}
             <section className="bg-gradient-to-br from-green-50 via-white to-blue-50 py-20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center">
-                        <Badge className="bg-green-100 text-green-800 border-green-200 mb-6">
-                            About SJHI Clinic
-                        </Badge>
                         <h1 className="text-5xl font-bold text-gray-900 mb-6">
                             Your Trusted Healthcare Partner
                         </h1>
@@ -426,7 +424,7 @@ export default function PatientAbout({
                             </Button>
                         </Link>
                         <Link href="/patient/contact">
-                            <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-green-600 px-8 py-4 text-lg">
+                            <Button variant="outline" size="lg" className="border-2 border-white bg-white/10 text-white hover:bg-white hover:text-green-600 px-8 py-4 text-lg backdrop-blur-sm">
                                 <Phone className="mr-2 h-5 w-5" />
                                 Contact Us
                             </Button>
@@ -434,6 +432,9 @@ export default function PatientAbout({
                     </div>
                 </div>
             </section>
+
+            {/* Footer */}
+            <PublicFooter />
         </div>
     );
 }

@@ -6,6 +6,7 @@ use App\Models\Patient;
 use App\Models\Appointment;
 use App\Models\LabOrder;
 use App\Models\LabResult;
+use App\Models\Specialist;
 use App\Models\Supply\Supply as Item;
 use App\Models\Supply\SupplyTransaction as Transaction;
 use App\Models\User;
@@ -58,7 +59,7 @@ class DashboardController extends Controller
                     'bedroom_usage' => 68, // Placeholder for bedroom usage
                     'consultation_total' => Appointment::where('appointment_type', 'like', '%consultation%')->count(),
                     // New meaningful statistics
-                    'new_patients_today' => Patient::whereDate('created_at', now()->toDateString())->count(),
+                    'new_patients_today' => Patient::whereDate('created_at', now()->startOfDay())->count(),
                     'pending_lab_results' => \App\Models\LabResult::whereNull('verified_at')->count(),
                     'completed_lab_results' => \App\Models\LabResult::whereNotNull('verified_at')->count(),
                     'total_lab_orders' => \App\Models\LabOrder::count(),
@@ -66,12 +67,26 @@ class DashboardController extends Controller
                     'total_billing_transactions' => \App\Models\BillingTransaction::count(),
                     'pending_billing' => \App\Models\BillingTransaction::where('status', 'pending')->count(),
                     'paid_transactions' => \App\Models\BillingTransaction::where('status', 'paid')->count(),
-                    'total_revenue' => \App\Models\BillingTransaction::where('status', 'paid')->sum('total_amount'),
-                    'today_revenue' => \App\Models\BillingTransaction::where('status', 'paid')
-                        ->whereDate('transaction_date', now()->toDateString())
-                        ->sum('total_amount'),
+                    'total_revenue' => $this->sumBillingAmount(\App\Models\BillingTransaction::where('status', 'paid')),
+                    'today_revenue' => $this->sumBillingAmount(
+                        \App\Models\BillingTransaction::where('status', 'paid')
+                            ->where(function($query) {
+                                $today = now()->toDateString();
+                                // Check transaction_date_only first (date field), then transaction_date (datetime), then created_at as fallback
+                                $query->whereDate('transaction_date_only', $today)
+                                      ->orWhere(function($q) use ($today) {
+                                          $q->whereNull('transaction_date_only')
+                                            ->whereDate('transaction_date', $today);
+                                      })
+                                      ->orWhere(function($q) use ($today) {
+                                          $q->whereNull('transaction_date_only')
+                                            ->whereNull('transaction_date')
+                                            ->whereDate('created_at', $today);
+                                      });
+                            })
+                    ),
                     'senior_citizens' => Patient::where('is_senior_citizen', true)->count(),
-                    'low_stock_items' => \App\Models\InventoryItem::whereRaw('stock <= low_stock_alert')->count(),
+                    'low_stock_items' => \App\Models\InventoryItem::lowStock()->count(),
                     'out_of_stock_items' => \App\Models\InventoryItem::where('stock', 0)->count(),
                     // Additional meaningful statistics
                     'total_doctors' => User::where('role', 'doctor')->where('is_active', true)->count(),
@@ -84,7 +99,7 @@ class DashboardController extends Controller
                     'patients_last_month' => Patient::whereMonth('created_at', now()->subMonth()->month)->count(),
                     'appointments_this_week' => Appointment::whereBetween('appointment_date', [now()->startOfWeek(), now()->endOfWeek()])->count(),
                     'appointments_last_week' => Appointment::whereBetween('appointment_date', [now()->subWeek()->startOfWeek(), now()->subWeek()->endOfWeek()])->count(),
-                    'pending_payments' => \App\Models\BillingTransaction::where('status', 'pending')->sum('total_amount'),
+                    'pending_payments' => $this->sumBillingAmount(\App\Models\BillingTransaction::where('status', 'pending')),
                     'total_inventory_value' => \App\Models\InventoryItem::sum(DB::raw('stock * unit_cost')),
                     'expiring_items' => \App\Models\InventoryItem::where('expiry_date', '<=', now()->addDays(30))->count(),
                     'expired_items' => \App\Models\InventoryItem::where('expiry_date', '<', now())->count(),
@@ -182,12 +197,31 @@ class DashboardController extends Controller
 
         switch ($role) {
             case 'doctor':
+                // Get specialist_id for the user
+                $specialist = \App\Models\Specialist::where('name', $user->name)->first();
+                $specialistId = $specialist ? $specialist->specialist_id : null;
+                
                 $stats = [
-                    'my_patients' => Patient::whereHas('appointments', function($q) use ($user) {
-                        $q->where('specialist_name', $user->name);
+                    'my_patients' => Patient::whereHas('appointments', function($q) use ($specialistId, $user) {
+                        // Filter by specialist_id if available, otherwise try to match via join
+                        if ($specialistId) {
+                            // In whereHas callback, query is already scoped to appointments table
+                            $q->where('specialist_id', $specialistId);
+                        } else {
+                            // Fallback: join with specialists table to match by name
+                            $q->join('specialists', 'appointments.specialist_id', '=', 'specialists.specialist_id')
+                              ->where('specialists.name', $user->name);
+                        }
                     })->count(),
-                    'pending_consultations' => Appointment::where('specialist_name', $user->name)
-                        ->where('status', 'pending')->count(),
+                    'pending_consultations' => Appointment::when($specialistId, function($q) use ($specialistId) {
+                        // Query is already on appointments table, so use specialist_id directly
+                        $q->where('specialist_id', $specialistId);
+                    }, function($q) use ($user) {
+                        // Fallback: join with specialists table - need to qualify columns
+                        $q->join('specialists', 'appointments.specialist_id', '=', 'specialists.specialist_id')
+                          ->where('specialists.name', $user->name);
+                    })
+                    ->where('appointments.status', 'pending')->count(),
                     'lab_results_pending' => LabResult::whereNull('verified_at')->count(),
                 ];
                 break;
@@ -228,8 +262,7 @@ class DashboardController extends Controller
             default: // admin
                 $stats = [
                     'total_doctors' => User::where('role', 'doctor')->where('is_active', true)->count(),
-                    'low_stock_items' => \App\Models\InventoryItem::lowStock()->count(),
-                    'total_revenue' => 0, // Placeholder for revenue
+                    // low_stock_items is already calculated in baseStats correctly
                 ];
                 break;
         }
@@ -239,43 +272,227 @@ class DashboardController extends Controller
 
     private function getTodayAppointments($role, $user)
     {
-        $query = Appointment::with(['patient'])
-            ->whereDate('appointment_date', now()->toDateString())
-            ->orderBy('appointment_time');
+        // Use LEFT JOIN to get patient and specialist data directly from database
+        // Check all possible specialist sources (appointments.specialist_id, visits.doctor_id, visits.nurse_id, visits.medtech_id, visits.attending_staff_id)
+        $query = Appointment::query()
+            ->leftJoin('visits', 'appointments.id', '=', 'visits.appointment_id')
+            ->leftJoin('patients as appointment_patients', 'appointments.patient_id', '=', 'appointment_patients.id')
+            ->leftJoin('patients as visit_patients', 'visits.patient_id', '=', 'visit_patients.id')
+            ->leftJoin('specialists', 'appointments.specialist_id', '=', 'specialists.specialist_id')
+            ->leftJoin('specialists as visit_doctor_specialists', 'visits.doctor_id', '=', 'visit_doctor_specialists.specialist_id')
+            ->leftJoin('specialists as visit_nurse_specialists', 'visits.nurse_id', '=', 'visit_nurse_specialists.specialist_id')
+            ->leftJoin('specialists as visit_medtech_specialists', 'visits.medtech_id', '=', 'visit_medtech_specialists.specialist_id')
+            ->leftJoin('specialists as visit_attending_specialists', 'visits.attending_staff_id', '=', 'visit_attending_specialists.specialist_id')
+            ->select(
+                'appointments.*',
+                DB::raw('COALESCE(appointment_patients.first_name, visit_patients.first_name) as patient_first_name'),
+                DB::raw('COALESCE(appointment_patients.last_name, visit_patients.last_name) as patient_last_name'),
+                DB::raw('COALESCE(appointment_patients.middle_name, visit_patients.middle_name) as patient_middle_name'),
+                DB::raw('COALESCE(
+                    specialists.name, 
+                    visit_doctor_specialists.name, 
+                    visit_nurse_specialists.name, 
+                    visit_medtech_specialists.name, 
+                    visit_attending_specialists.name
+                ) as specialist_name_from_table')
+            )
+            ->whereDate('appointments.appointment_date', now()->toDateString())
+            ->orderBy('appointments.appointment_time');
 
         // Filter by role
         if ($role === 'doctor') {
-            $query->where('specialist_name', $user->name);
+            $query->where(function($q) use ($user) {
+                $q->where('specialists.name', $user->name)
+                  ->orWhere('visit_doctor_specialists.name', $user->name)
+                  ->orWhere('visit_attending_specialists.name', $user->name);
+            });
         }
 
         return $query->get()->map(function ($appointment) {
-                return [
-                    'id' => $appointment->id,
-                    'patient_name' => $appointment->patient ? $appointment->patient->first_name . ' ' . $appointment->patient->last_name : $appointment->patient_name ?? 'Unknown Patient',
-                    'specialist_name' => $appointment->specialist_name ?? 'Unknown Doctor',
-                    'appointment_type' => $appointment->appointment_type ?? 'General Consultation',
-                    'appointment_time' => $appointment->appointment_time,
-                    'status' => $appointment->status,
-                ];
-            });
+            // Access joined columns from attributes
+            $attributes = $appointment->getAttributes();
+            
+            // Get patient name from joined data
+            $patientName = 'Unknown Patient';
+            $patientFirstName = $attributes['patient_first_name'] ?? $appointment->patient_first_name ?? null;
+            $patientMiddleName = $attributes['patient_middle_name'] ?? $appointment->patient_middle_name ?? null;
+            $patientLastName = $attributes['patient_last_name'] ?? $appointment->patient_last_name ?? null;
+            
+            if ($patientFirstName || $patientLastName) {
+                $firstName = $patientFirstName ?? '';
+                $middleName = $patientMiddleName ?? '';
+                $lastName = $patientLastName ?? '';
+                $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+            }
+            
+            // If still empty, try to load patient relationship as fallback
+            if (empty(trim($patientName)) && $appointment->patient_id) {
+                if (!$appointment->relationLoaded('patient')) {
+                    $appointment->load('patient');
+                }
+                if ($appointment->patient) {
+                    $firstName = $appointment->patient->first_name ?? '';
+                    $middleName = $appointment->patient->middle_name ?? '';
+                    $lastName = $appointment->patient->last_name ?? '';
+                    $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+                }
+            }
+            
+            if (empty(trim($patientName))) {
+                $patientName = 'Unknown Patient';
+            }
+            
+            // Get specialist name from joined data
+            $specialistName = $attributes['specialist_name_from_table'] ?? $appointment->specialist_name_from_table ?? null;
+            
+            // If still null, try to get from relationships as fallback
+            if (empty($specialistName) || $specialistName === 'NULL') {
+                // Try appointment specialist relationship
+                if ($appointment->specialist_id) {
+                    if (!$appointment->relationLoaded('specialist')) {
+                        $appointment->load('specialist');
+                    }
+                    if ($appointment->specialist) {
+                        $specialistName = $appointment->specialist->name;
+                    }
+                }
+                
+                // Try visit relationships
+                if (empty($specialistName) && $appointment->relationLoaded('visit') && $appointment->visit) {
+                    $visit = $appointment->visit;
+                    if ($visit->doctor_id) {
+                        $visitDoctor = \App\Models\Specialist::find($visit->doctor_id);
+                        if ($visitDoctor) {
+                            $specialistName = $visitDoctor->name;
+                        }
+                    }
+                }
+            }
+            
+            // Final fallback
+            if (empty($specialistName) || $specialistName === 'NULL') {
+                $specialistName = 'Unknown Specialist';
+            }
+            
+            return [
+                'id' => $appointment->id,
+                'patient_name' => $patientName,
+                'specialist_name' => $specialistName,
+                'appointment_type' => $appointment->appointment_type ?? 'General Consultation',
+                'appointment_time' => $appointment->appointment_time,
+                'status' => $appointment->status,
+            ];
+        });
     }
 
     private function getRecentAppointments($role, $user)
     {
-        $query = Appointment::with(['patient'])
-            ->orderByDesc('created_at')
+        // Use LEFT JOIN to get patient and specialist data directly from database
+        // Check all possible specialist sources (appointments.specialist_id, visits.doctor_id, visits.nurse_id, visits.medtech_id, visits.attending_staff_id)
+        $query = Appointment::query()
+            ->leftJoin('visits', 'appointments.id', '=', 'visits.appointment_id')
+            ->leftJoin('patients as appointment_patients', 'appointments.patient_id', '=', 'appointment_patients.id')
+            ->leftJoin('patients as visit_patients', 'visits.patient_id', '=', 'visit_patients.id')
+            ->leftJoin('specialists', 'appointments.specialist_id', '=', 'specialists.specialist_id')
+            ->leftJoin('specialists as visit_doctor_specialists', 'visits.doctor_id', '=', 'visit_doctor_specialists.specialist_id')
+            ->leftJoin('specialists as visit_nurse_specialists', 'visits.nurse_id', '=', 'visit_nurse_specialists.specialist_id')
+            ->leftJoin('specialists as visit_medtech_specialists', 'visits.medtech_id', '=', 'visit_medtech_specialists.specialist_id')
+            ->leftJoin('specialists as visit_attending_specialists', 'visits.attending_staff_id', '=', 'visit_attending_specialists.specialist_id')
+            ->select(
+                'appointments.*',
+                DB::raw('COALESCE(appointment_patients.first_name, visit_patients.first_name) as patient_first_name'),
+                DB::raw('COALESCE(appointment_patients.last_name, visit_patients.last_name) as patient_last_name'),
+                DB::raw('COALESCE(appointment_patients.middle_name, visit_patients.middle_name) as patient_middle_name'),
+                DB::raw('COALESCE(
+                    specialists.name, 
+                    visit_doctor_specialists.name, 
+                    visit_nurse_specialists.name, 
+                    visit_medtech_specialists.name, 
+                    visit_attending_specialists.name
+                ) as specialist_name_from_table')
+            )
+            ->orderByDesc('appointments.created_at')
             ->limit(10);
 
         // Filter by role
         if ($role === 'doctor') {
-            $query->where('specialist_name', $user->name);
+            $query->where(function($q) use ($user) {
+                $q->where('specialists.name', $user->name)
+                  ->orWhere('visit_doctor_specialists.name', $user->name)
+                  ->orWhere('visit_attending_specialists.name', $user->name);
+            });
         }
 
         return $query->get()->map(function ($appointment) {
+            // Access joined columns from attributes
+            $attributes = $appointment->getAttributes();
+            
+            // Get patient name from joined data
+            $patientName = 'Unknown Patient';
+            $patientFirstName = $attributes['patient_first_name'] ?? $appointment->patient_first_name ?? null;
+            $patientMiddleName = $attributes['patient_middle_name'] ?? $appointment->patient_middle_name ?? null;
+            $patientLastName = $attributes['patient_last_name'] ?? $appointment->patient_last_name ?? null;
+            
+            if ($patientFirstName || $patientLastName) {
+                $firstName = $patientFirstName ?? '';
+                $middleName = $patientMiddleName ?? '';
+                $lastName = $patientLastName ?? '';
+                $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+            }
+            
+            // If still empty, try to load patient relationship as fallback
+            if (empty(trim($patientName)) && $appointment->patient_id) {
+                if (!$appointment->relationLoaded('patient')) {
+                    $appointment->load('patient');
+                }
+                if ($appointment->patient) {
+                    $firstName = $appointment->patient->first_name ?? '';
+                    $middleName = $appointment->patient->middle_name ?? '';
+                    $lastName = $appointment->patient->last_name ?? '';
+                    $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+                }
+            }
+            
+            if (empty(trim($patientName))) {
+                $patientName = 'Unknown Patient';
+            }
+            
+            // Get specialist name from joined data
+            $specialistName = $attributes['specialist_name_from_table'] ?? $appointment->specialist_name_from_table ?? null;
+            
+            // If still null, try to get from relationships as fallback
+            if (empty($specialistName) || $specialistName === 'NULL') {
+                // Try appointment specialist relationship
+                if ($appointment->specialist_id) {
+                    if (!$appointment->relationLoaded('specialist')) {
+                        $appointment->load('specialist');
+                    }
+                    if ($appointment->specialist) {
+                        $specialistName = $appointment->specialist->name;
+                    }
+                }
+                
+                // Try visit relationships
+                if (empty($specialistName) && $appointment->relationLoaded('visit') && $appointment->visit) {
+                    $visit = $appointment->visit;
+                    if ($visit->doctor_id) {
+                        $visitDoctor = \App\Models\Specialist::find($visit->doctor_id);
+                        if ($visitDoctor) {
+                            $specialistName = $visitDoctor->name;
+                        }
+                    }
+                }
+            }
+            
+            // Final fallback
+            if (empty($specialistName) || $specialistName === 'NULL') {
+                $specialistName = 'Unknown Specialist';
+            }
+            
             return [
                 'id' => $appointment->id,
-                'patient_name' => $appointment->patient ? $appointment->patient->first_name . ' ' . $appointment->patient->last_name : $appointment->patient_name ?? 'Unknown Patient',
-                'specialist_name' => $appointment->specialist_name ?? 'Unknown Doctor',
+                'patient_name' => $patientName,
+                'specialist_name' => $specialistName,
                 'appointment_type' => $appointment->appointment_type ?? 'General Consultation',
                 'appointment_date' => $appointment->appointment_date,
                 'appointment_time' => $appointment->appointment_time,
@@ -409,10 +626,11 @@ class DashboardController extends Controller
                     ->pluck('count', 'appointment_type')
                     ->toArray();
 
-                // Get lab test data for diagnosis correlation
+                // Get lab test data for diagnosis correlation (dynamically fetches all active test templates)
                 $labTestStats = DB::table('lab_orders')
                     ->join('lab_results', 'lab_orders.id', '=', 'lab_results.lab_order_id')
                     ->join('lab_tests', 'lab_results.lab_test_id', '=', 'lab_tests.id')
+                    ->where('lab_tests.is_active', true) // Only active test templates
                     ->select('lab_tests.name', DB::raw('COUNT(*) as count'))
                     ->where('lab_orders.created_at', '>=', now()->subMonths(6))
                     ->groupBy('lab_tests.name')
@@ -457,10 +675,11 @@ class DashboardController extends Controller
                         ->pluck('count', 'appointment_type')
                         ->toArray();
 
-                    // Get lab test data for the month
+                    // Get lab test data for the month (dynamically fetches all active test templates)
                     $labMonthlyStats = DB::table('lab_orders')
                         ->join('lab_results', 'lab_orders.id', '=', 'lab_results.lab_order_id')
                         ->join('lab_tests', 'lab_results.lab_test_id', '=', 'lab_tests.id')
+                        ->where('lab_tests.is_active', true) // Only active test templates
                         ->select('lab_tests.name', DB::raw('COUNT(*) as count'))
                         ->whereBetween('lab_orders.created_at', [$monthStart, $monthEnd])
                         ->groupBy('lab_tests.name')
@@ -516,13 +735,18 @@ class DashboardController extends Controller
             return $monthlyData;
         }
 
+        /**
+         * Get consultation data - dynamically fetches all active lab tests and appointment types
+         * This method automatically detects newly added test templates by staff
+         */
         private function getConsultationData()
         {
             try {
-                // Get real lab test data from lab_orders and lab_results
+                // Dynamically fetch all active lab tests from database (auto-detects new templates)
                 $labTestStats = DB::table('lab_orders')
                     ->join('lab_results', 'lab_orders.id', '=', 'lab_results.lab_order_id')
                     ->join('lab_tests', 'lab_results.lab_test_id', '=', 'lab_tests.id')
+                    ->where('lab_tests.is_active', true) // Only active test templates
                     ->select('lab_tests.name', DB::raw('COUNT(*) as count'))
                     ->where('lab_orders.created_at', '>=', now()->subMonths(3))
                     ->groupBy('lab_tests.name')
@@ -539,6 +763,7 @@ class DashboardController extends Controller
                 $appointmentStats = DB::table('appointments')
                     ->select('appointment_type', DB::raw('COUNT(*) as count'))
                     ->where('created_at', '>=', now()->subMonths(3))
+                    ->whereNotNull('appointment_type')
                     ->groupBy('appointment_type')
                     ->get()
                     ->pluck('count', 'appointment_type')
@@ -548,47 +773,114 @@ class DashboardController extends Controller
                 $appointmentStats = [];
             }
 
-            // Create meaningful consultation data from real database
-            $consultationTypes = [
-                'Blood Tests' => $labTestStats['Complete Blood Count'] ?? $labTestStats['CBC'] ?? $labTestStats['Blood Test'] ?? 0,
-                'Urinalysis' => $labTestStats['Urinalysis'] ?? $labTestStats['Urine Test'] ?? 0,
-                'X-Ray' => $labTestStats['Chest X-Ray'] ?? $labTestStats['X-Ray'] ?? $labTestStats['Chest X-Ray'] ?? 0,
-                'ECG' => $labTestStats['ECG'] ?? $labTestStats['Electrocardiogram'] ?? $labTestStats['Heart Test'] ?? 0,
-                'Consultation' => $appointmentStats['general_consultation'] ?? $appointmentStats['consultation'] ?? $appointmentStats['General Consultation'] ?? 0,
-                'Follow-up' => $appointmentStats['follow_up'] ?? $appointmentStats['follow-up'] ?? $appointmentStats['Follow Up'] ?? 0,
-            ];
+            // Dynamically build consultation data from actual database results
+            // This automatically includes all active lab tests, not just hardcoded ones
+            $consultationTypes = [];
+            
+            // Add all lab tests dynamically (auto-detects newly added templates)
+            foreach ($labTestStats as $testName => $count) {
+                $consultationTypes[$testName] = $count;
+            }
+            
+            // Add appointment types
+            foreach ($appointmentStats as $appointmentType => $count) {
+                $formattedType = ucfirst(str_replace('_', ' ', $appointmentType));
+                $consultationTypes[$formattedType] = $count;
+            }
 
             return $consultationTypes;
         }
 
         private function getPatientDemographics()
         {
-            // Get patient age groups
-            $ageGroups = [
-                '0-17' => Patient::whereBetween('age', [0, 17])->count(),
-                '18-30' => Patient::whereBetween('age', [18, 30])->count(),
-                '31-50' => Patient::whereBetween('age', [31, 50])->count(),
-                '51-65' => Patient::whereBetween('age', [51, 65])->count(),
-                '65+' => Patient::where('age', '>', 65)->count(),
+            $totalPatients = Patient::count();
+            
+            // Get patient age groups with enhanced data
+            $ageGroupsData = [
+                ['min' => 0, 'max' => 17, 'name' => '0-17'],
+                ['min' => 18, 'max' => 30, 'name' => '18-30'],
+                ['min' => 31, 'max' => 50, 'name' => '31-50'],
+                ['min' => 51, 'max' => 65, 'name' => '51-65'],
+                ['min' => 66, 'max' => 999, 'name' => '65+'],
+            ];
+            
+            $ageGroupsChart = [];
+            foreach ($ageGroupsData as $group) {
+                $count = Patient::whereBetween('age', [$group['min'], $group['max']])->count();
+                $percentage = $totalPatients > 0 ? round(($count / $totalPatients) * 100, 1) : 0;
+                
+                // Get this month's registrations for this age group
+                $thisMonth = Patient::whereBetween('age', [$group['min'], $group['max']])
+                    ->whereMonth('created_at', now()->month)
+                    ->whereYear('created_at', now()->year)
+                    ->count();
+                
+                $ageGroupsChart[] = [
+                    'name' => $group['name'],
+                    'value' => $count,
+                    'percentage' => $percentage,
+                    'thisMonth' => $thisMonth,
+                ];
+            }
+
+            // Get patient gender distribution with enhanced data
+            $maleCount = Patient::where('sex', 'Male')->count();
+            $femaleCount = Patient::where('sex', 'Female')->count();
+            $totalGender = $maleCount + $femaleCount;
+            
+            $malePercentage = $totalGender > 0 ? round(($maleCount / $totalGender) * 100, 1) : 0;
+            $femalePercentage = $totalGender > 0 ? round(($femaleCount / $totalGender) * 100, 1) : 0;
+            
+            // Get this month's registrations by gender
+            $maleThisMonth = Patient::where('sex', 'Male')
+                ->whereMonth('created_at', now()->month)
+                ->whereYear('created_at', now()->year)
+                ->count();
+            $femaleThisMonth = Patient::where('sex', 'Female')
+                ->whereMonth('created_at', now()->month)
+                ->whereYear('created_at', now()->year)
+                ->count();
+            
+            $genderDistributionChart = [
+                [
+                    'name' => 'Male',
+                    'value' => $maleCount,
+                    'percentage' => $malePercentage,
+                    'thisMonth' => $maleThisMonth,
+                ],
+                [
+                    'name' => 'Female',
+                    'value' => $femaleCount,
+                    'percentage' => $femalePercentage,
+                    'thisMonth' => $femaleThisMonth,
+                ],
             ];
 
-            // Get patient gender distribution
-            $genderDistribution = [
-                'Male' => Patient::where('sex', 'Male')->count(),
-                'Female' => Patient::where('sex', 'Female')->count(),
-            ];
-
-            // Get patient status distribution
+            // Get patient status distribution (for backward compatibility)
             $statusDistribution = [
                 'Active' => Patient::where('status', 'Active')->count(),
                 'Inactive' => Patient::where('status', 'Inactive')->count(),
                 'Discharged' => Patient::where('status', 'Discharged')->count(),
             ];
 
+            // Backward compatibility format
+            $ageGroups = array_combine(
+                array_column($ageGroupsChart, 'name'),
+                array_column($ageGroupsChart, 'value')
+            );
+            
+            $genderDistribution = [
+                'Male' => $maleCount,
+                'Female' => $femaleCount,
+            ];
+
             return [
                 'ageGroups' => $ageGroups,
                 'genderDistribution' => $genderDistribution,
                 'statusDistribution' => $statusDistribution,
+                'ageGroupsChart' => $ageGroupsChart,
+                'genderDistributionChart' => $genderDistributionChart,
+                'totalPatients' => $totalPatients,
             ];
         }
 
@@ -631,12 +923,32 @@ class DashboardController extends Controller
      */
     private function getAnalyticsData()
     {
+        $demographics = $this->getPatientDemographics();
+        
+        $appointmentTypes = $this->getAppointmentTypesDistribution();
+        $labTests = $this->getLabTestPerformance();
+        $appointmentSources = $this->getAppointmentSourceDistribution();
+        
         return [
             'patient_registration_trend' => $this->getPatientRegistrationTrend(),
             'appointments_summary' => $this->getAppointmentsSummary(),
             'laboratory_activity' => $this->getLaboratoryActivity(),
             'inventory_status' => $this->getInventoryStatus(),
-            'income_overview' => $this->getIncomeOverview()
+            'income_overview' => $this->getIncomeOverview(),
+            'revenue_trends' => $this->getRevenueTrends(),
+            'appointment_types_distribution' => $appointmentTypes['data'] ?? [],
+            'appointment_types_total' => $appointmentTypes['total'] ?? 0,
+            'visit_status_trends' => $this->getVisitStatusTrends(),
+            'patient_demographics' => $demographics,
+            'patient_age_groups' => $demographics['ageGroupsChart'] ?? [],
+            'patient_gender_distribution' => $demographics['genderDistributionChart'] ?? [],
+            'patient_total' => $demographics['totalPatients'] ?? 0,
+            'lab_test_performance' => $labTests['data'] ?? [],
+            'lab_test_total' => $labTests['total'] ?? 0,
+            'appointment_source_distribution' => $appointmentSources['data'] ?? [],
+            'appointment_source_total' => $appointmentSources['total'] ?? 0,
+            'monthly_appointments_trend' => $this->getMonthlyAppointmentsTrend(),
+            'inventory_transaction_trends' => $this->getInventoryTransactionTrends(),
         ];
     }
 
@@ -646,27 +958,178 @@ class DashboardController extends Controller
     private function getMiniTables()
     {
         return [
-            'recent_patients' => Patient::with('user')
-                ->orderByDesc('created_at')
+            'recent_patients' => Patient::orderByDesc('created_at')
                 ->limit(5)
-                ->get(['id', 'first_name', 'last_name', 'created_at', 'user_id']),
-            'recent_appointments' => Appointment::with(['patient', 'specialist'])
-                ->orderByDesc('appointment_date')
+                ->get(['id', 'first_name', 'last_name', 'created_at', 'user_id'])
+                ->map(function ($patient) {
+                    return [
+                        'id' => $patient->id,
+                        'first_name' => $patient->first_name,
+                        'last_name' => $patient->last_name,
+                        'created_at' => $patient->created_at,
+                        'user_id' => $patient->user_id,
+                    ];
+                }),
+            'recent_appointments' => Appointment::query()
+                ->with([
+                    'patient',
+                    'specialist',
+                    'visit.doctor',
+                    'visit.nurse',
+                    'visit.medtech'
+                ])
+                ->leftJoin('visits', 'appointments.id', '=', 'visits.appointment_id')
+                ->leftJoin('patients as appointment_patients', 'appointments.patient_id', '=', 'appointment_patients.id')
+                ->leftJoin('patients as visit_patients', 'visits.patient_id', '=', 'visit_patients.id')
+                ->leftJoin('specialists', 'appointments.specialist_id', '=', 'specialists.specialist_id')
+                ->leftJoin('specialists as visit_doctor_specialists', 'visits.doctor_id', '=', 'visit_doctor_specialists.specialist_id')
+                ->leftJoin('specialists as visit_nurse_specialists', 'visits.nurse_id', '=', 'visit_nurse_specialists.specialist_id')
+                ->leftJoin('specialists as visit_medtech_specialists', 'visits.medtech_id', '=', 'visit_medtech_specialists.specialist_id')
+                ->leftJoin('specialists as visit_attending_specialists', 'visits.attending_staff_id', '=', 'visit_attending_specialists.specialist_id')
+                ->select(
+                    'appointments.*',
+                    DB::raw('COALESCE(appointment_patients.first_name, visit_patients.first_name) as patient_first_name'),
+                    DB::raw('COALESCE(appointment_patients.last_name, visit_patients.last_name) as patient_last_name'),
+                    DB::raw('COALESCE(appointment_patients.middle_name, visit_patients.middle_name) as patient_middle_name'),
+                    DB::raw('COALESCE(
+                        specialists.name, 
+                        visit_doctor_specialists.name, 
+                        visit_nurse_specialists.name, 
+                        visit_medtech_specialists.name, 
+                        visit_attending_specialists.name
+                    ) as specialist_name_from_table')
+                )
+                ->orderByDesc('appointments.appointment_date')
                 ->limit(5)
-                ->get(['id', 'patient_name', 'specialist_name', 'appointment_date', 'appointment_time', 'status']),
+                ->get()
+                ->map(function ($appointment) {
+                    // Access joined columns from attributes
+                    $attributes = $appointment->getAttributes();
+                    
+                    // Get patient name from joined data
+                    $patientName = 'Unknown Patient';
+                    $patientFirstName = $attributes['patient_first_name'] ?? $appointment->patient_first_name ?? null;
+                    $patientMiddleName = $attributes['patient_middle_name'] ?? $appointment->patient_middle_name ?? null;
+                    $patientLastName = $attributes['patient_last_name'] ?? $appointment->patient_last_name ?? null;
+                    
+                    if ($patientFirstName || $patientLastName) {
+                        $firstName = $patientFirstName ?? '';
+                        $middleName = $patientMiddleName ?? '';
+                        $lastName = $patientLastName ?? '';
+                        $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+                    }
+                    
+                    // If still empty, try to load patient relationship as fallback
+                    if (empty(trim($patientName)) && $appointment->patient_id) {
+                        if ($appointment->patient) {
+                            $firstName = $appointment->patient->first_name ?? '';
+                            $middleName = $appointment->patient->middle_name ?? '';
+                            $lastName = $appointment->patient->last_name ?? '';
+                            $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+                        }
+                    }
+                    
+                    if (empty(trim($patientName))) {
+                        $patientName = 'Unknown Patient';
+                    }
+                    
+                    // Get specialist name - enhanced lookup with multiple fallbacks
+                    $specialistName = $attributes['specialist_name_from_table'] ?? $appointment->specialist_name_from_table ?? null;
+                    
+                    // Try appointment specialist relationship (eager loaded)
+                    if (empty($specialistName) || $specialistName === 'NULL') {
+                        if ($appointment->specialist) {
+                            $specialistName = $appointment->specialist->name;
+                        } elseif ($appointment->specialist_id) {
+                            $specialist = \App\Models\Specialist::where('specialist_id', $appointment->specialist_id)->first();
+                            if ($specialist) {
+                                $specialistName = $specialist->name;
+                            }
+                        }
+                    }
+                    
+                    // Try visit relationships (eager loaded)
+                    if ((empty($specialistName) || $specialistName === 'NULL') && $appointment->visit) {
+                        $visit = $appointment->visit;
+                        
+                        // Try visit doctor relationship
+                        if ($visit->doctor) {
+                            $specialistName = $visit->doctor->name;
+                        } elseif ($visit->doctor_id) {
+                            $visitDoctor = \App\Models\Specialist::where('specialist_id', $visit->doctor_id)->first();
+                            if ($visitDoctor) {
+                                $specialistName = $visitDoctor->name;
+                            }
+                        }
+                        
+                        // Try visit nurse relationship
+                        if ((empty($specialistName) || $specialistName === 'NULL') && $visit->nurse) {
+                            $specialistName = $visit->nurse->name;
+                        } elseif ((empty($specialistName) || $specialistName === 'NULL') && $visit->nurse_id) {
+                            $visitNurse = \App\Models\Specialist::where('specialist_id', $visit->nurse_id)->first();
+                            if ($visitNurse) {
+                                $specialistName = $visitNurse->name;
+                            }
+                        }
+                        
+                        // Try visit medtech relationship
+                        if ((empty($specialistName) || $specialistName === 'NULL') && $visit->medtech) {
+                            $specialistName = $visit->medtech->name;
+                        } elseif ((empty($specialistName) || $specialistName === 'NULL') && $visit->medtech_id) {
+                            $visitMedtech = \App\Models\Specialist::where('specialist_id', $visit->medtech_id)->first();
+                            if ($visitMedtech) {
+                                $specialistName = $visitMedtech->name;
+                            }
+                        }
+                        
+                        // Try visit attending_staff_id
+                        if ((empty($specialistName) || $specialistName === 'NULL') && $visit->attending_staff_id) {
+                            $attendingStaff = \App\Models\Specialist::where('specialist_id', $visit->attending_staff_id)->first();
+                            if ($attendingStaff) {
+                                $specialistName = $attendingStaff->name;
+                            }
+                        }
+                    }
+                    
+                    // Final fallback
+                    if (empty($specialistName) || $specialistName === 'NULL') {
+                        $specialistName = 'Unknown Specialist';
+                    }
+                    
+                    return [
+                        'id' => $appointment->id,
+                        'patient_name' => $patientName,
+                        'specialist_name' => $specialistName,
+                        'appointment_date' => $appointment->appointment_date,
+                        'appointment_time' => $appointment->appointment_time,
+                        'appointment_type' => $appointment->appointment_type ?? 'N/A',
+                        'status' => $appointment->status,
+                        'contact_number' => $appointment->contact_number ?? ($appointment->patient->mobile_no ?? $appointment->patient->telephone_no ?? null),
+                        'patient_id' => $appointment->patient_id,
+                        'specialist_id' => $appointment->specialist_id,
+                        'duration' => $appointment->duration ?? '30 min',
+                        'notes' => $appointment->admin_notes ?? $appointment->additional_info ?? null,
+                    ];
+                }),
             'recent_lab_results' => LabResult::with(['order.patient', 'test'])
                 ->orderByDesc('created_at')
                 ->limit(5)
                 ->get(['id', 'lab_order_id', 'lab_test_id', 'results', 'verified_at', 'created_at']),
             'recent_transactions' => \App\Models\BillingTransaction::with('patient')
-                ->orderByDesc('transaction_date')
+                ->orderByDesc('created_at')
                 ->limit(5)
-                ->get(['id', 'patient_id', 'total_amount', 'transaction_date', 'status'])
+                ->get(['id', 'patient_id', 'created_at', 'status'])
+                ->map(function ($transaction) {
+                    return array_merge($transaction->toArray(), [
+                        'total_amount' => $transaction->total_amount ?? $transaction->amount ?? 0,
+                        'transaction_date' => $transaction->created_at // Use created_at as transaction_date
+                    ]);
+                })
         ];
     }
 
     /**
-     * Get patient registration trend data
+     * Get patient registration trend data with male and female breakdown
      */
     private function getPatientRegistrationTrend()
     {
@@ -675,11 +1138,24 @@ class DashboardController extends Controller
         
         for ($i = 11; $i >= 0; $i--) {
             $month = $currentDate->copy()->subMonths($i);
+            $monthStart = $month->copy()->startOfMonth();
+            $monthEnd = $month->copy()->endOfMonth();
+            
+            $maleCount = Patient::whereYear('created_at', $month->year)
+                ->whereMonth('created_at', $month->month)
+                ->where('sex', 'male')
+                ->count();
+            
+            $femaleCount = Patient::whereYear('created_at', $month->year)
+                ->whereMonth('created_at', $month->month)
+                ->where('sex', 'female')
+                ->count();
+            
             $months[] = [
                 'month' => $month->format('M Y'),
-                'patients' => Patient::whereYear('created_at', $month->year)
-                    ->whereMonth('created_at', $month->month)
-                    ->count()
+                'patients' => $maleCount + $femaleCount, // Keep total for backward compatibility
+                'male' => $maleCount,
+                'female' => $femaleCount,
             ];
         }
         
@@ -729,6 +1205,50 @@ class DashboardController extends Controller
     }
 
     /**
+     * Get inventory transaction trends (In vs Out) for the last 6 months
+     */
+    private function getInventoryTransactionTrends()
+    {
+        try {
+            // Check if inventory_movements table exists
+            if (!\Schema::hasTable('inventory_movements')) {
+                return [];
+            }
+
+            $months = [];
+            $currentDate = now();
+            
+            for ($i = 5; $i >= 0; $i--) {
+                $month = $currentDate->copy()->subMonths($i);
+                $monthStart = $month->copy()->startOfMonth();
+                $monthEnd = $month->copy()->endOfMonth();
+                
+                // Count movements by type using InventoryMovement model
+                $inCount = \App\Models\InventoryMovement::whereBetween('created_at', [$monthStart, $monthEnd])
+                    ->where('movement_type', 'IN')
+                    ->count();
+                
+                $outCount = \App\Models\InventoryMovement::whereBetween('created_at', [$monthStart, $monthEnd])
+                    ->where('movement_type', 'OUT')
+                    ->count();
+                
+                $months[] = [
+                    'month' => $month->format('M Y'),
+                    'in' => $inCount,
+                    'out' => $outCount,
+                ];
+            }
+            
+            return $months;
+        } catch (\Exception $e) {
+            \Log::error('Error fetching inventory transaction trends: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return [];
+        }
+    }
+
+    /**
      * Get income overview data
      */
     private function getIncomeOverview()
@@ -736,14 +1256,335 @@ class DashboardController extends Controller
         $months = [];
         $currentDate = now();
         
+        // Check if transaction_date column exists, otherwise use created_at
+        $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+            ? 'transaction_date' 
+            : 'created_at';
+        
         for ($i = 11; $i >= 0; $i--) {
             $month = $currentDate->copy()->subMonths($i);
             $months[] = [
                 'month' => $month->format('M Y'),
-                'income' => \App\Models\BillingTransaction::where('status', 'paid')
-                    ->whereYear('transaction_date', $month->year)
-                    ->whereMonth('transaction_date', $month->month)
-                    ->sum('total_amount')
+                'income' => $this->sumBillingAmount(
+                    \App\Models\BillingTransaction::where('status', 'paid')
+                        ->whereYear($dateColumn, $month->year)
+                        ->whereMonth($dateColumn, $month->month)
+                )
+            ];
+        }
+        
+        return $months;
+    }
+
+    /**
+     * Sum billing amount using the correct column name
+     */
+    private function sumBillingAmount($query)
+    {
+        try {
+            // Try total_amount first
+            if (\Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'total_amount')) {
+                return $query->sum('total_amount');
+            }
+            // Fallback to amount
+            if (\Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'amount')) {
+                return $query->sum('amount');
+            }
+            // If neither exists, return 0
+            return 0;
+        } catch (\Exception $e) {
+            // If there's an error, try the alternative column
+            try {
+                return $query->sum('amount');
+            } catch (\Exception $e2) {
+                return 0;
+            }
+        }
+    }
+
+    /**
+     * Get revenue trends for the last 6 months
+     */
+    private function getRevenueTrends()
+    {
+        $months = [];
+        $currentDate = now();
+        
+        $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+            ? 'transaction_date' 
+            : 'created_at';
+        
+        for ($i = 5; $i >= 0; $i--) {
+            $month = $currentDate->copy()->subMonths($i);
+            $monthStart = $month->copy()->startOfMonth();
+            $monthEnd = $month->copy()->endOfMonth();
+            
+            $revenue = $this->sumBillingAmount(
+                \App\Models\BillingTransaction::where('status', 'paid')
+                    ->whereBetween($dateColumn, [$monthStart, $monthEnd])
+            );
+            
+            $months[] = [
+                'month' => $month->format('M'),
+                'revenue' => round($revenue, 2),
+            ];
+        }
+        
+        return $months;
+    }
+
+    /**
+     * Get appointment types distribution with enhanced data
+     */
+    private function getAppointmentTypesDistribution()
+    {
+        $total = Appointment::whereNotNull('appointment_type')->count();
+        
+        $types = Appointment::select('appointment_type', DB::raw('COUNT(*) as count'))
+            ->whereNotNull('appointment_type')
+            ->groupBy('appointment_type')
+            ->get()
+            ->map(function ($item) use ($total) {
+                $percentage = $total > 0 ? round(($item->count / $total) * 100, 1) : 0;
+                
+                // Get average price for this appointment type
+                $avgPrice = Appointment::where('appointment_type', $item->appointment_type)
+                    ->whereNotNull('price')
+                    ->avg('price') ?? 0;
+                
+                // Get this month's count
+                $thisMonth = Appointment::where('appointment_type', $item->appointment_type)
+                    ->whereMonth('created_at', now()->month)
+                    ->whereYear('created_at', now()->year)
+                    ->count();
+                
+                // Get last month's count
+                $lastMonth = Appointment::where('appointment_type', $item->appointment_type)
+                    ->whereMonth('created_at', now()->subMonth()->month)
+                    ->whereYear('created_at', now()->subMonth()->year)
+                    ->count();
+                
+                $trend = $lastMonth > 0 ? round((($thisMonth - $lastMonth) / $lastMonth) * 100, 1) : ($thisMonth > 0 ? 100 : 0);
+                
+                return [
+                    'name' => ucfirst(str_replace('_', ' ', $item->appointment_type)),
+                    'value' => $item->count,
+                    'percentage' => $percentage,
+                    'avgPrice' => round($avgPrice, 2),
+                    'thisMonth' => $thisMonth,
+                    'lastMonth' => $lastMonth,
+                    'trend' => $trend,
+                ];
+            })
+            ->sortByDesc('value')
+            ->values()
+            ->toArray();
+        
+        return [
+            'data' => $types,
+            'total' => $total,
+        ];
+    }
+
+    /**
+     * Get visit status trends for the last 6 months
+     */
+    private function getVisitStatusTrends()
+    {
+        $months = [];
+        $currentDate = now();
+        
+        for ($i = 5; $i >= 0; $i--) {
+            $month = $currentDate->copy()->subMonths($i);
+            $monthStart = $month->copy()->startOfMonth();
+            $monthEnd = $month->copy()->endOfMonth();
+            
+            $visits = \App\Models\Visit::whereBetween('created_at', [$monthStart, $monthEnd])
+                ->select('status', DB::raw('COUNT(*) as count'))
+                ->groupBy('status')
+                ->get()
+                ->pluck('count', 'status')
+                ->toArray();
+            
+            $months[] = [
+                'month' => $month->format('M'),
+                'scheduled' => $visits['scheduled'] ?? 0,
+                'in_progress' => $visits['in_progress'] ?? 0,
+                'completed' => $visits['completed'] ?? 0,
+                'cancelled' => $visits['cancelled'] ?? 0,
+            ];
+        }
+        
+        return $months;
+    }
+
+
+    /**
+     * Get lab test performance (most requested tests) with enhanced data
+     * Dynamically fetches all active test templates from the database
+     */
+    private function getLabTestPerformance()
+    {
+        try {
+            // Get all active lab tests from the database (dynamically detects newly added templates)
+            $activeTests = DB::table('lab_tests')
+                ->where('is_active', true)
+                ->select('id', 'name', 'code')
+                ->get();
+            
+            if ($activeTests->isEmpty()) {
+                return ['data' => [], 'total' => 0];
+            }
+            
+            // Calculate total tests performed in the last 6 months
+            $totalTests = DB::table('lab_orders')
+                ->join('lab_results', 'lab_orders.id', '=', 'lab_results.lab_order_id')
+                ->where('lab_orders.created_at', '>=', now()->subMonths(6))
+                ->whereIn('lab_results.lab_test_id', $activeTests->pluck('id'))
+                ->count();
+            
+            // Get performance data for each active test template
+            $tests = $activeTests->map(function ($test) use ($totalTests) {
+                // Count total requests for this test in the last 6 months
+                $count = DB::table('lab_orders')
+                    ->join('lab_results', 'lab_orders.id', '=', 'lab_results.lab_order_id')
+                    ->where('lab_results.lab_test_id', $test->id)
+                    ->where('lab_orders.created_at', '>=', now()->subMonths(6))
+                    ->count();
+                
+                $percentage = $totalTests > 0 ? round(($count / $totalTests) * 100, 1) : 0;
+                
+                // Get this month's count
+                $thisMonth = DB::table('lab_orders')
+                    ->join('lab_results', 'lab_orders.id', '=', 'lab_results.lab_order_id')
+                    ->where('lab_results.lab_test_id', $test->id)
+                    ->whereMonth('lab_orders.created_at', now()->month)
+                    ->whereYear('lab_orders.created_at', now()->year)
+                    ->count();
+                
+                // Get last month's count
+                $lastMonth = DB::table('lab_orders')
+                    ->join('lab_results', 'lab_orders.id', '=', 'lab_results.lab_order_id')
+                    ->where('lab_results.lab_test_id', $test->id)
+                    ->whereMonth('lab_orders.created_at', now()->subMonth()->month)
+                    ->whereYear('lab_orders.created_at', now()->subMonth()->year)
+                    ->count();
+                
+                $trend = $lastMonth > 0 ? round((($thisMonth - $lastMonth) / $lastMonth) * 100, 1) : ($thisMonth > 0 ? 100 : 0);
+                
+                return [
+                    'id' => $test->id,
+                    'name' => $test->name,
+                    'code' => $test->code,
+                    'count' => $count,
+                    'percentage' => $percentage,
+                    'thisMonth' => $thisMonth,
+                    'lastMonth' => $lastMonth,
+                    'trend' => $trend,
+                ];
+            })
+            ->filter(function ($test) {
+                // Only include tests that have been requested at least once
+                return $test['count'] > 0;
+            })
+            ->sortByDesc('count')
+            ->values()
+            ->take(15) // Show top 15 most requested tests (increased from 10 to show more)
+            ->toArray();
+            
+            return [
+                'data' => $tests,
+                'total' => $totalTests,
+                'totalActiveTests' => $activeTests->count(),
+            ];
+        } catch (\Exception $e) {
+            \Log::error('Error fetching lab test performance: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return ['data' => [], 'total' => 0, 'totalActiveTests' => 0];
+        }
+    }
+
+    /**
+     * Get appointment source distribution (Online vs Walk-in) with enhanced data
+     */
+    private function getAppointmentSourceDistribution()
+    {
+        // Use only 'source' column which exists in the appointments table
+        $sources = Appointment::select('source', DB::raw('COUNT(*) as count'))
+            ->whereNotNull('source')
+            ->groupBy('source')
+            ->get();
+        
+        $total = $sources->sum('count');
+        
+        $sourcesData = $sources->map(function ($item) use ($total) {
+            $percentage = $total > 0 ? round(($item->count / $total) * 100, 1) : 0;
+            $sourceName = ucfirst(str_replace(['_', '-'], ' ', $item->source));
+            
+            // Get this month's count - use only 'source' column
+            $thisMonth = Appointment::where('source', $item->source)
+                ->whereMonth('created_at', now()->month)
+                ->whereYear('created_at', now()->year)
+                ->count();
+            
+            // Get last month's count - use only 'source' column
+            $lastMonth = Appointment::where('source', $item->source)
+                ->whereMonth('created_at', now()->subMonth()->month)
+                ->whereYear('created_at', now()->subMonth()->year)
+                ->count();
+            
+            $trend = $lastMonth > 0 ? round((($thisMonth - $lastMonth) / $lastMonth) * 100, 1) : ($thisMonth > 0 ? 100 : 0);
+            
+            // Get average revenue per appointment for this source - use only 'source' column
+            $avgRevenue = Appointment::where('source', $item->source)
+                ->whereNotNull('price')
+                ->avg('price') ?? 0;
+            
+            return [
+                'name' => $sourceName,
+                'value' => $item->count,
+                'percentage' => $percentage,
+                'thisMonth' => $thisMonth,
+                'lastMonth' => $lastMonth,
+                'trend' => $trend,
+                'avgRevenue' => round($avgRevenue, 2),
+            ];
+        })->toArray();
+        
+        return [
+            'data' => $sourcesData,
+            'total' => $total,
+        ];
+    }
+
+    /**
+     * Get monthly appointments trend
+     */
+    private function getMonthlyAppointmentsTrend()
+    {
+        $months = [];
+        $currentDate = now();
+        
+        for ($i = 5; $i >= 0; $i--) {
+            $month = $currentDate->copy()->subMonths($i);
+            $monthStart = $month->copy()->startOfMonth();
+            $monthEnd = $month->copy()->endOfMonth();
+            
+            $total = Appointment::whereBetween('created_at', [$monthStart, $monthEnd])->count();
+            $completed = Appointment::whereBetween('created_at', [$monthStart, $monthEnd])
+                ->where('status', 'completed')->count();
+            $pending = Appointment::whereBetween('created_at', [$monthStart, $monthEnd])
+                ->where('status', 'pending')->count();
+            $confirmed = Appointment::whereBetween('created_at', [$monthStart, $monthEnd])
+                ->where('status', 'confirmed')->count();
+            
+            $months[] = [
+                'month' => $month->format('M'),
+                'total' => $total,
+                'completed' => $completed,
+                'pending' => $pending,
+                'confirmed' => $confirmed,
             ];
         }
         

@@ -94,8 +94,9 @@ class PatientService
                 $validatedData['age'] = $this->calculateAge($validatedData['birthdate']);
             }
 
-            // Validate required fields
-            $this->validateRequiredFields($validatedData);
+            // For updates, only validate the fields that are being updated
+            // Don't require arrival_date, arrival_time, time_seen, attending_physician for updates
+            $this->validateRequiredFieldsForUpdate($validatedData);
 
             // Additional validation before update
             $this->validatePatientData($validatedData, $patient);
@@ -239,6 +240,46 @@ class PatientService
             'has_emergency_relation' => $hasEmergencyRelation,
             'has_relationship' => $hasRelationship
         ]);
+        
+        if (!$hasEmergencyRelation && !$hasRelationship) {
+            throw new \InvalidArgumentException("The emergency_relation or relationship field is required.");
+        }
+    }
+
+    /**
+     * Validate required fields for patient updates (excludes creation-only fields)
+     */
+    private function validateRequiredFieldsForUpdate(array $data): void
+    {
+        // Only validate fields that are required for updates (not creation-only fields)
+        $requiredFields = [
+            'last_name',
+            'first_name',
+            'birthdate',
+            'age',
+            'sex',
+            'civil_status',
+            'mobile_no',
+            'present_address',
+        ];
+
+        foreach ($requiredFields as $field) {
+            if (empty($data[$field]) && $data[$field] !== 0 && $data[$field] !== '0') {
+                throw new \InvalidArgumentException("The {$field} field is required.");
+            }
+        }
+
+        // Check emergency contact fields (either emergency_name or informant_name)
+        $hasEmergencyName = !empty($data['emergency_name']);
+        $hasInformantName = !empty($data['informant_name']);
+        
+        if (!$hasEmergencyName && !$hasInformantName) {
+            throw new \InvalidArgumentException("The emergency_name or informant_name field is required.");
+        }
+
+        // Check emergency relation fields (either emergency_relation or relationship)
+        $hasEmergencyRelation = !empty($data['emergency_relation']);
+        $hasRelationship = !empty($data['relationship']);
         
         if (!$hasEmergencyRelation && !$hasRelationship) {
             throw new \InvalidArgumentException("The emergency_relation or relationship field is required.");

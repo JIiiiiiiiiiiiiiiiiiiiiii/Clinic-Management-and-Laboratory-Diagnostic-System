@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import React, { useState, useEffect } from 'react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { toast } from 'sonner';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,7 +44,8 @@ import {
 import { 
     Eye, CheckCircle, XCircle, Clock, User, Calendar, Users, UserCheck, 
     Heart, ArrowUpDown, ChevronDown, Search, Filter, RefreshCw, Plus, History,
-    MoreHorizontal, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Trash2
+    MoreHorizontal, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Trash2,
+    ArrowRightLeft
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { type BreadcrumbItem } from '@/types';
@@ -93,6 +95,73 @@ const createColumns = (handleApproveClick: (transfer: PatientTransfer) => void, 
         },
     },
     {
+        accessorKey: "transfer_direction",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Transfer Direction
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const transfer = row.original;
+            const direction = transfer.transfer_direction;
+            
+            if (!direction) {
+                // Fallback for old records or determine from boolean fields
+                if (transfer.from_hospital && transfer.to_clinic) {
+                    return (
+                        <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
+                            <ArrowRightLeft className="w-3 h-3 mr-1" />
+                            Hospital → Clinic
+                        </Badge>
+                    );
+                } else if (!transfer.from_hospital && !transfer.to_clinic) {
+                    return (
+                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+                            <ArrowRightLeft className="w-3 h-3 mr-1" />
+                            Clinic → Hospital
+                        </Badge>
+                    );
+                }
+                return <span className="text-gray-400">N/A</span>;
+            }
+            
+            const directionConfig = {
+                'hospital_to_clinic': {
+                    label: 'Hospital → Clinic',
+                    className: 'bg-blue-100 text-blue-800 border-blue-200',
+                },
+                'clinic_to_hospital': {
+                    label: 'Clinic → Hospital',
+                    className: 'bg-green-100 text-green-800 border-green-200',
+                },
+                'hospital_to_hospital': {
+                    label: 'Hospital → Hospital',
+                    className: 'bg-purple-100 text-purple-800 border-purple-200',
+                },
+                'clinic_to_clinic': {
+                    label: 'Clinic → Clinic',
+                    className: 'bg-orange-100 text-orange-800 border-orange-200',
+                },
+            };
+            
+            const config = directionConfig[direction] || directionConfig['hospital_to_clinic'];
+            
+            return (
+                <Badge variant="outline" className={config.className}>
+                    <ArrowRightLeft className="w-3 h-3 mr-1" />
+                    {config.label}
+                </Badge>
+            );
+        },
+    },
+    {
         accessorKey: "registration_type",
         header: ({ column }) => {
             return (
@@ -101,13 +170,15 @@ const createColumns = (handleApproveClick: (transfer: PatientTransfer) => void, 
                     onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
                     className="h-8 px-2 lg:px-3"
                 >
-                    Type
+                    Registration Type
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
             )
         },
         cell: ({ row }) => {
-            const type = row.getValue("registration_type") as string;
+            const transfer = row.original;
+            const type = transfer.registration_type;
+            if (!type) return <span className="text-gray-400">Existing Patient</span>;
             return (
                 <Badge variant="outline" className={type === 'hospital' ? 'bg-purple-100 text-purple-800 border-purple-200' : 'bg-blue-100 text-blue-800 border-blue-200'}>
                     {type === 'hospital' ? 'Hospital Registration' : 'Admin Registration'}
@@ -133,8 +204,8 @@ const createColumns = (handleApproveClick: (transfer: PatientTransfer) => void, 
             const transfer = row.original;
             return (
                 <div>
-                    <div className="font-medium">{transfer.requested_by.name}</div>
-                    <div className="text-sm text-gray-500">{transfer.requested_by.role}</div>
+                    <div className="font-medium">{transfer.requested_by?.name || 'N/A'}</div>
+                    <div className="text-sm text-gray-500">{transfer.requested_by?.role || 'N/A'}</div>
                 </div>
             );
         },
@@ -154,7 +225,9 @@ const createColumns = (handleApproveClick: (transfer: PatientTransfer) => void, 
             )
         },
         cell: ({ row }) => {
-            const status = row.getValue("approval_status") as string;
+            const transfer = row.original;
+            // Use approval_status for registrations, status for existing transfers
+            const status = (transfer.approval_status || transfer.status) as string;
             const getStatusBadge = (status: string) => {
                 switch (status) {
                     case 'pending':
@@ -163,6 +236,10 @@ const createColumns = (handleApproveClick: (transfer: PatientTransfer) => void, 
                         return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200"><CheckCircle className="w-3 h-3 mr-1" />Approved</Badge>;
                     case 'rejected':
                         return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200"><XCircle className="w-3 h-3 mr-1" />Rejected</Badge>;
+                    case 'completed':
+                        return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200"><CheckCircle className="w-3 h-3 mr-1" />Completed</Badge>;
+                    case 'cancelled':
+                        return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200"><XCircle className="w-3 h-3 mr-1" />Cancelled</Badge>;
                     default:
                         return <Badge variant="outline">{status}</Badge>;
                 }
@@ -216,7 +293,7 @@ const createColumns = (handleApproveClick: (transfer: PatientTransfer) => void, 
                                 View Details
                             </Link>
                         </DropdownMenuItem>
-                        {transfer.approval_status === 'pending' && (
+                        {(transfer.approval_status === 'pending' || transfer.status === 'pending') && transfer.registration_type && (
                             <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => handleApproveClick(transfer)}>
@@ -246,6 +323,7 @@ const createColumns = (handleApproveClick: (transfer: PatientTransfer) => void, 
 
 interface PatientTransfer {
     id: number;
+    patient_id?: number; // For existing patient transfers
     patient_data?: {
         first_name?: string;
         last_name?: string;
@@ -254,10 +332,15 @@ interface PatientTransfer {
         age?: number;
         sex?: string;
         mobile_no?: string;
+        patient_no?: string;
     };
-    registration_type: 'admin' | 'hospital';
-    approval_status: 'pending' | 'approved' | 'rejected';
-    requested_by: {
+    registration_type?: 'admin' | 'hospital'; // Optional for existing transfers
+    approval_status?: 'pending' | 'approved' | 'rejected'; // Optional for existing transfers
+    status?: 'pending' | 'completed' | 'cancelled'; // For existing transfers
+    from_hospital?: boolean;
+    to_clinic?: boolean;
+    transfer_direction?: 'hospital_to_clinic' | 'clinic_to_hospital' | 'hospital_to_hospital' | 'clinic_to_clinic';
+    requested_by?: {
         id: number;
         name: string;
         role: string;
@@ -270,6 +353,9 @@ interface PatientTransfer {
     created_at: string;
     approval_date?: string;
     approval_notes?: string;
+    transfer_reason?: string; // For existing transfers
+    priority?: string; // For existing transfers
+    transfer_date?: string; // For existing transfers
 }
 
 interface Props {
@@ -285,16 +371,31 @@ interface Props {
         approved_transfers: number;
         rejected_transfers: number;
     };
+    filters?: {
+        status?: string;
+    };
 }
 
-export default function PatientTransferIndex({ transfers, userRole, statistics }: Props) {
+export default function PatientTransferIndex({ transfers, userRole, statistics, filters }: Props) {
+    const { flash } = usePage().props as any;
+    
     // TanStack Table state
     const [sorting, setSorting] = useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = useState({});
     const [globalFilter, setGlobalFilter] = useState('');
-    const [statusFilter, setStatusFilter] = useState('pending');
+    const [statusFilter, setStatusFilter] = useState(filters?.status || 'all');
+    
+    // Handle flash messages and show toasts
+    useEffect(() => {
+        if (flash?.success) {
+            toast.success(flash.success);
+        }
+        if (flash?.error) {
+            toast.error(flash.error);
+        }
+    }, [flash]);
 
     // Modal states
     const [approveModalOpen, setApproveModalOpen] = useState(false);
@@ -324,8 +425,12 @@ export default function PatientTransferIndex({ transfers, userRole, statistics }
         if (selectedTransfer) {
             router.post(route('admin.patient.transfer.registrations.approve', selectedTransfer.id), {
                 onSuccess: () => {
+                    toast.success('Transfer request approved successfully!');
                     setApproveModalOpen(false);
                     setSelectedTransfer(null);
+                },
+                onError: () => {
+                    toast.error('Failed to approve transfer request. Please try again.');
                 }
             });
         }
@@ -336,9 +441,13 @@ export default function PatientTransferIndex({ transfers, userRole, statistics }
             router.post(route('admin.patient.transfer.registrations.reject', selectedTransfer.id), { 
                 notes: rejectReason,
                 onSuccess: () => {
+                    toast.success('Transfer request rejected successfully!');
                     setRejectModalOpen(false);
                     setSelectedTransfer(null);
                     setRejectReason('');
+                },
+                onError: () => {
+                    toast.error('Failed to reject transfer request. Please try again.');
                 }
             });
         }
@@ -348,8 +457,12 @@ export default function PatientTransferIndex({ transfers, userRole, statistics }
         if (selectedTransfer) {
             router.delete(route('admin.patient.transfer.registrations.destroy', selectedTransfer.id), {
                 onSuccess: () => {
+                    toast.success('Transfer request deleted successfully!');
                     setDeleteModalOpen(false);
                     setSelectedTransfer(null);
+                },
+                onError: () => {
+                    toast.error('Failed to delete transfer request. Please try again.');
                 }
             });
         }
@@ -380,11 +493,21 @@ export default function PatientTransferIndex({ transfers, userRole, statistics }
         globalFilterFn: (row, columnId, value) => {
             const search = value.toLowerCase();
             const transfer = row.original;
+            const direction = transfer.transfer_direction;
+            let directionLabel = '';
+            if (direction === 'hospital_to_clinic') directionLabel = 'hospital to clinic';
+            else if (direction === 'clinic_to_hospital') directionLabel = 'clinic to hospital';
+            else if (direction === 'hospital_to_hospital') directionLabel = 'hospital to hospital';
+            else if (direction === 'clinic_to_clinic') directionLabel = 'clinic to clinic';
+            
             return (
                 transfer.patient_data?.first_name?.toLowerCase().includes(search) ||
                 transfer.patient_data?.last_name?.toLowerCase().includes(search) ||
-                transfer.requested_by.name?.toLowerCase().includes(search) ||
-                transfer.registration_type?.toLowerCase().includes(search)
+                transfer.requested_by?.name?.toLowerCase().includes(search) ||
+                transfer.registration_type?.toLowerCase().includes(search) ||
+                directionLabel.includes(search) ||
+                (transfer.from_hospital && transfer.to_clinic && 'hospital to clinic'.includes(search)) ||
+                (!transfer.from_hospital && !transfer.to_clinic && 'clinic to hospital'.includes(search))
             );
         },
         state: {
@@ -426,7 +549,6 @@ export default function PatientTransferIndex({ transfers, userRole, statistics }
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Patient Transfer Registrations" />
             <div className="min-h-screen bg-gray-50">
-
                 <div className="p-6">
                     {/* Statistics Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -513,44 +635,47 @@ export default function PatientTransferIndex({ transfers, userRole, statistics }
                                         <SelectItem value="all">All Status</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <Button
-                                    asChild
-                                    className="bg-green-600 hover:bg-green-700 text-white"
-                                >
-                                    <Link href={route('admin.patient.transfer.registrations.create')}>
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Transfer
-                                    </Link>
-                                </Button>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="ml-auto">
-                                            Columns <ChevronDown className="ml-2 h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
-                                        {table
-                                            .getAllColumns()
-                                            .filter((column) => column.getCanHide())
-                                            .map((column) => {
-                                                return (
-                                                    <DropdownMenuCheckboxItem
-                                                        key={column.id}
-                                                        className="capitalize"
-                                                        checked={column.getIsVisible()}
-                                                        onCheckedChange={(value) => {
-                                                            column.toggleVisibility(!!value);
-                                                        }}
-                                                        onSelect={(e) => {
-                                                            e.preventDefault();
-                                                        }}
-                                                    >
-                                                        {column.id}
-                                                    </DropdownMenuCheckboxItem>
-                                                )
-                                            })}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                <div className="flex gap-2 ml-auto">
+                                    <Button
+                                        asChild
+                                        variant="outline"
+                                        className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                                    >
+                                        <Link href="/admin/patient-transfers/transfers/create">
+                                            <ArrowRightLeft className="h-4 w-4 mr-2" />
+                                            Transfer Existing Patient
+                                        </Link>
+                                    </Button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="outline">
+                                                Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+                                            {table
+                                                .getAllColumns()
+                                                .filter((column) => column.getCanHide())
+                                                .map((column) => {
+                                                    return (
+                                                        <DropdownMenuCheckboxItem
+                                                            key={column.id}
+                                                            className="capitalize"
+                                                            checked={column.getIsVisible()}
+                                                            onCheckedChange={(value) => {
+                                                                column.toggleVisibility(!!value);
+                                                            }}
+                                                            onSelect={(e) => {
+                                                                e.preventDefault();
+                                                            }}
+                                                        >
+                                                            {column.id}
+                                                        </DropdownMenuCheckboxItem>
+                                                    )
+                                                })}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
                             </div>
 
                             {/* Table */}

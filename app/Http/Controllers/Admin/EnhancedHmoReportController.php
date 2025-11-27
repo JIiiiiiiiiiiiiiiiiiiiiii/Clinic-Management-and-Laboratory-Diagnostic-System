@@ -595,13 +595,18 @@ class EnhancedHmoReportController extends Controller
         $startDateTime = $dateFrom . ' 00:00:00';
         $endDateTime = $dateTo . ' 23:59:59';
 
+        // Check if transaction_date column exists, otherwise use created_at
+        $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+            ? 'transaction_date' 
+            : 'created_at';
+
         $query = BillingTransaction::with(['patient', 'doctor'])
             ->where('payment_method', 'hmo');
             
         // Only apply date filter if dates are provided
         if ($dateFrom && $dateTo) {
             // Use datetime comparison to match getSummaryStatistics method
-            $query->whereBetween('transaction_date', [$startDateTime, $endDateTime]);
+            $query->whereBetween($dateColumn, [$startDateTime, $endDateTime]);
         }
 
         if ($providerId && $providerId !== 'all') {
@@ -617,7 +622,7 @@ class EnhancedHmoReportController extends Controller
             }
         }
 
-        $transactions = $query->orderBy('transaction_date', 'desc')->get();
+        $transactions = $query->orderBy($dateColumn, 'desc')->get();
         
         // Debug: Log the query results
         \Log::info('HMO Transactions Query Results', [
@@ -657,12 +662,17 @@ class EnhancedHmoReportController extends Controller
         $startDateTime = $dateFrom . ' 00:00:00';
         $endDateTime = $dateTo . ' 23:59:59';
 
+        // Check if transaction_date column exists, otherwise use created_at
+        $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+            ? 'transaction_date' 
+            : 'created_at';
+
         // HMO Transactions
         $query = BillingTransaction::where('payment_method', 'hmo');
         
         // Only apply date filter if dates are provided
         if ($dateFrom && $dateTo) {
-            $query->whereBetween('transaction_date', [$startDateTime, $endDateTime]);
+            $query->whereBetween($dateColumn, [$startDateTime, $endDateTime]);
         }
 
         if ($providerId && $providerId !== 'all') {
@@ -726,12 +736,17 @@ class EnhancedHmoReportController extends Controller
         $startDateTime = $dateFrom . ' 00:00:00';
         $endDateTime = $dateTo . ' 23:59:59';
 
+        // Check if transaction_date column exists, otherwise use created_at
+        $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+            ? 'transaction_date' 
+            : 'created_at';
+
         // HMO Transactions
         $query = BillingTransaction::where('payment_method', 'hmo');
         
         // Only apply date filter if dates are provided
         if ($dateFrom && $dateTo) {
-            $query->whereBetween('transaction_date', [$startDateTime, $endDateTime]);
+            $query->whereBetween($dateColumn, [$startDateTime, $endDateTime]);
         }
         
         $hmoTransactions = $query->get();

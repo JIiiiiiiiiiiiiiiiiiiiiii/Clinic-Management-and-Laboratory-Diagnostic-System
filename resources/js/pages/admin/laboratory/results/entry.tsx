@@ -55,6 +55,18 @@ type Order = {
         email?: string;
         present_address?: string;
     };
+    visit?: {
+        id: number;
+        notes?: string;
+        attending_staff?: {
+            id: number;
+            name: string;
+        } | null;
+    } | null;
+    ordered_by?: {
+        id: number;
+        name: string;
+    } | null;
 };
 
 type Patient = { 
@@ -76,6 +88,16 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
     const [results, setResults] = useState<{ [testId: number]: any }>(existingResults);
     const [processing, setProcessing] = useState(false);
     const formRef = useRef<HTMLFormElement>(null);
+
+    // Debug: Log order data to console
+    React.useEffect(() => {
+        console.log('Lab Order Data:', {
+            orderId: order.id,
+            hasVisit: !!order.visit,
+            visit: order.visit,
+            orderedBy: order.ordered_by,
+        });
+    }, [order]);
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Laboratory', href: '/admin/laboratory' },
@@ -214,6 +236,14 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                 );
 
             case 'select':
+                // Handle both old format (string array) and new format (object array)
+                const selectOptions = (field.options || []).map((opt: any) => {
+                    if (typeof opt === 'string') {
+                        return { value: opt, status: 'normal' };
+                    }
+                    return opt;
+                });
+                
                 return (
                     <div key={fieldKey} className="space-y-2">
                         <Label htmlFor={fieldId} className="text-sm font-semibold text-gray-700">
@@ -225,13 +255,14 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                                 <SelectValue placeholder={field.placeholder || 'Select...'} />
                             </SelectTrigger>
                             <SelectContent>
-                                {field.options?.map((option: string) => (
-                                    <SelectItem key={option} value={option}>
-                                        {option}
+                                {selectOptions.map((option: any) => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                        {option.value}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
+                        {field.unit && <span className="ml-2 text-sm text-gray-500">{field.unit}</span>}
                     </div>
                 );
 
@@ -511,12 +542,52 @@ export default function ResultsEntry({ patient, order, tests, existingResults = 
                                         </div>
                                     </div>
                                     
+                                    {order.ordered_by && (
+                                        <div className="flex items-center gap-3">
+                                            <User className="h-4 w-4 text-gray-500" />
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-900">Requested By</p>
+                                                <p className="text-sm text-gray-600">{order.ordered_by.name}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
                                     <div className="flex items-center gap-3">
                                         <Clock className="h-4 w-4 text-gray-500" />
                                         <div>
                                             <p className="text-sm font-medium text-gray-900">Last Updated</p>
                                             <p className="text-sm text-gray-600">{formatDate(order.created_at)}</p>
                                         </div>
+                                    </div>
+
+                                    {/* Doctor's Remarks Section */}
+                                    <Separator className="my-4" />
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <FileText className="h-4 w-4 text-gray-500" />
+                                            <p className="text-sm font-semibold text-gray-900">Doctor's Remarks</p>
+                                            {order.visit?.attending_staff?.name && (
+                                                <span className="text-xs text-gray-500">
+                                                    (Dr. {order.visit.attending_staff.name})
+                                                </span>
+                                            )}
+                                            {!order.visit?.attending_staff?.name && order.visit?.attendingStaff?.name && (
+                                                <span className="text-xs text-gray-500">
+                                                    (Dr. {order.visit.attendingStaff.name})
+                                                </span>
+                                            )}
+                                        </div>
+                                        {order.visit?.notes ? (
+                                            <div className="bg-blue-50 rounded-lg border border-blue-200 p-3 mt-2">
+                                                <p className="text-sm text-gray-800 whitespace-pre-wrap">{order.visit.notes}</p>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 mt-2">
+                                                <p className="text-sm text-gray-500 italic">
+                                                    {order.visit ? 'No remarks available for this visit.' : 'This lab order is not linked to a patient visit. No doctor remarks available.'}
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </CardContent>

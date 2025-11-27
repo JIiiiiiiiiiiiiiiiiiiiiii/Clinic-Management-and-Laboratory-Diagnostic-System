@@ -32,10 +32,11 @@ import {
     VisibilityState,
 } from '@tanstack/react-table';
 import { 
-    Calendar as CalendarIcon, DollarSign, Download, FileText, MoreHorizontal, TrendingUp,
+    Calendar as CalendarIcon, Coins, Download, FileText, MoreHorizontal, TrendingUp,
     ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, FileDown,
     Users, Clock, CheckCircle, XCircle, AlertCircle, UserCheck, UserX, Globe, MapPin, Stethoscope, Phone, User
 } from 'lucide-react';
+import { formatAppointmentType } from '@/utils/formatAppointmentType';
 import { useState, useEffect } from 'react';
 
 interface Appointment {
@@ -125,6 +126,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Appointment Reports', href: '/admin/reports/appointments' },
 ];
 
+
 // Column definitions for the data table
 const createColumns = (): ColumnDef<Appointment>[] => [
     {
@@ -164,12 +166,16 @@ const createColumns = (): ColumnDef<Appointment>[] => [
                 </Button>
             )
         },
-        cell: ({ row }) => (
-            <div className="flex items-center space-x-2">
-                <User className="h-4 w-4 text-gray-400" />
-                <span className="font-medium">{row.getValue("patient_name")}</span>
-            </div>
-        ),
+        cell: ({ row }) => {
+            const patientName = row.getValue("patient_name") as string;
+            const displayName = patientName || 'Unknown Patient';
+            return (
+                <div className="flex items-center space-x-2">
+                    <User className="h-4 w-4 text-gray-400" />
+                    <span className="font-medium">{displayName}</span>
+                </div>
+            );
+        },
     },
     {
         accessorKey: 'contact_number',
@@ -185,12 +191,16 @@ const createColumns = (): ColumnDef<Appointment>[] => [
                 </Button>
             )
         },
-        cell: ({ row }) => (
-            <div className="flex items-center space-x-2">
-                <Phone className="h-4 w-4 text-gray-400" />
-                <span>{row.getValue("contact_number")}</span>
-            </div>
-        ),
+        cell: ({ row }) => {
+            const contactNumber = row.getValue("contact_number") as string;
+            const displayContact = contactNumber || 'N/A';
+            return (
+                <div className="flex items-center space-x-2">
+                    <Phone className="h-4 w-4 text-gray-400" />
+                    <span>{displayContact}</span>
+                </div>
+            );
+        },
     },
     {
         accessorKey: 'specialist_name',
@@ -209,12 +219,19 @@ const createColumns = (): ColumnDef<Appointment>[] => [
         cell: ({ row }) => {
             const specialist = row.getValue("specialist_name") as string;
             const specialistType = row.original.specialist_type;
+            // Display specialist name if available, otherwise show type as fallback
+            // Display specialist name, or default to "Paul Henry N. Parrotina, MD." if missing
+            const displayName = specialist && specialist !== 'Unknown Specialist' && specialist !== 'Paul Henry N. Parrotina, MD.' 
+                ? specialist 
+                : 'Paul Henry N. Parrotina, MD.';
             return (
                 <div className="flex items-center space-x-2">
                     <Stethoscope className="h-4 w-4 text-gray-400" />
                     <div>
-                        <div className="font-medium">{specialist}</div>
-                        <div className="text-sm text-gray-500">{specialistType}</div>
+                        <div className="font-medium">{displayName}</div>
+                        {specialist && specialist !== 'Unknown Specialist' && specialist !== 'Paul Henry N. Parrotina, MD.' && specialistType && (
+                            <div className="text-sm text-gray-500">{specialistType}</div>
+                        )}
                     </div>
                 </div>
             );
@@ -237,12 +254,66 @@ const createColumns = (): ColumnDef<Appointment>[] => [
         cell: ({ row }) => {
             const date = row.getValue("appointment_date") as string;
             const time = row.original.appointment_time;
+            
+            // Format date
+            let formattedDate = 'N/A';
+            if (date) {
+                try {
+                    const dateObj = new Date(date);
+                    if (!isNaN(dateObj.getTime())) {
+                        formattedDate = dateObj.toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: '2-digit', 
+                            day: '2-digit' 
+                        });
+                    }
+                } catch (e) {
+                    formattedDate = date;
+                }
+            }
+            
+            // Format time - handle both string and ISO format
+            let formattedTime = 'N/A';
+            if (time) {
+                try {
+                    // If time is an ISO string, extract just the time part
+                    if (typeof time === 'string' && time.includes('T')) {
+                        const timeMatch = time.match(/T(\d{2}):(\d{2}):(\d{2})/);
+                        if (timeMatch) {
+                            const hours = parseInt(timeMatch[1]);
+                            const minutes = timeMatch[2];
+                            const ampm = hours >= 12 ? 'PM' : 'AM';
+                            const displayHours = hours % 12 || 12;
+                            formattedTime = `${displayHours}:${minutes} ${ampm}`;
+                        } else {
+                            formattedTime = time;
+                        }
+                    } else if (typeof time === 'string') {
+                        // If it's already a time string (HH:MM:SS or HH:MM)
+                        const timeParts = time.split(':');
+                        if (timeParts.length >= 2) {
+                            const hours = parseInt(timeParts[0]);
+                            const minutes = timeParts[1];
+                            const ampm = hours >= 12 ? 'PM' : 'AM';
+                            const displayHours = hours % 12 || 12;
+                            formattedTime = `${displayHours}:${minutes} ${ampm}`;
+                        } else {
+                            formattedTime = time;
+                        }
+                    } else {
+                        formattedTime = String(time);
+                    }
+                } catch (e) {
+                    formattedTime = String(time);
+                }
+            }
+            
             return (
                 <div className="flex items-center space-x-2">
                     <CalendarIcon className="h-4 w-4 text-gray-400" />
                     <div>
-                        <div className="font-medium">{new Date(date).toLocaleDateString()}</div>
-                        <div className="text-sm text-gray-500">{time}</div>
+                        <div className="font-medium">{formattedDate}</div>
+                        <div className="text-sm text-gray-500">{formattedTime}</div>
                     </div>
                 </div>
             );
@@ -264,9 +335,10 @@ const createColumns = (): ColumnDef<Appointment>[] => [
         },
         cell: ({ row }) => {
             const type = row.getValue("appointment_type") as string;
+            const formattedType = formatAppointmentType(type);
             return (
-                <Badge variant="outline" className="capitalize">
-                    {type}
+                <Badge variant="outline">
+                    {formattedType}
                 </Badge>
             );
         },
@@ -415,17 +487,33 @@ export default function AppointmentReports({
     const [isLoading, setIsLoading] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
 
+    // Update state when props change (e.g., when URL changes)
+    useEffect(() => {
+        setCurrentFilter(filter || 'daily');
+        setCurrentDate(date || new Date().toISOString().split('T')[0]);
+        setCurrentReportType(reportType || 'all');
+    }, [filter, date, reportType]);
+
     // Calculate dynamic data based on current filter and date
+    // Use props directly (filter, date, reportType) instead of state to ensure data updates when URL changes
     const getFilteredData = () => {
         // Use data?.appointment_details for summary calculations (all filtered appointments)
         // Use appointments?.data for table display (paginated filtered appointments)
-        const allFilteredAppointments = Array.isArray(data?.appointment_details) ? data.appointment_details : [];
+        // Check if appointment_details is empty array and fallback to appointments.data for summary too
+        const dataAppointments = data?.appointment_details;
+        const hasDataAppointments = Array.isArray(dataAppointments) && dataAppointments.length > 0;
+        const allFilteredAppointments = hasDataAppointments ? dataAppointments : (Array.isArray(appointments?.data) ? appointments.data : []);
         const paginatedAppointments = Array.isArray(appointments?.data) ? appointments.data : [];
         
+        // Use props directly, not state, to ensure we get the latest values from URL
+        const activeFilter = filter || currentFilter;
+        const activeDate = date || currentDate;
+        const activeReportType = reportType || currentReportType;
+        
         // Debug logging
-        console.log('getFilteredData - currentFilter:', currentFilter);
-        console.log('getFilteredData - currentDate:', currentDate);
-        console.log('getFilteredData - currentReportType:', currentReportType);
+        console.log('getFilteredData - activeFilter (from props):', activeFilter);
+        console.log('getFilteredData - activeDate (from props):', activeDate);
+        console.log('getFilteredData - activeReportType (from props):', activeReportType);
         console.log('getFilteredData - allFilteredAppointments length:', allFilteredAppointments.length);
         console.log('getFilteredData - paginatedAppointments length:', paginatedAppointments.length);
         console.log('getFilteredData - appointments prop:', appointments);
@@ -475,23 +563,23 @@ export default function AppointmentReports({
         
         // Calculate period description
         let period = 'All Appointments';
-        if (currentFilter !== 'all') {
-            if (currentDate) {
-                const date = new Date(currentDate);
-                if (currentFilter === 'daily') {
-                    period = `Daily Report - ${date.toLocaleDateString('en-US', { 
+        if (activeFilter !== 'all') {
+            if (activeDate) {
+                const dateObj = new Date(activeDate);
+                if (activeFilter === 'daily') {
+                    period = `Daily Report - ${dateObj.toLocaleDateString('en-US', { 
                         weekday: 'long', 
                         year: 'numeric', 
                         month: 'long', 
                         day: 'numeric' 
                     })}`;
-                } else if (currentFilter === 'monthly') {
-                    period = `Monthly Report - ${date.toLocaleDateString('en-US', { 
+                } else if (activeFilter === 'monthly') {
+                    period = `Monthly Report - ${dateObj.toLocaleDateString('en-US', { 
                         year: 'numeric', 
                         month: 'long' 
                     })}`;
-                } else if (currentFilter === 'yearly') {
-                    period = `Yearly Report - ${date.getFullYear()}`;
+                } else if (activeFilter === 'yearly') {
+                    period = `Yearly Report - ${dateObj.getFullYear()}`;
                 }
             }
         }
@@ -510,8 +598,8 @@ export default function AppointmentReports({
             nurse_appointments: nurseAppointments,
             appointment_details: paginatedAppointments, // Use paginated data for table
             period: period,
-            start_date: currentDate || new Date().toISOString().split('T')[0],
-            end_date: currentDate || new Date().toISOString().split('T')[0]
+            start_date: activeDate || new Date().toISOString().split('T')[0],
+            end_date: activeDate || new Date().toISOString().split('T')[0]
         };
     };
 
@@ -541,7 +629,7 @@ export default function AppointmentReports({
         }
     });
 
-    // Update filtered data when data prop changes (new data from backend)
+    // Update filtered data when props change (new data from backend or filter/date changes)
     useEffect(() => {
         try {
             setFilteredData(getFilteredData());
@@ -690,7 +778,7 @@ export default function AppointmentReports({
 											<p className="text-gray-500 text-sm font-medium">
                                                     Total Appointments {isLoading && <span className="animate-pulse">⏳</span>}
                                                 </p>
-                                                <p className="text-3xl font-bold">{(data?.total_appointments || 0).toLocaleString()}</p>
+                                                <p className="text-3xl font-bold">{(filteredData.total_appointments || 0).toLocaleString()}</p>
 											<p className="text-gray-500 text-xs mt-1">
                                                     {currentFilter === 'daily' ? 'Today\'s Count' : 
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
@@ -706,7 +794,7 @@ export default function AppointmentReports({
                                         <div className="flex items-center justify-between">
                                             <div>
 											<p className="text-gray-500 text-sm font-medium">Completed</p>
-                                                <p className="text-3xl font-bold">{(data?.completed_appointments || 0).toLocaleString()}</p>
+                                                <p className="text-3xl font-bold">{(filteredData.completed_appointments || 0).toLocaleString()}</p>
 											<p className="text-gray-500 text-xs mt-1">
                                                     {currentFilter === 'daily' ? 'Today' : 
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
@@ -722,7 +810,7 @@ export default function AppointmentReports({
                                         <div className="flex items-center justify-between">
                                             <div>
 											<p className="text-gray-500 text-sm font-medium">Pending</p>
-                                                <p className="text-3xl font-bold">{(data?.pending_appointments || 0).toLocaleString()}</p>
+                                                <p className="text-3xl font-bold">{(filteredData.pending_appointments || 0).toLocaleString()}</p>
 											<p className="text-gray-500 text-xs mt-1">
                                                     {currentFilter === 'daily' ? 'Today' : 
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
@@ -738,13 +826,13 @@ export default function AppointmentReports({
                                         <div className="flex items-center justify-between">
                                             <div>
 											<p className="text-gray-500 text-sm font-medium">Total Revenue</p>
-                                                <p className="text-3xl font-bold">₱{(data?.total_revenue || 0).toLocaleString()}</p>
+                                                <p className="text-3xl font-bold">₱{(filteredData.total_revenue || 0).toLocaleString()}</p>
 											<p className="text-gray-500 text-xs mt-1">
                                                     {currentFilter === 'daily' ? 'Today' : 
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
                                                 </p>
                                             </div>
-										<DollarSign className="h-8 w-8 text-gray-400" />
+										<Coins className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -756,7 +844,7 @@ export default function AppointmentReports({
                                         <div className="flex items-center justify-between">
                                             <div>
 											<p className="text-gray-500 text-sm font-medium">Online Appointments</p>
-                                                <p className="text-3xl font-bold">{(data?.online_appointments || 0).toLocaleString()}</p>
+                                                <p className="text-3xl font-bold">{(filteredData.online_appointments || 0).toLocaleString()}</p>
 											<p className="text-gray-500 text-xs mt-1">
                                                     {currentFilter === 'daily' ? 'Today' : 
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
@@ -772,7 +860,7 @@ export default function AppointmentReports({
                                         <div className="flex items-center justify-between">
                                             <div>
 											<p className="text-gray-500 text-sm font-medium">Walk-in Appointments</p>
-                                                <p className="text-3xl font-bold">{(data?.walk_in_appointments || 0).toLocaleString()}</p>
+                                                <p className="text-3xl font-bold">{(filteredData.walk_in_appointments || 0).toLocaleString()}</p>
 											<p className="text-gray-500 text-xs mt-1">
                                                     {currentFilter === 'daily' ? 'Today' : 
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
@@ -788,7 +876,7 @@ export default function AppointmentReports({
                                         <div className="flex items-center justify-between">
                                             <div>
 											<p className="text-gray-500 text-sm font-medium">Total Appointments</p>
-                                                <p className="text-3xl font-bold">{(data?.total_appointments || 0).toLocaleString()}</p>
+                                                <p className="text-3xl font-bold">{(filteredData.total_appointments || 0).toLocaleString()}</p>
 											<p className="text-gray-500 text-xs mt-1">
                                                     {currentFilter === 'daily' ? 'Today' : 
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
@@ -804,13 +892,13 @@ export default function AppointmentReports({
                                         <div className="flex items-center justify-between">
                                             <div>
 											<p className="text-gray-500 text-sm font-medium">Total Revenue</p>
-                                                <p className="text-3xl font-bold">₱{(data?.total_revenue || 0).toLocaleString()}</p>
+                                                <p className="text-3xl font-bold">₱{(filteredData.total_revenue || 0).toLocaleString()}</p>
 											<p className="text-gray-500 text-xs mt-1">
                                                     {currentFilter === 'daily' ? 'Today' : 
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
                                                 </p>
                                             </div>
-										<DollarSign className="h-8 w-8 text-gray-400" />
+										<Coins className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -822,7 +910,7 @@ export default function AppointmentReports({
                                         <div className="flex items-center justify-between">
                                             <div>
 											<p className="text-gray-500 text-sm font-medium">Doctor Appointments</p>
-                                                <p className="text-3xl font-bold">{(data?.doctor_appointments || 0).toLocaleString()}</p>
+                                                <p className="text-3xl font-bold">{(filteredData.doctor_appointments || 0).toLocaleString()}</p>
 											<p className="text-gray-500 text-xs mt-1">
                                                     {currentFilter === 'daily' ? 'Today' : 
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
@@ -838,7 +926,7 @@ export default function AppointmentReports({
                                         <div className="flex items-center justify-between">
                                             <div>
 											<p className="text-gray-500 text-sm font-medium">MedTech Appointments</p>
-                                                <p className="text-3xl font-bold">{(data?.medtech_appointments || 0).toLocaleString()}</p>
+                                                <p className="text-3xl font-bold">{(filteredData.medtech_appointments || 0).toLocaleString()}</p>
 											<p className="text-gray-500 text-xs mt-1">
                                                     {currentFilter === 'daily' ? 'Today' : 
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
@@ -854,7 +942,7 @@ export default function AppointmentReports({
                                         <div className="flex items-center justify-between">
                                             <div>
 											<p className="text-gray-500 text-sm font-medium">Nurse Appointments</p>
-                                                <p className="text-3xl font-bold">{(data?.nurse_appointments || 0).toLocaleString()}</p>
+                                                <p className="text-3xl font-bold">{(filteredData.nurse_appointments || 0).toLocaleString()}</p>
 											<p className="text-gray-500 text-xs mt-1">
                                                     {currentFilter === 'daily' ? 'Today' : 
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
@@ -870,7 +958,7 @@ export default function AppointmentReports({
                                         <div className="flex items-center justify-between">
                                             <div>
 											<p className="text-gray-500 text-sm font-medium">Total Appointments</p>
-                                                <p className="text-3xl font-bold">{(data?.total_appointments || 0).toLocaleString()}</p>
+                                                <p className="text-3xl font-bold">{(filteredData.total_appointments || 0).toLocaleString()}</p>
 											<p className="text-gray-500 text-xs mt-1">
                                                     {currentFilter === 'daily' ? 'Today' : 
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
@@ -978,6 +1066,143 @@ export default function AppointmentReports({
                         </CardContent>
                     </Card>
 
+                    <Separator className="my-8" />
+
+                    {/* Report Summary Table */}
+                    <div className="mb-8">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Report Summary</h3>
+                        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metric</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Appointments</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_appointments || 0}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Pending Appointments</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.pending_appointments || 0}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {(filteredData.total_appointments || 0) > 0 ? (((filteredData.pending_appointments || 0) / (filteredData.total_appointments || 1)) * 100).toFixed(1) : 0}%
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Confirmed Appointments</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.confirmed_appointments || 0}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {(filteredData.total_appointments || 0) > 0 ? (((filteredData.confirmed_appointments || 0) / (filteredData.total_appointments || 1)) * 100).toFixed(1) : 0}%
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Completed Appointments</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.completed_appointments || 0}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {(filteredData.total_appointments || 0) > 0 ? (((filteredData.completed_appointments || 0) / (filteredData.total_appointments || 1)) * 100).toFixed(1) : 0}%
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Cancelled Appointments</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.cancelled_appointments || 0}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {(filteredData.total_appointments || 0) > 0 ? (((filteredData.cancelled_appointments || 0) / (filteredData.total_appointments || 1)) * 100).toFixed(1) : 0}%
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Revenue</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₱{(filteredData.total_revenue || 0).toLocaleString()}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Status Summary Table */}
+                    <div className="mb-8">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Summary</h3>
+                        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Pending</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.pending_appointments || 0}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {(filteredData.total_appointments || 0) > 0 ? (((filteredData.pending_appointments || 0) / (filteredData.total_appointments || 1)) * 100).toFixed(1) : 0}%
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Confirmed</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.confirmed_appointments || 0}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {(filteredData.total_appointments || 0) > 0 ? (((filteredData.confirmed_appointments || 0) / (filteredData.total_appointments || 1)) * 100).toFixed(1) : 0}%
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Completed</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.completed_appointments || 0}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {(filteredData.total_appointments || 0) > 0 ? (((filteredData.completed_appointments || 0) / (filteredData.total_appointments || 1)) * 100).toFixed(1) : 0}%
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Cancelled</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.cancelled_appointments || 0}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {(filteredData.total_appointments || 0) > 0 ? (((filteredData.cancelled_appointments || 0) / (filteredData.total_appointments || 1)) * 100).toFixed(1) : 0}%
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Source Summary Table */}
+                    {(filteredData.online_appointments || 0) > 0 || (filteredData.walk_in_appointments || 0) > 0 ? (
+                        <div className="mb-8">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Source Summary</h3>
+                            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                                <table className="w-full">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        <tr>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Online</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.online_appointments || 0}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                {(filteredData.total_appointments || 0) > 0 ? (((filteredData.online_appointments || 0) / (filteredData.total_appointments || 1)) * 100).toFixed(1) : 0}%
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Walk-in</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.walk_in_appointments || 0}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                {(filteredData.total_appointments || 0) > 0 ? (((filteredData.walk_in_appointments || 0) / (filteredData.total_appointments || 1)) * 100).toFixed(1) : 0}%
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    ) : null}
 
                     {/* Appointments Table */}
                     <Card>
@@ -1015,33 +1240,35 @@ export default function AppointmentReports({
                                 <Card className="bg-white border border-gray-200">
                                     <CardContent className="p-6">
                                         {/* Table Controls */}
-                                        <div className="flex items-center py-4">
+                                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 py-4">
                                             <Input
                                                 placeholder="Search appointments..."
                                                 value={globalFilter ?? ""}
                                                 onChange={(event) => setGlobalFilter(event.target.value)}
-                                                className="max-w-sm"
+                                                className="w-full sm:max-w-sm"
                                             />
                                             <Button
                                                 onClick={() => handleExport('excel')}
                                                 disabled={isLoading}
-                                                className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                                                className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
                                             >
                                                 <Download className="h-4 w-4 mr-2" />
-                                                Export Excel
+                                                <span className="hidden sm:inline">Export Excel</span>
+                                                <span className="sm:hidden">Excel</span>
                                             </Button>
                                             <Button
                                                 onClick={() => handleExport('pdf')}
                                                 disabled={isLoading}
                                                 variant="outline"
-                                                className="ml-2"
+                                                className="w-full sm:w-auto"
                                             >
                                                 <FileDown className="h-4 w-4 mr-2" />
-                                                Export PDF
+                                                <span className="hidden sm:inline">Export PDF</span>
+                                                <span className="sm:hidden">PDF</span>
                                             </Button>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="outline" className="ml-auto">
+                                                    <Button variant="outline" className="w-full sm:w-auto sm:ml-auto">
                                                         Columns <ChevronDown className="ml-2 h-4 w-4" />
                                                     </Button>
                                                 </DropdownMenuTrigger>
@@ -1071,64 +1298,66 @@ export default function AppointmentReports({
                                         </div>
 
                                         {/* Table */}
-                                        <div className="rounded-md border">
-                                            <Table>
-                                                <TableHeader>
-                                                    {table.getHeaderGroups().map((headerGroup) => (
-                                                        <TableRow key={headerGroup.id}>
-                                                            {headerGroup.headers.map((header) => {
-                                                                return (
-                                                                    <TableHead key={header.id}>
-                                                                        {header.isPlaceholder
-                                                                            ? null
-                                                                            : flexRender(
-                                                                                header.column.columnDef.header,
-                                                                                header.getContext()
-                                                                            )}
-                                                                    </TableHead>
-                                                                )
-                                                            })}
-                                                        </TableRow>
-                                                    ))}
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {table.getRowModel().rows?.length ? (
-                                                        table.getRowModel().rows.map((row) => (
-                                                            <TableRow
-                                                                key={row.id}
-                                                                data-state={row.getIsSelected() && "selected"}
-                                                            >
-                                                                {row.getVisibleCells().map((cell) => (
-                                                                    <TableCell key={cell.id}>
-                                                                        {flexRender(
-                                                                            cell.column.columnDef.cell,
-                                                                            cell.getContext()
-                                                                        )}
-                                                                    </TableCell>
-                                                                ))}
+                                        <div className="rounded-md border overflow-x-auto">
+                                            <div className="inline-block min-w-full align-middle">
+                                                <Table>
+                                                    <TableHeader>
+                                                        {table.getHeaderGroups().map((headerGroup) => (
+                                                            <TableRow key={headerGroup.id}>
+                                                                {headerGroup.headers.map((header) => {
+                                                                    return (
+                                                                        <TableHead key={header.id} className="whitespace-nowrap">
+                                                                            {header.isPlaceholder
+                                                                                ? null
+                                                                                : flexRender(
+                                                                                    header.column.columnDef.header,
+                                                                                    header.getContext()
+                                                                                )}
+                                                                        </TableHead>
+                                                                    )
+                                                                })}
                                                             </TableRow>
-                                                        ))
-                                                    ) : (
-                                                        <TableRow>
-                                                            <TableCell
-                                                                colSpan={columns.length}
-                                                                className="h-24 text-center"
-                                                            >
-                                                                No results.
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    )}
-                                                </TableBody>
-                                            </Table>
+                                                        ))}
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {table.getRowModel().rows?.length ? (
+                                                            table.getRowModel().rows.map((row) => (
+                                                                <TableRow
+                                                                    key={row.id}
+                                                                    data-state={row.getIsSelected() && "selected"}
+                                                                >
+                                                                    {row.getVisibleCells().map((cell) => (
+                                                                        <TableCell key={cell.id} className="whitespace-nowrap">
+                                                                            {flexRender(
+                                                                                cell.column.columnDef.cell,
+                                                                                cell.getContext()
+                                                                            )}
+                                                                        </TableCell>
+                                                                    ))}
+                                                                </TableRow>
+                                                            ))
+                                                        ) : (
+                                                            <TableRow>
+                                                                <TableCell
+                                                                    colSpan={columns.length}
+                                                                    className="h-24 text-center"
+                                                                >
+                                                                    No results.
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        )}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
                                         </div>
 
                                         {/* Pagination */}
-                                        <div className="flex items-center justify-end space-x-2 py-4">
-                                            <div className="flex-1 text-sm text-muted-foreground">
+                                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 px-2 py-4">
+                                            <div className="text-muted-foreground text-sm text-center sm:text-left">
                                                 {table.getFilteredSelectedRowModel().rows.length} of{" "}
                                                 {table.getFilteredRowModel().rows.length} row(s) selected.
                                             </div>
-                                            <div className="space-x-2">
+                                            <div className="flex items-center gap-2">
                                                 <Button
                                                     variant="outline"
                                                     size="sm"

@@ -167,7 +167,7 @@
                             <td>{{ $transaction['patient_name'] ?? 'N/A' }}</td>
                             <td>{{ $transaction['doctor_name'] ?? 'N/A' }}</td>
                             <td>{{ $transaction['hmo_provider'] ?? 'N/A' }}</td>
-                            <td>PHP {{ number_format($transaction['total_amount'] ?? 0, 2) }}</td>
+                            <td>₱{{ number_format($transaction['total_amount'] ?? 0, 2) }}</td>
                             <td>{{ ucfirst($transaction['status'] ?? 'N/A') }}</td>
                             <td>{{ isset($transaction['transaction_date']) ? \Carbon\Carbon::parse($transaction['transaction_date'])->format('Y-m-d H:i:s') : 'N/A' }}</td>
                         </tr>

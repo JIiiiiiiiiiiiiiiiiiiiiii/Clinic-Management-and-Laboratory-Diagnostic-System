@@ -32,7 +32,7 @@ import {
     VisibilityState,
 } from '@tanstack/react-table';
 import { 
-    Calendar as CalendarIcon, DollarSign, Download, FileText, MoreHorizontal, TrendingUp,
+    Calendar as CalendarIcon, Coins, Download, FileText, MoreHorizontal, TrendingUp,
     ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, FileDown,
     Users
 } from 'lucide-react';
@@ -278,46 +278,6 @@ const createColumns = (): ColumnDef<Transaction>[] => [
             );
         },
     },
-    {
-        id: "actions",
-        enableHiding: false,
-        header: ({ column }) => {
-            return (
-                <div className="text-left font-medium w-full">Actions</div>
-            )
-        },
-        cell: ({ row }) => {
-            const transaction = row.original;
-
-            return (
-                <div className="text-left">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">Open menu</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem
-                                onClick={() => navigator.clipboard.writeText(transaction.id.toString())}
-                            >
-                                Copy transaction ID
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem>
-                                View details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                                Edit transaction
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-            )
-        },
-    },
 ];
 
 export default function FinancialReports({ filter, date, reportType, data, transactions, summary, chartData, filterOptions, metadata }: FinancialReportsProps) {
@@ -352,13 +312,21 @@ export default function FinancialReports({ filter, date, reportType, data, trans
     };
 
     // Calculate dynamic data based on current filter and date
+    // Use props directly (filter, date, reportType) instead of state to ensure data updates when URL changes
     const getFilteredData = () => {
         // Use data prop if available (filtered from backend), otherwise fallback to transactions
-        const currentTransactions = data?.transaction_details || transactions?.data || [];
+        // Check if transaction_details is empty array and fallback to transactions.data
+        const dataTransactions = data?.transaction_details;
+        const hasDataTransactions = Array.isArray(dataTransactions) && dataTransactions.length > 0;
+        const currentTransactions = hasDataTransactions ? dataTransactions : (transactions?.data || []);
+        
+        // Use props directly, not state, to ensure we get the latest values from URL
+        const activeFilter = filter || currentFilter;
+        const activeDate = date || currentDate;
         
         // Debug logging
-        console.log('getFilteredData - currentFilter:', currentFilter);
-        console.log('getFilteredData - currentDate:', currentDate);
+        console.log('getFilteredData - activeFilter (from props):', activeFilter);
+        console.log('getFilteredData - activeDate (from props):', activeDate);
         console.log('getFilteredData - data prop:', data);
         console.log('getFilteredData - transactions prop:', transactions);
         console.log('getFilteredData - currentTransactions length:', currentTransactions.length);
@@ -376,12 +344,17 @@ export default function FinancialReports({ filter, date, reportType, data, trans
         }, 0);
         const averageTransaction = total > 0 ? totalRevenue / total : 0;
         
-        // Payment summary from filtered data
+        // Payment summary from filtered data - include both count and amount
         const paymentSummary = currentTransactions.reduce((acc, t) => {
             const method = t.payment_method || 'Unknown';
-            acc[method] = (acc[method] || 0) + 1;
+            if (!acc[method]) {
+                acc[method] = { count: 0, amount: 0 };
+            }
+            acc[method].count += 1;
+            const amount = typeof t.total_amount === 'string' ? parseFloat(t.total_amount) : (t.total_amount || 0);
+            acc[method].amount += amount;
             return acc;
-        }, {} as Record<string, number>);
+        }, {} as Record<string, { count: number; amount: number }>);
 
         const result = {
             total_transactions: total,
@@ -392,11 +365,11 @@ export default function FinancialReports({ filter, date, reportType, data, trans
             average_transaction: averageTransaction,
             payment_summary: paymentSummary,
             transaction_details: currentTransactions,
-            period: currentFilter === 'daily' 
-                ? `Daily Report - ${new Date(currentDate).toLocaleDateString()}`
-                : currentFilter === 'monthly' 
-                ? `Monthly Report - ${new Date(currentDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}`
-                : `Yearly Report - ${new Date(currentDate).getFullYear()}`
+            period: activeFilter === 'daily' 
+                ? `Daily Report - ${new Date(activeDate).toLocaleDateString()}`
+                : activeFilter === 'monthly' 
+                ? `Monthly Report - ${new Date(activeDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}`
+                : `Yearly Report - ${new Date(activeDate).getFullYear()}`
         };
         
         console.log('getFilteredData - result:', result);
@@ -410,13 +383,20 @@ export default function FinancialReports({ filter, date, reportType, data, trans
     const [isExporting, setIsExporting] = useState(false);
     const [search, setSearch] = useState('');
 
+    // Update state when props change (e.g., when URL changes)
+    useEffect(() => {
+        setCurrentFilter(filter);
+        setCurrentDate(date);
+        setCurrentReportType(reportType);
+    }, [filter, date, reportType]);
+
     // Recalculate filtered data when filter or date changes
     const [filteredData, setFilteredData] = useState(() => getFilteredData());
 
     // Update filtered data when data prop changes (new data from backend)
     useEffect(() => {
         setFilteredData(getFilteredData());
-    }, [data, transactions]);
+    }, [data, transactions, filter, date, reportType]);
     const [dateRange, setDateRange] = useState<DateRange | undefined>({
         from: new Date(new Date().getFullYear(), new Date().getMonth(), 1), // First day of current month
         to: new Date(), // Today
@@ -559,7 +539,7 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
                                                 </p>
                                             </div>
-                                            <DollarSign className="h-8 w-8 text-gray-400" />
+                                            <Coins className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -625,7 +605,7 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
                                                 </p>
                                             </div>
-                                            <DollarSign className="h-8 w-8 text-gray-400" />
+                                            <Coins className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -691,7 +671,7 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
                                                 </p>
                                             </div>
-                                            <DollarSign className="h-8 w-8 text-gray-400" />
+                                            <Coins className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -883,11 +863,6 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                                     {(filteredData.total_transactions || 0) > 0 ? (((filteredData.completed_transactions || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0}%
                                                 </td>
                                             </tr>
-                                            <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Revenue</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(filteredData.total_revenue || 0)}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
-                                            </tr>
                                         </>
                                     ) : currentReportType === 'cash' ? (
                                         <>
@@ -911,8 +886,16 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Cash Revenue</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(filteredData.total_revenue || 0)}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Cash Amount</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {formatCurrency(
+                                                        filteredData.payment_summary && typeof filteredData.payment_summary['cash'] === 'object' 
+                                                            ? (filteredData.payment_summary['cash'] as any).amount 
+                                                            : (filteredData.payment_summary && typeof filteredData.payment_summary['cash'] === 'number' 
+                                                                ? 0 
+                                                                : (data?.summary?.cash_total || 0))
+                                                    )}
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
                                             </tr>
                                         </>
@@ -938,8 +921,16 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">HMO Revenue</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(filteredData.total_revenue || 0)}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">HMO Amount</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {formatCurrency(
+                                                        filteredData.payment_summary && typeof filteredData.payment_summary['hmo'] === 'object' 
+                                                            ? (filteredData.payment_summary['hmo'] as any).amount 
+                                                            : (filteredData.payment_summary && typeof filteredData.payment_summary['hmo'] === 'number' 
+                                                                ? 0 
+                                                                : (data?.summary?.hmo_total || 0))
+                                                    )}
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
                                             </tr>
                                         </>
@@ -959,19 +950,30 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                         <tr>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
-                                        {filteredData.payment_summary && Object.entries(filteredData.payment_summary).map(([paymentMethod, count]) => (
+                                        {filteredData.payment_summary && Object.entries(filteredData.payment_summary).map(([paymentMethod, paymentData]) => {
+                                            // Handle both old format (number) and new format (object with count and amount)
+                                            const count = typeof paymentData === 'object' && paymentData !== null ? (paymentData as any).count : (paymentData as number);
+                                            const amount = typeof paymentData === 'object' && paymentData !== null ? (paymentData as any).amount : 0;
+                                            const totalTransactions = filteredData.total_transactions || 0;
+                                            const percentage = totalTransactions > 0 ? ((count / totalTransactions) * 100) : 0;
+                                            return (
                                             <tr key={paymentMethod}>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{paymentMethod}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{count}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                                                    {formatCurrency(amount)}
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {(filteredData.total_transactions || 0) > 0 ? ((count / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0}%
+                                                    {percentage.toFixed(1)}%
                                                 </td>
                                             </tr>
-                                        ))}
+                                        );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
@@ -998,41 +1000,43 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                         {(filteredData.transaction_details || []).length === 0 ? (
                             <div className="py-16 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
                                 <div className="text-gray-400 mb-4">
-                                    <DollarSign className="h-12 w-12 mx-auto" />
+                                    <Coins className="h-12 w-12 mx-auto" />
                                 </div>
                                 <p className="text-lg font-semibold text-gray-700 mb-2">No transactions found</p>
                                 <p className="text-gray-500">No financial transactions found for the selected period</p>
                             </div>
                         ) : (
                             <Card className="bg-white border border-gray-200">
-                                <CardContent className="p-6">
+                                <CardContent className="p-4 sm:p-6">
                                     {/* Table Controls */}
-                                    <div className="flex items-center py-4">
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 py-4">
                                         <Input
                                             placeholder="Search transactions..."
                                             value={globalFilter ?? ""}
                                             onChange={(event) => setGlobalFilter(event.target.value)}
-                                            className="max-w-sm"
+                                            className="w-full sm:max-w-sm"
                                         />
                                         <Button
                                             onClick={() => handleExport('excel')}
                                             disabled={isExporting}
-                                            className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                                            className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
                                         >
                                             <Download className="h-4 w-4 mr-2" />
-                                            Export Excel
+                                            <span className="hidden sm:inline">Export Excel</span>
+                                            <span className="sm:hidden">Excel</span>
                                         </Button>
                                         <Button
                                             onClick={() => handleExport('pdf')}
                                             disabled={isExporting}
-                                            className="ml-2 bg-green-600 hover:bg-green-700 text-white"
+                                            className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
                                         >
                                             <FileDown className="h-4 w-4 mr-2" />
-                                            Export PDF
+                                            <span className="hidden sm:inline">Export PDF</span>
+                                            <span className="sm:hidden">PDF</span>
                                         </Button>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="outline" className="ml-auto">
+                                                <Button variant="outline" className="w-full sm:w-auto sm:ml-auto">
                                                     Columns <ChevronDown className="ml-2 h-4 w-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
@@ -1062,66 +1066,69 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                     </div>
 
                                     {/* Table */}
-                                    <div className="rounded-md border">
-                                        <Table>
-                                            <TableHeader>
-                                                {table.getHeaderGroups().map((headerGroup) => (
-                                                    <TableRow key={headerGroup.id}>
-                                                        {headerGroup.headers.map((header) => {
-                                                            return (
-                                                                <TableHead key={header.id}>
-                                                                    {header.isPlaceholder
-                                                                        ? null
-                                                                        : flexRender(
-                                                                            header.column.columnDef.header,
-                                                                            header.getContext()
-                                                                        )}
-                                                                </TableHead>
-                                                            )
-                                                        })}
-                                                    </TableRow>
-                                                ))}
-                                            </TableHeader>
-                                            <TableBody>
-                                                {table.getRowModel().rows?.length ? (
-                                                    table.getRowModel().rows.map((row) => (
-                                                        <TableRow
-                                                            key={row.id}
-                                                            data-state={row.getIsSelected() && "selected"}
-                                                        >
-                                                            {row.getVisibleCells().map((cell) => (
-                                                                <TableCell key={cell.id}>
-                                                                    {flexRender(
-                                                                        cell.column.columnDef.cell,
-                                                                        cell.getContext()
-                                                                    )}
-                                                                </TableCell>
-                                                            ))}
+                                    <div className="rounded-md border overflow-x-auto">
+                                        <div className="inline-block min-w-full align-middle">
+                                            <Table>
+                                                <TableHeader>
+                                                    {table.getHeaderGroups().map((headerGroup) => (
+                                                        <TableRow key={headerGroup.id}>
+                                                            {headerGroup.headers.map((header) => {
+                                                                return (
+                                                                    <TableHead key={header.id} className="whitespace-nowrap">
+                                                                        {header.isPlaceholder
+                                                                            ? null
+                                                                            : flexRender(
+                                                                                header.column.columnDef.header,
+                                                                                header.getContext()
+                                                                            )}
+                                                                    </TableHead>
+                                                                )
+                                                            })}
                                                         </TableRow>
-                                                    ))
-                                                ) : (
-                                                    <TableRow>
-                                                        <TableCell
-                                                            colSpan={columns.length}
-                                                            className="h-24 text-center"
-                                                        >
-                                                            No results.
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )}
-                                            </TableBody>
-                                        </Table>
+                                                    ))}
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {table.getRowModel().rows?.length ? (
+                                                        table.getRowModel().rows.map((row) => (
+                                                            <TableRow
+                                                                key={row.id}
+                                                                data-state={row.getIsSelected() && "selected"}
+                                                            >
+                                                                {row.getVisibleCells().map((cell) => (
+                                                                    <TableCell key={cell.id} className="whitespace-nowrap">
+                                                                        {flexRender(
+                                                                            cell.column.columnDef.cell,
+                                                                            cell.getContext()
+                                                                        )}
+                                                                    </TableCell>
+                                                                ))}
+                                                            </TableRow>
+                                                        ))
+                                                    ) : (
+                                                        <TableRow>
+                                                            <TableCell
+                                                                colSpan={columns.length}
+                                                                className="h-24 text-center"
+                                                            >
+                                                                No results.
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
                                     </div>
 
                                     {/* Pagination */}
-                                    <div className="flex items-center justify-between px-2 py-4">
-                                        <div className="text-muted-foreground flex-1 text-sm">
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 px-2 py-4">
+                                        <div className="text-muted-foreground text-sm text-center sm:text-left">
                                             {table.getFilteredSelectedRowModel().rows.length} of{" "}
                                             {table.getFilteredRowModel().rows.length} row(s) selected.
                                         </div>
-                                        <div className="flex items-center space-x-6 lg:space-x-8">
+                                        <div className="flex flex-col sm:flex-row items-center gap-4 sm:space-x-6 lg:space-x-8">
                                             <div className="flex items-center space-x-2">
-                                                <p className="text-sm font-medium">Rows per page</p>
+                                                <p className="text-sm font-medium hidden sm:inline">Rows per page</p>
+                                                <p className="text-sm font-medium sm:hidden">Per page</p>
                                                 <Select
                                                     value={`${table.getState().pagination.pageSize}`}
                                                     onValueChange={(value) => {

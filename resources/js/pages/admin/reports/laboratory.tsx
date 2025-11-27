@@ -1,20 +1,17 @@
+import { PatientInfoCard } from '@/components/patient/PatientPageLayout';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { ReportDatePicker } from '@/components/ui/report-date-picker';
-import { PatientInfoCard } from '@/components/patient/PatientPageLayout';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import Heading from '@/components/heading';
-import { BarChart3, FileDown, Filter, Search, Eye, Calendar, TestTube, Users, TrendingUp, Download, Clock, CheckCircle, AlertCircle, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
-import { useMemo, useState, useEffect } from 'react';
 import {
     ColumnDef,
     ColumnFiltersState,
@@ -27,7 +24,27 @@ import {
     useReactTable,
     VisibilityState,
 } from '@tanstack/react-table';
+import {
+    AlertCircle,
+    ArrowUpDown,
+    BarChart3,
+    CheckCircle,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
+    Clock,
+    Download,
+    FileDown,
+    FlaskConical,
+    Link as LinkIcon,
+    TestTube,
+    TrendingUp,
+    Users,
+} from 'lucide-react';
 import * as React from 'react';
+import { useEffect, useState } from 'react';
 
 type LabTest = { id: number; name: string; code: string };
 type Patient = { id: number; first_name: string; last_name: string };
@@ -53,11 +70,27 @@ type ReportData = {
     end_date: string;
 };
 
+type AnalyticsData = {
+    most_used_tests?: Array<{
+        id: number;
+        name: string;
+        code: string;
+        count: number;
+    }>;
+    most_common_combinations?: Array<{
+        test_ids: number[];
+        test_names: string[];
+        display_name: string;
+        count: number;
+    }>;
+};
+
 type LaboratoryReportsIndexProps = {
     filter: string;
     date: string;
     data: ReportData;
     availableTests: LabTest[];
+    analytics?: AnalyticsData;
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -71,33 +104,23 @@ const columns: ColumnDef<OrderDetail>[] = [
         accessorKey: 'order_id',
         header: ({ column }) => {
             return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
+                <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')} className="h-8 px-2 lg:px-3">
                     Order #
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
-            )
+            );
         },
-        cell: ({ row }) => (
-            <div className="font-medium">#{row.getValue("order_id")}</div>
-        ),
+        cell: ({ row }) => <div className="font-medium">#{row.getValue('order_id')}</div>,
     },
     {
         accessorKey: 'patient_name',
         header: ({ column }) => {
             return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
+                <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')} className="h-8 px-2 lg:px-3">
                     Patient Name
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
-            )
+            );
         },
         cell: ({ row }) => {
             const order = row.original;
@@ -113,18 +136,14 @@ const columns: ColumnDef<OrderDetail>[] = [
         accessorKey: 'tests_ordered',
         header: ({ column }) => {
             return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
+                <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')} className="h-8 px-2 lg:px-3">
                     Tests Ordered
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
-            )
+            );
         },
         cell: ({ row }) => {
-            const tests = row.getValue("tests_ordered") as string;
+            const tests = row.getValue('tests_ordered') as string;
             return (
                 <div className="max-w-xs truncate" title={tests}>
                     {tests}
@@ -136,18 +155,14 @@ const columns: ColumnDef<OrderDetail>[] = [
         accessorKey: 'status',
         header: ({ column }) => {
             return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
+                <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')} className="h-8 px-2 lg:px-3">
                     Status
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
-            )
+            );
         },
         cell: ({ row }) => {
-            const status = row.getValue("status") as string;
+            const status = row.getValue('status') as string;
             const getStatusIcon = (status: string) => {
                 switch (status.toLowerCase()) {
                     case 'completed':
@@ -184,18 +199,14 @@ const columns: ColumnDef<OrderDetail>[] = [
         accessorKey: 'ordered_at',
         header: ({ column }) => {
             return (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                    className="h-8 px-2 lg:px-3"
-                >
+                <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')} className="h-8 px-2 lg:px-3">
                     Ordered At
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
-            )
+            );
         },
         cell: ({ row }) => {
-            const date = new Date(row.getValue("ordered_at"));
+            const date = new Date(row.getValue('ordered_at'));
             return (
                 <div className="text-sm">
                     {date.toLocaleDateString('en-US', {
@@ -203,7 +214,7 @@ const columns: ColumnDef<OrderDetail>[] = [
                         month: 'short',
                         day: 'numeric',
                         hour: '2-digit',
-                        minute: '2-digit'
+                        minute: '2-digit',
                     })}
                 </div>
             );
@@ -211,14 +222,18 @@ const columns: ColumnDef<OrderDetail>[] = [
     },
     {
         accessorKey: 'ordered_by',
-        header: "Ordered By",
-        cell: ({ row }) => (
-            <div className="text-sm">{row.getValue("ordered_by")}</div>
-        ),
+        header: 'Ordered By',
+        cell: ({ row }) => <div className="text-sm">{row.getValue('ordered_by')}</div>,
     },
 ];
 
-export default function LaboratoryReportsIndex({ filter, date, data, availableTests }: LaboratoryReportsIndexProps) {
+export default function LaboratoryReportsIndex({
+    filter,
+    date,
+    data,
+    availableTests,
+    analytics = { most_used_tests: [], most_common_combinations: [] },
+}: LaboratoryReportsIndexProps) {
     const [currentFilter, setCurrentFilter] = useState(filter);
     const [currentDate, setCurrentDate] = useState(date);
     const [isLoading, setIsLoading] = useState(false);
@@ -230,7 +245,7 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
             filter,
             date,
             data,
-            orderDetailsCount: data?.order_details?.length || 0
+            orderDetailsCount: data?.order_details?.length || 0,
         });
     }, [filter, date, data]);
 
@@ -244,25 +259,33 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
     const handleFilterChange = (newFilter: string) => {
         setCurrentFilter(newFilter);
         setIsLoading(true);
-        router.get('/admin/reports/laboratory', {
-            filter: newFilter,
-            date: currentDate
-        }, {
-            preserveState: false,
-            onFinish: () => setIsLoading(false)
-        });
+        router.get(
+            '/admin/reports/laboratory',
+            {
+                filter: newFilter,
+                date: currentDate,
+            },
+            {
+                preserveState: false,
+                onFinish: () => setIsLoading(false),
+            },
+        );
     };
 
     const handleDateChange = (newDate: string) => {
         setCurrentDate(newDate);
         setIsLoading(true);
-        router.get('/admin/reports/laboratory', {
-            filter: currentFilter,
-            date: newDate
-        }, {
-            preserveState: false,
-            onFinish: () => setIsLoading(false)
-        });
+        router.get(
+            '/admin/reports/laboratory',
+            {
+                filter: currentFilter,
+                date: newDate,
+            },
+            {
+                preserveState: false,
+                onFinish: () => setIsLoading(false),
+            },
+        );
     };
 
     const handleExport = async (format: 'excel' | 'pdf') => {
@@ -271,9 +294,9 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
             const params = new URLSearchParams({
                 filter: currentFilter,
                 date: currentDate,
-                format
+                format,
             });
-            
+
             if (format === 'excel') {
                 window.location.href = `/admin/laboratory-reports/export/excel?${params}`;
             } else {
@@ -354,7 +377,7 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
             month: 'short',
             day: 'numeric',
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
         });
     };
 
@@ -362,63 +385,64 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Laboratory Reports" />
             <div className="min-h-screen bg-gray-50 p-6">
-
                 {/* Insight Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <Card className="bg-white border border-gray-200">
+                <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+                    <Card className="border border-gray-200 bg-white">
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-medium text-gray-600">Total Orders</p>
                                     <p className="text-3xl font-bold text-gray-900">{data.total_orders}</p>
-                                    <p className="text-xs mt-1 text-gray-500">All time orders</p>
+                                    <p className="mt-1 text-xs text-gray-500">All time orders</p>
                                 </div>
-                                <div className="p-3 rounded-full border">
+                                <div className="rounded-full border p-3">
                                     <TestTube className="h-6 w-6 text-gray-600" />
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="bg-white border border-gray-200">
+                    <Card className="border border-gray-200 bg-white">
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-medium text-gray-600">Completed</p>
                                     <p className="text-3xl font-bold text-gray-900">{data.completed_orders}</p>
-                                    <p className="text-xs mt-1 text-gray-500">{data.completion_rate.toFixed(1)}% completion rate</p>
+                                    <p className="mt-1 text-xs text-gray-500">{data.completion_rate.toFixed(1)}% completion rate</p>
                                 </div>
-                                <div className="p-3 rounded-full border">
+                                <div className="rounded-full border p-3">
                                     <CheckCircle className="h-6 w-6 text-gray-600" />
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="bg-white border border-gray-200">
+                    <Card className="border border-gray-200 bg-white">
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-medium text-gray-600">Pending</p>
                                     <p className="text-3xl font-bold text-gray-900">{data.pending_orders}</p>
-                                    <p className="text-xs mt-1 text-gray-500">{data.total_orders > 0 ? ((data.pending_orders / data.total_orders) * 100).toFixed(1) : 0}% of total</p>
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        {data.total_orders > 0 ? ((data.pending_orders / data.total_orders) * 100).toFixed(1) : 0}% of total
+                                    </p>
                                 </div>
-                                <div className="p-3 rounded-full border">
+                                <div className="rounded-full border p-3">
                                     <Clock className="h-6 w-6 text-gray-600" />
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="bg-white border border-gray-200">
+                    <Card className="border border-gray-200 bg-white">
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-medium text-gray-600">Test Types</p>
                                     <p className="text-3xl font-bold text-gray-900">{Object.keys(data.test_summary).length}</p>
-                                    <p className="text-xs mt-1 text-gray-500">Different test types</p>
+                                    <p className="mt-1 text-xs text-gray-500">Different test types</p>
                                 </div>
-                                <div className="p-3 rounded-full border">
+                                <div className="rounded-full border p-3">
                                     <TrendingUp className="h-6 w-6 text-gray-600" />
                                 </div>
                             </div>
@@ -426,20 +450,92 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
                     </Card>
                 </div>
 
+                {/* Analytics Cards - Most Used Tests & Combinations */}
+                <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    {/* Most Used Tests */}
+                    <Card className="border border-gray-200 bg-white">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <FlaskConical className="h-5 w-5 text-blue-600" />
+                                Most Frequently Used Tests
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {analytics?.most_used_tests && analytics.most_used_tests.length > 0 ? (
+                                <div className="space-y-3">
+                                    {analytics.most_used_tests.map((test, index) => (
+                                        <div key={test.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">
+                                                    {index + 1}
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium text-gray-900">{test.name}</p>
+                                                    <p className="text-xs text-gray-500">{test.code}</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-bold text-gray-900">{test.count}</p>
+                                                <p className="text-xs text-gray-500">times used</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="py-4 text-center text-sm text-gray-500">No test usage data available</p>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Most Common Combinations */}
+                    <Card className="border border-gray-200 bg-white">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <LinkIcon className="h-5 w-5 text-green-600" />
+                                Most Common Test Combinations
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {analytics?.most_common_combinations && analytics.most_common_combinations.length > 0 ? (
+                                <div className="space-y-3">
+                                    {analytics.most_common_combinations.map((combination, index) => (
+                                        <div key={index} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                                            <div className="flex flex-1 items-center gap-3">
+                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-sm font-bold text-green-700">
+                                                    {index + 1}
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate font-medium text-gray-900">{combination.display_name}</p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {combination.test_names.length} test{combination.test_names.length > 1 ? 's' : ''}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="ml-2 text-right">
+                                                <p className="font-bold text-gray-900">{combination.count}</p>
+                                                <p className="text-xs text-gray-500">orders</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="py-4 text-center text-sm text-gray-500">No combination data available</p>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+
                 {/* Unified Reports Interface */}
-                <PatientInfoCard
-                    title="Laboratory Reports"
-                    icon={<BarChart3 className="h-5 w-5 text-black" />}
-                >
+                <PatientInfoCard title="Laboratory Reports" icon={<BarChart3 className="h-5 w-5 text-black" />}>
                     {/* Filter Controls */}
                     <div className="mb-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                            <div className="space-y-2 w-full">
-                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">
+                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+                            <div className="w-full space-y-2">
+                                <Label className="mb-2 block text-sm font-semibold text-gray-800">
                                     Time Period {isLoading && <span className="text-blue-500">(Loading...)</span>}
                                 </Label>
                                 <select
-                                    className="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-500 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-500 focus:ring-gray-500 disabled:cursor-not-allowed disabled:opacity-50"
                                     value={currentFilter}
                                     onChange={(e) => handleFilterChange(e.target.value)}
                                     disabled={isLoading}
@@ -449,9 +545,9 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
                                     <option value="yearly">Yearly</option>
                                 </select>
                             </div>
-                            
-                            <div className="space-y-2 w-full">
-                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">
+
+                            <div className="w-full space-y-2">
+                                <Label className="mb-2 block text-sm font-semibold text-gray-800">
                                     Select Date {isLoading && <span className="text-blue-500">(Loading...)</span>}
                                 </Label>
                                 <ReportDatePicker
@@ -462,7 +558,7 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
                                             const year = date.getFullYear();
                                             const month = String(date.getMonth() + 1).padStart(2, '0');
                                             const day = String(date.getDate()).padStart(2, '0');
-                                            
+
                                             let formattedDate: string;
                                             if (currentFilter === 'monthly') {
                                                 formattedDate = `${year}-${month}`;
@@ -471,7 +567,7 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
                                             } else {
                                                 formattedDate = `${year}-${month}-${day}`;
                                             }
-                                            
+
                                             handleDateChange(formattedDate);
                                         } else {
                                             handleDateChange('');
@@ -483,17 +579,17 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
                             </div>
 
                             <div className="w-full">
-                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">Period</Label>
-                                <div className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm flex items-center">
+                                <Label className="mb-2 block text-sm font-semibold text-gray-800">Period</Label>
+                                <div className="flex h-12 w-full items-center rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
                                     {data.period}
                                 </div>
                             </div>
 
-                            <div className="w-full flex items-end">
+                            <div className="flex w-full items-end">
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button 
-                                            className="bg-gray-600 hover:bg-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl w-full h-12"
+                                        <Button
+                                            className="h-12 w-full rounded-xl bg-gray-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:bg-gray-700 hover:shadow-xl"
                                             disabled={isLoading}
                                         >
                                             <Download className="mr-2 h-4 w-4" />
@@ -519,40 +615,40 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
 
                     {/* Summary Table */}
                     <div className="mb-8">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Report Summary</h3>
-                        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                        <h3 className="mb-4 text-lg font-semibold text-gray-900">Report Summary</h3>
+                        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
                             <table className="w-full">
                                 <thead className="bg-gray-50">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metric</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">Metric</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">Value</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">Percentage</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody className="divide-y divide-gray-200 bg-white">
                                     <tr>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Orders</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.total_orders}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
+                                        <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">Total Orders</td>
+                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">{data.total_orders}</td>
+                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">100%</td>
                                     </tr>
                                     <tr>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Pending Orders</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.pending_orders}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">Pending Orders</td>
+                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">{data.pending_orders}</td>
+                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
                                             {data.total_orders > 0 ? ((data.pending_orders / data.total_orders) * 100).toFixed(1) : 0}%
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Completed Orders</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.completed_orders}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">Completed Orders</td>
+                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">{data.completed_orders}</td>
+                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
                                             {data.total_orders > 0 ? ((data.completed_orders / data.total_orders) * 100).toFixed(1) : 0}%
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Completion Rate</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.completion_rate}%</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
+                                        <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">Completion Rate</td>
+                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">{data.completion_rate}%</td>
+                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">-</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -562,26 +658,36 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
                     {/* Test Summary Table */}
                     {Object.keys(data.test_summary).length > 0 && (
                         <div className="mb-8">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Test Summary</h3>
-                            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                            <h3 className="mb-4 text-lg font-semibold text-gray-900">Test Summary</h3>
+                            <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
                                 <table className="w-full">
                                     <thead className="bg-gray-50">
                                         <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Test Type</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                                                Test Type
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">Count</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                                                Percentage
+                                            </th>
                                         </tr>
                                     </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {Object.entries(data.test_summary).map(([testType, count]) => (
-                                            <tr key={testType}>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{testType}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{count}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {data.total_orders > 0 ? ((count / data.total_orders) * 100).toFixed(1) : 0}%
-                                                </td>
-                                            </tr>
-                                        ))}
+                                    <tbody className="divide-y divide-gray-200 bg-white">
+                                        {Object.entries(data.test_summary).map(([testType, count]) => {
+                                            // CRITICAL: Calculate percentage based on total_tests, not total_orders
+                                            // This ensures percentages don't exceed 100%
+                                            const totalTests = data.total_tests || 0;
+                                            const percentage = totalTests > 0 ? ((count as number / totalTests) * 100) : 0;
+                                            return (
+                                                <tr key={testType}>
+                                                    <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">{testType}</td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">{count}</td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
+                                                        {percentage.toFixed(1)}%
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
@@ -590,9 +696,9 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
 
                     {/* Order Details Table */}
                     <div className="mb-6">
-                        <div className="flex items-center justify-between mb-6">
+                        <div className="mb-6 flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-gray-100 rounded-lg">
+                                <div className="rounded-lg bg-gray-100 p-2">
                                     <TrendingUp className="h-5 w-5 text-gray-600" />
                                 </div>
                                 <h3 className="text-lg font-semibold text-gray-900">Order Details</h3>
@@ -606,44 +712,41 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
                         </div>
 
                         {data.order_details.length === 0 ? (
-                            <div className="py-16 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-                                <div className="text-gray-400 mb-4">
-                                    <BarChart3 className="h-12 w-12 mx-auto" />
+                            <div className="rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 py-16 text-center">
+                                <div className="mb-4 text-gray-400">
+                                    <BarChart3 className="mx-auto h-12 w-12" />
                                 </div>
-                                <p className="text-lg font-semibold text-gray-700 mb-2">No orders found</p>
+                                <p className="mb-2 text-lg font-semibold text-gray-700">No orders found</p>
                                 <p className="text-gray-500">No laboratory orders found for the selected period</p>
                             </div>
                         ) : (
-                            <Card className="bg-white border border-gray-200">
+                            <Card className="border border-gray-200 bg-white">
                                 <CardContent className="p-6">
                                     {/* Table Controls */}
-                                    <div className="flex items-center py-4">
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 py-4">
                                         <Input
                                             placeholder="Search orders..."
-                                            value={globalFilter ?? ""}
+                                            value={globalFilter ?? ''}
                                             onChange={(event) => setGlobalFilter(event.target.value)}
-                                            className="max-w-sm"
+                                            className="w-full sm:max-w-sm"
                                         />
                                         <Button
                                             onClick={() => handleExport('excel')}
                                             disabled={isExporting}
-                                            className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                                            className="bg-green-600 text-white hover:bg-green-700 w-full sm:w-auto"
                                         >
-                                            <Download className="h-4 w-4 mr-2" />
-                                            Export Excel
+                                            <Download className="mr-2 h-4 w-4" />
+                                            <span className="hidden sm:inline">Export Excel</span>
+                                            <span className="sm:hidden">Excel</span>
                                         </Button>
-                                        <Button
-                                            onClick={() => handleExport('pdf')}
-                                            disabled={isExporting}
-                                            variant="outline"
-                                            className="ml-2"
-                                        >
-                                            <FileDown className="h-4 w-4 mr-2" />
-                                            Export PDF
+                                        <Button onClick={() => handleExport('pdf')} disabled={isExporting} variant="outline" className="w-full sm:w-auto">
+                                            <FileDown className="mr-2 h-4 w-4" />
+                                            <span className="hidden sm:inline">Export PDF</span>
+                                            <span className="sm:hidden">PDF</span>
                                         </Button>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="outline" className="ml-auto">
+                                                <Button variant="outline" className="w-full sm:w-auto sm:ml-auto">
                                                     Columns <ChevronDown className="ml-2 h-4 w-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
@@ -666,77 +769,68 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
                                                             >
                                                                 {column.id}
                                                             </DropdownMenuCheckboxItem>
-                                                        )
+                                                        );
                                                     })}
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </div>
-                                            
+
                                     {/* Table */}
-                                    <div className="rounded-md border">
-                                        <Table>
-                                            <TableHeader>
-                                                {table.getHeaderGroups().map((headerGroup) => (
-                                                    <TableRow key={headerGroup.id}>
-                                                        {headerGroup.headers.map((header) => {
-                                                            return (
-                                                                <TableHead key={header.id}>
-                                                                    {header.isPlaceholder
-                                                                        ? null
-                                                                        : flexRender(
-                                                                            header.column.columnDef.header,
-                                                                            header.getContext()
-                                                                        )}
-                                                                </TableHead>
-                                                            )
-                                                        })}
-                                                    </TableRow>
-                                                ))}
-                                            </TableHeader>
-                                            <TableBody>
-                                                {table.getRowModel().rows?.length ? (
-                                                    table.getRowModel().rows.map((row) => (
-                                                        <TableRow
-                                                            key={row.id}
-                                                            data-state={row.getIsSelected() && "selected"}
-                                                        >
-                                                            {row.getVisibleCells().map((cell) => (
-                                                                <TableCell key={cell.id}>
-                                                                    {flexRender(
-                                                                        cell.column.columnDef.cell,
-                                                                        cell.getContext()
-                                                                    )}
-                                                                </TableCell>
-                                                            ))}
+                                    <div className="rounded-md border overflow-x-auto">
+                                        <div className="inline-block min-w-full align-middle">
+                                            <Table>
+                                                <TableHeader>
+                                                    {table.getHeaderGroups().map((headerGroup) => (
+                                                        <TableRow key={headerGroup.id}>
+                                                            {headerGroup.headers.map((header) => {
+                                                                return (
+                                                                    <TableHead key={header.id} className="whitespace-nowrap">
+                                                                        {header.isPlaceholder
+                                                                            ? null
+                                                                            : flexRender(header.column.columnDef.header, header.getContext())}
+                                                                    </TableHead>
+                                                                );
+                                                            })}
                                                         </TableRow>
-                                                    ))
-                                                ) : (
-                                                    <TableRow>
-                                                        <TableCell
-                                                            colSpan={columns.length}
-                                                            className="h-24 text-center"
-                                                        >
-                                                            No results.
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                    
-                                    {/* Pagination */}
-                                    <div className="flex items-center justify-between px-2 py-4">
-                                        <div className="text-muted-foreground flex-1 text-sm">
-                                            {table.getFilteredSelectedRowModel().rows.length} of{" "}
-                                            {table.getFilteredRowModel().rows.length} row(s) selected.
+                                                    ))}
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {table.getRowModel().rows?.length ? (
+                                                        table.getRowModel().rows.map((row) => (
+                                                            <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
+                                                                {row.getVisibleCells().map((cell) => (
+                                                                    <TableCell key={cell.id} className="whitespace-nowrap">
+                                                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                                    </TableCell>
+                                                                ))}
+                                                            </TableRow>
+                                                        ))
+                                                    ) : (
+                                                        <TableRow>
+                                                            <TableCell colSpan={columns.length} className="h-24 text-center">
+                                                                No results.
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )}
+                                                </TableBody>
+                                            </Table>
                                         </div>
-                                        <div className="flex items-center space-x-6 lg:space-x-8">
+                                    </div>
+
+                                    {/* Pagination */}
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 px-2 py-4">
+                                        <div className="text-muted-foreground text-sm text-center sm:text-left">
+                                            {table.getFilteredSelectedRowModel().rows.length} of {table.getFilteredRowModel().rows.length} row(s)
+                                            selected.
+                                        </div>
+                                        <div className="flex flex-col sm:flex-row items-center gap-4 sm:space-x-6 lg:space-x-8">
                                             <div className="flex items-center space-x-2">
-                                                <p className="text-sm font-medium">Rows per page</p>
+                                                <p className="text-sm font-medium hidden sm:inline">Rows per page</p>
+                                                <p className="text-sm font-medium sm:hidden">Per page</p>
                                                 <Select
                                                     value={`${table.getState().pagination.pageSize}`}
                                                     onValueChange={(value) => {
-                                                        table.setPageSize(Number(value))
+                                                        table.setPageSize(Number(value));
                                                     }}
                                                 >
                                                     <SelectTrigger className="h-8 w-[70px]">
@@ -752,8 +846,7 @@ export default function LaboratoryReportsIndex({ filter, date, data, availableTe
                                                 </Select>
                                             </div>
                                             <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-                                                Page {table.getState().pagination.pageIndex + 1} of{" "}
-                                                {table.getPageCount()}
+                                                Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
                                             </div>
                                             <div className="flex items-center space-x-2">
                                                 <Button

@@ -3,6 +3,7 @@ import { type BreadcrumbItem } from '@/types';
 import { usePage } from '@inertiajs/react';
 import * as React from 'react';
 import { type ReactNode } from 'react';
+import { Toaster } from '@/components/ui/sonner';
 
 interface AppLayoutProps {
     children: ReactNode;
@@ -15,6 +16,7 @@ export default ({ children, breadcrumbs, ...props }: AppLayoutProps) => {
         <AppLayoutTemplate breadcrumbs={breadcrumbs} {...props}>
             {children}
             <FlashMessages flash={flash} />
+            <Toaster />
         </AppLayoutTemplate>
     );
 };

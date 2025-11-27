@@ -5,14 +5,19 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 class InventoryUsedRejectedItem extends Model
 {
     use HasFactory;
 
+    public $incrementing = false;
+    protected $keyType = 'int';
+
     protected $table = 'inventory_used_rejected_items';
 
     protected $fillable = [
+        'id',
         'inventory_item_id',
         'type',
         'quantity',
@@ -111,18 +116,25 @@ class InventoryUsedRejectedItem extends Model
      */
     public static function createUsedItem($inventoryItemId, $quantity, $usedBy, $userId, $date, $reason = null, $location = null, $remarks = null, $referenceNumber = null)
     {
-        return self::create([
-            'inventory_item_id' => $inventoryItemId,
-            'type' => 'used',
-            'quantity' => $quantity,
-            'reason' => $reason,
-            'location' => $location,
-            'used_by' => $usedBy,
-            'user_id' => $userId,
-            'date_used_rejected' => $date,
-            'remarks' => $remarks,
-            'reference_number' => $referenceNumber,
-        ]);
+        // Get next ID
+        $nextId = DB::table('inventory_used_rejected_items')->max('id') ?? 0;
+        $nextId = $nextId + 1;
+        
+        return DB::transaction(function() use ($inventoryItemId, $quantity, $usedBy, $userId, $date, $reason, $location, $remarks, $referenceNumber, $nextId) {
+            return self::create([
+                'id' => $nextId,
+                'inventory_item_id' => $inventoryItemId,
+                'type' => 'used',
+                'quantity' => $quantity,
+                'reason' => $reason,
+                'location' => $location,
+                'used_by' => $usedBy,
+                'user_id' => $userId,
+                'date_used_rejected' => $date,
+                'remarks' => $remarks,
+                'reference_number' => $referenceNumber,
+            ]);
+        });
     }
 
     /**
@@ -130,17 +142,24 @@ class InventoryUsedRejectedItem extends Model
      */
     public static function createRejectedItem($inventoryItemId, $quantity, $usedBy, $userId, $date, $reason = null, $location = null, $remarks = null, $referenceNumber = null)
     {
-        return self::create([
-            'inventory_item_id' => $inventoryItemId,
-            'type' => 'rejected',
-            'quantity' => $quantity,
-            'reason' => $reason,
-            'location' => $location,
-            'used_by' => $usedBy,
-            'user_id' => $userId,
-            'date_used_rejected' => $date,
-            'remarks' => $remarks,
-            'reference_number' => $referenceNumber,
-        ]);
+        // Get next ID
+        $nextId = DB::table('inventory_used_rejected_items')->max('id') ?? 0;
+        $nextId = $nextId + 1;
+        
+        return DB::transaction(function() use ($inventoryItemId, $quantity, $usedBy, $userId, $date, $reason, $location, $remarks, $referenceNumber, $nextId) {
+            return self::create([
+                'id' => $nextId,
+                'inventory_item_id' => $inventoryItemId,
+                'type' => 'rejected',
+                'quantity' => $quantity,
+                'reason' => $reason,
+                'location' => $location,
+                'used_by' => $usedBy,
+                'user_id' => $userId,
+                'date_used_rejected' => $date,
+                'remarks' => $remarks,
+                'reference_number' => $referenceNumber,
+            ]);
+        });
     }
 }

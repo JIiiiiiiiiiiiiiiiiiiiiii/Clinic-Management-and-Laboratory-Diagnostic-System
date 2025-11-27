@@ -22,11 +22,19 @@ return new class extends Migration
         // If there are invalid appointments, we need to handle them
         if ($invalidAppointments->count() > 0) {
             // For now, let's just remove the foreign key constraint and make the fields nullable
-            Schema::table('appointments', function (Blueprint $table) {
-                // Drop the foreign key constraint if it exists
-                $table->dropForeign(['specialist_id_fk']);
-                $table->dropForeign(['patient_id_fk']);
-            });
+            try {
+                Schema::table('appointments', function (Blueprint $table) {
+                    // Drop the foreign key constraints if they exist; guard by column existence
+                    if (Schema::hasColumn('appointments', 'specialist_id_fk')) {
+                        try { $table->dropForeign(['specialist_id_fk']); } catch (\Throwable $e) {}
+                    }
+                    if (Schema::hasColumn('appointments', 'patient_id_fk')) {
+                        try { $table->dropForeign(['patient_id_fk']); } catch (\Throwable $e) {}
+                    }
+                });
+            } catch (\Throwable $e) {
+                // Ignore if table/constraints not present in this environment
+            }
         }
 
         // Now let's add the fields without foreign key constraints first

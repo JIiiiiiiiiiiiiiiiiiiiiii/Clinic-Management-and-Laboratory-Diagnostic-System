@@ -166,6 +166,15 @@ class RealtimeAppointmentController extends Controller
     {
         $user = auth()->user();
         
+        // Check if user is authenticated
+        if (!$user) {
+            return response()->json([
+                'notifications' => [],
+                'unread_count' => 0,
+                'timestamp' => now()->toISOString()
+            ], 401);
+        }
+        
         $notifications = Notification::where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->limit(20)
@@ -188,6 +197,8 @@ class RealtimeAppointmentController extends Controller
                     'read' => $notification->read,
                     'created_at' => $notification->created_at->toISOString(),
                     'data' => $notification->data, // This should be properly parsed by the model cast
+                    'related_id' => $notification->related_id, // Include related_id for fallback
+                    'related_type' => $notification->related_type, // Include related_type for reference
                 ];
             });
 

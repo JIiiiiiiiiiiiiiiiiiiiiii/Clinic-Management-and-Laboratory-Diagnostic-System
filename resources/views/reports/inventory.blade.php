@@ -101,6 +101,12 @@
             background: #fee2e2;
             color: #991b1b;
         }
+        .date-range {
+            color: #666;
+            margin: 10px 0 0 0;
+            font-size: 14px;
+            font-weight: normal;
+        }
         .footer {
             margin-top: 40px;
             text-align: center;
@@ -133,14 +139,20 @@
         </div>
         <h1>Inventory Report</h1>
         <h2>{{ $title ?? 'Inventory Statistics and Details' }}</h2>
+        <div class="date-range">
+            @if(isset($filters) && (isset($filters['date_from']) || isset($filters['date_to'])))
+                Date Range: From {{ $filters['date_from'] ?? 'N/A' }} To {{ $filters['date_to'] ?? 'N/A' }}
+            @elseif(isset($dateRange))
+                Date Range: {{ $dateRange }}
+            @elseif(isset($data['period']))
+                Period: {{ $data['period'] }}
+            @else
+                Date Range: All Time
+            @endif
+        </div>
         @if(isset($filters['report_type']))
             <h3 style="color: #666; margin: 10px 0 0 0; font-size: 14px; font-weight: normal;">
                 Report Type: {{ ucwords(str_replace('_', ' ', $filters['report_type'])) }}
-            </h3>
-        @endif
-        @if(isset($data['period']))
-            <h3 style="color: #666; margin: 5px 0 0 0; font-size: 14px; font-weight: normal;">
-                Period: {{ $data['period'] }}
             </h3>
         @endif
     </div>

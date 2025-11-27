@@ -7,8 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router } from '@inertiajs/react';
-import BillingTransactionModal from '@/components/modals/billing-transaction-modal';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { toast } from 'sonner';
 import TransactionViewModal from '@/components/modals/transaction-view-modal';
 import TransactionEditModal from '@/components/modals/transaction-edit-modal';
 import { 
@@ -18,12 +18,11 @@ import {
     Download, 
     Eye, 
     FileText, 
-    Plus, 
     Search, 
     XCircle, 
     CreditCard,
     Receipt,
-    DollarSign,
+    Coins,
     Filter,
     Edit,
     ArrowUpDown,
@@ -131,6 +130,19 @@ export default function BillingTransactions({
     hmoProviders,
     filters
 }: BillingTransactionsProps) {
+    // Get flash messages from Inertia
+    const { flash } = usePage().props as any;
+    
+    // Show toast notifications for flash messages
+    React.useEffect(() => {
+        if (flash?.success) {
+            toast.success(flash.success);
+        }
+        if (flash?.error) {
+            toast.error(flash.error);
+        }
+    }, [flash]);
+    
     // Column definitions for the transactions table
     const createTransactionColumns = (handleViewTransaction: (id: number) => void, handleEditTransaction: (id: number) => void): ColumnDef<BillingTransaction>[] => [
     {
@@ -167,11 +179,20 @@ export default function BillingTransactions({
         },
         cell: ({ row }) => {
             const patient = row.getValue("patient") as any;
-            return (
-                <div className="font-medium">
-                    {patient ? `${patient.last_name}, ${patient.first_name}` : 'Loading...'}
-                </div>
-            );
+            if (patient && patient.first_name && patient.last_name) {
+                return (
+                    <div className="font-medium">
+                        {`${patient.last_name}, ${patient.first_name}`}
+                    </div>
+                );
+            }
+            // Try to get patient from transaction data if not in patient object
+            const transaction = row.original as any;
+            if (transaction.patient_id) {
+                // Return empty or try to find in patients list if available
+                return <div className="font-medium text-gray-400">-</div>;
+            }
+            return <div className="font-medium text-gray-400">-</div>;
         },
     },
     {
@@ -179,7 +200,9 @@ export default function BillingTransactions({
         header: "Specialist",
         cell: ({ row }) => {
             const doctor = row.getValue("doctor") as any;
-            return <div>{doctor ? doctor.name : '—'}</div>;
+            // Display doctor name, or default to "Paul Henry N. Parrotina, MD." if missing
+            const displayName = doctor?.name || 'Paul Henry N. Parrotina, MD.';
+            return <div>{displayName}</div>;
         },
     },
     {
@@ -241,11 +264,21 @@ export default function BillingTransactions({
                 </Button>
             )
         },
-        cell: ({ row }) => (
-            <div className="text-sm">
-                {new Date(row.getValue("transaction_date")).toLocaleDateString()}
-            </div>
-        ),
+        cell: ({ row }) => {
+            const dateValue = row.getValue("transaction_date");
+            if (!dateValue) {
+                return <div className="text-sm text-gray-400">N/A</div>;
+            }
+            try {
+                const date = new Date(dateValue);
+                if (isNaN(date.getTime())) {
+                    return <div className="text-sm text-gray-400">Invalid Date</div>;
+                }
+                return <div className="text-sm">{date.toLocaleDateString()}</div>;
+            } catch (error) {
+                return <div className="text-sm text-gray-400">Invalid Date</div>;
+            }
+        },
     },
     {
         id: "actions",
@@ -287,7 +320,6 @@ export default function BillingTransactions({
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
     
     // Modal state
-    const [modalOpen, setModalOpen] = useState(false);
     const [viewModalOpen, setViewModalOpen] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [selectedTransactionId, setSelectedTransactionId] = useState<number | null>(null);
@@ -313,6 +345,21 @@ export default function BillingTransactions({
 
     // Ensure we have data to work with
     const transactionsData = transactions?.data || [];
+    
+    // Debug: Log transactions data
+    useEffect(() => {
+        console.log('Transactions data received:', {
+            total: transactions?.total || 0,
+            count: transactionsData.length,
+            firstTransaction: transactionsData[0] || null,
+            allTransactionIds: transactionsData.map((t: BillingTransaction) => t.id),
+            allStatuses: transactionsData.map((t: BillingTransaction) => t.status),
+        });
+        if (transactionsData.length > 0) {
+            console.log('First transaction data:', transactionsData[0]);
+            console.log('Doctor in first transaction:', transactionsData[0]?.doctor);
+        }
+    }, [transactions, transactionsData]);
     
     // View modal handlers
     const handleViewTransaction = (transactionId: number) => {
@@ -394,14 +441,6 @@ export default function BillingTransactions({
     };
 
     // Modal handlers
-    const handleCreateTransaction = () => {
-        setModalOpen(true);
-    };
-
-    const handleModalClose = () => {
-        setModalOpen(false);
-    };
-
     const handleModalSuccess = () => {
         // Refresh the transactions data
         router.reload({ only: ['transactions'] });
@@ -479,7 +518,7 @@ export default function BillingTransactions({
                                         <p className="text-sm text-gray-500">From paid transactions</p>
                                     </div>
                                     <div className="p-3 bg-green-100 rounded-full">
-                                        <DollarSign className="h-6 w-6 text-green-600" />
+                                        <Coins className="h-6 w-6 text-green-600" />
                                     </div>
                                 </div>
                             </CardContent>
@@ -534,13 +573,6 @@ export default function BillingTransactions({
                                             </option>
                                         ))}
                                     </select>
-                                    <Button
-                                        onClick={handleCreateTransaction}
-                                        className="bg-green-600 hover:bg-green-700 text-white"
-                                    >
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        New Transaction
-                                    </Button>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <Button variant="outline">
@@ -721,17 +753,6 @@ export default function BillingTransactions({
                 </div>
             </div>
             
-            {/* Billing Transaction Modal */}
-            <BillingTransactionModal
-                isOpen={modalOpen}
-                onClose={handleModalClose}
-                onSuccess={handleModalSuccess}
-                patients={patients}
-                doctors={doctors}
-                labTests={labTests}
-                hmoProviders={hmoProviders}
-            />
-
             {/* Transaction View Modal */}
             <TransactionViewModal
                 isOpen={viewModalOpen}

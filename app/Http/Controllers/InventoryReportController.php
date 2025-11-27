@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\InventoryReportService;
+use App\Services\SupplyAnalyticsService;
 use App\Models\InventoryReport;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -23,28 +24,28 @@ class InventoryReportController extends Controller
             $filter = $request->get('filter', 'daily');
             $date = $request->get('date', now()->format('Y-m-d'));
             $reportType = $request->get('report_type', 'all');
-            
+
             \Log::info('InventoryReportController - Index Request', [
                 'filter' => $filter,
                 'date' => $date,
                 'report_type' => $reportType
             ]);
-            
+
             // Get paginated inventory items for the table
             $startDate = $this->getStartDate($filter, $date);
             $endDate = $this->getEndDate($filter, $date);
-            
+
             $data = $this->getInventoryReportData($filter, $date, $reportType);
-            
+
             \Log::info('InventoryReportController - Data Retrieved', [
                 'total_products' => $data['total_products'] ?? 0,
                 'supply_details_count' => count($data['supply_details'] ?? []),
                 'period' => $data['period'] ?? 'Unknown'
             ]);
-            
+
             // Get paginated inventory items
             $query = \App\Models\InventoryItem::query();
-            
+
             // Apply date range filter based on report type
             if ($reportType === 'used_rejected' || $reportType === 'in_out') {
                 // For transaction-based reports, we need to get items that have movements in the date range
@@ -55,7 +56,7 @@ class InventoryReportController extends Controller
                 // For all items report, filter by created_at
                 $query->whereBetween('created_at', [$startDate, $endDate]);
             }
-            
+
             if ($request->filled('category')) {
                 $query->where('category', $request->category);
             }
@@ -107,6 +108,10 @@ class InventoryReportController extends Controller
                 })->count(),
             ];
 
+            // Get analytics data for the selected period
+            $analyticsService = new SupplyAnalyticsService();
+            $analytics = $analyticsService->getAnalyticsSummary(5, 5, $startDate, $endDate);
+
             return Inertia::render('admin/reports/inventory', [
                 'filter' => $filter,
                 'date' => $date,
@@ -114,6 +119,7 @@ class InventoryReportController extends Controller
                 'data' => $data,
                 'supplies' => $supplies,
                 'summary' => $summary,
+                'analytics' => $analytics,
                 'filterOptions' => $this->getFilterOptions(),
                 'metadata' => $this->getReportMetadata(),
             ]);
@@ -139,6 +145,10 @@ class InventoryReportController extends Controller
                     'low_stock_items' => 0,
                     'out_of_stock' => 0,
                 ],
+                'analytics' => [
+                    'most_used_supplies' => [],
+                    'least_used_supplies' => [],
+                ],
                 'filterOptions' => [],
                 'metadata' => [
                     'generated_at' => now()->format('Y-m-d H:i:s'),
@@ -150,7 +160,7 @@ class InventoryReportController extends Controller
             ]);
         }
     }
-    
+
     // Helper methods from ReportsController
     private function getStartDate($filter, $date)
     {
@@ -164,7 +174,7 @@ class InventoryReportController extends Controller
                 return $dateObj->copy()->startOfDay();
         }
     }
-    
+
     private function getEndDate($filter, $date)
     {
         $dateObj = Carbon::parse($date);
@@ -177,29 +187,29 @@ class InventoryReportController extends Controller
                 return $dateObj->copy()->endOfDay();
         }
     }
-    
+
     private function getInventoryReportData($filter, $date, $reportType)
     {
         $startDate = $this->getStartDate($filter, $date);
         $endDate = $this->getEndDate($filter, $date);
-        
+
         // Handle different report types
         if ($reportType === 'in_out') {
             return $this->getInOutReportData($startDate, $endDate, $filter, $date);
         }
-        
+
         if ($reportType === 'used_rejected') {
             return $this->getUsedRejectedReportData($startDate, $endDate, $filter, $date);
         }
-        
+
         // Get inventory items for the period
         $items = \App\Models\InventoryItem::whereBetween('created_at', [$startDate, $endDate])->get();
-        
+
         // If no items found in the date range, get all items
         if ($items->isEmpty()) {
             $items = \App\Models\InventoryItem::all();
         }
-        
+
         // Calculate statistics
         $totalProducts = $items->count();
         $lowStockItems = $items->filter(function($item) {
@@ -208,7 +218,7 @@ class InventoryReportController extends Controller
         $outOfStock = $items->filter(function($item) {
             return $item->stock <= 0;
         })->count();
-        
+
         // Calculate category summary
         $categorySummary = $items->groupBy('category')
             ->map(function ($categoryItems) {
@@ -222,7 +232,7 @@ class InventoryReportController extends Controller
                     })->count(),
                 ];
             })->toArray();
-        
+
         // Get item details - transform to match frontend expectations
         $itemDetails = $items->map(function ($item) {
             return [
@@ -252,7 +262,7 @@ class InventoryReportController extends Controller
             'end_date' => $endDate->format('Y-m-d')
         ];
     }
-    
+
     private function getInOutReportData($startDate, $endDate, $filter, $date)
     {
         try {
@@ -266,29 +276,29 @@ class InventoryReportController extends Controller
                 'timezone' => $startDate->timezone->getName(),
                 'current_time' => now()->format('Y-m-d H:i:s')
             ]);
-            
+
             // Get incoming and outgoing movements from InventoryMovement model with date filtering
             $incomingMovements = \App\Models\InventoryMovement::where('movement_type', 'IN')
                 ->whereBetween('created_at', [$startDate, $endDate])
                 ->with('inventoryItem')
                 ->orderBy('created_at', 'desc')
                 ->get();
-                
+
             $outgoingMovements = \App\Models\InventoryMovement::where('movement_type', 'OUT')
                 ->whereBetween('created_at', [$startDate, $endDate])
                 ->with('inventoryItem')
                 ->orderBy('created_at', 'desc')
                 ->get();
-            
+
             // Get all movements for debugging (with date filtering)
             $allMovements = \App\Models\InventoryMovement::whereBetween('created_at', [$startDate, $endDate])
                 ->with('inventoryItem')
                 ->orderBy('created_at', 'desc')
                 ->get();
-            
+
             // Get all movements for comparison (without date filter)
             $allMovementsAllTime = \App\Models\InventoryMovement::with('inventoryItem')->orderBy('created_at', 'desc')->get();
-            
+
             \Log::info('InventoryReportController - In/Out Movement Query Results', [
                 'incoming_movements_count' => $incomingMovements->count(),
                 'outgoing_movements_count' => $outgoingMovements->count(),
@@ -314,16 +324,16 @@ class InventoryReportController extends Controller
                     ];
                 })->toArray()
             ]);
-            
+
             // Calculate statistics from the already filtered movements
             $totalMovements = $allMovements->count();
             $incomingCount = $incomingMovements->count();
             $outgoingCount = $outgoingMovements->count();
-            
+
             // Return individual movements instead of grouped data
             $movementDetails = $allMovements->map(function ($movement) {
                 $item = $movement->inventoryItem;
-                
+
                 $mappedData = [
                     'id' => $movement->id,
                     'name' => $item ? $item->item_name : 'Unknown Item',
@@ -336,7 +346,7 @@ class InventoryReportController extends Controller
                     'created_at' => $movement->created_at->format('Y-m-d H:i:s'),
                     'item_id' => $movement->inventory_id,
                 ];
-                
+
                 // Debug log for first few items
                 if ($movement->id <= 3) {
                     \Log::info('InventoryReportController - Movement mapping debug', [
@@ -349,17 +359,17 @@ class InventoryReportController extends Controller
                         'mapped_data' => $mappedData
                     ]);
                 }
-                
+
                 return $mappedData;
             })->values();
-            
+
             // Also create grouped summary for category summary
             $productSummary = $allMovements->groupBy('inventory_id')
                 ->map(function ($movements) {
                     $item = $movements->first()->inventoryItem;
                     $incoming = $movements->where('movement_type', 'IN');
                     $outgoing = $movements->where('movement_type', 'OUT');
-                    
+
                     return [
                         'id' => $item->id,
                         'name' => $item->item_name,
@@ -373,7 +383,7 @@ class InventoryReportController extends Controller
                         'last_movement_date' => $movements->max('created_at'),
                     ];
                 })->values();
-            
+
             // Category summary
             $categorySummary = $productSummary->groupBy('category')
                 ->map(function ($products) {
@@ -427,7 +437,7 @@ class InventoryReportController extends Controller
             ];
         }
     }
-    
+
     private function getUsedRejectedReportData($startDate, $endDate, $filter, $date)
     {
         try {
@@ -437,12 +447,12 @@ class InventoryReportController extends Controller
                 'filter' => $filter,
                 'date' => $date
             ]);
-            
+
             // Get used and rejected items from the new dedicated table
             $usedMovements = \App\Models\InventoryUsedRejectedItem::getUsedItems($startDate->format('Y-m-d'), $endDate->format('Y-m-d'));
             $rejectedMovements = \App\Models\InventoryUsedRejectedItem::getRejectedItems($startDate->format('Y-m-d'), $endDate->format('Y-m-d'));
             $allMovements = \App\Models\InventoryUsedRejectedItem::getAllUsedRejectedItems($startDate->format('Y-m-d'), $endDate->format('Y-m-d'));
-            
+
             \Log::info('InventoryReportController - Used/Rejected Movement Query Results', [
                 'used_movements_count' => $usedMovements->count(),
                 'rejected_movements_count' => $rejectedMovements->count(),
@@ -460,16 +470,16 @@ class InventoryReportController extends Controller
                     ];
                 })->toArray()
             ]);
-            
+
             // Calculate statistics from the already filtered movements
             $totalMovements = $allMovements->count();
             $usedCount = $usedMovements->count();
             $rejectedCount = $rejectedMovements->count();
-            
+
             // Return individual movements instead of grouped data
             $movementDetails = $allMovements->map(function ($item) {
                 $inventoryItem = $item->inventoryItem;
-                
+
                 $mappedData = [
                     'id' => $item->id,
                     'name' => $inventoryItem ? $inventoryItem->item_name : 'Unknown Item',
@@ -487,23 +497,23 @@ class InventoryReportController extends Controller
                     'reason' => $item->reason,
                     'location' => $item->location,
                 ];
-                
+
                 return $mappedData;
             })->values();
-            
+
             // Create category summary for used/rejected
             $categorySummary = $allMovements->groupBy('inventoryItem.category')
                 ->map(function ($items) {
                     $used = $items->where('type', 'used');
                     $rejected = $items->where('type', 'rejected');
-                    
+
                     return [
                         'count' => $items->count(),
                         'used_quantity' => $used->sum('quantity'),
                         'rejected_quantity' => $rejected->sum('quantity'),
                     ];
                 })->toArray();
-            
+
             return [
                 'total_products' => $allMovements->groupBy('inventory_item_id')->count(),
                 'low_stock_items' => 0, // Not applicable for used/rejected
@@ -536,7 +546,7 @@ class InventoryReportController extends Controller
             ];
         }
     }
-    
+
     private function getPeriodLabel($filter, $date)
     {
         $dateObj = Carbon::parse($date);
@@ -549,12 +559,12 @@ class InventoryReportController extends Controller
                 return 'Daily Report - ' . $dateObj->format('M d, Y');
         }
     }
-    
+
     private function getFilterOptions()
     {
         return [];
     }
-    
+
     private function getReportMetadata()
     {
         $user = auth()->user();
@@ -570,7 +580,7 @@ class InventoryReportController extends Controller
     {
         $filters = $request->only(['period', 'start_date', 'end_date', 'department']);
         $data = $this->reportService->generateUsedRejectedReport($filters);
-        
+
         // Save report if requested
         if ($request->has('save_report')) {
             $report = $this->reportService->saveReport('used_rejected', $data, $filters, auth()->id());
@@ -588,7 +598,7 @@ class InventoryReportController extends Controller
         try {
             $filters = $request->only(['period', 'start_date', 'end_date', 'department']);
             $data = $this->reportService->generateInOutSuppliesReport($filters);
-            
+
             // Save report if requested
             if ($request->has('save_report')) {
                 $report = $this->reportService->saveReport('in_out_supplies', $data, $filters, auth()->id());
@@ -628,7 +638,7 @@ class InventoryReportController extends Controller
         try {
             $filters = $request->only(['category', 'status']);
             $data = $this->reportService->generateStockLevelsReport($filters);
-            
+
             // Save report if requested
             if ($request->has('save_report')) {
                 $report = $this->reportService->saveReport('stock_levels', $data, $filters, auth()->id());
@@ -664,7 +674,7 @@ class InventoryReportController extends Controller
         try {
             $filters = $request->only(['period', 'start_date', 'end_date', 'item_id']);
             $data = $this->reportService->generateDailyConsumptionReport($filters);
-            
+
             // Save report if requested
             if ($request->has('save_report')) {
                 $report = $this->reportService->saveReport('daily_consumption', $data, $filters, auth()->id());
@@ -693,7 +703,7 @@ class InventoryReportController extends Controller
         try {
             $filters = $request->only(['period', 'start_date', 'end_date', 'location']);
             $data = $this->reportService->generateUsageByLocationReport($filters);
-            
+
             // Save report if requested
             if ($request->has('save_report')) {
                 $report = $this->reportService->saveReport('usage_by_location', $data, $filters, auth()->id());
@@ -751,7 +761,7 @@ class InventoryReportController extends Controller
     private function exportReportToExcel($report)
     {
         $export = new \App\Exports\InventoryReportExport($report);
-        
+
         $filename = 'inventory-report-' . $report->id . '.xlsx';
         return \Maatwebsite\Excel\Facades\Excel::download($export, $filename);
     }
@@ -759,10 +769,10 @@ class InventoryReportController extends Controller
     public function exportAllReports(Request $request)
     {
         $format = $request->get('format', 'pdf');
-        
+
         // Get all reports
         $reports = InventoryReport::with('creator')->get();
-        
+
         if ($format === 'pdf') {
             return $this->exportAllToPdf($reports);
         } else {
@@ -786,7 +796,7 @@ class InventoryReportController extends Controller
     private function exportAllToExcel($reports)
     {
         $export = new \App\Exports\AllInventoryReportsExport($reports);
-        
+
         $filename = 'all-inventory-reports.xlsx';
         return \Maatwebsite\Excel\Facades\Excel::download($export, $filename);
     }
@@ -795,9 +805,9 @@ class InventoryReportController extends Controller
     {
         $filters = $request->only(['period', 'start_date', 'end_date', 'department']);
         $filters['report_type'] = 'used_rejected'; // Set report type for PDF template
-        
+
         $data = $this->reportService->generateUsedRejectedReport($filters);
-        
+
         $format = $request->get('format', 'pdf');
 
         if ($format === 'pdf') {
@@ -891,7 +901,7 @@ class InventoryReportController extends Controller
     private function exportToExcel($title, $data)
     {
         $export = new \App\Exports\InventoryReportExport($title, $data);
-        
+
         $filename = strtolower(str_replace([' ', '/', '\\'], ['-', '-', '-'], $title)) . '.xlsx';
         return \Maatwebsite\Excel\Facades\Excel::download($export, $filename);
     }

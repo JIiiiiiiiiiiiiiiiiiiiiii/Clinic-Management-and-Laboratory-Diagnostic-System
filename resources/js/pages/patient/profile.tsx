@@ -183,7 +183,7 @@ export default function PatientProfile({
 
     return (
         <div className="min-h-screen bg-white">
-            <Head title="My Profile - SJHI Industrial Clinic" />
+            <Head title="My Profile" />
             
             {/* Shared Navigation */}
             <SharedNavigation user={user} currentPath="/patient/profile" notifications={notifications} unreadCount={unreadCount} />

@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import SharedNavigation from '@/components/SharedNavigation';
+import PublicFooter from '@/components/PublicFooter';
 import { 
     Phone, 
     Mail, 
@@ -26,19 +27,19 @@ import {
 import { useState } from 'react';
 
 interface PatientContactProps {
-    user: {
+    user?: {
         id: number;
         name: string;
         email: string;
         role: string;
-    };
+    } | null;
     patient?: {
         id: number;
         first_name: string;
         last_name: string;
         patient_no: string;
     };
-    notifications: Array<{
+    notifications?: Array<{
         id: number;
         type: string;
         title: string;
@@ -47,7 +48,7 @@ interface PatientContactProps {
         created_at: string;
         data: any;
     }>;
-    unreadCount: number;
+    unreadCount?: number;
 }
 
 export default function PatientContact({ 
@@ -59,8 +60,8 @@ export default function PatientContact({
     const [isSubmitted, setIsSubmitted] = useState(false);
     
     const { data, setData, post, processing, errors } = useForm({
-        name: user.name || '',
-        email: user.email || '',
+        name: user?.name || '',
+        email: user?.email || '',
         phone: '',
         subject: '',
         message: '',
@@ -69,7 +70,7 @@ export default function PatientContact({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post('/patient/contact', {
+        post('/contact', {
             onSuccess: () => {
                 setIsSubmitted(true);
             }
@@ -82,28 +83,20 @@ export default function PatientContact({
             title: "Address",
             details: [
                 "SJHI Industrial Clinic and Diagnostic Center",
-                "Industrial Area, Philippines",
-                "Coordinates: 14.23902171672204, 121.136267776227"
+                "Cabuyao City, Laguna",
+                <a key="map-link" href="https://maps.app.goo.gl/fWUa7BTJs6nW3Dvx6" target="_blank" rel="noopener noreferrer" className="text-green-600 hover:text-green-700 underline">
+                    View on Google Maps
+                </a>
             ],
             color: "green"
-        },
-        {
-            icon: Phone,
-            title: "Phone",
-            details: [
-                "Main: +63 XXX XXX XXXX",
-                "Emergency: +63 XXX XXX XXXX",
-                "24/7 Available"
-            ],
-            color: "blue"
         },
         {
             icon: Mail,
             title: "Email",
             details: [
-                "info@sjhi.com",
-                "appointments@sjhi.com",
-                "emergency@sjhi.com"
+                <a key="email-link" href="mailto:stjamesclinic413@gmail.com" className="text-green-600 hover:text-green-700">
+                    stjamesclinic413@gmail.com
+                </a>
             ],
             color: "purple"
         },
@@ -145,7 +138,7 @@ export default function PatientContact({
                 <Head title="Contact Us - Message Sent" />
                 
                 {/* Shared Navigation */}
-                <SharedNavigation user={user} currentPath="/patient/contact" notifications={notifications} unreadCount={unreadCount} />
+                <SharedNavigation user={user || undefined} currentPath="/contact" notifications={notifications || []} unreadCount={unreadCount || 0} />
                 <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
                     <Card className="bg-green-50 border-green-200">
                         <CardContent className="p-8 text-center">
@@ -180,10 +173,10 @@ export default function PatientContact({
 
     return (
         <div className="min-h-screen bg-white">
-            <Head title="Contact Us - SJHI Industrial Clinic" />
+            <Head title="Contact Us" />
             
             {/* Shared Navigation */}
-            <SharedNavigation user={user} currentPath="/patient/contact" />
+            <SharedNavigation user={user || undefined} currentPath="/contact" notifications={notifications || []} unreadCount={unreadCount || 0} />
             
             {/* Hero Section */}
             <div className="bg-gradient-to-r from-green-600 to-green-700 text-white">
@@ -212,7 +205,9 @@ export default function PatientContact({
                                 <h3 className="text-lg font-semibold text-gray-900 mb-3">{info.title}</h3>
                                 <div className="space-y-1">
                                     {info.details.map((detail, idx) => (
-                                        <p key={idx} className="text-sm text-gray-600">{detail}</p>
+                                        <div key={idx} className="text-sm text-gray-600">
+                                            {typeof detail === 'string' ? <p>{detail}</p> : detail}
+                                        </div>
                                     ))}
                                 </div>
                             </CardContent>
@@ -376,6 +371,17 @@ export default function PatientContact({
                                         <MapPin className="h-4 w-4 inline mr-1" />
                                         SJHI Industrial Clinic and Diagnostic Center
                                     </p>
+                                    <p className="text-sm text-gray-600">
+                                        Cabuyao City, Laguna
+                                    </p>
+                                    <a 
+                                        href="https://maps.app.goo.gl/fWUa7BTJs6nW3Dvx6" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-green-600 hover:text-green-700 underline mt-2 inline-block"
+                                    >
+                                        View on Google Maps
+                                    </a>
                                 </div>
                             </CardContent>
                         </Card>
@@ -395,7 +401,12 @@ export default function PatientContact({
                                     </div>
                                     <div>
                                         <p className="font-medium text-green-900">Call Us</p>
-                                        <p className="text-sm text-green-700">+1 123 456 7890</p>
+                                        <div className="text-sm text-green-700 space-y-1">
+                                            <a href="tel:+639338256214" className="hover:text-green-800 underline block">0933 825 6214</a>
+                                            <a href="tel:+63285844533" className="hover:text-green-800 underline block">(02) 8584 4533</a>
+                                            <a href="tel:+63495341254" className="hover:text-green-800 underline block">(049) 534 1254</a>
+                                            <a href="tel:+63495020058" className="hover:text-green-800 underline block">(049) 502-0058</a>
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="flex items-center space-x-3">
@@ -404,7 +415,28 @@ export default function PatientContact({
                                     </div>
                                     <div>
                                         <p className="font-medium text-green-900">Email Us</p>
-                                        <p className="text-sm text-green-700">info@stjameshospital.com</p>
+                                        <a 
+                                            href="mailto:stjamesclinic413@gmail.com" 
+                                            className="text-sm text-green-700 hover:text-green-800 underline"
+                                        >
+                                            stjamesclinic413@gmail.com
+                                        </a>
+                                    </div>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                    <div className="p-2 bg-green-200 rounded-lg">
+                                        <MapPin className="h-4 w-4 text-green-700" />
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-green-900">Visit Us</p>
+                                        <a 
+                                            href="https://maps.app.goo.gl/fWUa7BTJs6nW3Dvx6" 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="text-sm text-green-700 hover:text-green-800 underline"
+                                        >
+                                            View on Google Maps
+                                        </a>
                                     </div>
                                 </div>
                                 <div className="flex items-center space-x-3">
@@ -432,16 +464,12 @@ export default function PatientContact({
                             </div>
                             <h2 className="text-2xl font-bold text-red-900 mb-4">Emergency Contact</h2>
                             <p className="text-lg text-red-700 mb-6">
-                                For medical emergencies, please call our emergency line immediately or visit the nearest emergency room.
+                                For medical emergencies, please call emergency services immediately or visit the nearest emergency room.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                                <Button className="bg-red-600 hover:bg-red-700 text-white px-8 py-3">
-                                    <Phone className="mr-2 h-5 w-5" />
-                                    Emergency: +1 123 456 7891
-                                </Button>
                                 <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-50 px-8 py-3">
                                     <Heart className="mr-2 h-5 w-5" />
-                                    Call 911
+                                    Call 911 (Philippines Emergency)
                                 </Button>
                             </div>
                         </CardContent>
@@ -528,6 +556,9 @@ export default function PatientContact({
                     </div>
                 </div>
             </div>
+
+            {/* Footer */}
+            <PublicFooter />
         </div>
     );
 }

@@ -23,9 +23,14 @@ class BillingReportController extends Controller
             $startDateTime = $dateFrom . ' 00:00:00';
             $endDateTime = $dateTo . ' 23:59:59';
             
-            $revenueData = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
+            // Check if transaction_date column exists, otherwise use created_at
+            $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+                ? 'transaction_date' 
+                : 'created_at';
+            
+            $revenueData = BillingTransaction::whereBetween($dateColumn, [$startDateTime, $endDateTime])
                 ->with(['patient', 'doctor'])
-                ->orderBy('transaction_date', 'desc')
+                ->orderBy($dateColumn, 'desc')
                 ->get();
             
             
@@ -434,7 +439,12 @@ class BillingReportController extends Controller
         $startDateTime = $dateFrom . ' 00:00:00';
         $endDateTime = $dateTo . ' 23:59:59';
         
-        $query = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
+        // Check if transaction_date column exists, otherwise use created_at
+        $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+            ? 'transaction_date' 
+            : 'created_at';
+        
+        $query = BillingTransaction::whereBetween($dateColumn, [$startDateTime, $endDateTime])
             ->with(['patient', 'doctor', 'appointmentLinks.appointment']);
 
         // Apply filters
@@ -508,7 +518,12 @@ class BillingReportController extends Controller
         $startDateTime = $dateFrom . ' 00:00:00';
         $endDateTime = $dateTo . ' 23:59:59';
         
-        $revenueQuery = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
+        // Check if transaction_date column exists, otherwise use created_at
+        $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+            ? 'transaction_date' 
+            : 'created_at';
+        
+        $revenueQuery = BillingTransaction::whereBetween($dateColumn, [$startDateTime, $endDateTime])
             ->where('status', 'paid')
             ->with(['doctor']);
 
@@ -600,7 +615,12 @@ class BillingReportController extends Controller
             $startDateTime = $dateFrom . ' 00:00:00';
             $endDateTime = $dateTo . ' 23:59:59';
             
-            $revenueQuery = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
+            // Check if transaction_date column exists, otherwise use created_at
+            $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+                ? 'transaction_date' 
+                : 'created_at';
+            
+            $revenueQuery = BillingTransaction::whereBetween($dateColumn, [$startDateTime, $endDateTime])
                 ->where('status', 'paid')
                 ->with(['doctor']);
 
@@ -693,7 +713,12 @@ class BillingReportController extends Controller
         $startDateTime = $dateFrom . ' 00:00:00';
         $endDateTime = $dateTo . ' 23:59:59';
         
-        $billingTransactions = BillingTransaction::whereBetween('transaction_date', [$startDateTime, $endDateTime])
+        // Check if transaction_date column exists, otherwise use created_at
+        $dateColumn = \Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'transaction_date') 
+            ? 'transaction_date' 
+            : 'created_at';
+        
+        $billingTransactions = BillingTransaction::whereBetween($dateColumn, [$startDateTime, $endDateTime])
             ->with(['patient', 'doctor', 'appointmentLinks.appointment'])
             ->get();
 
@@ -782,11 +807,11 @@ class BillingReportController extends Controller
             return trim($transaction->patient->first_name . ' ' . $transaction->patient->last_name);
         }
 
-        // Try to get patient name from appointment data
+        // Try to get patient name from appointment data - use relationship instead of non-existent column
         if ($transaction->appointmentLinks->isNotEmpty()) {
             $appointment = $transaction->appointmentLinks->first()->appointment;
-            if ($appointment) {
-                return $appointment->patient_name;
+            if ($appointment && $appointment->patient) {
+                return trim($appointment->patient->first_name . ' ' . $appointment->patient->last_name);
             }
         }
 
@@ -800,15 +825,15 @@ class BillingReportController extends Controller
             return $transaction->doctor->name;
         }
 
-        // Try to get specialist name from appointment data
+        // Try to get specialist name from appointment data - use relationship instead of non-existent column
         if ($transaction->appointmentLinks->isNotEmpty()) {
             $appointment = $transaction->appointmentLinks->first()->appointment;
-            if ($appointment) {
-                return $appointment->specialist_name;
+            if ($appointment && $appointment->specialist) {
+                return $appointment->specialist->name;
             }
         }
 
-        return 'Unknown Specialist';
+        return 'Paul Henry N. Parrotina, MD.';
     }
 
     private function syncDailyTransactions($date)

@@ -95,7 +95,7 @@ export default function PatientPrivacy({
 
     return (
         <div className="min-h-screen bg-white">
-            <Head title="Privacy Policy - SJHI Industrial Clinic" />
+            <Head title="Privacy Policy" />
             
             {/* Shared Navigation */}
             <SharedNavigation user={user} currentPath="/patient/privacy" />
@@ -212,15 +212,11 @@ export default function PatientPrivacy({
                                     <div className="space-y-3">
                                         <div className="flex items-center space-x-3">
                                             <Shield className="h-5 w-5 text-green-600" />
-                                            <span className="text-gray-700">Email: privacy@sjhi.com</span>
+                                            <span className="text-gray-700">Email: stjamesclinic413@gmail.com</span>
                                         </div>
                                         <div className="flex items-center space-x-3">
                                             <Shield className="h-5 w-5 text-green-600" />
-                                            <span className="text-gray-700">Phone: +63 XXX XXX XXXX</span>
-                                        </div>
-                                        <div className="flex items-center space-x-3">
-                                            <Shield className="h-5 w-5 text-green-600" />
-                                            <span className="text-gray-700">Address: SJHI Industrial Clinic, Industrial Area, Philippines</span>
+                                            <span className="text-gray-700">Address: <a href="https://maps.app.goo.gl/du9rahz164nMFuaMA" target="_blank" rel="noopener noreferrer" className="text-green-600 hover:text-green-700 underline">View on Google Maps</a></span>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -252,7 +248,7 @@ export default function PatientPrivacy({
                             </Button>
                         </Link>
                         <Link href="/patient/online-appointment">
-                            <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-green-600 px-8 py-4 text-lg">
+                            <Button variant="outline" size="lg" className="border-2 border-white bg-white/10 text-white hover:bg-white hover:text-green-600 px-8 py-4 text-lg backdrop-blur-sm">
                                 <UserCheck className="mr-2 h-5 w-5" />
                                 Book Appointment
                             </Button>

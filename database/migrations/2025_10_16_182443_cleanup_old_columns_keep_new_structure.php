@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -64,18 +65,42 @@ return new class extends Migration
         });
 
         // Clean up billing_transactions table - remove old columns, keep new structure
+        // Drop foreign keys outside Schema closure if they exist
+        if (Schema::hasColumn('billing_transactions', 'doctor_id')) {
+            try {
+                DB::statement('ALTER TABLE billing_transactions DROP FOREIGN KEY IF EXISTS billing_transactions_doctor_id_foreign');
+            } catch (\Throwable $e) {
+                // MySQL < 8.0 doesn't support IF EXISTS, try without
+                try {
+                    DB::statement('ALTER TABLE billing_transactions DROP FOREIGN KEY billing_transactions_doctor_id_foreign');
+                } catch (\Throwable $e2) {
+                    // Foreign key doesn't exist, that's fine
+                }
+            }
+        }
+        
+        // Drop foreign keys for created_by and updated_by if they exist
+        foreach (['created_by', 'updated_by'] as $column) {
+            if (Schema::hasColumn('billing_transactions', $column)) {
+                $constraintName = "billing_transactions_{$column}_foreign";
+                try {
+                    DB::statement("ALTER TABLE billing_transactions DROP FOREIGN KEY IF EXISTS {$constraintName}");
+                } catch (\Throwable $e) {
+                    try {
+                        DB::statement("ALTER TABLE billing_transactions DROP FOREIGN KEY {$constraintName}");
+                    } catch (\Throwable $e2) {
+                        // Foreign key doesn't exist, that's fine
+                    }
+                }
+            }
+        }
+        
         Schema::table('billing_transactions', function (Blueprint $table) {
             // Drop old columns that might conflict
             if (Schema::hasColumn('billing_transactions', 'transaction_id')) {
                 $table->dropColumn('transaction_id');
             }
             if (Schema::hasColumn('billing_transactions', 'doctor_id')) {
-                // Drop foreign key constraint first if it exists
-                try {
-                    $table->dropForeign(['doctor_id']);
-                } catch (\Exception $e) {
-                    // Foreign key might not exist, continue
-                }
                 $table->dropColumn('doctor_id');
             }
             if (Schema::hasColumn('billing_transactions', 'payment_type')) {
@@ -115,21 +140,9 @@ return new class extends Migration
                 $table->dropColumn('due_date');
             }
             if (Schema::hasColumn('billing_transactions', 'created_by')) {
-                // Drop foreign key constraint first if it exists
-                try {
-                    $table->dropForeign(['created_by']);
-                } catch (\Exception $e) {
-                    // Foreign key might not exist, continue
-                }
                 $table->dropColumn('created_by');
             }
             if (Schema::hasColumn('billing_transactions', 'updated_by')) {
-                // Drop foreign key constraint first if it exists
-                try {
-                    $table->dropForeign(['updated_by']);
-                } catch (\Exception $e) {
-                    // Foreign key might not exist, continue
-                }
                 $table->dropColumn('updated_by');
             }
         });

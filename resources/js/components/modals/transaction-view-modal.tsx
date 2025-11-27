@@ -49,7 +49,7 @@ type BillingTransaction = {
     hmo_provider: string | null;
     hmo_reference: string | null;
     hmo_reference_number: string | null;
-    payment_method: 'cash' | 'card' | 'bank_transfer' | 'check' | 'hmo';
+    payment_method: 'cash' | 'hmo';
     payment_reference: string | null;
     status: 'draft' | 'pending' | 'paid' | 'cancelled' | 'refunded';
     description: string | null;
@@ -89,9 +89,6 @@ const statusConfig = {
 
 const paymentMethodConfig = {
     cash: { label: 'Cash', color: 'bg-green-100 text-green-800' },
-    card: { label: 'Card', color: 'bg-blue-100 text-blue-800' },
-    bank_transfer: { label: 'Bank Transfer', color: 'bg-purple-100 text-purple-800' },
-    check: { label: 'Check', color: 'bg-yellow-100 text-yellow-800' },
     hmo: { label: 'HMO', color: 'bg-indigo-100 text-indigo-800' },
 };
 
@@ -124,10 +121,29 @@ export default function TransactionViewModal({
             });
             if (response.ok) {
                 const data = await response.json();
+                console.log('Transaction response:', data);
+                if (data.transaction) {
+                    console.log('Setting transaction:', data.transaction);
                 setTransaction(data.transaction);
+                } else {
+                    console.error('Transaction data not found in response:', data);
+                    setTransaction(null);
+                }
+            } else {
+                const errorText = await response.text();
+                console.error('Failed to fetch transaction:', response.status, errorText);
+                let errorData;
+                try {
+                    errorData = JSON.parse(errorText);
+                } catch {
+                    errorData = { message: 'Transaction not found' };
+                }
+                console.error('Error data:', errorData);
+                setTransaction(null);
             }
         } catch (error) {
             console.error('Failed to fetch transaction:', error);
+            setTransaction(null);
         } finally {
             setLoading(false);
         }
@@ -205,8 +221,16 @@ export default function TransactionViewModal({
     };
 
     const calculateSubtotal = () => {
-        if (!transaction) return 0;
-        return typeof transaction.total_amount === 'string' ? parseFloat(transaction.total_amount) : transaction.total_amount || 0;
+        if (!transaction || !transaction.items || !Array.isArray(transaction.items)) return 0;
+        // Calculate from items to ensure accuracy - ensure values are parsed as numbers
+        // CRITICAL: Start with 0 as a number, not a string
+        return transaction.items.reduce((sum: number, item: any) => {
+            const price = typeof item.total_price === 'string' 
+                ? parseFloat(item.total_price) 
+                : (typeof item.total_price === 'number' ? item.total_price : 0);
+            const numPrice = isNaN(price) ? 0 : Number(price);
+            return Number(sum) + numPrice;
+        }, 0);
     };
 
     const calculateSeniorDiscount = () => {
@@ -224,7 +248,13 @@ export default function TransactionViewModal({
 
     const calculateNetAmount = () => {
         if (!transaction) return 0;
-        return typeof transaction.amount === 'string' ? parseFloat(transaction.amount) : transaction.amount || 0;
+        // Use amount or total_amount, ensuring it's a number
+        const amount = transaction.amount || transaction.total_amount || 0;
+        if (typeof amount === 'string') {
+            const parsed = parseFloat(amount);
+            return isNaN(parsed) ? 0 : parsed;
+        }
+        return typeof amount === 'number' ? amount : 0;
     };
 
     const handleStatusUpdate = (newStatus: string) => {
@@ -299,10 +329,10 @@ export default function TransactionViewModal({
                                                     </div>
                                                 ) : (
                                                     <div className="space-y-3 text-sm text-gray-500">
-                                                        <div className="flex justify-between"><span className="font-medium">Name:</span> <span>Loading patient information...</span></div>
-                                                        <div className="flex justify-between"><span className="font-medium">Patient No:</span> <span>Loading...</span></div>
-                                                        <div className="flex justify-between"><span className="font-medium">Address:</span> <span>Loading...</span></div>
-                                                        <div className="flex justify-between"><span className="font-medium">Contact:</span> <span>Loading...</span></div>
+                                                        <div className="flex justify-between"><span className="font-medium">Name:</span> <span className="text-gray-900">{(transaction.patient?.first_name && transaction.patient?.last_name) ? `${transaction.patient.last_name}, ${transaction.patient.first_name}` : '-'}</span></div>
+                                                        <div className="flex justify-between"><span className="font-medium">Patient No:</span> <span className="text-gray-900">{transaction.patient?.patient_no || '-'}</span></div>
+                                                        <div className="flex justify-between"><span className="font-medium">Address:</span> <span className="text-gray-900">{transaction.patient?.present_address || '-'}</span></div>
+                                                        <div className="flex justify-between"><span className="font-medium">Contact:</span> <span className="text-gray-900">{transaction.patient?.mobile_no || '-'}</span></div>
                                                     </div>
                                                 )}
                                             </div>
@@ -312,7 +342,7 @@ export default function TransactionViewModal({
                                                 {transaction.doctor ? (
                                                     <div className="space-y-3 text-sm">
                                                         <div className="flex justify-between"><span className="font-medium text-gray-600">Name:</span> <span className="text-gray-900">{transaction.doctor.name}</span></div>
-                                                        <div className="flex justify-between"><span className="font-medium text-gray-600">Type:</span> <span className="text-gray-900">{transaction.doctor.role === 'doctor' ? 'Doctor' : 'Med Tech Specialist'}</span></div>
+                                                        <div className="flex justify-between"><span className="font-medium text-gray-600">Type:</span> <span className="text-gray-900">{transaction.doctor.role && (transaction.doctor.role.toLowerCase() === 'doctor' || transaction.doctor.role === 'Doctor') ? 'Doctor' : transaction.doctor.role || 'N/A'}</span></div>
                                                     </div>
                                                 ) : (
                                                     <p className="text-gray-500">No specialist assigned</p>
@@ -403,11 +433,11 @@ export default function TransactionViewModal({
                                             </div>
                                             <div className="flex justify-between items-center py-2 border-b border-gray-100">
                                                 <span className="font-medium text-gray-600">Payment Method:</span>
-                                                {getPaymentMethodBadge(transaction.payment_method)}
-                                            </div>
-                                            <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                                                <span className="font-medium text-gray-600">Payment Type:</span>
-                                                <span className="capitalize text-gray-900">{transaction.payment_type.replace('_', ' ')}</span>
+                                                {transaction.payment_method ? (
+                                                    <span className="capitalize text-gray-900">{(transaction.payment_method || '').replace(/_/g, ' ')}</span>
+                                                ) : (
+                                                    <span className="text-gray-400">N/A</span>
+                                                )}
                                             </div>
                                             {transaction.payment_reference && (
                                                 <div className="flex justify-between items-center py-2 border-b border-gray-100">
@@ -500,10 +530,7 @@ export default function TransactionViewModal({
                                                 <span className="font-medium text-gray-600">Created:</span>
                                                 <span className="text-gray-900">{safeFormatDate(transaction.created_at)}</span>
                                             </div>
-                                            <div className="flex justify-between py-2">
-                                                <span className="font-medium text-gray-600">Created By:</span>
-                                                <span className="text-gray-900">{transaction.createdBy?.name || 'N/A'}</span>
-                                            </div>
+                                            {/* Created By removed - created_by column doesn't exist in database */}
                                         </div>
                                     </CardContent>
                                 </Card>

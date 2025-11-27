@@ -98,7 +98,7 @@ export default function PatientTransferIndex({ transfers, filterOptions, filters
     const breadcrumbs: BreadcrumbItem[] = [
         { label: 'Dashboard', href: '/admin/dashboard' },
         { label: 'Patient Management', href: '/admin/patient' },
-        { label: 'Patient Transfers', href: '/admin/patient/transfer' },
+        { label: 'Patient Transfers', href: '/admin/patient-transfers/transfers' },
     ];
 
     const handleFilter = () => {
@@ -110,7 +110,7 @@ export default function PatientTransferIndex({ transfers, filterOptions, filters
         if (dateFrom) params.set('date_from', dateFrom);
         if (dateTo) params.set('date_to', dateTo);
 
-        router.get('/admin/patient-transfers', Object.fromEntries(params));
+        router.get('/admin/patient-transfers/transfers', Object.fromEntries(params));
     };
 
     const clearFilters = () => {
@@ -119,7 +119,7 @@ export default function PatientTransferIndex({ transfers, filterOptions, filters
         setPriorityFilter('all');
         setDateFrom('');
         setDateTo('');
-        router.get('/admin/patient-transfers');
+        router.get('/admin/patient-transfers/transfers');
     };
 
     return (
@@ -132,11 +132,11 @@ export default function PatientTransferIndex({ transfers, filterOptions, filters
                     <div>
                         <h1 className="text-3xl font-bold text-gray-900">Patient Transfers</h1>
                         <p className="text-gray-600 mt-1">
-                            Manage patient transfers between hospital and clinic
+                            Manage transfers of existing patients between hospital and clinic. Only patients with existing consultation records can be transferred.
                         </p>
                     </div>
                     <Link
-                        href="/admin/patient-transfers/create"
+                        href="/admin/patient-transfers/transfers/create"
                         className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                     >
                         <Plus className="w-4 h-4" />
@@ -238,7 +238,7 @@ export default function PatientTransferIndex({ transfers, filterOptions, filters
                                     }
                                 </p>
                                 <Link
-                                    href="/admin/patient-transfers/create"
+                                    href="/admin/patient-transfers/transfers/create"
                                     className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                                 >
                                     <Plus className="w-4 h-4" />
@@ -306,7 +306,7 @@ export default function PatientTransferIndex({ transfers, filterOptions, filters
                                                 <TableCell>
                                                     <div className="flex items-center gap-2">
                                                         <Link
-                                                            href={`/admin/patient-transfers/${transfer.id}`}
+                                                            href={`/admin/patient-transfers/transfers/${transfer.id}`}
                                                             className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm"
                                                         >
                                                             <Eye className="w-4 h-4" />

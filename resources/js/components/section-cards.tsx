@@ -80,7 +80,7 @@ export function SectionCards() {
         <CardHeader className="relative">
           <CardDescription>Revenue This Month</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums sm:text-3xl">
-            $24,580
+            ₱24,580
           </CardTitle>
           <div className="absolute right-4 top-4">
             <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">

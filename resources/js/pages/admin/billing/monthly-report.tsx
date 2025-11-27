@@ -13,7 +13,7 @@ import Heading from '@/components/heading';
 import { 
     ArrowLeft, 
     Calendar,
-    DollarSign,
+    Coins,
     TrendingUp,
     FileText,
     Download,
@@ -409,7 +409,7 @@ export default function MonthlyReport({
                                         <p className="text-sm text-gray-500">Monthly revenue</p>
                                     </div>
                                     <div className="p-3 bg-green-100 rounded-full">
-                                        <DollarSign className="h-6 w-6 text-green-600" />
+                                        <Coins className="h-6 w-6 text-green-600" />
                                     </div>
                                 </div>
                             </CardContent>

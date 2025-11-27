@@ -2,13 +2,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import Heading from '@/components/heading';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, Edit, Plus, TestTube, Trash2, Search, FlaskConical, ArrowUpDown, FileText } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, TestTube, Trash2, Search, FlaskConical, ArrowUpDown, FileText, MoreHorizontal, Eye } from 'lucide-react';
 import { useState } from 'react';
 import {
     ColumnDef,
@@ -25,6 +27,7 @@ type TestRow = {
     id: number;
     name: string;
     code: string;
+    price?: number;
     fields_schema?: any;
     is_active: boolean;
     version: number;
@@ -46,6 +49,19 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [sorting, setSorting] = useState<SortingState>([]);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [testToDelete, setTestToDelete] = useState<{ id: number; name: string } | null>(null);
+
+    const handleDelete = () => {
+        if (testToDelete) {
+            router.delete(`/admin/laboratory/tests/${testToDelete.id}`, {
+                onSuccess: () => {
+                    setDeleteDialogOpen(false);
+                    setTestToDelete(null);
+                },
+            });
+        }
+    };
 
     const columns: ColumnDef<TestRow>[] = [
         {
@@ -57,6 +73,14 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
             header: 'Code',
             cell: ({ row }) => {
                 return <span className="text-sm text-gray-600 font-mono">{row.getValue('code')}</span>;
+            },
+        },
+        {
+            accessorKey: 'price',
+            header: 'Price',
+            cell: ({ row }) => {
+                const price = row.getValue('price') as number;
+                return <span className="text-sm text-gray-600">₱{price ? Number(price).toFixed(2) : '0.00'}</span>;
             },
         },
         {
@@ -96,22 +120,38 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
         },
         {
             id: 'actions',
-            header: 'Actions',
+            enableHiding: false,
             cell: ({ row }) => {
                 const test = row.original;
                 return (
-                    <div className="flex gap-2">
-                        <Button asChild className="bg-green-600 hover:bg-green-700 text-white">
-                            <Link href={`/admin/laboratory/tests/${test.id}/edit`}>
-                                <Edit className="mr-1 h-4 w-4" />
-                                Edit
-                            </Link>
-                        </Button>
-                        <Button variant="destructive" onClick={() => handleDelete(test.id, test.name)}>
-                            <Trash2 className="mr-1 h-4 w-4" />
-                            Delete
-                        </Button>
-                    </div>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem asChild>
+                                <Link href={`/admin/laboratory/tests/${test.id}/edit`}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Edit
+                                </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    setTestToDelete({ id: test.id, name: test.name });
+                                    setDeleteDialogOpen(true);
+                                }}
+                                className="text-red-600"
+                            >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 );
             },
         },
@@ -129,12 +169,6 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
             sorting,
         },
     });
-
-    const handleDelete = (testId: number, testName: string) => {
-        if (confirm(`Are you sure you want to delete "${testName}"? This action cannot be undone.`)) {
-            router.delete(`/admin/laboratory/tests/${testId}`);
-        }
-    };
 
     const getFieldCount = (test: TestRow) => {
         if (!test.fields_schema?.sections) return 0;
@@ -369,6 +403,27 @@ export default function LabTestsIndex({ tests }: { tests: TestRow[] }) {
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* Delete Confirmation Dialog */}
+                <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Delete Test Template</DialogTitle>
+                            <DialogDescription>
+                                Are you sure you want to delete "{testToDelete?.name}"? This action cannot be undone.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                                Cancel
+                            </Button>
+                            <Button variant="destructive" onClick={handleDelete}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </AppLayout>
     );

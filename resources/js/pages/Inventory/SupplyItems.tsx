@@ -87,6 +87,7 @@ type SupplyItem = {
     last_updated?: string;
 };
 
+
 type ConsumedRejectedItem = {
     id: number;
     item_name: string;
@@ -113,10 +114,24 @@ type SupplyStats = {
     rejectedItems: number;
 };
 
+type BatchMovement = {
+    id: number;
+    item_id: number;
+    item_name: string;
+    item_code: string;
+    unit: string;
+    quantity: number;
+    expiry_date: string | null;
+    remarks: string | null;
+    created_at: string;
+    created_by: number | null;
+};
+
 interface SupplyItemsProps {
     doctorNurseItems: SupplyItem[];
     medTechItems: SupplyItem[];
     consumedRejectedItems: ConsumedRejectedItem[];
+    batchMovements?: BatchMovement[];
     staffMembers: StaffMember[];
     stats: SupplyStats;
 }
@@ -510,6 +525,147 @@ const createMedTechColumns = (handleOpenConsumeModal: (item: SupplyItem) => void
     },
 ];
 
+const createBatchMovementsColumns = (): ColumnDef<BatchMovement>[] => [
+    {
+        accessorKey: "item_name",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Item Name
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">{row.getValue("item_name")}</div>
+        ),
+    },
+    {
+        accessorKey: "item_code",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Item Code
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => (
+            <div className="font-medium">{row.getValue("item_code")}</div>
+        ),
+    },
+    {
+        accessorKey: "quantity",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Quantity
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const movement = row.original;
+            return (
+                <div className="font-medium">
+                    {movement.quantity} {movement.unit}
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "expiry_date",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Expiry Date
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const movement = row.original;
+            const expiryDate = movement.expiry_date ? new Date(movement.expiry_date) : null;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const isExpired = expiryDate && expiryDate < today;
+            const daysUntilExpiry = expiryDate ? Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : null;
+            const isExpiringSoon = daysUntilExpiry !== null && daysUntilExpiry <= 30 && daysUntilExpiry > 0;
+
+            if (!expiryDate) {
+                return <span className="text-gray-400">N/A</span>;
+            }
+
+            return (
+                <div className="flex items-center gap-2">
+                    <span className={isExpired ? 'text-red-600 font-semibold' : isExpiringSoon ? 'text-orange-600 font-semibold' : 'text-gray-900'}>
+                        {expiryDate.toLocaleDateString()}
+                    </span>
+                    {isExpired && (
+                        <Badge variant="destructive" className="text-xs">Expired</Badge>
+                    )}
+                    {isExpiringSoon && !isExpired && (
+                        <Badge variant="outline" className="text-xs border-orange-500 text-orange-600">
+                            Expires in {daysUntilExpiry} days
+                        </Badge>
+                    )}
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "created_at",
+        header: ({ column }) => {
+            return (
+                <Button
+                    variant="ghost"
+                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                    className="h-8 px-2 lg:px-3"
+                >
+                    Date Added
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )
+        },
+        cell: ({ row }) => {
+            const date = new Date(row.getValue("created_at"));
+            return (
+                <div className="text-sm text-gray-600">
+                    {date.toLocaleDateString()}
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "remarks",
+        header: "Remarks",
+        cell: ({ row }) => {
+            const remarks = row.getValue("remarks") as string | null;
+            return (
+                <div className="text-sm text-gray-600">
+                    {remarks || '-'}
+                </div>
+            );
+        },
+    },
+];
+
 const createConsumedRejectedColumns = (): ColumnDef<ConsumedRejectedItem>[] => [
     {
         accessorKey: "item_code",
@@ -647,6 +803,7 @@ export default function SupplyItems({
     doctorNurseItems = [],
     medTechItems = [],
     consumedRejectedItems = [],
+    batchMovements = [],
     staffMembers = [],
     stats = {
         totalItems: 0,
@@ -694,7 +851,8 @@ export default function SupplyItems({
         quantity: '',
         date: new Date().toISOString().split('T')[0],
         handled_by: '',
-        reason: ''
+        reason: '',
+        expiry_date: ''
     });
     const [isMovementSubmitting, setIsMovementSubmitting] = useState(false);
 
@@ -872,7 +1030,8 @@ export default function SupplyItems({
             quantity: '',
             date: new Date().toISOString().split('T')[0],
             handled_by: '',
-            reason: ''
+            reason: '',
+            expiry_date: ''
         });
         setIsMovementModalOpen(true);
     }, []);
@@ -885,15 +1044,23 @@ export default function SupplyItems({
             quantity: '',
             date: new Date().toISOString().split('T')[0],
             handled_by: '',
-            reason: ''
+            reason: '',
+            expiry_date: ''
         });
     }, []);
 
     const handleMovementInputChange = useCallback((field: string, value: string) => {
-        setMovementData(prev => ({
-            ...prev,
-            [field]: value
-        }));
+        setMovementData(prev => {
+            const newData = {
+                ...prev,
+                [field]: value
+            };
+            // Clear expiry_date when switching to OUT
+            if (field === 'movement_type' && value === 'OUT') {
+                newData.expiry_date = '';
+            }
+            return newData;
+        });
     }, []);
 
     const handleMovementSubmit = useCallback((e: React.FormEvent) => {
@@ -903,8 +1070,10 @@ export default function SupplyItems({
         setIsMovementSubmitting(true);
         
         router.post(`/admin/inventory/${selectedItem.id}/movement`, {
-            ...movementData,
-            quantity: parseInt(movementData.quantity)
+            movement_type: movementData.movement_type,
+            quantity: parseInt(movementData.quantity),
+            remarks: movementData.reason,
+            expiry_date: movementData.expiry_date || null,
         }, {
             onSuccess: () => {
                 notify('success', `Movement recorded for ${selectedItem.item_name}!`);
@@ -1113,10 +1282,32 @@ export default function SupplyItems({
         pageSize: 10,
     });
 
+    // TanStack Table state for Batch Movements
+    const [batchMovementsSorting, setBatchMovementsSorting] = useState<SortingState>([]);
+    const [batchMovementsColumnFilters, setBatchMovementsColumnFilters] = useState<ColumnFiltersState>([]);
+    const [batchMovementsColumnVisibility, setBatchMovementsColumnVisibility] = useState<VisibilityState>({});
+    const [batchMovementsRowSelection, setBatchMovementsRowSelection] = useState({});
+    const [batchMovementsGlobalFilter, setBatchMovementsGlobalFilter] = useState('');
+    const [batchMovementsPagination, setBatchMovementsPagination] = useState({
+        pageIndex: 0,
+        pageSize: 10,
+    });
+
+    const batchMovementsGlobalFilterFn = useCallback((row: any, columnId: string, value: string) => {
+        const search = value.toLowerCase();
+        const movement = row.original;
+        return Boolean(
+            movement.item_name?.toLowerCase().includes(search) ||
+            movement.item_code?.toLowerCase().includes(search) ||
+            movement.remarks?.toLowerCase().includes(search)
+        );
+    }, []);
+
     // Initialize tables
     const doctorNurseColumns = useMemo(() => createDoctorNurseColumns(handleOpenConsumeModal, handleOpenRejectModal, handleOpenMovementModal, handleOpenViewModal, handleOpenEditModal, notify), [handleOpenConsumeModal, handleOpenRejectModal, handleOpenMovementModal, handleOpenViewModal, handleOpenEditModal, notify]);
     const medTechColumns = useMemo(() => createMedTechColumns(handleOpenConsumeModal, handleOpenRejectModal, handleOpenMovementModal, handleOpenViewModal, handleOpenEditModal, notify), [handleOpenConsumeModal, handleOpenRejectModal, handleOpenMovementModal, handleOpenViewModal, handleOpenEditModal, notify]);
     const consumedRejectedColumns = useMemo(() => createConsumedRejectedColumns(), []);
+    const batchMovementsColumns = useMemo(() => createBatchMovementsColumns(), []);
 
     const doctorNurseTable = useReactTable({
         data: doctorNurseItems || [],
@@ -1188,6 +1379,36 @@ export default function SupplyItems({
             pagination: consumedRejectedPagination,
         },
         onPaginationChange: setConsumedRejectedPagination,
+    });
+
+    // Debug: Log batchMovements prop
+    useEffect(() => {
+        console.log('Batch Movements from backend:', batchMovements);
+        console.log('Batch Movements count:', batchMovements?.length || 0);
+    }, [batchMovements]);
+
+    const batchMovementsTable = useReactTable({
+        data: batchMovements || [],
+        columns: batchMovementsColumns,
+        onSortingChange: setBatchMovementsSorting,
+        onColumnFiltersChange: setBatchMovementsColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onColumnVisibilityChange: setBatchMovementsColumnVisibility,
+        onRowSelectionChange: setBatchMovementsRowSelection,
+        onGlobalFilterChange: setBatchMovementsGlobalFilter,
+        globalFilterFn: batchMovementsGlobalFilterFn,
+        state: {
+            sorting: batchMovementsSorting,
+            columnFilters: batchMovementsColumnFilters,
+            columnVisibility: batchMovementsColumnVisibility,
+            rowSelection: batchMovementsRowSelection,
+            globalFilter: batchMovementsGlobalFilter,
+            pagination: batchMovementsPagination,
+        },
+        onPaginationChange: setBatchMovementsPagination,
     });
 
     return (
@@ -1319,7 +1540,7 @@ export default function SupplyItems({
                                                 Add Item
                                             </Button>
                                         </DialogTrigger>
-                                        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                                        <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
                                             <DialogHeader>
                                                 <DialogTitle className="flex items-center gap-2">
                                                     <Plus className="h-5 w-5" />
@@ -1538,7 +1759,7 @@ export default function SupplyItems({
                                 
                                 {/* Consume Item Modal */}
                                 <Dialog open={isConsumeModalOpen} onOpenChange={setIsConsumeModalOpen}>
-                                    <DialogContent className="max-w-md">
+                                    <DialogContent className="max-w-2xl">
                                         <DialogHeader>
                                             <DialogTitle className="flex items-center gap-2">
                                                 <TrendingDown className="h-5 w-5 text-green-600" />
@@ -1597,7 +1818,7 @@ export default function SupplyItems({
 
                                 {/* Reject Item Modal */}
                                 <Dialog open={isRejectModalOpen} onOpenChange={setIsRejectModalOpen}>
-                                    <DialogContent className="max-w-md">
+                                    <DialogContent className="max-w-2xl">
                                         <DialogHeader>
                                             <DialogTitle className="flex items-center gap-2">
                                                 <Trash2 className="h-5 w-5 text-red-600" />
@@ -1657,7 +1878,7 @@ export default function SupplyItems({
 
                                 {/* Movement Modal */}
                                 <Dialog open={isMovementModalOpen} onOpenChange={setIsMovementModalOpen}>
-                                    <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
+                                    <DialogContent className="w-[95vw] max-w-[1000px] sm:max-w-none max-h-[95vh] overflow-y-auto">
                                         <DialogHeader className="pb-4 border-b border-gray-200">
                                             <DialogTitle className="flex items-center gap-3 text-xl font-semibold text-gray-900">
                                                 <div className="p-2 bg-blue-100 rounded-lg">
@@ -1795,6 +2016,26 @@ export default function SupplyItems({
                                                                 </div>
                                                             </div>
 
+                                                            {/* Expiry Date - Only for IN movements */}
+                                                            {movementData.movement_type === 'IN' && (
+                                                                <div className="space-y-2">
+                                                                    <Label htmlFor="expiry_date" className="text-sm font-semibold text-gray-700">
+                                                                        Expiry Date (Optional)
+                                                                    </Label>
+                                                                    <Input
+                                                                        id="expiry_date"
+                                                                        type="date"
+                                                                        value={movementData.expiry_date || ''}
+                                                                        onChange={(e) => handleMovementInputChange('expiry_date', e.target.value)}
+                                                                        className="h-11 w-full border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                                                                        placeholder="Select expiry date for this batch"
+                                                                    />
+                                                                    <p className="text-xs text-gray-500">
+                                                                        Set expiration date for this batch of items to track when to restock. This helps manage inventory expiration.
+                                                                    </p>
+                                                                </div>
+                                                            )}
+
                                                             <div className="space-y-2">
                                                                 <Label htmlFor="handled_by" className="text-sm font-medium text-gray-700">
                                                                     Handled By *
@@ -1883,7 +2124,7 @@ export default function SupplyItems({
 
                                 {/* View Modal */}
                                 <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-                                    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                                    <DialogContent className="w-[95vw] max-w-[1000px] sm:max-w-none max-h-[90vh] overflow-y-auto">
                                         <DialogHeader className="pb-4 border-b border-gray-200">
                                             <DialogTitle className="flex items-center gap-3 text-xl font-semibold text-gray-900">
                                                 <div className="p-2 bg-blue-100 rounded-lg">
@@ -1959,7 +2200,7 @@ export default function SupplyItems({
                                                 </div>
 
                                                 {/* Status and Additional Information */}
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 mt-6">
                                                     <Card>
                                                         <CardHeader>
                                                             <CardTitle className="flex items-center gap-2">
@@ -2001,6 +2242,7 @@ export default function SupplyItems({
                                                     </Card>
                                                 </div>
 
+
                                                 {/* Timestamps */}
                                                 <Card>
                                                     <CardHeader>
@@ -2036,7 +2278,7 @@ export default function SupplyItems({
 
                                 {/* Edit Modal */}
                                 <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-                                    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                                    <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
                                         <DialogHeader className="pb-4 border-b border-gray-200">
                                             <DialogTitle className="flex items-center gap-3 text-xl font-semibold text-gray-900">
                                                 <div className="p-2 bg-green-100 rounded-lg">
@@ -2738,6 +2980,190 @@ export default function SupplyItems({
                                                 className="hidden size-8 lg:flex"
                                                 onClick={() => consumedRejectedTable.setPageIndex(consumedRejectedTable.getPageCount() - 1)}
                                                 disabled={!consumedRejectedTable.getCanNextPage()}
+                                            >
+                                                <span className="sr-only">Go to last page</span>
+                                                <ChevronsRight className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Batch Movements Table - Right below Consumed & Rejected */}
+                    <div className="mb-8">
+                        <Card className="bg-white border border-gray-200 shadow-lg">
+                            <CardHeader className="bg-white border-b border-gray-200">
+                                <CardTitle className="flex items-center gap-3 text-xl font-semibold text-black">
+                                    <Package className="h-5 w-5 text-black" />
+                                    Batch Movements ({batchMovementsTable.getFilteredRowModel().rows.length})
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                {/* Controls */}
+                                <div className="flex flex-wrap items-center gap-4 py-4">
+                                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                                        <Input
+                                            placeholder="Search batch movements..."
+                                            value={batchMovementsGlobalFilter ?? ""}
+                                            onChange={(event) => setBatchMovementsGlobalFilter(event.target.value)}
+                                            className="max-w-sm"
+                                        />
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-2">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="outline">
+                                                    Columns <ChevronDown className="ml-2 h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                {batchMovementsTable
+                                                    .getAllColumns()
+                                                    .filter((column) => column.getCanHide())
+                                                    .map((column) => {
+                                                        return (
+                                                            <DropdownMenuCheckboxItem
+                                                                key={column.id}
+                                                                className="capitalize"
+                                                                checked={column.getIsVisible()}
+                                                                onCheckedChange={(value) => {
+                                                                    column.toggleVisibility(!!value);
+                                                                }}
+                                                                onSelect={(e) => {
+                                                                    e.preventDefault();
+                                                                }}
+                                                            >
+                                                                {column.id}
+                                                            </DropdownMenuCheckboxItem>
+                                                        )
+                                                    })}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                </div>
+
+                                {/* Table */}
+                                <div className="rounded-md border">
+                                    <Table>
+                                        <TableHeader>
+                                            {batchMovementsTable.getHeaderGroups().map((headerGroup) => (
+                                                <TableRow key={headerGroup.id}>
+                                                    {headerGroup.headers.map((header) => {
+                                                        return (
+                                                            <TableHead key={header.id}>
+                                                                {header.isPlaceholder
+                                                                    ? null
+                                                                    : flexRender(
+                                                                        header.column.columnDef.header,
+                                                                        header.getContext()
+                                                                )}
+                                                            </TableHead>
+                                                        )
+                                                    })}
+                                                </TableRow>
+                                            ))}
+                                        </TableHeader>
+                                        <TableBody>
+                                            {batchMovementsTable.getRowModel().rows?.length ? (
+                                                batchMovementsTable.getRowModel().rows.map((row) => (
+                                                    <TableRow
+                                                        key={row.id}
+                                                        data-state={row.getIsSelected() && "selected"}
+                                                    >
+                                                        {row.getVisibleCells().map((cell) => (
+                                                            <TableCell key={cell.id}>
+                                                                {flexRender(
+                                                                    cell.column.columnDef.cell,
+                                                                    cell.getContext()
+                                                                )}
+                                                            </TableCell>
+                                                        ))}
+                                                    </TableRow>
+                                                ))
+                                            ) : (
+                                                <TableRow>
+                                                    <TableCell
+                                                        colSpan={batchMovementsColumns.length}
+                                                        className="h-24 text-center"
+                                                    >
+                                                        No batch movements found.
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                                
+                                {/* Pagination */}
+                                <div className="flex items-center justify-between px-2 py-4">
+                                    <div className="text-muted-foreground flex-1 text-sm">
+                                        Showing {batchMovementsTable.getRowModel().rows.length} of {batchMovementsTable.getFilteredRowModel().rows.length} batch movements
+                                    </div>
+                                    <div className="flex items-center space-x-6 lg:space-x-8">
+                                        <div className="flex items-center space-x-2">
+                                            <p className="text-sm font-medium">Rows per page</p>
+                                            <Select
+                                                value={`${batchMovementsTable.getState().pagination.pageSize}`}
+                                                onValueChange={(value) => {
+                                                    batchMovementsTable.setPageSize(Number(value))
+                                                }}
+                                            >
+                                                <SelectTrigger className="h-8 w-[70px]">
+                                                    <SelectValue placeholder={batchMovementsTable.getState().pagination.pageSize} />
+                                                </SelectTrigger>
+                                                <SelectContent side="top">
+                                                    {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                        <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                            {pageSize}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                            Page {batchMovementsTable.getState().pagination.pageIndex + 1} of{" "}
+                                            {batchMovementsTable.getPageCount()}
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="hidden size-8 lg:flex"
+                                                onClick={() => batchMovementsTable.setPageIndex(0)}
+                                                disabled={!batchMovementsTable.getCanPreviousPage()}
+                                            >
+                                                <span className="sr-only">Go to first page</span>
+                                                <ChevronsLeft className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="size-8"
+                                                onClick={() => batchMovementsTable.previousPage()}
+                                                disabled={!batchMovementsTable.getCanPreviousPage()}
+                                            >
+                                                <span className="sr-only">Go to previous page</span>
+                                                <ChevronLeft className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="size-8"
+                                                onClick={() => batchMovementsTable.nextPage()}
+                                                disabled={!batchMovementsTable.getCanNextPage()}
+                                            >
+                                                <span className="sr-only">Go to next page</span>
+                                                <ChevronRight className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="hidden size-8 lg:flex"
+                                                onClick={() => batchMovementsTable.setPageIndex(batchMovementsTable.getPageCount() - 1)}
+                                                disabled={!batchMovementsTable.getCanNextPage()}
                                             >
                                                 <span className="sr-only">Go to last page</span>
                                                 <ChevronsRight className="h-4 w-4" />

@@ -12,9 +12,32 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->enum('role', ['admin', 'doctor', 'medtech', 'cashier', 'patient', 'hospital_admin'])->default('patient')->after('email');
-            $table->boolean('is_active')->default(true)->after('role');
-            $table->string('employee_id')->nullable()->after('is_active');
+            if (!Schema::hasColumn('users', 'role')) {
+                $afterColumn = Schema::hasColumn('users', 'email') ? 'email' : null;
+                if ($afterColumn) {
+                    $table->enum('role', ['admin', 'doctor', 'medtech', 'cashier', 'patient', 'hospital_admin'])->default('patient')->after($afterColumn);
+                } else {
+                    $table->enum('role', ['admin', 'doctor', 'medtech', 'cashier', 'patient', 'hospital_admin'])->default('patient');
+                }
+            }
+            
+            if (!Schema::hasColumn('users', 'is_active')) {
+                $afterColumn = Schema::hasColumn('users', 'role') ? 'role' : (Schema::hasColumn('users', 'email') ? 'email' : null);
+                if ($afterColumn) {
+                    $table->boolean('is_active')->default(true)->after($afterColumn);
+                } else {
+                    $table->boolean('is_active')->default(true);
+                }
+            }
+            
+            if (!Schema::hasColumn('users', 'employee_id')) {
+                $afterColumn = Schema::hasColumn('users', 'is_active') ? 'is_active' : (Schema::hasColumn('users', 'role') ? 'role' : null);
+                if ($afterColumn) {
+                    $table->string('employee_id')->nullable()->after($afterColumn);
+                } else {
+                    $table->string('employee_id')->nullable();
+                }
+            }
         });
     }
 
@@ -24,7 +47,20 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn(['role', 'is_active', 'employee_id']);
+            $columnsToDrop = [];
+            if (Schema::hasColumn('users', 'role')) {
+                $columnsToDrop[] = 'role';
+            }
+            if (Schema::hasColumn('users', 'is_active')) {
+                $columnsToDrop[] = 'is_active';
+            }
+            if (Schema::hasColumn('users', 'employee_id')) {
+                $columnsToDrop[] = 'employee_id';
+            }
+            
+            if (!empty($columnsToDrop)) {
+                $table->dropColumn($columnsToDrop);
+            }
         });
     }
 };

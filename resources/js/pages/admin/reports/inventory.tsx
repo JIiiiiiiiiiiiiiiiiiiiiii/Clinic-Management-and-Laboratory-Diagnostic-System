@@ -1,18 +1,12 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ReportDatePicker } from '@/components/ui/report-date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import {
-    DropdownMenu,
-    DropdownMenuCheckboxItem,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { ReportDatePicker } from '@/components/ui/report-date-picker';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
@@ -28,40 +22,25 @@ import {
     useReactTable,
     VisibilityState,
 } from '@tanstack/react-table';
-import { 
-    Package, 
-    BarChart3,
-    Download,
-    ArrowLeft,
-    TrendingUp,
-    TrendingDown,
-    AlertTriangle,
-    CheckCircle,
-    Calendar,
-    FileText,
-    Filter,
-    Users,
-    FlaskConical,
-    Clock,
-    DollarSign,
+import {
     Activity,
-    Plus,
-    Eye,
-    Trash2,
-    MoreHorizontal,
+    AlertCircle,
+    AlertTriangle,
+    ArrowUpDown,
+    CheckCircle,
     ChevronDown,
     ChevronLeft,
     ChevronRight,
     ChevronsLeft,
     ChevronsRight,
-    ArrowUpDown,
+    Download,
     FileDown,
-    Package2,
-    AlertCircle,
-    ShoppingCart,
-    XCircle
+    Package,
+    TrendingDown,
+    TrendingUp,
+    XCircle,
 } from 'lucide-react';
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type Supply = {
     id: number;
@@ -81,7 +60,27 @@ type Supply = {
     quantity?: number;
     created_by?: string;
     remarks?: string;
+    expiry_date?: string | null;
     item_id?: number;
+};
+
+type AnalyticsData = {
+    most_used_supplies?: Array<{
+        id: number;
+        name: string;
+        code: string;
+        category: string;
+        quantity: number;
+        count: number;
+    }>;
+    least_used_supplies?: Array<{
+        id: number;
+        name: string;
+        code: string;
+        category: string;
+        quantity: number;
+        count: number;
+    }>;
 };
 
 interface InventoryReportsProps {
@@ -100,18 +99,21 @@ interface InventoryReportsProps {
         incoming_value?: number;
         outgoing_value?: number;
         net_value?: number;
-        category_summary: Record<string, {
-            count: number;
-            low_stock: number;
-            out_of_stock: number;
-            used_quantity?: number;
-            rejected_quantity?: number;
-            incoming_value?: number;
-            outgoing_value?: number;
-            net_value?: number;
-            incoming_quantity?: number;
-            outgoing_quantity?: number;
-        }>;
+        category_summary: Record<
+            string,
+            {
+                count: number;
+                low_stock: number;
+                out_of_stock: number;
+                used_quantity?: number;
+                rejected_quantity?: number;
+                incoming_value?: number;
+                outgoing_value?: number;
+                net_value?: number;
+                incoming_quantity?: number;
+                outgoing_quantity?: number;
+            }
+        >;
         supply_details: Supply[];
         period: string;
         start_date: string;
@@ -129,6 +131,7 @@ interface InventoryReportsProps {
         low_stock_items: number;
         out_of_stock: number;
     };
+    analytics?: AnalyticsData;
     filterOptions?: {
         doctors: Array<{ id: number; name: string }>;
         departments: string[];
@@ -152,46 +155,34 @@ const breadcrumbs: BreadcrumbItem[] = [
 const createColumns = (reportType: string): ColumnDef<Supply>[] => {
     const baseColumns: ColumnDef<Supply>[] = [
         {
-            accessorKey: "name",
+            accessorKey: 'name',
             header: ({ column }) => {
                 return (
-                    <Button
-                        variant="ghost"
-                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                        className="h-8 px-2 lg:px-3"
-                    >
+                    <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')} className="h-8 px-2 lg:px-3">
                         Product Name
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
-                )
+                );
             },
-            cell: ({ row }) => (
-                <div className="font-medium">{row.getValue("name")}</div>
-            ),
+            cell: ({ row }) => <div className="font-medium">{row.getValue('name')}</div>,
         },
         {
-            accessorKey: "code",
-            header: "Code",
-            cell: ({ row }) => (
-                <div className="text-sm font-mono">{row.getValue("code")}</div>
-            ),
+            accessorKey: 'code',
+            header: 'Code',
+            cell: ({ row }) => <div className="font-mono text-sm">{row.getValue('code')}</div>,
         },
         {
-            accessorKey: "category",
+            accessorKey: 'category',
             header: ({ column }) => {
                 return (
-                    <Button
-                        variant="ghost"
-                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                        className="h-8 px-2 lg:px-3"
-                    >
+                    <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')} className="h-8 px-2 lg:px-3">
                         Category
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
-                )
+                );
             },
             cell: ({ row }) => {
-                const category = row.getValue("category") as string;
+                const category = row.getValue('category') as string;
                 return (
                     <Badge variant="outline" className="capitalize">
                         {category}
@@ -205,28 +196,28 @@ const createColumns = (reportType: string): ColumnDef<Supply>[] => {
     if (reportType === 'all') {
         baseColumns.push(
             {
-                accessorKey: "current_stock",
+                accessorKey: 'current_stock',
                 header: ({ column }) => {
                     return (
-                        <Button
-                            variant="ghost"
-                            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                            className="h-8 px-2 lg:px-3"
-                        >
+                        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')} className="h-8 px-2 lg:px-3">
                             Current Stock
                             <ArrowUpDown className="ml-2 h-4 w-4" />
                         </Button>
-                    )
+                    );
                 },
                 cell: ({ row }) => {
-                    const stock = row.getValue("current_stock") as number;
+                    const stock = row.getValue('current_stock') as number;
                     const minLevel = row.original.minimum_stock_level;
                     const isLowStock = stock <= minLevel;
                     const isOutOfStock = stock <= 0;
-                    
+
                     return (
                         <div className="flex items-center gap-2">
-                            <span className={isOutOfStock ? "text-red-600 font-semibold" : isLowStock ? "text-orange-600 font-semibold" : "text-green-600"}>
+                            <span
+                                className={
+                                    isOutOfStock ? 'font-semibold text-red-600' : isLowStock ? 'font-semibold text-orange-600' : 'text-green-600'
+                                }
+                            >
                                 {stock.toLocaleString()}
                             </span>
                             {isOutOfStock && <XCircle className="h-4 w-4 text-red-500" />}
@@ -236,49 +227,39 @@ const createColumns = (reportType: string): ColumnDef<Supply>[] => {
                 },
             },
             {
-                accessorKey: "minimum_stock_level",
-                header: "Min Level",
-                cell: ({ row }) => (
-                    <div className="text-sm">{row.getValue("minimum_stock_level")}</div>
-                ),
+                accessorKey: 'minimum_stock_level',
+                header: 'Min Level',
+                cell: ({ row }) => <div className="text-sm">{row.getValue('minimum_stock_level')}</div>,
             },
             {
-                accessorKey: "is_active",
-                header: "Status",
+                accessorKey: 'is_active',
+                header: 'Status',
                 cell: ({ row }) => {
-                    const isActive = row.getValue("is_active") as boolean;
-                    return (
-                        <Badge variant={isActive ? "default" : "secondary"}>
-                            {isActive ? "Active" : "Inactive"}
-                        </Badge>
-                    );
+                    const isActive = row.getValue('is_active') as boolean;
+                    return <Badge variant={isActive ? 'default' : 'secondary'}>{isActive ? 'Active' : 'Inactive'}</Badge>;
                 },
-            }
+            },
         );
     } else if (reportType === 'used_rejected') {
         baseColumns.push(
             {
-                accessorKey: "used_quantity",
-                header: "Used Quantity",
-                cell: ({ row }) => (
-                    <div className="text-sm font-medium">{row.getValue("used_quantity") || 0}</div>
-                ),
+                accessorKey: 'used_quantity',
+                header: 'Used Quantity',
+                cell: ({ row }) => <div className="text-sm font-medium">{row.getValue('used_quantity') || 0}</div>,
             },
             {
-                accessorKey: "rejected_quantity",
-                header: "Rejected Quantity",
-                cell: ({ row }) => (
-                    <div className="text-sm font-medium">{row.getValue("rejected_quantity") || 0}</div>
-                ),
-            }
+                accessorKey: 'rejected_quantity',
+                header: 'Rejected Quantity',
+                cell: ({ row }) => <div className="text-sm font-medium">{row.getValue('rejected_quantity') || 0}</div>,
+            },
         );
     } else if (reportType === 'in_out') {
         baseColumns.push(
             {
-                accessorKey: "movement_type",
-                header: "Movement Type",
+                accessorKey: 'movement_type',
+                header: 'Movement Type',
                 cell: ({ row }) => {
-                    const type = row.getValue("movement_type") as string | undefined;
+                    const type = row.getValue('movement_type') as string | undefined;
                     // Only use fallback if the value is truly null/undefined, not if it's an empty string
                     const movementType = type ?? 'UNKNOWN';
                     return (
@@ -289,10 +270,10 @@ const createColumns = (reportType: string): ColumnDef<Supply>[] => {
                 },
             },
             {
-                accessorKey: "quantity",
-                header: "Quantity",
+                accessorKey: 'quantity',
+                header: 'Quantity',
                 cell: ({ row }) => {
-                    const quantity = row.getValue("quantity") as number | undefined;
+                    const quantity = row.getValue('quantity') as number | undefined;
                     const type = row.original.movement_type;
                     const quantityValue = quantity ?? 0;
                     return (
@@ -303,23 +284,21 @@ const createColumns = (reportType: string): ColumnDef<Supply>[] => {
                 },
             },
             {
-                accessorKey: "created_by",
-                header: "Created By",
+                accessorKey: 'created_by',
+                header: 'Created By',
                 cell: ({ row }) => {
-                    const createdBy = row.getValue("created_by") as string | undefined;
+                    const createdBy = row.getValue('created_by') as string | undefined;
                     // Only use fallback if the value is truly null/undefined, not if it's an empty string
-                    return (
-                        <div className="text-sm">{createdBy ?? 'System'}</div>
-                    );
+                    return <div className="text-sm">{createdBy ?? 'System'}</div>;
                 },
             },
             {
-                accessorKey: "created_at",
-                header: "Date",
+                accessorKey: 'created_at',
+                header: 'Date',
                 cell: ({ row }) => {
-                    const date = row.getValue("created_at") as string | undefined;
+                    const date = row.getValue('created_at') as string | undefined;
                     if (!date) return <div className="text-sm text-gray-600">N/A</div>;
-                    
+
                     try {
                         const dateObj = new Date(date);
                         return (
@@ -333,18 +312,47 @@ const createColumns = (reportType: string): ColumnDef<Supply>[] => {
                 },
             },
             {
-                accessorKey: "remarks",
-                header: "Remarks",
+                accessorKey: 'expiry_date',
+                header: 'Expiry Date',
                 cell: ({ row }) => {
-                    const remarks = row.getValue("remarks") as string | undefined;
+                    const expiryDate = row.getValue('expiry_date') as string | undefined | null;
+                    if (!expiryDate) return <div className="text-sm text-gray-400">N/A</div>;
+                    
+                    try {
+                        const dateObj = new Date(expiryDate);
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        dateObj.setHours(0, 0, 0, 0);
+                        
+                        const isExpired = dateObj < today;
+                        const daysUntilExpiry = Math.ceil((dateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                        const isNearExpiry = daysUntilExpiry <= 30 && daysUntilExpiry >= 0;
+                        
+                        return (
+                            <div className={`text-sm ${isExpired ? 'text-red-600 font-semibold' : isNearExpiry ? 'text-orange-600 font-medium' : 'text-gray-600'}`}>
+                                {dateObj.toLocaleDateString()}
+                                {isExpired && <span className="ml-1 text-xs">(Expired)</span>}
+                                {isNearExpiry && !isExpired && <span className="ml-1 text-xs">({daysUntilExpiry}d left)</span>}
+                            </div>
+                        );
+                    } catch (error) {
+                        return <div className="text-sm text-gray-400">Invalid</div>;
+                    }
+                },
+            },
+            {
+                accessorKey: 'remarks',
+                header: 'Remarks',
+                cell: ({ row }) => {
+                    const remarks = row.getValue('remarks') as string | undefined;
                     const remarksValue = remarks || 'No remarks';
                     return (
-                        <div className="text-sm text-gray-600 max-w-xs truncate" title={remarksValue}>
+                        <div className="max-w-xs truncate text-sm text-gray-600" title={remarksValue}>
                             {remarksValue}
                         </div>
                     );
                 },
-            }
+            },
         );
     }
 
@@ -358,6 +366,7 @@ export default function InventoryReports({
     data,
     supplies,
     summary,
+    analytics,
     filterOptions,
     metadata,
 }: InventoryReportsProps) {
@@ -368,9 +377,9 @@ export default function InventoryReports({
         reportType,
         data,
         supplies,
-        summary
+        summary,
     });
-    
+
     // Log when component mounts or props change
     useEffect(() => {
         console.log('InventoryReports component updated with new props:', {
@@ -378,9 +387,9 @@ export default function InventoryReports({
             date,
             reportType,
             dataCount: data?.supply_details?.length || 0,
-            suppliesCount: supplies?.data?.length || 0
+            suppliesCount: supplies?.data?.length || 0,
         });
-        
+
         // Debug movement data specifically
         if (reportType === 'in_out' && data?.supply_details) {
             console.log('Movement data sample:', data.supply_details.slice(0, 3));
@@ -401,11 +410,11 @@ export default function InventoryReports({
     const [globalFilter, setGlobalFilter] = useState('');
 
     // Dynamic data calculation
-    const getFilteredData = useCallback(() => {
+    const calculatedData = useMemo(() => {
         // Use data.supply_details for the main data (from backend filtering)
         // Use supplies.data for pagination in the table
         const currentSupplies = data?.supply_details || [];
-        
+
         console.log('getFilteredData - currentFilter:', currentFilter);
         console.log('getFilteredData - currentDate:', currentDate);
         console.log('getFilteredData - currentReportType:', currentReportType);
@@ -413,7 +422,7 @@ export default function InventoryReports({
         console.log('getFilteredData - supplies prop:', supplies);
         console.log('getFilteredData - currentSupplies length:', currentSupplies.length);
         console.log('getFilteredData - currentSupplies sample:', currentSupplies.slice(0, 2));
-        
+
         // If no data from backend, return empty state
         if (!data) {
             console.log('No data from backend, returning empty state');
@@ -425,18 +434,18 @@ export default function InventoryReports({
                 supply_details: [],
                 period: 'No data available',
                 start_date: currentDate,
-                end_date: currentDate
+                end_date: currentDate,
             };
         }
-        
+
         // Calculate totals based on report type
         let total = 0;
         let lowStock = 0;
         let outOfStock = 0;
-        
+
         if (currentReportType === 'used_rejected') {
             // For used/rejected reports, count unique items from supply_details
-            const uniqueItems = new Set(currentSupplies.map(s => s.item_id || s.id));
+            const uniqueItems = new Set(currentSupplies.map((s) => s.item_id || s.id));
             total = uniqueItems.size;
             // Low stock and out of stock not applicable for used/rejected reports
             lowStock = 0;
@@ -444,48 +453,51 @@ export default function InventoryReports({
         } else {
             // For other reports, use standard inventory calculations
             total = currentSupplies.length;
-            lowStock = currentSupplies.filter(s => s.current_stock <= s.minimum_stock_level).length;
-            outOfStock = currentSupplies.filter(s => s.current_stock <= 0).length;
+            lowStock = currentSupplies.filter((s) => s.current_stock <= s.minimum_stock_level).length;
+            outOfStock = currentSupplies.filter((s) => s.current_stock <= 0).length;
         }
-        
-        const categorySummary = currentSupplies.reduce((acc, supply) => {
-            const category = supply.category;
-            if (!acc[category]) {
-                acc[category] = {
-                    count: 0,
-                    low_stock: 0,
-                    out_of_stock: 0,
-                    used_quantity: 0,
-                    rejected_quantity: 0,
-                };
-            }
-            acc[category].count += 1;
-            
-            // For inventory reports, check stock levels
-            if (supply.current_stock !== undefined) {
-                if (supply.current_stock <= supply.minimum_stock_level) {
-                    acc[category].low_stock += 1;
+
+        const categorySummary = currentSupplies.reduce(
+            (acc, supply) => {
+                const category = supply.category;
+                if (!acc[category]) {
+                    acc[category] = {
+                        count: 0,
+                        low_stock: 0,
+                        out_of_stock: 0,
+                        used_quantity: 0,
+                        rejected_quantity: 0,
+                    };
                 }
-                if (supply.current_stock <= 0) {
-                    acc[category].out_of_stock += 1;
+                acc[category].count += 1;
+
+                // For inventory reports, check stock levels
+                if (supply.current_stock !== undefined) {
+                    if (supply.current_stock <= supply.minimum_stock_level) {
+                        acc[category].low_stock += 1;
+                    }
+                    if (supply.current_stock <= 0) {
+                        acc[category].out_of_stock += 1;
+                    }
                 }
-            }
-            
-            // For used/rejected reports, calculate quantities
-            if (currentReportType === 'used_rejected') {
-                if (supply.type === 'used' || (supply.movement_type === 'used' && !supply.type)) {
-                    acc[category].used_quantity += supply.quantity || supply.used_quantity || 0;
-                } else if (supply.type === 'rejected' || (supply.movement_type === 'rejected' && !supply.type)) {
-                    acc[category].rejected_quantity += supply.quantity || supply.rejected_quantity || 0;
-                } else if (supply.used_quantity > 0) {
-                    acc[category].used_quantity += supply.used_quantity;
-                } else if (supply.rejected_quantity > 0) {
-                    acc[category].rejected_quantity += supply.rejected_quantity;
+
+                // For used/rejected reports, calculate quantities
+                if (currentReportType === 'used_rejected') {
+                    if (supply.type === 'used' || (supply.movement_type === 'used' && !supply.type)) {
+                        acc[category].used_quantity += supply.quantity || supply.used_quantity || 0;
+                    } else if (supply.type === 'rejected' || (supply.movement_type === 'rejected' && !supply.type)) {
+                        acc[category].rejected_quantity += supply.quantity || supply.rejected_quantity || 0;
+                    } else if (supply.used_quantity > 0) {
+                        acc[category].used_quantity += supply.used_quantity;
+                    } else if (supply.rejected_quantity > 0) {
+                        acc[category].rejected_quantity += supply.rejected_quantity;
+                    }
                 }
-            }
-            
-            return acc;
-        }, {} as Record<string, { count: number; low_stock: number; out_of_stock: number; used_quantity?: number; rejected_quantity?: number; }>);
+
+                return acc;
+            },
+            {} as Record<string, { count: number; low_stock: number; out_of_stock: number; used_quantity?: number; rejected_quantity?: number }>,
+        );
 
         // Calculate movement statistics for in_out report type
         let incomingCount = 0;
@@ -505,8 +517,8 @@ export default function InventoryReports({
             // Count movements from the supply_details (which contains movement data for in_out)
             console.log('Calculating movement stats for in_out report type');
             console.log('Current supplies for movement calculation:', currentSupplies.slice(0, 3));
-            
-            currentSupplies.forEach(supply => {
+
+            currentSupplies.forEach((supply) => {
                 if (supply.movement_type === 'IN') {
                     incomingCount++;
                     incomingQuantity += supply.quantity || 0;
@@ -515,25 +527,25 @@ export default function InventoryReports({
                     outgoingQuantity += supply.quantity || 0;
                 }
             });
-            
+
             totalTransactions = incomingCount + outgoingCount;
             netQuantity = incomingQuantity - outgoingQuantity;
-            
+
             console.log('Movement calculation results:', {
                 incomingCount,
                 outgoingCount,
                 incomingQuantity,
                 outgoingQuantity,
                 totalTransactions,
-                netQuantity
+                netQuantity,
             });
         } else if (currentReportType === 'used_rejected') {
             // Calculate used/rejected statistics from supply_details (which contains used/rejected item records)
             console.log('Calculating used/rejected stats for used_rejected report type');
             console.log('Current supplies for used/rejected calculation:', currentSupplies.slice(0, 3));
-            
+
             // Count from supply_details table - each record represents one transaction
-            currentSupplies.forEach(supply => {
+            currentSupplies.forEach((supply) => {
                 // Check type field first (from inventory_used_rejected_items)
                 if (supply.type === 'used' || (supply.movement_type === 'used' && !supply.type)) {
                     usedCount++;
@@ -551,7 +563,7 @@ export default function InventoryReports({
                     rejectedQuantity += supply.rejected_quantity;
                 }
             });
-            
+
             // Use backend-provided values if they're more accurate (backend counts all records)
             // But prefer our calculation from supply_details if we have data
             if (currentSupplies.length > 0) {
@@ -561,18 +573,17 @@ export default function InventoryReports({
                 // Fallback to backend-provided values
                 usedCount = data?.used_count || 0;
                 rejectedCount = data?.rejected_count || 0;
-                totalTransactions = data?.total_transactions || (usedCount + rejectedCount);
+                totalTransactions = data?.total_transactions || usedCount + rejectedCount;
             }
-            
+
             console.log('Used/Rejected calculation results from Supply Details:', {
                 supplyDetailsCount: currentSupplies.length,
                 usedCount,
                 rejectedCount,
-                usedQuantity,
-                rejectedQuantity,
+
                 totalTransactions,
                 backendUsedCount: data?.used_count,
-                backendRejectedCount: data?.rejected_count
+                backendRejectedCount: data?.rejected_count,
             });
         }
 
@@ -580,7 +591,6 @@ export default function InventoryReports({
             total_products: total,
             low_stock_items: lowStock,
             out_of_stock: outOfStock,
-            // Movement data for in_out report
             incoming_count: incomingCount,
             outgoing_count: outgoingCount,
             incoming_quantity: incomingQuantity,
@@ -594,15 +604,19 @@ export default function InventoryReports({
             rejected_quantity: rejectedQuantity || data?.rejected_quantity || 0,
             category_summary: categorySummary,
             supply_details: currentSupplies,
-            period: data?.period || (currentReportType === 'all' 
-                ? 'All Inventory Items'
-                : currentFilter === 'daily' 
-                ? `Daily Report - ${new Date(currentDate).toLocaleDateString()}`
-                : currentFilter === 'monthly' 
-                ? `Monthly Report - ${new Date(currentDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}`
-                : `Yearly Report - ${new Date(currentDate).getFullYear()}`)
+            period:
+                data?.period ||
+                (currentReportType === 'all'
+                    ? 'All Inventory Items'
+                    : currentFilter === 'daily'
+                      ? `Daily Report - ${new Date(currentDate).toLocaleDateString()}`
+                      : currentFilter === 'monthly'
+                        ? `Monthly Report - ${new Date(currentDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}`
+                        : `Yearly Report - ${new Date(currentDate).getFullYear()}`),
+            start_date: data?.start_date || currentDate,
+            end_date: data?.end_date || currentDate,
         };
-        
+
         console.log('getFilteredData - result:', result);
         return result;
     }, [data, supplies, currentFilter, currentDate, currentReportType]);
@@ -611,46 +625,48 @@ export default function InventoryReports({
         // Initialize with actual data from backend
         const initialData = {
             total_products: data?.total_products || 0,
-            low_stock_items: data?.low_stock_items || 0,
+            low_stock_items: data?.low_stoc_items || 0,
             out_of_stock: data?.out_of_stock || 0,
-            category_summary: data?.category_summary || {},
+            category_summary: data?.category_ummary || {},
             supply_details: data?.supply_details || [],
             period: data?.period || 'Loading...',
             start_date: data?.start_date || currentDate,
             end_date: data?.end_date || currentDate,
-            // Used/Rejected data
+
             used_count: data?.used_count || 0,
             rejected_count: data?.rejected_count || 0,
             total_transactions: data?.total_transactions || 0,
             used_quantity: data?.used_quantity || 0,
-            rejected_quantity: data?.rejected_quantity || 0
+            rejected_quantity: data?.rejected_quantity || 0,
         };
-        
+
         console.log('Initial filteredData:', initialData);
         return initialData;
     });
 
     useEffect(() => {
         console.log('Data prop changed, updating filtered data');
-        setFilteredData(getFilteredData());
-    }, [data, supplies, currentFilter, currentDate, currentReportType]);
+        setFilteredData(calculatedData);
+    }, [calculatedData]);
 
     const handleFilterChange = (newFilter: string) => {
         setCurrentFilter(newFilter);
         setIsLoading(true);
         console.log('Filter change - sending:', {
             filter: newFilter,
-            date: currentDate,
-            report_type: currentReportType
         });
-        router.get('/admin/reports/inventory', {
-            filter: newFilter,
-            date: currentDate,
-            report_type: currentReportType
-        }, {
-            preserveState: true,
-            onFinish: () => setIsLoading(false)
-        });
+        router.get(
+            '/admin/reports/inventory',
+            {
+                filter: newFilter,
+                date: currentDate,
+                report_type: currentReportType,
+            },
+            {
+                preserveState: true,
+                onFinish: () => setIsLoading(false),
+            },
+        );
     };
 
     const handleDateChange = (newDate: string) => {
@@ -659,48 +675,52 @@ export default function InventoryReports({
         console.log('Date change - sending:', {
             filter: currentFilter,
             date: newDate,
-            report_type: currentReportType
+            report_type: currentReportType,
         });
-        router.get('/admin/reports/inventory', {
-            filter: currentFilter,
-            date: newDate,
-            report_type: currentReportType
-        }, {
-            preserveState: true,
-            onFinish: () => setIsLoading(false)
-        });
+        router.get(
+            '/admin/reports/inventory',
+            {
+                filter: currentFilter,
+                date: newDate,
+                report_type: currentReportType,
+            },
+            {
+                preserveState: true,
+                onFinish: () => setIsLoading(false),
+            },
+        );
     };
 
     const handleReportTypeChange = (newReportType: string) => {
         setCurrentReportType(newReportType);
         setIsLoading(true);
-        router.get('/admin/reports/inventory', {
-            filter: currentFilter,
-            date: currentDate,
-            report_type: newReportType
-        }, {
-            preserveState: false, // Force refresh to get new data
-            onFinish: () => setIsLoading(false)
-        });
+        router.get(
+            '/admin/reports/inventory',
+            {
+                filter: currentFilter,
+                date: currentDate,
+                report_type: newReportType,
+            },
+            {
+                preserveState: false, // Force refresh to get new data
+                onFinish: () => setIsLoading(false),
+            },
+        );
     };
 
     const handleExport = async (format: 'excel' | 'pdf') => {
         try {
             setIsExporting(true);
             const params = new URLSearchParams({
+                type: 'inventory',
                 filter: currentFilter,
                 date: currentDate,
                 report_type: currentReportType,
                 format,
-                total_products: (filteredData.total_products || 0).toString(),
-                low_stock_items: (filteredData.low_stock_items || 0).toString()
             });
-            
-            if (format === 'excel') {
-                window.location.href = `/admin/reports/export?type=inventory&format=excel&${params}`;
-            } else {
-                window.location.href = `/admin/reports/export?type=inventory&format=pdf&${params}`;
-            }
+
+            const exportUrl = `/admin/reports/export?${params.toString()}`;
+            window.location.href = exportUrl;
 
             setTimeout(() => {
                 setIsExporting(false);
@@ -713,15 +733,14 @@ export default function InventoryReports({
 
     // Initialize table
     const columns = useMemo(() => createColumns(currentReportType), [currentReportType]);
-    
-    // Debug table data
-    const tableData = filteredData.supply_details || data?.supply_details || supplies?.data || [];
-    console.log('Table data for report type', currentReportType, ':', tableData.slice(0, 2));
-    
+
+    // Debug table data - use filteredData which is updated when filters change
+    const tableData = filteredData.supply_details || [];
+    console.log('Table data for', reportType, ':', tableData.slice(0, 2));
+
     const table = useReactTable({
         data: tableData,
         columns,
-        onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
         getCoreRowModel: getCoreRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
@@ -754,178 +773,297 @@ export default function InventoryReports({
             <div className="min-h-screen bg-gray-50">
                 <div className="p-6">
                     {/* Dynamic Insight Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-						{currentReportType === 'all' ? (
+                    <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+                        {currentReportType === 'all' ? (
                             <>
-								<Card className="shadow-sm">
+                                <Card className="shadow-sm">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-												<p className="text-gray-500 text-sm font-medium">
+                                                <p className="text-sm font-medium text-gray-500">
                                                     Total Products {isLoading && <span className="animate-pulse">⏳</span>}
                                                 </p>
                                                 <p className="text-3xl font-bold">{(filteredData.total_products || 0).toLocaleString()}</p>
-												<p className="text-gray-500 text-xs mt-1">
-                                                    {currentReportType === 'all' ? 'All Items' : 
-                                                     currentFilter === 'daily' ? 'Today\'s Count' : 
-                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    {currentReportType === 'all'
+                                                        ? 'All Items'
+                                                        : currentFilter === 'daily'
+                                                          ? "Today's Count"
+                                                          : currentFilter === 'monthly'
+                                                            ? 'This Month'
+                                                            : 'This Year'}
                                                     {currentReportType !== 'all' && ` (${currentReportType.replace('_', ' ')})`}
                                                 </p>
                                             </div>
-											<Package className="h-8 w-8 text-gray-400" />
+                                            <Package className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
 
-								<Card className="shadow-sm">
+                                <Card className="shadow-sm">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-												<p className="text-gray-500 text-sm font-medium">Low Stock Items</p>
+                                                <p className="text-sm font-medium text-gray-500">Low Stock Items</p>
                                                 <p className="text-3xl font-bold">{(filteredData.low_stock_items || 0).toLocaleString()}</p>
-												<p className="text-gray-500 text-xs mt-1">
-                                                    {(filteredData.total_products || 0) > 0 ? 
-                                                        (((filteredData.low_stock_items || 0) / (filteredData.total_products || 1)) * 100).toFixed(1) : 0
-                                                    }% of total
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    {(filteredData.total_products || 0) > 0
+                                                        ? (((filteredData.low_stock_items || 0) / (filteredData.total_products || 1)) * 100).toFixed(
+                                                              1,
+                                                          )
+                                                        : 0}
+                                                    % of total
                                                 </p>
                                             </div>
-											<AlertTriangle className="h-8 w-8 text-gray-400" />
+                                            <AlertTriangle className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
 
-								<Card className="shadow-sm">
+                                <Card className="shadow-sm">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-												<p className="text-gray-500 text-sm font-medium">Out of Stock</p>
+                                                <p className="text-sm font-medium text-gray-500">Out of Stock</p>
                                                 <p className="text-3xl font-bold">{(filteredData.out_of_stock || 0).toLocaleString()}</p>
-												<p className="text-gray-500 text-xs mt-1">
-                                                    {(filteredData.total_products || 0) > 0 ? 
-                                                        (((filteredData.out_of_stock || 0) / (filteredData.total_products || 1)) * 100).toFixed(1) : 0
-                                                    }% of total
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    {(filteredData.total_products || 0) > 0
+                                                        ? (((filteredData.out_of_stock || 0) / (filteredData.total_products || 1)) * 100).toFixed(1)
+                                                        : 0}
+                                                    % of total
                                                 </p>
                                             </div>
-											<XCircle className="h-8 w-8 text-gray-400" />
+                                            <XCircle className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
-
                             </>
-						) : currentReportType === 'used_rejected' ? (
+                        ) : currentReportType === 'used_rejected' ? (
                             <>
-								<Card className="shadow-sm">
+                                <Card className="shadow-sm">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-												<p className="text-gray-500 text-sm font-medium">Total Products</p>
+                                                <p className="text-sm font-medium text-gray-500">Tocts</p>
                                                 <p className="text-3xl font-bold">{(filteredData.total_products || 0).toLocaleString()}</p>
-												<p className="text-gray-500 text-xs mt-1">
-                                                    {currentFilter === 'daily' ? 'Today\'s Count' : 
-                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    {currentFilter === 'daily'
+                                                        ? "Today's Count"
+                                                        : currentFilter === 'monthly'
+                                                          ? 'This Month'
+                                                          : 'This Year'}
                                                 </p>
                                             </div>
-											<Package className="h-8 w-8 text-gray-400" />
+                                            <Package className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
 
-								<Card className="shadow-sm">
+                                <Card className="shadow-sm">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-												<p className="text-gray-500 text-sm font-medium">Used Items</p>
+                                                <p className="text-sm font-medium text-gray-500">Used Items</p>
                                                 <p className="text-3xl font-bold">{(filteredData.used_quantity || 0).toLocaleString()}</p>
-												<p className="text-gray-500 text-xs mt-1">
-                                                    {((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0)) > 0 ? 
-                                                        (((filteredData.used_quantity || 0) / ((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0))) * 100).toFixed(1) : 0
-                                                    }% of total quantity
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    {(filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0) > 0
+                                                        ? (
+                                                              ((filteredData.used_quantity || 0) /
+                                                                  ((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0))) *
+                                                              100
+                                                          ).toFixed(1)
+                                                        : 0}
+                                                    % of total quantity
                                                 </p>
                                             </div>
-											<CheckCircle className="h-8 w-8 text-gray-400" />
+                                            <CheckCircle className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
 
-								<Card className="shadow-sm">
+                                <Card className="shadow-sm">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-												<p className="text-gray-500 text-sm font-medium">Rejected Items</p>
+                                                <p className="text-sm font-medium text-gray-500">Rejected Items</p>
                                                 <p className="text-3xl font-bold">{(filteredData.rejected_quantity || 0).toLocaleString()}</p>
-												<p className="text-gray-500 text-xs mt-1">
-                                                    {((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0)) > 0 ? 
-                                                        (((filteredData.rejected_quantity || 0) / ((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0))) * 100).toFixed(1) : 0
-                                                    }% of total quantity
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    {(filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0) > 0
+                                                        ? (
+                                                              ((filteredData.rejected_quantity || 0) /
+                                                                  ((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0))) *
+                                                              100
+                                                          ).toFixed(1)
+                                                        : 0}
+                                                    % of total quantity
                                                 </p>
                                             </div>
-											<XCircle className="h-8 w-8 text-gray-400" />
+                                            <XCircle className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
 
+                                <Card className="shadow-sm">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-500">Total Transactions</p>
+                                                <p className="text-3xl font-bold">{(filteredData.total_transactions || 0).toLocaleString()}</p>
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    {currentFilter === 'daily'
+                                                        ? "Today's activity"
+                                                        : currentFilter === 'monthly'
+                                                          ? 'This month'
+                                                          : 'This year'}
+                                                </p>
+                                            </div>
+                                            <Activity className="h-8 w-8 text-gray-400" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
                             </>
-						) : currentReportType === 'in_out' ? (
+                        ) : currentReportType === 'in_out' ? (
                             <>
-								<Card className="shadow-sm">
+                                <Card className="shadow-sm">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-												<p className="text-gray-500 text-sm font-medium">Total Products</p>
+                                                <p className="text-sm font-medium text-gray-500">Total Products</p>
                                                 <p className="text-3xl font-bold">{(filteredData.total_products || 0).toLocaleString()}</p>
-												<p className="text-gray-500 text-xs mt-1">
-                                                    {currentFilter === 'daily' ? 'Today\'s Count' : 
-                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    {currentFilter === 'daily'
+                                                        ? "Today's Count"
+                                                        : currentFilter === 'monthly'
+                                                          ? 'This Month'
+                                                          : 'This Year'}
                                                 </p>
                                             </div>
-											<Package className="h-8 w-8 text-gray-400" />
+                                            <Package className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
 
-								<Card className="shadow-sm">
+                                <Card className="shadow-sm">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-												<p className="text-gray-500 text-sm font-medium">Incoming</p>
+                                                <p className="text-sm font-medium text-gray-500">Incoming</p>
                                                 <p className="text-3xl font-bold">{(filteredData.incoming_count || 0).toLocaleString()}</p>
-												<p className="text-gray-500 text-xs mt-1">
+                                                <p className="mt-1 text-xs text-gray-500">
                                                     {(filteredData.incoming_quantity || 0).toLocaleString()} items
                                                 </p>
                                             </div>
-											<TrendingUp className="h-8 w-8 text-gray-400" />
+                                            <TrendingUp className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
 
-								<Card className="shadow-sm">
+                                <Card className="shadow-sm">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-												<p className="text-gray-500 text-sm font-medium">Outgoing</p>
+                                                <p className="text-sm font-medium text-gray-500">Outgoing</p>
                                                 <p className="text-3xl font-bold">{(filteredData.outgoing_count || 0).toLocaleString()}</p>
-												<p className="text-gray-500 text-xs mt-1">
+                                                <p className="mt-1 text-xs text-gray-500">
                                                     {(filteredData.outgoing_quantity || 0).toLocaleString()} items
                                                 </p>
                                             </div>
-											<TrendingDown className="h-8 w-8 text-gray-400" />
+                                            <TrendingDown className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
-
                             </>
                         ) : null}
                     </div>
 
+                    {/* Analytics Cards - Most Used & Least Used Supplies */}
+                    <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+                        {/* Most Used Supplies */}
+                        <Card className="border border-gray-200 bg-white shadow-sm">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <TrendingUp className="h-5 w-5 text-blue-600" />
+                                    Most Frequently Used Supplies
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {analytics?.most_used_supplies && analytics.most_used_supplies.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {analytics.most_used_supplies.map((supply, index) => (
+                                            <div key={supply.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">
+                                                        {index + 1}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-gray-900">{supply.name}</p>
+                                                        <p className="text-xs text-gray-500">{supply.code}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="font-bold text-gray-900">{supply.quantity.toLocaleString()}</p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {supply.count} {supply.count === 1 ? 'time' : 'times'} used
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="py-4 text-center text-sm text-gray-500">No supply usage data available</p>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Least Used Supplies */}
+                        <Card className="border border-gray-200 bg-white shadow-sm">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <TrendingDown className="h-5 w-5 text-orange-600" />
+                                    Least Frequently Used Supplies
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {analytics?.least_used_supplies && analytics.least_used_supplies.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {analytics.least_used_supplies.map((supply, index) => (
+                                            <div key={supply.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-orange-700">
+                                                        {index + 1}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-gray-900">{supply.name}</p>
+                                                        <p className="text-xs text-gray-500">{supply.code}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="font-bold text-gray-900">{supply.quantity.toLocaleString()}</p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {supply.count === 0
+                                                            ? 'Never used'
+                                                            : `${supply.count} ${supply.count === 1 ? 'time' : 'times'} used`}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="py-4 text-center text-sm text-gray-500">No supply usage data available</p>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+
                     {/* Filter Controls */}
                     <div className="mb-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                            <div className="space-y-2 w-full">
-                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">
+                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
+                            <div className="w-full space-y-2">
+                                <Label className="mb-2 block text-sm font-semibold text-gray-800">
                                     Report Type {isLoading && <span className="text-blue-500">(Loading...)</span>}
                                 </Label>
                                 <select
-                                    className="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-500 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-500 focus:ring-gray-500 disabled:cursor-not-allowed disabled:opacity-50"
                                     value={currentReportType}
                                     onChange={(e) => handleReportTypeChange(e.target.value)}
                                     disabled={isLoading}
@@ -936,12 +1074,12 @@ export default function InventoryReports({
                                 </select>
                             </div>
 
-                            <div className="space-y-2 w-full">
-                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">
+                            <div className="w-full space-y-2">
+                                <Label className="mb-2 block text-sm font-semibold text-gray-800">
                                     Time Period {isLoading && <span className="text-blue-500">(Loading...)</span>}
                                 </Label>
                                 <select
-                                    className="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-500 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-500 focus:ring-gray-500 disabled:cursor-not-allowed disabled:opacity-50"
                                     value={currentFilter}
                                     onChange={(e) => handleFilterChange(e.target.value)}
                                     disabled={isLoading}
@@ -951,9 +1089,9 @@ export default function InventoryReports({
                                     <option value="yearly">Yearly</option>
                                 </select>
                             </div>
-                            
-                            <div className="space-y-2 w-full">
-                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">
+
+                            <div className="w-full space-y-2">
+                                <Label className="mb-2 block text-sm font-semibold text-gray-800">
                                     Select Date {isLoading && <span className="text-blue-500">(Loading...)</span>}
                                 </Label>
                                 <ReportDatePicker
@@ -964,7 +1102,7 @@ export default function InventoryReports({
                                             const year = date.getFullYear();
                                             const month = String(date.getMonth() + 1).padStart(2, '0');
                                             const day = String(date.getDate()).padStart(2, '0');
-                                            
+
                                             let formattedDate: string;
                                             if (currentFilter === 'monthly') {
                                                 formattedDate = `${year}-${month}`;
@@ -973,7 +1111,7 @@ export default function InventoryReports({
                                             } else {
                                                 formattedDate = `${year}-${month}-${day}`;
                                             }
-                                            
+
                                             handleDateChange(formattedDate);
                                         } else {
                                             handleDateChange('');
@@ -985,17 +1123,17 @@ export default function InventoryReports({
                             </div>
 
                             <div className="w-full">
-                                <Label className="text-sm font-semibold text-gray-800 mb-2 block">Period</Label>
-                                <div className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm flex items-center">
+                                <Label className="mb-2 block text-sm font-semibold text-gray-800">Period</Label>
+                                <div className="flex h-12 w-full items-center rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
                                     {filteredData.period}
                                 </div>
                             </div>
 
-                            <div className="w-full flex items-end">
+                            <div className="flex w-full items-end">
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button 
-                                            className="bg-gray-600 hover:bg-gray-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-4 py-2 text-sm font-semibold rounded-xl w-full h-12 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        <Button
+                                            className="h-12 w-full rounded-xl bg-gray-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:bg-gray-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
                                             disabled={isLoading}
                                         >
                                             <Download className="mr-2 h-4 w-4" />
@@ -1020,60 +1158,97 @@ export default function InventoryReports({
                     {/* Report Summary - Hidden for in_out report type */}
                     {currentReportType !== 'in_out' && (
                         <div className="mb-8">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Report Summary</h3>
-                            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                            <h3 className="mb-4 text-lg font-semibold text-gray-900">Report Summary</h3>
+                            <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
                                 <table className="w-full">
                                     <thead className="bg-gray-50">
                                         <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metric</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">Metric</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">Value</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                                                Percentage
+                                            </th>
                                         </tr>
                                     </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
+                                    <tbody className="divide-y divide-gray-200 bg-white">
                                         {currentReportType === 'all' ? (
                                             <>
                                                 <tr>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Products</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_products || 0}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
+                                                    <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">Total Products</td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
+                                                        {filteredData.total_products || 0}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">100%</td>
                                                 </tr>
                                                 <tr>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Low Stock Items</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.low_stock_items || 0}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                        {(filteredData.total_products || 0) > 0 ? (((filteredData.low_stock_items || 0) / (filteredData.total_products || 1)) * 100).toFixed(1) : 0}%
+                                                    <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">Low Stock Items</td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
+                                                        {filteredData.low_stock_items || 0}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
+                                                        {(filteredData.total_products || 0) > 0
+                                                            ? (
+                                                                  ((filteredData.low_stock_items || 0) / (filteredData.total_products || 1)) *
+                                                                  100
+                                                              ).toFixed(1)
+                                                            : 0}
+                                                        %
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Out of Stock</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.out_of_stock || 0}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                        {(filteredData.total_products || 0) > 0 ? (((filteredData.out_of_stock || 0) / (filteredData.total_products || 1)) * 100).toFixed(1) : 0}%
+                                                    <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">Out of Stock</td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
+                                                        {filteredData.out_of_stock || 0}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
+                                                        {(filteredData.total_products || 0) > 0
+                                                            ? (((filteredData.out_of_stock || 0) / (filteredData.total_products || 1)) * 100).toFixed(
+                                                                  1,
+                                                              )
+                                                            : 0}
+                                                        %
                                                     </td>
                                                 </tr>
                                             </>
                                         ) : currentReportType === 'used_rejected' ? (
                                             <>
                                                 <tr>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Products</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_products || 0}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
+                                                    <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">Total Products</td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
+                                                        {filteredData.total_products || 0}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">100%</td>
                                                 </tr>
                                                 <tr>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Used Items</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{(filteredData.used_quantity || 0).toLocaleString()}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                        {((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0)) > 0 ? 
-                                                            (((filteredData.used_quantity || 0) / ((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0))) * 100).toFixed(1) : 0}%
+                                                    <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">Used Items</td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
+                                                        {(filteredData.used_quantity || 0).toLocaleString()}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
+                                                        {(filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0) > 0
+                                                            ? (
+                                                                  ((filteredData.used_quantity || 0) /
+                                                                      ((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0))) *
+                                                                  100
+                                                              ).toFixed(1)
+                                                            : 0}
+                                                        %
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Rejected Items</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{(filteredData.rejected_quantity || 0).toLocaleString()}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                        {((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0)) > 0 ? 
-                                                            (((filteredData.rejected_quantity || 0) / ((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0))) * 100).toFixed(1) : 0}%
+                                                    <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">Rejected Items</td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
+                                                        {(filteredData.rejected_quantity || 0).toLocaleString()}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
+                                                        {(filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0) > 0
+                                                            ? (
+                                                                  ((filteredData.rejected_quantity || 0) /
+                                                                      ((filteredData.used_quantity || 0) + (filteredData.rejected_quantity || 0))) *
+                                                                  100
+                                                              ).toFixed(1)
+                                                            : 0}
+                                                        %
                                                     </td>
                                                 </tr>
                                             </>
@@ -1087,40 +1262,56 @@ export default function InventoryReports({
                     {/* Category Summary - Hidden for in_out report type */}
                     {currentReportType !== 'in_out' && filteredData.category_summary && Object.keys(filteredData.category_summary).length > 0 && (
                         <div className="mb-8">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Category Summary</h3>
-                            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                            <h3 className="mb-4 text-lg font-semibold text-gray-900">Category Summary</h3>
+                            <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
                                 <table className="w-full">
                                     <thead className="bg-gray-50">
                                         <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                                                Category
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">Count</th>
                                             {currentReportType === 'all' ? (
                                                 <>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Low Stock</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Out of Stock</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                                                        Low Stock
+                                                    </th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                                                        Out of Stock
+                                                    </th>
                                                 </>
                                             ) : currentReportType === 'used_rejected' ? (
                                                 <>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Used Quantity</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rejected Quantity</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                                                        Used Quantity
+                                                    </th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                                                        Rejected Quantity
+                                                    </th>
                                                 </>
                                             ) : null}
                                         </tr>
                                     </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
+                                    <tbody className="divide-y divide-gray-200 bg-white">
                                         {Object.entries(filteredData.category_summary).map(([category, data]) => (
                                             <tr key={category}>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 capitalize">{category}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.count}</td>
+                                                <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900 capitalize">
+                                                    {category}
+                                                </td>
+                                                <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">{data.count}</td>
                                                 {currentReportType === 'all' ? (
                                                     <>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.low_stock}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.out_of_stock}</td>
+                                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">{data.low_stock}</td>
+                                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">{data.out_of_stock}</td>
                                                     </>
                                                 ) : currentReportType === 'used_rejected' ? (
                                                     <>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.used_quantity || 0}</td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.rejected_quantity || 0}</td>
+                                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
+                                                            {data.used_quantity || 0}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
+                                                            {data.rejected_quantity || 0}
+                                                        </td>
                                                     </>
                                                 ) : null}
                                             </tr>
@@ -1131,12 +1322,11 @@ export default function InventoryReports({
                         </div>
                     )}
 
-
                     {/* Supply Details Table */}
                     <div className="mb-6">
-                        <div className="flex items-center justify-between mb-6">
+                        <div className="mb-6 flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-gray-100 rounded-lg">
+                                <div className="rounded-lg bg-gray-100 p-2">
                                     <Package className="h-5 w-5 text-gray-600" />
                                 </div>
                                 <h3 className="text-lg font-semibold text-gray-900">Supply Details</h3>
@@ -1150,58 +1340,54 @@ export default function InventoryReports({
                         </div>
 
                         {isLoading ? (
-                            <div className="py-16 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-                                <div className="text-gray-400 mb-4">
-                                    <Package className="h-12 w-12 mx-auto animate-pulse" />
+                            <div className="rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 py-16 text-center">
+                                <div className="mb-4 text-gray-400">
+                                    <Package className="mx-auto h-12 w-12 animate-pulse" />
                                 </div>
-                                <p className="text-lg font-semibold text-gray-700 mb-2">Loading inventory data...</p>
+                                <p className="mb-2 text-lg font-semibold text-gray-700">Loading inventory data...</p>
                                 <p className="text-gray-500">Please wait while we fetch the data</p>
                             </div>
                         ) : (filteredData.supply_details || []).length === 0 ? (
-                            <div className="py-16 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-                                <div className="text-gray-400 mb-4">
-                                    <Package className="h-12 w-12 mx-auto" />
+                            <div className="rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 py-16 text-center">
+                                <div className="mb-4 text-gray-400">
+                                    <Package className="mx-auto h-12 w-12" />
                                 </div>
-                                <p className="text-lg font-semibold text-gray-700 mb-2">No supplies found</p>
+                                <p className="mb-2 text-lg font-semibold text-gray-700">No supplies found</p>
                                 <p className="text-gray-500">No supplies found for the selected period and filters</p>
                             </div>
                         ) : (
-                            <Card className="bg-white border border-gray-200">
-                                <CardContent className="p-6">
+                            <Card className="border border-gray-200 bg-white">
+                                <CardContent className="p-4 sm:p-6">
                                     {/* Table Controls */}
-                                    <div className="flex items-center py-4">
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 py-4">
                                         <Input
                                             placeholder="Search supplies..."
-                                            value={globalFilter ?? ""}
+                                            value={globalFilter ?? ''}
                                             onChange={(event) => setGlobalFilter(event.target.value)}
-                                            className="max-w-sm"
+                                            className="w-full sm:max-w-sm"
                                         />
                                         <Button
                                             onClick={() => handleExport('excel')}
                                             disabled={isExporting}
-                                            className="bg-green-600 hover:bg-green-700 text-white ml-4"
+                                            className="bg-green-600 text-white hover:bg-green-700 w-full sm:w-auto"
                                         >
-                                            <Download className="h-4 w-4 mr-2" />
-                                            Export Excel
+                                            <Download className="mr-2 h-4 w-4" />
+                                            <span className="hidden sm:inline">Export Excel</span>
+                                            <span className="sm:hidden">Excel</span>
                                         </Button>
-                                        <Button
-                                            onClick={() => handleExport('pdf')}
-                                            disabled={isExporting}
-                                            variant="outline"
-                                            className="ml-2"
-                                        >
-                                            <FileDown className="h-4 w-4 mr-2" />
-                                            Export PDF
+                                        <Button onClick={() => handleExport('pdf')} disabled={isExporting} variant="outline" className="w-full sm:w-auto">
+                                            <FileDown className="mr-2 h-4 w-4" />
+                                            <span className="hidden sm:inline">Export PDF</span>
+                                            <span className="sm:hidden">PDF</span>
                                         </Button>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="outline" className="ml-auto">
+                                                <Button variant="outline" className="w-full sm:w-auto sm:ml-auto">
                                                     Columns <ChevronDown className="ml-2 h-4 w-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
-                                                {table
-                                                    .getAllColumns()
+                                                {(table.getAllColumns() || [])
                                                     .filter((column) => column.getCanHide())
                                                     .map((column) => {
                                                         return (
@@ -1218,77 +1404,68 @@ export default function InventoryReports({
                                                             >
                                                                 {column.id}
                                                             </DropdownMenuCheckboxItem>
-                                                        )
+                                                        );
                                                     })}
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </div>
 
                                     {/* Table */}
-                                    <div className="rounded-md border">
-                                        <Table>
-                                            <TableHeader>
-                                                {table.getHeaderGroups().map((headerGroup) => (
-                                                    <TableRow key={headerGroup.id}>
-                                                        {headerGroup.headers.map((header) => {
-                                                            return (
-                                                                <TableHead key={header.id}>
-                                                                    {header.isPlaceholder
-                                                                        ? null
-                                                                        : flexRender(
-                                                                            header.column.columnDef.header,
-                                                                            header.getContext()
-                                                                        )}
-                                                                </TableHead>
-                                                            )
-                                                        })}
-                                                    </TableRow>
-                                                ))}
-                                            </TableHeader>
-                                            <TableBody>
-                                                {table.getRowModel().rows?.length ? (
-                                                    table.getRowModel().rows.map((row) => (
-                                                        <TableRow
-                                                            key={row.id}
-                                                            data-state={row.getIsSelected() && "selected"}
-                                                        >
-                                                            {row.getVisibleCells().map((cell) => (
-                                                                <TableCell key={cell.id}>
-                                                                    {flexRender(
-                                                                        cell.column.columnDef.cell,
-                                                                        cell.getContext()
-                                                                    )}
-                                                                </TableCell>
-                                                            ))}
+                                    <div className="rounded-md border overflow-x-auto">
+                                        <div className="inline-block min-w-full align-middle">
+                                            <Table>
+                                                <TableHeader>
+                                                    {table.getHeaderGroups().map((headerGroup) => (
+                                                        <TableRow key={headerGroup.id}>
+                                                            {headerGroup.headers.map((header) => {
+                                                                return (
+                                                                    <TableHead key={header.id} className="whitespace-nowrap">
+                                                                        {header.isPlaceholder
+                                                                            ? null
+                                                                            : flexRender(header.column.columnDef.header, header.getContext())}
+                                                                    </TableHead>
+                                                                );
+                                                            })}
                                                         </TableRow>
-                                                    ))
-                                                ) : (
-                                                    <TableRow>
-                                                        <TableCell
-                                                            colSpan={columns.length}
-                                                            className="h-24 text-center"
-                                                        >
-                                                            No results.
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )}
-                                            </TableBody>
-                                        </Table>
+                                                    ))}
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {table.getRowModel().rows?.length ? (
+                                                        table.getRowModel().rows.map((row) => (
+                                                            <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
+                                                                {row.getVisibleCells().map((cell) => (
+                                                                    <TableCell key={cell.id} className="whitespace-nowrap">
+                                                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                                    </TableCell>
+                                                                ))}
+                                                            </TableRow>
+                                                        ))
+                                                    ) : (
+                                                        <TableRow>
+                                                            <TableCell colSpan={columns.length} className="h-24 text-center">
+                                                                No results.
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
                                     </div>
 
                                     {/* Pagination */}
-                                    <div className="flex items-center justify-between px-2 py-4">
-                                        <div className="text-muted-foreground flex-1 text-sm">
-                                            {table.getFilteredSelectedRowModel().rows.length} of{" "}
-                                            {table.getFilteredRowModel().rows.length} row(s) selected.
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 px-2 py-4">
+                                        <div className="text-muted-foreground text-sm text-center sm:text-left">
+                                            {table.getFilteredSelectedRowModel().rows.length} of {table.getFilteredRowModel().rows.length} row(s)
+                                            selected.
                                         </div>
-                                        <div className="flex items-center space-x-6 lg:space-x-8">
+                                        <div className="flex flex-col sm:flex-row items-center gap-4 sm:space-x-6 lg:space-x-8">
                                             <div className="flex items-center space-x-2">
-                                                <p className="text-sm font-medium">Rows per page</p>
+                                                <p className="text-sm font-medium hidden sm:inline">Rows per page</p>
+                                                <p className="text-sm font-medium sm:hidden">Per page</p>
                                                 <Select
                                                     value={`${table.getState().pagination.pageSize}`}
                                                     onValueChange={(value) => {
-                                                        table.setPageSize(Number(value))
+                                                        table.setPageSize(Number(value));
                                                     }}
                                                 >
                                                     <SelectTrigger className="h-8 w-[70px]">
@@ -1304,8 +1481,7 @@ export default function InventoryReports({
                                                 </Select>
                                             </div>
                                             <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-                                                Page {table.getState().pagination.pageIndex + 1} of{" "}
-                                                {table.getPageCount()}
+                                                Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
                                             </div>
                                             <div className="flex items-center space-x-2">
                                                 <Button

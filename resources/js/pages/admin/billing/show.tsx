@@ -14,7 +14,7 @@ import {
     CreditCard,
     User,
     Calendar,
-    DollarSign,
+    Coins,
     FileText,
     CheckCircle,
     Clock,
@@ -365,7 +365,7 @@ export default function BillingShow({
                         <Card className="rounded-xl border border-gray-200 bg-white shadow-sm">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-3 text-lg font-semibold text-gray-900">
-                                    <DollarSign className="h-5 w-5 text-black" />
+                                    <Coins className="h-5 w-5 text-black" />
                                     Financial Summary
                                 </CardTitle>
                             </CardHeader>

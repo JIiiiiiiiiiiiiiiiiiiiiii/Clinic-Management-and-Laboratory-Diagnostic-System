@@ -12,8 +12,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
     DropdownMenu,
     DropdownMenuCheckboxItem,
@@ -40,6 +43,7 @@ import {
     VisibilityState,
 } from '@tanstack/react-table';
 import { safeFormatDate, safeFormatTime } from '@/utils/dateTime';
+import { formatAppointmentType } from '@/utils/formatAppointmentType';
 import { 
     Calendar as CalendarIcon, CheckCircle, Clock, Filter, Plus, Search, Stethoscope, Edit, Eye, UserCheck, Bell, CalendarDays, Users, X, Save, Trash2, TestTube,
     ArrowUpDown, ArrowUp, ArrowDown, ChevronsUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Settings2, EyeOff, MoreHorizontal, ChevronDown,
@@ -48,6 +52,7 @@ import {
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import RealtimeNotificationBell from '@/components/RealtimeNotificationBell';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Appointments', href: '/admin/appointments' },
@@ -91,9 +96,9 @@ const appointmentTypes = [
 ];
 
 // Column definitions for the appointments data table
-const createColumns = (handleDeleteAppointment: (appointment: any) => void, handleEditAppointment: (appointment: any) => void, handleViewAppointment: (appointment: any) => void, handleAddLabTests: (appointment: any) => void): ColumnDef<any>[] => [
+const createColumns = (handleDeleteAppointment: (appointment: any) => void, handleEditAppointment: (appointment: any) => void, handleViewAppointment: (appointment: any) => void, handleAddLabTests: (appointment: any) => void, handleViewVisit: (appointment: any) => void): ColumnDef<any>[] => [
     {
-        accessorKey: "patient_id",
+        accessorKey: "patient_id_display",
         header: ({ column }) => {
             return (
                 <Button
@@ -106,9 +111,12 @@ const createColumns = (handleDeleteAppointment: (appointment: any) => void, hand
                 </Button>
             )
         },
-        cell: ({ row }) => (
-            <div className="font-medium text-center">{row.getValue("patient_id")}</div>
-        ),
+        cell: ({ row }) => {
+            const patientIdDisplay = row.getValue("patient_id_display") as string;
+            return (
+                <div className="font-medium text-center">{patientIdDisplay || row.original.patient_id || 'N/A'}</div>
+            );
+        },
     },
     {
         accessorKey: "patient_name",
@@ -176,9 +184,10 @@ const createColumns = (handleDeleteAppointment: (appointment: any) => void, hand
         header: "Type",
         cell: ({ row }) => {
             const type = row.getValue("appointment_type") as string;
+            const formattedType = formatAppointmentType(type);
             return (
                 <Badge className={getTypeBadge(type)}>
-                    {type}
+                    {formattedType}
                 </Badge>
             );
         },
@@ -284,6 +293,12 @@ const createColumns = (handleDeleteAppointment: (appointment: any) => void, hand
                             <Eye className="mr-2 h-4 w-4" />
                             View appointment
                         </DropdownMenuItem>
+                        {appointment.visit_id && (
+                            <DropdownMenuItem onClick={() => handleViewVisit(appointment)}>
+                                <Stethoscope className="mr-2 h-4 w-4" />
+                                View Visit
+                            </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => handleEditAppointment(appointment)}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit appointment
@@ -324,13 +339,29 @@ const getStatusBadge = (status: string) => {
 };
 
 const getTypeBadge = (type: string) => {
-    switch (type) {
-        case 'New Consultation':
+    if (!type) return 'bg-gray-100 text-gray-800';
+    
+    switch (type.toLowerCase()) {
+        case 'consultation':
+        case 'general_consultation':
+        case 'new consultation':
             return 'bg-purple-100 text-purple-800';
-        case 'Follow-up':
+        case 'follow-up':
             return 'bg-indigo-100 text-indigo-800';
-        case 'Emergency':
+        case 'emergency':
             return 'bg-red-100 text-red-800';
+        case 'checkup':
+        case 'routine checkup':
+            return 'bg-blue-100 text-blue-800';
+        case 'fecalysis':
+        case 'fecalysis_test':
+        case 'cbc':
+        case 'urinalysis':
+        case 'urinarysis_test':
+            return 'bg-green-100 text-green-800';
+        case 'x-ray':
+        case 'ultrasound':
+            return 'bg-yellow-100 text-yellow-800';
         default:
             return 'bg-gray-100 text-gray-800';
     }
@@ -352,9 +383,11 @@ interface AppointmentsIndexProps {
     };
     doctors?: any[];
     medtechs?: any[];
+    appointmentTypes?: Array<{ value: string; label: string }>;
+    patients?: Array<{ id: number; first_name: string; last_name: string; middle_name?: string; patient_no: string }>;
 }
 
-export default function AppointmentsIndex({ appointments, filters, nextPatientId, doctors = [], medtechs = [] }: AppointmentsIndexProps & { nextPatientId?: string }) {
+export default function AppointmentsIndex({ appointments, filters, nextPatientId, doctors = [], medtechs = [], appointmentTypes = [], patients = [] }: AppointmentsIndexProps & { nextPatientId?: string }) {
     const { permissions } = useRoleAccess();
     const [appointmentsList, setAppointmentsList] = useState(appointments.data);
     const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list' as 'list' | 'calendar');
@@ -427,6 +460,7 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
     // Modal states
     const [showEditModal, setShowEditModal] = useState(false);
     const [showViewModal, setShowViewModal] = useState(false);
+    const [showWalkInModal, setShowWalkInModal] = useState(false);
     const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
     const [notifications, setNotifications] = useState<any[]>([]);
     const [showNotifications, setShowNotifications] = useState(false);
@@ -459,24 +493,38 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
     }, [showNotifications]);
     const [editForm, setEditForm] = useState({
         patientName: '',
-        doctor: '',
+        specialist_type: 'doctor',
+        specialist_id: '',
         date: '',
         time: '',
         type: '',
         status: '',
         duration: '',
         notes: '',
-        contactNumber: ''
+        contactNumber: '',
+        additional_info: ''
     });
+    
+    // Debug: Log editForm changes
+    useEffect(() => {
+        if (showEditModal) {
+            console.log('Edit form state updated:', editForm);
+        }
+    }, [editForm, showEditModal]);
+    const [editAvailableTimeSlots, setEditAvailableTimeSlots] = useState<Array<{ value: string; label: string }>>([]);
+    const [isLoadingEditTimeSlots, setIsLoadingEditTimeSlots] = useState(false);
 
     // Calculate price based on appointment type
     const calculatePrice = (appointmentType: string) => {
         const prices: { [key: string]: number } = {
-            'consultation': 300,
+            'consultation': 350,
+            'general_consultation': 350,
             'checkup': 300,
-            'fecalysis': 500,
-            'cbc': 500,
-            'urinalysis': 500,
+            'fecalysis': 90,
+            'fecalysis_test': 90,
+            'cbc': 245,
+            'urinalysis': 140,
+            'urinarysis_test': 140,
             'x-ray': 700,
             'ultrasound': 800,
         };
@@ -498,51 +546,349 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
 
     const handleEditAppointment = useCallback((appointment: any) => {
         setSelectedAppointment(appointment);
-        setEditForm({
-            patientName: appointment.patient_name,
-            doctor: appointment.specialist_name,
-            date: appointment.appointment_date,
-            time: appointment.appointment_time ? 
-                (appointment.appointment_time.includes('T') ? 
-                    appointment.appointment_time.split('T')[1]?.substring(0, 5) : 
-                    appointment.appointment_time.substring(0, 5)) : '',
-            type: appointment.appointment_type,
+        
+        // Format date for date input (YYYY-MM-DD format)
+        let formattedDate = '';
+        if (appointment.appointment_date) {
+            if (typeof appointment.appointment_date === 'string') {
+                // If it's already a string, check if it's in the right format
+                if (appointment.appointment_date.includes('T')) {
+                    formattedDate = appointment.appointment_date.split('T')[0];
+                } else if (appointment.appointment_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    formattedDate = appointment.appointment_date;
+                } else {
+                    // Try to parse and format
+                    const date = new Date(appointment.appointment_date);
+                    if (!isNaN(date.getTime())) {
+                        formattedDate = date.toISOString().split('T')[0];
+                    }
+                }
+            } else {
+                // If it's a Date object or other format, convert to string
+                const date = new Date(appointment.appointment_date);
+                if (!isNaN(date.getTime())) {
+                    formattedDate = date.toISOString().split('T')[0];
+                }
+            }
+        }
+        
+        // Format time for time input (HH:MM format)
+        let formattedTime = '';
+        if (appointment.appointment_time) {
+            if (typeof appointment.appointment_time === 'string') {
+                if (appointment.appointment_time.includes('T')) {
+                    // Extract time from ISO string
+                    formattedTime = appointment.appointment_time.split('T')[1]?.substring(0, 5) || '';
+                } else if (appointment.appointment_time.match(/^\d{2}:\d{2}/)) {
+                    // Already in HH:MM format
+                    formattedTime = appointment.appointment_time.substring(0, 5);
+                } else {
+                    // Try to parse
+                    const time = appointment.appointment_time.substring(0, 5);
+                    formattedTime = time;
+                }
+            }
+        }
+        
+        // Determine specialist_type and specialist_id
+        let specialistType = appointment.specialist_type || 'doctor';
+        let specialistId = appointment.specialist_id || '';
+        
+        // If we have a specialist relationship, use it
+        if (!specialistId && appointment.specialist) {
+            specialistId = appointment.specialist.specialist_id || appointment.specialist.id || '';
+            specialistType = appointment.specialist.role === 'MedTech' ? 'medtech' : 'doctor';
+        }
+        
+        // Find the specialist in doctors/medtechs arrays to ensure ID matches
+        const allSpecialists = [...doctors, ...medtechs];
+        let foundSpecialist = null;
+        
+        if (specialistId) {
+            foundSpecialist = allSpecialists.find(s => {
+                // Try multiple ways to match
+                return s.id?.toString() === specialistId.toString() ||
+                       s.specialist_id?.toString() === specialistId.toString();
+            });
+        }
+        
+        // If not found by ID, try to find by name
+        if (!foundSpecialist && appointment.specialist_name) {
+            foundSpecialist = allSpecialists.find(s => 
+                s.name === appointment.specialist_name || 
+                s.name?.toLowerCase() === appointment.specialist_name?.toLowerCase()
+            );
+        }
+        
+        // If found, use the ID from the array (to ensure it matches)
+        if (foundSpecialist) {
+            specialistId = foundSpecialist.id?.toString() || foundSpecialist.specialist_id?.toString() || '';
+            // Determine type based on which array it's in
+            if (doctors.find(d => (d.id || d.specialist_id)?.toString() === specialistId)) {
+                specialistType = 'doctor';
+            } else if (medtechs.find(m => (m.id || m.specialist_id)?.toString() === specialistId)) {
+                specialistType = 'medtech';
+            }
+        } else if (specialistId) {
+            // If not found but we have an ID, try to determine type from appointment
+            specialistType = appointment.specialist_type === 'medtech' ? 'medtech' : 'doctor';
+            console.warn('Specialist not found in doctors/medtechs arrays', {
+                specialistId,
+                specialistName: appointment.specialist_name,
+                availableDoctors: doctors.map(d => ({ id: d.id, name: d.name })),
+                availableMedtechs: medtechs.map(m => ({ id: m.id, name: m.name }))
+            });
+        } else {
+            // No specialist ID, default to doctor
+            specialistType = 'doctor';
+            specialistId = '';
+        }
+        
+        // Format time to 12-hour format for display
+        let formattedTimeDisplay = '';
+        if (formattedTime) {
+            const [hours, minutes] = formattedTime.split(':');
+            const date = new Date();
+            date.setHours(parseInt(hours), parseInt(minutes || '0'), 0, 0);
+            formattedTimeDisplay = date.toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit', 
+                hour12: true 
+            });
+        }
+        
+        // Debug logging
+        console.log('Setting edit form with:', {
+            specialistType,
+            specialistId,
+            specialistIdString: specialistId ? specialistId.toString() : 'EMPTY',
+            appointment_type: appointment.appointment_type,
             status: appointment.status,
             duration: appointment.duration,
-            notes: appointment.notes,
-            contactNumber: appointment.contact_number
+            availableDoctors: doctors.map(d => ({ id: d.id, idString: d.id?.toString(), name: d.name })),
+            availableMedtechs: medtechs.map(m => ({ id: m.id, idString: m.id?.toString(), name: m.name }))
         });
+        
+        // Find matching appointment type from available types
+        let matchedAppointmentType = appointment.appointment_type ? String(appointment.appointment_type) : '';
+        if (matchedAppointmentType && appointmentTypes.length > 0) {
+            // Try to find exact match first
+            const exactMatch = appointmentTypes.find(t => t.value === matchedAppointmentType);
+            if (!exactMatch) {
+                // Try case-insensitive match
+                const caseInsensitiveMatch = appointmentTypes.find(t => 
+                    t.value.toLowerCase() === matchedAppointmentType.toLowerCase() ||
+                    t.label.toLowerCase() === matchedAppointmentType.toLowerCase()
+                );
+                if (caseInsensitiveMatch) {
+                    matchedAppointmentType = caseInsensitiveMatch.value;
+                    console.log('Matched appointment type (case-insensitive):', matchedAppointmentType);
+                } else {
+                    console.warn('Could not find matching appointment type for:', matchedAppointmentType, 'Available:', appointmentTypes.map(t => t.value));
+                }
+            }
+        }
+        
+        const formData = {
+            patientName: appointment.patient_name || '',
+            specialist_type: specialistType || 'doctor',
+            specialist_id: specialistId ? specialistId.toString() : '',
+            date: formattedDate || '',
+            time: formattedTimeDisplay || '',
+            type: matchedAppointmentType || '',
+            status: appointment.status || '',
+            duration: appointment.duration || '',
+            notes: appointment.notes || appointment.admin_notes || '',
+            contactNumber: appointment.contact_number || '',
+            additional_info: appointment.additional_info || appointment.special_requirements || ''
+        };
+        
+        setEditForm(formData);
+        
+        // Open modal immediately - React will batch the state updates
         setShowEditModal(true);
-    }, []);
+    }, [doctors, medtechs, appointmentTypes]);
+    
+    // Fetch available time slots for edit modal
+    useEffect(() => {
+        const fetchEditTimeSlots = async () => {
+            if (!editForm.specialist_id || !editForm.date || !showEditModal) {
+                setEditAvailableTimeSlots([]);
+                return;
+            }
+
+            setIsLoadingEditTimeSlots(true);
+            try {
+                const allSpecialists = [...doctors, ...medtechs];
+                const specialist = allSpecialists.find(s => s.id.toString() === editForm.specialist_id);
+                if (!specialist || !specialist.schedule_data) {
+                    setEditAvailableTimeSlots([]);
+                    setIsLoadingEditTimeSlots(false);
+                    return;
+                }
+
+                const selectedDate = new Date(editForm.date);
+                const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+                const daySchedule = (specialist.schedule_data as any)[dayOfWeek] || [];
+                
+                if (daySchedule.length === 0) {
+                    setEditAvailableTimeSlots([]);
+                    setIsLoadingEditTimeSlots(false);
+                    return;
+                }
+
+                const response = await fetch(`/admin/appointments/api/check-availability?specialist_id=${editForm.specialist_id}&date=${editForm.date}`);
+                const bookedTimes = response.ok ? await response.json() : [];
+
+                const bookedTimeStrings = bookedTimes.map((time: string) => {
+                    let hours: number, minutes: number;
+                    if (time.includes(':')) {
+                        const parts = time.split(':');
+                        hours = parseInt(parts[0] || '0');
+                        minutes = parseInt(parts[1] || '0');
+                    } else {
+                        const parsed = new Date(`2000-01-01 ${time}`);
+                        if (!isNaN(parsed.getTime())) {
+                            hours = parsed.getHours();
+                            minutes = parsed.getMinutes();
+                        } else {
+                            return time;
+                        }
+                    }
+                    const date = new Date();
+                    date.setHours(hours, minutes, 0, 0);
+                    return date.toLocaleTimeString('en-US', { 
+                        hour: 'numeric', 
+                        minute: '2-digit', 
+                        hour12: true 
+                    });
+                });
+
+                const slots = daySchedule
+                    .map((time: string) => {
+                        const [hours, minutes] = time.split(':');
+                        const date = new Date();
+                        date.setHours(parseInt(hours), parseInt(minutes || '0'), 0, 0);
+                        const timeString = date.toLocaleTimeString('en-US', { 
+                            hour: 'numeric', 
+                            minute: '2-digit', 
+                            hour12: true 
+                        });
+                        return {
+                            value: timeString,
+                            label: timeString,
+                            raw: time
+                        };
+                    })
+                    .filter((slot: any) => {
+                        // Include current time even if booked, or if not booked
+                        return slot.value === editForm.time || !bookedTimeStrings.includes(slot.value);
+                    })
+                    .map((slot: any) => ({
+                        value: slot.value,
+                        label: slot.label
+                    }));
+
+                setEditAvailableTimeSlots(slots);
+            } catch (error) {
+                console.error('Error fetching edit time slots:', error);
+                setEditAvailableTimeSlots([]);
+            } finally {
+                setIsLoadingEditTimeSlots(false);
+            }
+        };
+
+        fetchEditTimeSlots();
+    }, [editForm.specialist_id, editForm.date, showEditModal, doctors, medtechs, editForm.time]);
 
     const handleViewAppointment = useCallback((appointment: any) => {
+        // For now, use the appointment data from the list
+        // The show route will be used for full page views, not modals
         setSelectedAppointment(appointment);
         setShowViewModal(true);
     }, []);
 
+    const handleViewVisit = useCallback((appointment: any) => {
+        if (appointment.visit_id) {
+            router.get(`/admin/visits/${appointment.visit_id}/edit`);
+        }
+    }, []);
+
     const handleSaveEdit = () => {
-        if (!editForm.patientName || !editForm.doctor || !editForm.date || !editForm.time) {
+        if (!editForm.patientName || !editForm.specialist_id || !editForm.date || !editForm.time) {
             alert('Please fill in all required fields');
             return;
         }
 
-        // Update appointment via API
-        router.put(route('admin.appointments.update', selectedAppointment.id), {
-            patient_name: editForm.patientName,
-            patient_id: selectedAppointment.patient_id, // Include patient_id
-            specialist_name: editForm.doctor,
-            specialist_type: selectedAppointment.specialist_type, // Include specialist_type
-            specialist_id: selectedAppointment.specialist_id, // Include specialist_id
+        // Extract patient_id from multiple possible locations
+        let patientId = selectedAppointment.patient_id;
+        if (!patientId && selectedAppointment.patient) {
+            // Try to get from patient relationship
+            patientId = selectedAppointment.patient.id || selectedAppointment.patient.patient_id || null;
+        }
+        
+        // Use specialist_id and specialist_type from form
+        const specialistId = editForm.specialist_id;
+        const specialistType = editForm.specialist_type === 'doctor' ? 'doctor' : 'medtech';
+        
+        // Convert time from 12-hour format to 24-hour format for database
+        let timeForDb = editForm.time;
+        if (timeForDb) {
+            try {
+                const [timePart, period] = timeForDb.split(' ');
+                const [hours, minutes] = timePart.split(':');
+                let hour24 = parseInt(hours);
+                if (period === 'PM' && hour24 !== 12) {
+                    hour24 += 12;
+                } else if (period === 'AM' && hour24 === 12) {
+                    hour24 = 0;
+            }
+                timeForDb = `${hour24.toString().padStart(2, '0')}:${minutes}:00`;
+            } catch (e) {
+                console.error('Error converting time format:', e);
+            }
+        }
+        
+        // Only include specialist_id if it's not null/undefined
+        // NOTE: patient_name, contact_number, and specialist_name are NOT database columns
+        // They are derived from relationships and should NOT be sent in the update
+        // Also note: 'notes' maps to 'admin_notes' in the database
+        // 'special_requirements' maps to 'additional_info' in the database
+        const updatePayload: any = {
+            patient_id: patientId || undefined, // Send undefined instead of null
             appointment_date: editForm.date,
-            appointment_time: editForm.time,
+            appointment_time: timeForDb,
             appointment_type: editForm.type,
             status: editForm.status,
             duration: editForm.duration,
-            notes: editForm.notes,
-            contact_number: editForm.contactNumber,
-            special_requirements: selectedAppointment.special_requirements || '', // Include special_requirements
-        }, {
-            onSuccess: (page) => {
+            specialist_id: specialistId,
+            specialist_type: specialistType,
+        };
+        
+        // Map notes to admin_notes (database column name)
+        if (editForm.notes) {
+            updatePayload.admin_notes = editForm.notes;
+        }
+        
+        // Map additional_info
+        if (editForm.additional_info !== undefined) {
+            updatePayload.additional_info = editForm.additional_info;
+        }
+        
+        console.log('Sending update with:', {
+            patient_id: patientId,
+            specialist_id: specialistId,
+            specialist_type: specialistType,
+            appointment_id: selectedAppointment.id,
+            payload: updatePayload
+        });
+        
+        // Update appointment via API
+        router.put(route('admin.appointments.update', selectedAppointment.id), updatePayload, {
+            onSuccess: () => {
+                // Show success toast (matching system design)
+                toast.success('Appointment updated successfully!');
+                
                 // Add notification for appointment update
                 const updateNotification = {
                     id: Date.now(),
@@ -556,13 +902,46 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                 setNotifications(prev => [updateNotification, ...prev]);
                 setUnreadCount(prev => prev + 1);
                 
-                alert('Appointment updated successfully!');
+                // Close modal
                 setShowEditModal(false);
                 setSelectedAppointment(null);
+                
+                // Refresh the appointments list to show updated data
+                router.reload({ only: ['appointments'] });
             },
             onError: (errors) => {
                 console.error('Error updating appointment:', errors);
-                alert('Error updating appointment. Please try again.');
+                // Extract error message from various possible formats
+                let errorMessage = 'Failed to update appointment. Please try again.';
+                
+                // Inertia passes errors as an object with error keys
+                if (errors && typeof errors === 'object') {
+                    // Check for 'error' key first (most common)
+                    if (errors.error) {
+                        errorMessage = Array.isArray(errors.error) ? errors.error[0] : errors.error;
+                    }
+                    // Check for 'message' key
+                    else if (errors.message) {
+                        errorMessage = Array.isArray(errors.message) ? errors.message[0] : errors.message;
+                    }
+                    // Check for validation errors object
+                    else if (errors.errors && typeof errors.errors === 'object') {
+                        const firstError = Object.values(errors.errors)[0];
+                        errorMessage = Array.isArray(firstError) ? firstError[0] : String(firstError);
+                    }
+                    // Check if errors object has string values
+                    else {
+                        const errorValues = Object.values(errors);
+                        if (errorValues.length > 0) {
+                            const firstValue = errorValues[0];
+                            errorMessage = Array.isArray(firstValue) ? firstValue[0] : String(firstValue);
+                        }
+                    }
+                } else if (typeof errors === 'string') {
+                    errorMessage = errors;
+                }
+                
+                toast.error(errorMessage);
             }
         });
     };
@@ -577,6 +956,9 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
         if (appointmentToDelete) {
             router.delete(route('admin.appointments.destroy', appointmentToDelete.id), {
                 onSuccess: (page) => {
+                    // Show success toast (matching system design)
+                    toast.success('Appointment deleted successfully!');
+                    
                     // Add notification for appointment deletion
                     const deleteNotification = {
                         id: Date.now(),
@@ -595,7 +977,20 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                 },
                 onError: (errors) => {
                     console.error('Error deleting appointment:', errors);
-                    alert('Error deleting appointment. Please try again.');
+                    // Extract error message from various possible formats
+                    let errorMessage = 'Failed to delete appointment. Please try again.';
+                    if (typeof errors === 'string') {
+                        errorMessage = errors;
+                    } else if (errors?.error) {
+                        errorMessage = errors.error;
+                    } else if (errors?.message) {
+                        errorMessage = errors.message;
+                    } else if (errors?.errors && typeof errors.errors === 'object') {
+                        // Handle validation errors
+                        const firstError = Object.values(errors.errors)[0];
+                        errorMessage = Array.isArray(firstError) ? firstError[0] : firstError;
+                    }
+                    toast.error(errorMessage);
                 }
             });
         }
@@ -604,12 +999,12 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
     const handleCloseModals = () => {
         setShowEditModal(false);
         setShowViewModal(false);
+        setShowWalkInModal(false);
         setSelectedAppointment(null);
     };
 
     const handleNewAppointment = () => {
-        // Redirect to the shared appointment booking page (explicit path to avoid relative routing issues)
-        router.visit('/admin/appointments/walk-in');
+        setShowWalkInModal(true);
     };
 
     const handleAddLabTests = useCallback((appointment: any) => {
@@ -697,8 +1092,8 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
 
     // Initialize table - optimized columns with useMemo
     const columns = useMemo(() => 
-        createColumns(handleDeleteAppointment, handleEditAppointment, handleViewAppointment, handleAddLabTests), 
-        [handleDeleteAppointment, handleEditAppointment, handleViewAppointment, handleAddLabTests]
+        createColumns(handleDeleteAppointment, handleEditAppointment, handleViewAppointment, handleAddLabTests, handleViewVisit), 
+        [handleDeleteAppointment, handleEditAppointment, handleViewAppointment, handleAddLabTests, handleViewVisit]
     );
     const table = useReactTable({
         data: preFilteredData || [],
@@ -727,7 +1122,7 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
             id: Date.now(),
             type: 'new_appointment',
             title: 'New Appointment Added',
-            message: `${appointment.patient_name} scheduled ${appointment.appointment_type} with ${appointment.specialist_name}`,
+            message: `${appointment.patient_name} scheduled ${formatAppointmentType(appointment.appointment_type)} with ${appointment.specialist_name}`,
             appointmentId: appointment.id,
             timestamp: new Date(),
             read: false
@@ -836,23 +1231,24 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                             Appointments ({table.getFilteredRowModel().rows.length})
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="p-6">
+                    <CardContent className="p-4 sm:p-6">
                         {/* Controls */}
-                        <div className="flex flex-wrap items-center gap-4 py-4">
-                            <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 py-4">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
                                 <Input
                                     placeholder="Search patient name, ID, or specialist..."
                                     value={searchTerm}
                                     onChange={(event) => setSearchTerm(event.target.value)}
-                                    className="max-w-sm"
+                                    className="w-full sm:max-w-sm"
                                 />
                                 
                                 <Button
                                     onClick={handleNewAppointment}
-                                    className="bg-green-600 hover:bg-green-700 text-white"
+                                    className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
                                 >
                                     <CalendarDays className="h-4 w-4 mr-2" />
-                                    Walk-in Appointment
+                                    <span className="hidden sm:inline">Walk-in Appointment</span>
+                                    <span className="sm:hidden">Walk-in</span>
                                 </Button>
                             </div>
                             
@@ -979,63 +1375,65 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                     <Card className="shadow-lg border-0 rounded-xl bg-white">
                         <CardContent className="p-6">
                             {/* Table */}
-                            <div className="rounded-md border">
-                            <Table>
-                                <TableHeader>
-                                    {table.getHeaderGroups().map((headerGroup) => (
-                                        <TableRow key={headerGroup.id}>
-                                            {headerGroup.headers.map((header) => {
-                                                return (
-                                                    <TableHead key={header.id}>
-                                                        {header.isPlaceholder
-                                                            ? null
-                                                            : flexRender(
-                                                                header.column.columnDef.header,
-                                                                header.getContext()
-                                                        )}
-                                                    </TableHead>
-                                                )
-                                            })}
-                                        </TableRow>
-                                    ))}
-                                </TableHeader>
-                                <TableBody>
-                                    {table.getRowModel().rows?.length ? (
-                                        table.getRowModel().rows.map((row) => (
-                                            <TableRow
-                                                key={row.id}
-                                                data-state={row.getIsSelected() && "selected"}
-                                            >
-                                                {row.getVisibleCells().map((cell) => (
-                                                    <TableCell key={cell.id}>
-                                                        {flexRender(
-                                                            cell.column.columnDef.cell,
-                                                            cell.getContext()
-                                                        )}
+                            <div className="rounded-md border overflow-x-auto">
+                                <div className="inline-block min-w-full align-middle">
+                                    <Table>
+                                        <TableHeader>
+                                            {table.getHeaderGroups().map((headerGroup) => (
+                                                <TableRow key={headerGroup.id}>
+                                                    {headerGroup.headers.map((header) => {
+                                                        return (
+                                                            <TableHead key={header.id} className="whitespace-nowrap">
+                                                                {header.isPlaceholder
+                                                                    ? null
+                                                                    : flexRender(
+                                                                        header.column.columnDef.header,
+                                                                        header.getContext()
+                                                                    )}
+                                                            </TableHead>
+                                                        )
+                                                    })}
+                                                </TableRow>
+                                            ))}
+                                        </TableHeader>
+                                        <TableBody>
+                                            {table.getRowModel().rows?.length ? (
+                                                table.getRowModel().rows.map((row) => (
+                                                    <TableRow
+                                                        key={row.id}
+                                                        data-state={row.getIsSelected() && "selected"}
+                                                    >
+                                                        {row.getVisibleCells().map((cell) => (
+                                                            <TableCell key={cell.id} className="whitespace-nowrap">
+                                                                {flexRender(
+                                                                    cell.column.columnDef.cell,
+                                                                    cell.getContext()
+                                                                )}
+                                                            </TableCell>
+                                                        ))}
+                                                    </TableRow>
+                                                ))
+                                            ) : (
+                                                <TableRow>
+                                                    <TableCell
+                                                        colSpan={columns.length}
+                                                        className="h-24 text-center"
+                                                    >
+                                                        No results.
                                                     </TableCell>
-                                                ))}
-                                            </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell
-                                                colSpan={columns.length}
-                                                className="h-24 text-center"
-                                            >
-                                                No results.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
                         
                         {/* Pagination */}
-                        <div className="flex items-center justify-between px-2 py-4">
-                            <div className="text-muted-foreground flex-1 text-sm">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 px-2 py-4">
+                            <div className="text-muted-foreground text-sm text-center sm:text-left">
                                 Showing {table.getRowModel().rows.length} of {table.getFilteredRowModel().rows.length} appointments
                             </div>
-                            <div className="flex items-center space-x-6 lg:space-x-8">
+                            <div className="flex flex-col sm:flex-row items-center gap-4 sm:space-x-6 lg:space-x-8">
                                 <div className="flex items-center space-x-2">
                                     <p className="text-sm font-medium">Rows per page</p>
                                     <Select
@@ -1110,8 +1508,11 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                     
                 {/* Edit Appointment Modal */}
                 {showEditModal && selectedAppointment && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4" onClick={handleCloseModals}>
+                        <div 
+                            className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto z-[101]" 
+                            onClick={(e) => e.stopPropagation()}
+                        >
                             <Card className="border-0">
                                 <CardHeader className="bg-white border-b border-gray-200">
                                     <div className="flex items-center justify-between">
@@ -1131,26 +1532,62 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                 </CardHeader>
                                 <CardContent className="p-6">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-black mb-2">Patient Name</label>
+                                        {/* Patient Name - Read Only */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_patient_name">Patient Name</Label>
                                             <Input
                                                 value={editForm.patientName}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, patientName: e.target.value }))}
-                                                placeholder="Enter patient name"
+                                                readOnly
+                                                disabled
+                                                className="bg-gray-50 cursor-not-allowed"
+                                                placeholder="Patient name"
                                             />
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-black mb-2">Doctor</label>
-                                            <select
-                                                value={editForm.doctor}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, doctor: e.target.value }))}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                                        {/* Specialist Type */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_specialist_type">Specialist Type *</Label>
+                                            <Select
+                                                value={editForm.specialist_type}
+                                                onValueChange={(value) => {
+                                                    setEditForm(prev => ({ ...prev, specialist_type: value, specialist_id: '', time: '' }));
+                                                    setEditAvailableTimeSlots([]);
+                                                }}
                                             >
-                                                <option value="">Select doctor...</option>
-                                                {doctors.map(doctor => (
-                                                    <option key={doctor.id} value={doctor.name}>{doctor.name}</option>
-                                                ))}
-                                            </select>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select specialist type" />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[110]" position="item-aligned">
+                                                    <SelectItem value="doctor">Doctor</SelectItem>
+                                                    <SelectItem value="medtech">MedTech</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        
+                                        {/* Specialist Selection */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_specialist_id">Attending {editForm.specialist_type === 'doctor' ? 'Physician' : 'MedTech'} *</Label>
+                                            <Select
+                                                value={editForm.specialist_id}
+                                                onValueChange={(value) => {
+                                                    setEditForm(prev => ({ ...prev, specialist_id: value, time: '' }));
+                                                    setEditAvailableTimeSlots([]);
+                                                }}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={`Select ${editForm.specialist_type === 'doctor' ? 'doctor' : 'medtech'}`} />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[110]" position="item-aligned">
+                                                    {(editForm.specialist_type === 'doctor' ? doctors : medtechs).length > 0 ? (
+                                                        (editForm.specialist_type === 'doctor' ? doctors : medtechs).map((specialist) => (
+                                                            <SelectItem key={specialist.id} value={specialist.id.toString()}>
+                                                                {specialist.name} {specialist.specialization ? `(${specialist.specialization})` : ''}
+                                                            </SelectItem>
+                                                        ))
+                                                    ) : (
+                                                        <div className="p-2 text-sm text-gray-500">No {editForm.specialist_type === 'doctor' ? 'doctors' : 'medtechs'} available</div>
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-black mb-2">Date</label>
@@ -1160,70 +1597,128 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                                 onChange={(e) => setEditForm(prev => ({ ...prev, date: e.target.value }))}
                                             />
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-black mb-2">Time</label>
-                                            <Input
-                                                type="time"
+                                        {/* Appointment Time */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_appointment_time">Appointment Time *</Label>
+                                            <Select
                                                 value={editForm.time}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, time: e.target.value }))}
-                                            />
+                                                onValueChange={(value) => setEditForm(prev => ({ ...prev, time: value }))}
+                                                disabled={!editForm.specialist_id || !editForm.date || isLoadingEditTimeSlots || editAvailableTimeSlots.length === 0}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={
+                                                        !editForm.specialist_id ? "Select specialist first" :
+                                                        !editForm.date ? "Select date first" :
+                                                        isLoadingEditTimeSlots ? "Loading available times..." :
+                                                        editAvailableTimeSlots.length === 0 ? "No available times" :
+                                                        "Select time"
+                                                    } />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[110]" position="item-aligned">
+                                                    {editAvailableTimeSlots.length > 0 ? (
+                                                        editAvailableTimeSlots.map((slot) => (
+                                                            <SelectItem key={slot.value} value={slot.value}>
+                                                                {slot.label}
+                                                            </SelectItem>
+                                                    ))
+                                                ) : (
+                                                        <div className="p-2 text-sm text-gray-500">
+                                                            {!editForm.specialist_id ? "Please select a specialist first" :
+                                                             !editForm.date ? "Please select a date first" :
+                                                             isLoadingEditTimeSlots ? "Loading..." :
+                                                             "No available time slots for this date"}
+                                                        </div>
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                            {editForm.specialist_id && editForm.date && editAvailableTimeSlots.length === 0 && !isLoadingEditTimeSlots && (
+                                                <p className="text-xs text-amber-600">
+                                                    No available time slots. The specialist may not have a schedule for this day or all slots are booked.
+                                                </p>
+                                                )}
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-black mb-2">Appointment Type</label>
-                                            <select
+                                        {/* Appointment Type */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_appointment_type">Appointment Type *</Label>
+                                            <Select
                                                 value={editForm.type}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, type: e.target.value }))}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                                                onValueChange={(value) => setEditForm(prev => ({ ...prev, type: value }))}
                                             >
-                                                <option value="">Select type...</option>
-                                                <option value="New Consultation">New Consultation</option>
-                                                <option value="Follow-up">Follow-up</option>
-                                                <option value="Emergency">Emergency</option>
-                                                <option value="Routine Checkup">Routine Checkup</option>
-                                            </select>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select appointment type" />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[110]" position="item-aligned">
+                                                    {appointmentTypes.map((type) => (
+                                                        <SelectItem key={type.value} value={type.value}>
+                                                            {type.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-black mb-2">Status</label>
-                                            <select
+                                        {/* Status */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_status">Status *</Label>
+                                            <Select
                                                 value={editForm.status}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                                                onValueChange={(value) => setEditForm(prev => ({ ...prev, status: value }))}
                                             >
-                                                <option value="">Select status...</option>
-                                                <option value="Confirmed">Confirmed</option>
-                                                <option value="Pending">Pending</option>
-                                                <option value="Cancelled">Cancelled</option>
-                                                <option value="Completed">Completed</option>
-                                            </select>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select status" />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[110]" position="item-aligned">
+                                                    <SelectItem value="Confirmed">Confirmed</SelectItem>
+                                                    <SelectItem value="Pending">Pending</SelectItem>
+                                                    <SelectItem value="Cancelled">Cancelled</SelectItem>
+                                                    <SelectItem value="Completed">Completed</SelectItem>
+                                                </SelectContent>
+                                            </Select>
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-black mb-2">Duration</label>
-                                            <select
+                                        {/* Duration */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_duration">Duration *</Label>
+                                            <Select
                                                 value={editForm.duration}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, duration: e.target.value }))}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                                                onValueChange={(value) => setEditForm(prev => ({ ...prev, duration: value }))}
                                             >
-                                                <option value="">Select duration...</option>
-                                                <option value="30 min">30 minutes</option>
-                                                <option value="45 min">45 minutes</option>
-                                                <option value="60 min">60 minutes</option>
-                                            </select>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select duration" />
+                                                </SelectTrigger>
+                                                <SelectContent className="z-[110]" position="item-aligned">
+                                                    <SelectItem value="30 min">30 minutes</SelectItem>
+                                                    <SelectItem value="45 min">45 minutes</SelectItem>
+                                                    <SelectItem value="60 min">60 minutes</SelectItem>
+                                                </SelectContent>
+                                            </Select>
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-black mb-2">Contact Number</label>
+                                        {/* Contact Number */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_contact_number">Contact Number</Label>
                                             <Input
                                                 value={editForm.contactNumber}
                                                 onChange={(e) => setEditForm(prev => ({ ...prev, contactNumber: e.target.value }))}
                                                 placeholder="Enter contact number"
                                             />
                                         </div>
-                                        <div className="md:col-span-2">
-                                            <label className="block text-sm font-medium text-black mb-2">Notes</label>
-                                            <textarea
+                                        
+                                        {/* Additional Notes */}
+                                        <div className="md:col-span-2 space-y-2">
+                                            <Label htmlFor="edit_additional_info">Additional Notes (Optional)</Label>
+                                            <Textarea
+                                                value={editForm.additional_info || ''}
+                                                onChange={(e) => setEditForm(prev => ({ ...prev, additional_info: e.target.value }))}
+                                                placeholder="Enter any additional information or special requirements..."
+                                                rows={3}
+                                            />
+                                        </div>
+                                        
+                                        {/* Admin Notes */}
+                                        <div className="md:col-span-2 space-y-2">
+                                            <Label htmlFor="edit_notes">Admin Notes</Label>
+                                            <Textarea
                                                 value={editForm.notes}
                                                 onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
-                                                placeholder="Enter appointment notes..."
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                                                placeholder="Enter admin notes..."
                                                 rows={3}
                                             />
                                         </div>
@@ -1252,8 +1747,8 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
 
                 {/* View Appointment Modal */}
                 {showViewModal && selectedAppointment && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4" onClick={handleCloseModals}>
+                        <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto z-[101]" onClick={(e) => e.stopPropagation()}>
                             <Card className="border-0">
                         <CardHeader className="bg-white border-b border-gray-200">
                                     <div className="flex items-center justify-between">
@@ -1284,7 +1779,7 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                                     </div>
                                                     <div>
                                                         <div className="text-sm text-gray-600">Patient ID</div>
-                                                        <div className="font-medium text-black">{selectedAppointment.patient_id || 'N/A'}</div>
+                                                        <div className="font-medium text-black">{selectedAppointment.patient_id_display || selectedAppointment.patient_id || 'N/A'}</div>
                                                     </div>
                                                     <div>
                                                         <div className="text-sm text-gray-600">Contact Number</div>
@@ -1322,7 +1817,7 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                                     <div>
                                                         <div className="text-sm text-gray-600">Type</div>
                                                         <Badge className={getTypeBadge(selectedAppointment.appointment_type)}>
-                                                            {selectedAppointment.appointment_type || 'N/A'}
+                                                            {formatAppointmentType(selectedAppointment.appointment_type)}
                                                         </Badge>
                                                     </div>
                                                     <div>
@@ -1363,6 +1858,18 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                         >
                                             Close
                                         </Button>
+                                        {selectedAppointment.visit_id && (
+                                            <Button
+                                                onClick={() => {
+                                                    handleCloseModals();
+                                                    router.get(`/admin/visits/${selectedAppointment.visit_id}/edit`);
+                                                }}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 flex items-center gap-2"
+                                            >
+                                                <Stethoscope className="h-4 w-4" />
+                                                View Visit
+                                            </Button>
+                                        )}
                                         <Button
                                             onClick={() => {
                                                 handleCloseModals();
@@ -1448,7 +1955,7 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                                                                             {getAppointmentStatusIcon(appointment.status)}
                                                                             <span className="text-xs font-medium">{appointment.patient_name}</span>
                                                                         </div>
-                                                                        <div className="text-xs text-gray-600 text-center">{appointment.appointment_type}</div>
+                                                                        <div className="text-xs text-gray-600 text-center">{formatAppointmentType(appointment.appointment_type)}</div>
                                                                         <div className="flex items-center justify-between mt-2">
                                                                             <span className="text-xs">{appointment.specialist_name}</span>
                                                                             <div className="flex items-center gap-1">
@@ -1492,7 +1999,452 @@ export default function AppointmentsIndex({ appointments, filters, nextPatientId
                         </Card>
                     </div>
                 )}
+
+                {/* Walk-in Appointment Modal */}
+                <Dialog open={showWalkInModal} onOpenChange={setShowWalkInModal}>
+                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <CalendarDays className="h-5 w-5" />
+                                Create Walk-in Appointment
+                            </DialogTitle>
+                            <DialogDescription>
+                                Create a new appointment for an existing patient. If the patient doesn't exist, please create their profile first.
+                            </DialogDescription>
+                        </DialogHeader>
+                        
+                        <WalkInAppointmentForm
+                            patients={patients}
+                            doctors={doctors}
+                            medtechs={medtechs}
+                            appointmentTypes={appointmentTypes}
+                            onClose={() => setShowWalkInModal(false)}
+                            onSuccess={() => {
+                                setShowWalkInModal(false);
+                                router.reload({ only: ['appointments'] });
+                                toast.success('Walk-in appointment created successfully!');
+                            }}
+                        />
+                    </DialogContent>
+                </Dialog>
             </div>
         </AppLayout>
+    );
+}
+
+// Walk-in Appointment Form Component
+function WalkInAppointmentForm({
+    patients,
+    doctors,
+    medtechs,
+    appointmentTypes,
+    onClose,
+    onSuccess
+}: {
+    patients: Array<{ id: number; first_name: string; last_name: string; middle_name?: string; patient_no: string; mobile_no?: string; telephone_no?: string; email?: string }>;
+    doctors: any[];
+    medtechs: any[];
+    appointmentTypes: Array<{ value: string; label: string }>;
+    onClose: () => void;
+    onSuccess: () => void;
+}) {
+    const [formData, setFormData] = useState({
+        patient_id: '',
+        appointment_type: '',
+        specialist_type: 'doctor',
+        specialist_id: '',
+        appointment_date: new Date().toISOString().split('T')[0],
+        appointment_time: '',
+        additional_info: ''
+    });
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [availableSpecialists, setAvailableSpecialists] = useState<any[]>([]);
+    const [availableTimeSlots, setAvailableTimeSlots] = useState<Array<{ value: string; label: string }>>([]);
+    const [isLoadingTimeSlots, setIsLoadingTimeSlots] = useState(false);
+
+    // Update available specialists when specialist_type changes
+    useEffect(() => {
+        if (formData.specialist_type === 'doctor') {
+            setAvailableSpecialists(doctors);
+        } else if (formData.specialist_type === 'medtech') {
+            setAvailableSpecialists(medtechs);
+        } else {
+            setAvailableSpecialists([]);
+        }
+        // Reset specialist_id and time when type changes
+        setFormData(prev => ({ ...prev, specialist_id: '', appointment_time: '' }));
+        setAvailableTimeSlots([]);
+    }, [formData.specialist_type, doctors, medtechs]);
+
+    // Fetch available time slots based on specialist schedule and existing appointments
+    useEffect(() => {
+        const fetchAvailableTimeSlots = async () => {
+            if (!formData.specialist_id || !formData.appointment_date) {
+                setAvailableTimeSlots([]);
+                return;
+            }
+
+            setIsLoadingTimeSlots(true);
+            try {
+                // Get selected specialist
+                const specialist = availableSpecialists.find(s => s.id.toString() === formData.specialist_id);
+                if (!specialist || !specialist.schedule_data) {
+                    setAvailableTimeSlots([]);
+                    setIsLoadingTimeSlots(false);
+                    return;
+                }
+
+                // Get day of week from selected date
+                const selectedDate = new Date(formData.appointment_date);
+                const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+                
+                // Get available times for that day from specialist's schedule
+                const daySchedule = (specialist.schedule_data as any)[dayOfWeek] || [];
+                
+                if (daySchedule.length === 0) {
+                    setAvailableTimeSlots([]);
+                    setIsLoadingTimeSlots(false);
+                    return;
+                }
+
+                // Get existing appointments for this specialist on this date
+                const response = await fetch(`/admin/appointments/api/check-availability?specialist_id=${formData.specialist_id}&date=${formData.appointment_date}`);
+                const bookedTimes = response.ok ? await response.json() : [];
+
+                // Convert booked times to comparable format
+                const bookedTimeStrings = bookedTimes.map((time: string) => {
+                    // Handle different time formats: "16:00:00", "16:00", or already formatted
+                    let hours: number, minutes: number;
+                    if (time.includes(':')) {
+                        const parts = time.split(':');
+                        hours = parseInt(parts[0] || '0');
+                        minutes = parseInt(parts[1] || '0');
+                    } else {
+                        // Try to parse as formatted time
+                        const parsed = new Date(`2000-01-01 ${time}`);
+                        if (!isNaN(parsed.getTime())) {
+                            hours = parsed.getHours();
+                            minutes = parsed.getMinutes();
+                        } else {
+                            return time; // Return as-is if can't parse
+                        }
+                    }
+                    const date = new Date();
+                    date.setHours(hours, minutes, 0, 0);
+                    return date.toLocaleTimeString('en-US', { 
+                        hour: 'numeric', 
+                        minute: '2-digit', 
+                        hour12: true 
+                    });
+                });
+
+                // Convert schedule times to display format and filter out booked times
+                const slots = daySchedule
+                    .map((time: string) => {
+                        // Convert 24-hour format (e.g., "08:00") to 12-hour format (e.g., "8:00 AM")
+                        const [hours, minutes] = time.split(':');
+                        const date = new Date();
+                        date.setHours(parseInt(hours), parseInt(minutes || '0'), 0, 0);
+                        const timeString = date.toLocaleTimeString('en-US', { 
+                            hour: 'numeric', 
+                            minute: '2-digit', 
+                            hour12: true 
+                        });
+                        return {
+                            value: timeString,
+                            label: timeString,
+                            raw: time
+                        };
+                    })
+                    .filter((slot: any) => !bookedTimeStrings.includes(slot.value))
+                    .map((slot: any) => ({
+                        value: slot.value,
+                        label: slot.label
+                    }));
+
+                setAvailableTimeSlots(slots);
+            } catch (error) {
+                console.error('Error fetching available time slots:', error);
+                setAvailableTimeSlots([]);
+            } finally {
+                setIsLoadingTimeSlots(false);
+            }
+        };
+
+        fetchAvailableTimeSlots();
+    }, [formData.specialist_id, formData.appointment_date, availableSpecialists]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setErrors({});
+        setIsSubmitting(true);
+
+        router.post('/admin/appointments/walk-in', formData, {
+            onSuccess: () => {
+                onSuccess();
+            },
+            onError: (errors) => {
+                if (errors && typeof errors === 'object') {
+                    setErrors(errors.errors || errors);
+                }
+                setIsSubmitting(false);
+            },
+            onFinish: () => {
+                setIsSubmitting(false);
+            }
+        });
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Patient Selection */}
+                <div className="space-y-2">
+                    <Label htmlFor="patient_id">Patient *</Label>
+                    <Select
+                        value={formData.patient_id}
+                        onValueChange={(value) => {
+                            // Find the selected patient
+                            const selectedPatient = patients.find(p => p.id.toString() === value);
+                            if (selectedPatient) {
+                                // Auto-populate contact number (prefer mobile_no, fallback to telephone_no)
+                                const contactNumber = selectedPatient.mobile_no || selectedPatient.telephone_no || '';
+                                setFormData(prev => ({ 
+                                    ...prev, 
+                                    patient_id: value,
+                                    contact_number: contactNumber
+                                }));
+                            } else {
+                                setFormData(prev => ({ ...prev, patient_id: value }));
+                            }
+                        }}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select patient" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {patients.length > 0 ? (
+                                patients.map((patient) => (
+                                    <SelectItem key={patient.id} value={patient.id.toString()}>
+                                        {patient.last_name}, {patient.first_name} {patient.middle_name ? patient.middle_name + ' ' : ''}({patient.patient_no})
+                                    </SelectItem>
+                                ))
+                            ) : (
+                                <div className="p-2 text-sm text-gray-500">No patients found. Please create a patient profile first.</div>
+                            )}
+                        </SelectContent>
+                    </Select>
+                    {errors.patient_id && <p className="text-sm text-red-600">{errors.patient_id}</p>}
+                </div>
+
+                {/* Appointment Type */}
+                <div className="space-y-2">
+                    <Label htmlFor="appointment_type">Appointment Type *</Label>
+                    <Select
+                        value={formData.appointment_type}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, appointment_type: value }))}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select appointment type" />
+                        </SelectTrigger>
+                        <SelectContent position="item-aligned">
+                            {appointmentTypes.map((type) => (
+                                <SelectItem key={type.value} value={type.value}>
+                                    {type.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    {errors.appointment_type && <p className="text-sm text-red-600">{errors.appointment_type}</p>}
+                </div>
+
+                {/* Specialist Type */}
+                <div className="space-y-2">
+                    <Label htmlFor="specialist_type">Specialist Type *</Label>
+                    <Select
+                        value={formData.specialist_type}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, specialist_type: value as 'doctor' | 'medtech' }))}
+                    >
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent position="item-aligned">
+                            <SelectItem value="doctor">Doctor</SelectItem>
+                            <SelectItem value="medtech">MedTech</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    {errors.specialist_type && <p className="text-sm text-red-600">{errors.specialist_type}</p>}
+                </div>
+
+                {/* Specialist Selection */}
+                <div className="space-y-2">
+                    <Label htmlFor="specialist_id">Attending {formData.specialist_type === 'doctor' ? 'Physician' : 'MedTech'} *</Label>
+                    <Select
+                        value={formData.specialist_id}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, specialist_id: value }))}
+                        disabled={availableSpecialists.length === 0}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder={`Select ${formData.specialist_type === 'doctor' ? 'doctor' : 'medtech'}`} />
+                        </SelectTrigger>
+                        <SelectContent position="item-aligned">
+                            {availableSpecialists.length > 0 ? (
+                                availableSpecialists.map((specialist) => (
+                                    <SelectItem key={specialist.id} value={specialist.id.toString()}>
+                                        {specialist.name} {specialist.specialization ? `- ${specialist.specialization}` : ''}
+                                    </SelectItem>
+                                ))
+                            ) : (
+                                <div className="p-2 text-sm text-gray-500">No {formData.specialist_type === 'doctor' ? 'doctors' : 'medtechs'} available</div>
+                            )}
+                        </SelectContent>
+                    </Select>
+                    {errors.specialist_id && <p className="text-sm text-red-600">{errors.specialist_id}</p>}
+                </div>
+
+                {/* Appointment Date */}
+                <div className="space-y-2">
+                    <Label htmlFor="appointment_date">Appointment Date *</Label>
+                    <Input
+                        id="appointment_date"
+                        type="date"
+                        value={formData.appointment_date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, appointment_date: e.target.value }))}
+                        min={new Date().toISOString().split('T')[0]}
+                    />
+                    {errors.appointment_date && <p className="text-sm text-red-600">{errors.appointment_date}</p>}
+                </div>
+
+                {/* Appointment Time */}
+                <div className="space-y-2">
+                    <Label htmlFor="appointment_time">Appointment Time *</Label>
+                    <Select
+                        value={formData.appointment_time}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, appointment_time: value }))}
+                        disabled={!formData.specialist_id || !formData.appointment_date || isLoadingTimeSlots || availableTimeSlots.length === 0}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder={
+                                !formData.specialist_id ? "Select specialist first" :
+                                !formData.appointment_date ? "Select date first" :
+                                isLoadingTimeSlots ? "Loading available times..." :
+                                availableTimeSlots.length === 0 ? "No available times" :
+                                "Select time"
+                            } />
+                        </SelectTrigger>
+                        <SelectContent position="item-aligned">
+                            {availableTimeSlots.length > 0 ? (
+                                availableTimeSlots.map((slot) => (
+                                    <SelectItem key={slot.value} value={slot.value}>
+                                        {slot.label}
+                                    </SelectItem>
+                                ))
+                            ) : (
+                                <div className="p-2 text-sm text-gray-500">
+                                    {!formData.specialist_id ? "Please select a specialist first" :
+                                     !formData.appointment_date ? "Please select a date first" :
+                                     isLoadingTimeSlots ? "Loading..." :
+                                     "No available time slots for this date"}
+                                </div>
+                            )}
+                        </SelectContent>
+                    </Select>
+                    {errors.appointment_time && <p className="text-sm text-red-600">{errors.appointment_time}</p>}
+                    {formData.specialist_id && formData.appointment_date && availableTimeSlots.length === 0 && !isLoadingTimeSlots && (
+                        <p className="text-xs text-amber-600">
+                            No available time slots. The specialist may not have a schedule for this day or all slots are booked.
+                        </p>
+                    )}
+                </div>
+
+                {/* Status */}
+                <div className="space-y-2">
+                    <Label htmlFor="status">Status *</Label>
+                    <Select
+                        value={formData.status}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent position="item-aligned">
+                            <SelectItem value="Confirmed">Confirmed</SelectItem>
+                            <SelectItem value="Pending">Pending</SelectItem>
+                            <SelectItem value="Cancelled">Cancelled</SelectItem>
+                            <SelectItem value="Completed">Completed</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    {errors.status && <p className="text-sm text-red-600">{errors.status}</p>}
+                </div>
+
+                {/* Duration */}
+                <div className="space-y-2">
+                    <Label htmlFor="duration">Duration *</Label>
+                    <Select
+                        value={formData.duration}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, duration: value }))}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select duration" />
+                        </SelectTrigger>
+                        <SelectContent position="item-aligned">
+                            <SelectItem value="30 min">30 minutes</SelectItem>
+                            <SelectItem value="45 min">45 minutes</SelectItem>
+                            <SelectItem value="60 min">60 minutes</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    {errors.duration && <p className="text-sm text-red-600">{errors.duration}</p>}
+                </div>
+
+                {/* Contact Number */}
+                <div className="space-y-2">
+                    <Label htmlFor="contact_number">Contact Number</Label>
+                    <Input
+                        id="contact_number"
+                        type="text"
+                        value={formData.contact_number}
+                        onChange={(e) => setFormData(prev => ({ ...prev, contact_number: e.target.value }))}
+                        placeholder="Enter contact number"
+                    />
+                    {errors.contact_number && <p className="text-sm text-red-600">{errors.contact_number}</p>}
+                </div>
+            </div>
+
+            {/* Additional Info */}
+            <div className="space-y-2">
+                <Label htmlFor="additional_info">Additional Notes (Optional)</Label>
+                <Textarea
+                    id="additional_info"
+                    value={formData.additional_info}
+                    onChange={(e) => setFormData(prev => ({ ...prev, additional_info: e.target.value }))}
+                    placeholder="Enter any additional information or special requirements..."
+                    rows={3}
+                />
+                {errors.additional_info && <p className="text-sm text-red-600">{errors.additional_info}</p>}
+            </div>
+
+            {/* Admin Notes */}
+            <div className="space-y-2">
+                <Label htmlFor="notes">Admin Notes</Label>
+                <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Enter admin notes..."
+                    rows={3}
+                />
+                {errors.notes && <p className="text-sm text-red-600">{errors.notes}</p>}
+            </div>
+
+            <DialogFooter>
+                <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+                    Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting || patients.length === 0}>
+                    {isSubmitting ? 'Creating...' : 'Create Appointment'}
+                </Button>
+            </DialogFooter>
+        </form>
     );
 }

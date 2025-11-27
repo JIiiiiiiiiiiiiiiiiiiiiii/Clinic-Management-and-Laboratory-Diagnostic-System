@@ -88,7 +88,9 @@ class AppointmentApprovalService
                 $visitId = $visit->id;
 
                 // Set billing status to pending for manual processing
-                $appointment->update(['billing_status' => 'pending']);
+                // Use saveQuietly to skip model events and prevent duplicate check
+                $appointment->billing_status = 'pending';
+                $appointment->saveQuietly();
 
                 // Skip auto-generating billing transaction - admin will handle this manually
                 // $billingTransaction = BillingTransaction::create([...]);

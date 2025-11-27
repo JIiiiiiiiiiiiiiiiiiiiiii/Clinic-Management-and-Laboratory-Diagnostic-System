@@ -6,7 +6,8 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
     public function up() {
-        Schema::create('appointments', function (Blueprint $table) {
+        if (!Schema::hasTable('appointments')) {
+            Schema::create('appointments', function (Blueprint $table) {
             $table->id('appointment_id');
             $table->string('appointment_code', 10)->unique()->nullable();
             $table->foreignId('patient_id')->constrained('patients', 'patient_id')->onDelete('cascade');
@@ -24,7 +25,8 @@ return new class extends Migration {
             $table->text('admin_notes')->nullable();
             $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamps();
-        });
+            });
+        }
     }
     public function down() {
         Schema::dropIfExists('appointments');

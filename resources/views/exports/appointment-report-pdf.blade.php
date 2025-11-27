@@ -188,7 +188,7 @@
                             {{ $appointment['source'] }}
                         </span>
                     </td>
-                    <td>PHP {{ number_format($appointment['price'], 2) }}</td>
+                    <td>₱{{ number_format($appointment['price'], 2) }}</td>
                 </tr>
                 @empty
                 <tr>

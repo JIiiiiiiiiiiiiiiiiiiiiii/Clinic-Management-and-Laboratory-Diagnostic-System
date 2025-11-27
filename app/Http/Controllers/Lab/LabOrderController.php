@@ -7,6 +7,7 @@ use App\Models\LabOrder;
 use App\Models\LabResult;
 use App\Models\LabTest;
 use App\Models\Patient;
+use App\Services\LabTestAnalyticsService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -14,7 +15,7 @@ class LabOrderController extends Controller
 {
     public function allOrders()
     {
-        $orders = LabOrder::with(['patient', 'results.test'])
+        $orders = LabOrder::with(['patient', 'results.test', 'visit.attendingStaff', 'orderedBy'])
             ->latest()
             ->get();
 
@@ -27,8 +28,13 @@ class LabOrderController extends Controller
             return $o;
         });
 
+        // Get analytics data
+        $analyticsService = new LabTestAnalyticsService();
+        $analytics = $analyticsService->getAnalyticsSummary(5, 5);
+
         return Inertia::render('admin/laboratory/orders/index', [
             'orders' => $normalized,
+            'analytics' => $analytics,
         ]);
     }
 
@@ -46,7 +52,7 @@ class LabOrderController extends Controller
     {
         $orders = LabOrder::with(['patient:id,first_name,last_name', 'results.test:id,name,code'])
             ->latest()
-            ->get(['id', 'patient_id', 'created_at']);
+            ->get(['id', 'patient_id', 'status', 'created_at']);
         $tests = LabTest::orderBy('name')->get(['id', 'name', 'code']);
 
         $normalized = $orders->map(function ($o) {
@@ -57,15 +63,34 @@ class LabOrderController extends Controller
             return $o;
         });
 
+        // Get analytics data
+        $analyticsService = new LabTestAnalyticsService();
+        $analytics = $analyticsService->getAnalyticsSummary(5, 5);
+
+        // Calculate statistics
+        $statistics = [
+            'total_orders' => $orders->count(),
+            'completed_orders' => $orders->where('status', 'completed')->count(),
+            'pending_orders' => $orders->whereIn('status', ['ordered', 'processing'])->count(),
+            'orders_this_month' => $orders->whereMonth('created_at', now()->month)
+                ->whereYear('created_at', now()->year)
+                ->count(),
+        ];
+
         return Inertia::render('admin/laboratory/reports/index', [
             'orders' => $normalized,
             'tests' => $tests,
+            'statistics' => $statistics,
+            'analytics' => $analytics,
         ]);
     }
 
     public function index(Request $request, Patient $patient)
     {
-        $orders = LabOrder::with(['results.test'])->where('patient_id', $patient->id)->latest()->get();
+        $orders = LabOrder::with(['results.test', 'visit.attendingStaff', 'orderedBy'])
+            ->where('patient_id', $patient->id)
+            ->latest()
+            ->get();
         $labTests = LabTest::where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'is_active']);
 
         $normalizedPatientOrders = $orders->map(function ($o) {
@@ -119,15 +144,24 @@ class LabOrderController extends Controller
     public function show(LabOrder $order)
     {
         $order->load([
-            'patient', 
-            'results.test', 
+            'patient',
+            'results.test',
             'results.values',
-            'orderedBy'
+            'orderedBy',
+            'visit.attendingStaff'
         ]);
 
-        // Get lab tests through results
+        // Get lab tests through results with category/type and fields_schema
         $labTests = $order->results->map(function ($result) {
-            return $result->test;
+            $test = $result->test;
+            if ($test) {
+                // Add category/type if available
+                $test->category = $test->category ?? null;
+                $test->description = $test->description ?? null;
+                // Ensure fields_schema is included
+                $test->fields_schema = $test->fields_schema ?? null;
+            }
+            return $test;
         })->filter();
         $order->setRelation('lab_tests', $labTests);
 

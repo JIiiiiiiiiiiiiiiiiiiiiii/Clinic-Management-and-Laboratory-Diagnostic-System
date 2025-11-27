@@ -30,6 +30,7 @@ const MovementModal: React.FC<MovementModalProps> = ({
         movement_type: 'IN' as 'IN' | 'OUT',
         quantity: 1,
         remarks: '',
+        expiry_date: '',
     });
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -52,6 +53,10 @@ const MovementModal: React.FC<MovementModalProps> = ({
     const handleMovementTypeChange = (type: 'IN' | 'OUT') => {
         setMovementType(type);
         setData('movement_type', type);
+        // Clear expiry_date when switching to OUT
+        if (type === 'OUT') {
+            setData('expiry_date', '');
+        }
     };
 
     return (
@@ -63,7 +68,7 @@ const MovementModal: React.FC<MovementModalProps> = ({
                     </Button>
                 )}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             {movementType === 'IN' ? (
@@ -135,6 +140,29 @@ const MovementModal: React.FC<MovementModalProps> = ({
                             <p className="text-sm text-red-600">{errors.quantity}</p>
                         )}
                     </div>
+
+                    {/* Expiry Date - Only for IN movements */}
+                    {movementType === 'IN' && (
+                        <div className="space-y-2">
+                            <Label htmlFor="expiry_date" className="text-sm font-semibold">
+                                Expiry Date (Optional)
+                            </Label>
+                            <Input
+                                id="expiry_date"
+                                type="date"
+                                value={data.expiry_date || ''}
+                                onChange={(e) => setData('expiry_date', e.target.value)}
+                                className={`h-11 ${errors.expiry_date ? 'border-red-500' : 'border-gray-300'}`}
+                                placeholder="Select expiry date for this batch"
+                            />
+                            <p className="text-xs text-gray-500">
+                                Set expiration date for this batch of items to track when to restock
+                            </p>
+                            {errors.expiry_date && (
+                                <p className="text-sm text-red-600">{errors.expiry_date}</p>
+                            )}
+                        </div>
+                    )}
 
                     {/* Remarks */}
                     <div className="space-y-2">

@@ -18,6 +18,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
 
 class AppointmentController extends Controller
@@ -30,36 +31,22 @@ class AppointmentController extends Controller
         $query = Appointment::query();
 
         // Exclude dummy appointments created for manual billing transactions
-        $query->where('appointment_type', '!=', 'manual_transaction');
+        // Qualify with table name to avoid ambiguity after joins
+        $query->where('appointments.appointment_type', '!=', 'manual_transaction');
 
-        // Apply filters
-        if ($request->filled('search')) {
-            $search = $request->search;
-            \Log::info('Search term received:', ['search' => $search]);
-            $query->where(function ($q) use ($search) {
-                $q->where('id', 'like', "%{$search}%")
-                  ->orWhereHas('patient', function($patientQuery) use ($search) {
-                      $patientQuery->where('first_name', 'like', "%{$search}%")
-                                   ->orWhere('last_name', 'like', "%{$search}%")
-                                   ->orWhere('patient_no', 'like', "%{$search}%");
-                  })
-                  ->orWhereHas('specialist', function($specialistQuery) use ($search) {
-                      $specialistQuery->where('name', 'like', "%{$search}%");
-                  });
-            });
-        }
-
+        // Apply filters BEFORE joins to avoid issues
         if ($request->filled('status') && $request->status !== 'all') {
-            $query->where('status', $request->status);
+            // Qualify with table name to avoid ambiguity after joins
+            $query->where('appointments.status', $request->status);
         }
 
         if ($request->filled('date') && $request->date !== 'all') {
             if ($request->date === 'today') {
-                $query->whereDate('appointment_date', Carbon::today());
+                $query->whereDate('appointments.appointment_date', Carbon::today());
             } elseif ($request->date === 'tomorrow') {
-                $query->whereDate('appointment_date', Carbon::tomorrow());
+                $query->whereDate('appointments.appointment_date', Carbon::tomorrow());
             } elseif ($request->date === 'this_week') {
-                $query->whereBetween('appointment_date', [
+                $query->whereBetween('appointments.appointment_date', [
                     Carbon::now()->startOfWeek(),
                     Carbon::now()->endOfWeek()
                 ]);
@@ -67,7 +54,8 @@ class AppointmentController extends Controller
         }
 
         if ($request->filled('specialist') && $request->specialist !== 'all') {
-            $query->where('specialist_id', $request->specialist);
+            // Qualify with table name to avoid ambiguity after joins
+            $query->where('appointments.specialist_id', $request->specialist);
         }
 
         // Apply sorting
@@ -83,44 +71,272 @@ class AppointmentController extends Controller
         // Validate sort direction
         $sortDir = in_array(strtolower($sortDir), ['asc', 'desc']) ? strtolower($sortDir) : 'asc';
 
-        // Get all appointments from single source (appointments table only)
-        if ($sortBy === 'patient_id') {
-            // For patient_id sorting, we need to join with patients table to sort by sequence_number
-            $appointments = $query->with(['patient', 'specialist', 'billingTransactions'])
-                                ->leftJoin('patients', 'appointments.patient_id', '=', 'patients.id')
-                                ->orderBy('patients.sequence_number', $sortDir)
-                                ->select('appointments.*')
-                                ->get();
-        } else {
-            $appointments = $query->with(['patient', 'specialist', 'billingTransactions'])
-                                ->orderBy($sortBy, $sortDir)
-                                ->get();
+        // Use LEFT JOIN to get patient and specialist data directly from database
+        // First try appointments table, then fall back to visits table for patient data
+        // This ensures we get data even when foreign keys are null or relationships fail
+        $query->leftJoin('visits', 'appointments.id', '=', 'visits.appointment_id')
+              ->leftJoin('patients as appointment_patients', 'appointments.patient_id', '=', 'appointment_patients.id')
+              ->leftJoin('patients as visit_patients', 'visits.patient_id', '=', 'visit_patients.id')
+              ->leftJoin('specialists', 'appointments.specialist_id', '=', 'specialists.specialist_id')
+              ->leftJoin('specialists as visit_doctor_specialists', 'visits.doctor_id', '=', 'visit_doctor_specialists.specialist_id')
+              ->leftJoin('specialists as visit_nurse_specialists', 'visits.nurse_id', '=', 'visit_nurse_specialists.specialist_id')
+              ->leftJoin('specialists as visit_medtech_specialists', 'visits.medtech_id', '=', 'visit_medtech_specialists.specialist_id')
+              ->leftJoin('specialists as visit_attending_specialists', 'visits.attending_staff_id', '=', 'visit_attending_specialists.specialist_id')
+              ->select(
+                  'appointments.*',
+                  DB::raw('COALESCE(appointment_patients.first_name, visit_patients.first_name) as patient_first_name'),
+                  DB::raw('COALESCE(appointment_patients.last_name, visit_patients.last_name) as patient_last_name'),
+                  DB::raw('COALESCE(appointment_patients.middle_name, visit_patients.middle_name) as patient_middle_name'),
+                  DB::raw('COALESCE(appointment_patients.patient_no, visit_patients.patient_no) as patient_no'),
+                  DB::raw('COALESCE(appointment_patients.patient_code, visit_patients.patient_code) as patient_code'),
+                  DB::raw('COALESCE(appointment_patients.mobile_no, visit_patients.mobile_no) as patient_mobile_no'),
+                  DB::raw('COALESCE(appointment_patients.telephone_no, visit_patients.telephone_no) as patient_telephone_no'),
+                  DB::raw('COALESCE(
+                      specialists.name, 
+                      visit_doctor_specialists.name, 
+                      visit_nurse_specialists.name, 
+                      visit_medtech_specialists.name, 
+                      visit_attending_specialists.name
+                  ) as specialist_name_from_table'),
+                  DB::raw('COALESCE(
+                      specialists.role, 
+                      visit_doctor_specialists.role, 
+                      visit_nurse_specialists.role, 
+                      visit_medtech_specialists.role, 
+                      visit_attending_specialists.role
+                  ) as specialist_role')
+              );
+
+        // Apply search filter AFTER joins so we can search on joined columns
+        if ($request->filled('search')) {
+            $search = $request->search;
+            \Log::info('Search term received:', ['search' => $search]);
+            $query->where(function ($q) use ($search) {
+                // Search appointment ID
+                $q->where('appointments.id', 'like', "%{$search}%")
+                  // Search patient name (concatenated from joined columns)
+                  ->orWhere(DB::raw('CONCAT(COALESCE(appointment_patients.first_name, visit_patients.first_name, ""), " ", COALESCE(appointment_patients.last_name, visit_patients.last_name, ""))'), 'like', "%{$search}%")
+                  // Search patient first name
+                  ->orWhere(DB::raw('COALESCE(appointment_patients.first_name, visit_patients.first_name)'), 'like', "%{$search}%")
+                  // Search patient last name
+                  ->orWhere(DB::raw('COALESCE(appointment_patients.last_name, visit_patients.last_name)'), 'like', "%{$search}%")
+                  // Search patient number
+                  ->orWhere(DB::raw('COALESCE(appointment_patients.patient_no, visit_patients.patient_no)'), 'like', "%{$search}%")
+                  // Search patient code
+                  ->orWhere(DB::raw('COALESCE(appointment_patients.patient_code, visit_patients.patient_code)'), 'like', "%{$search}%")
+                  // Search specialist name (from all possible sources)
+                  ->orWhere(DB::raw('COALESCE(
+                      specialists.name, 
+                      visit_doctor_specialists.name, 
+                      visit_nurse_specialists.name, 
+                      visit_medtech_specialists.name, 
+                      visit_attending_specialists.name
+                  )'), 'like', "%{$search}%")
+                  // Search appointment type
+                  ->orWhere('appointments.appointment_type', 'like', "%{$search}%");
+            });
         }
+        
+        // Apply sorting
+        if ($sortBy === 'patient_id') {
+            $query->orderBy(DB::raw('COALESCE(appointment_patients.sequence_number, visit_patients.sequence_number)'), $sortDir);
+        } else {
+            $query->orderBy('appointments.' . $sortBy, $sortDir);
+        }
+        
+        $appointments = $query->get();
+        
+        // Debug: Log first appointment details to diagnose data issues BEFORE eager loading
+        if ($appointments->count() > 0) {
+            $firstApp = $appointments->first();
+            \Log::info('First appointment debug (before eager load)', [
+                'appointment_id' => $firstApp->id,
+                'patient_id' => $firstApp->patient_id,
+                'specialist_id' => $firstApp->specialist_id,
+                'patient_first_name' => $firstApp->patient_first_name ?? 'NULL',
+                'patient_last_name' => $firstApp->patient_last_name ?? 'NULL',
+                'patient_no' => $firstApp->patient_no ?? 'NULL',
+                'specialist_name_from_table' => $firstApp->specialist_name_from_table ?? 'NULL',
+                'attributes' => $firstApp->getAttributes(),
+            ]);
+        }
+        
+        // Eager load additional relationships that don't need joins
+        // Do this AFTER we've captured the joined data, but the joined columns should still be accessible
+        // Also load specialist relationship to use as fallback if joined data is missing
+        $appointments->load(['billingTransactions', 'visit', 'visits', 'specialist']);
         
         // Transform appointments to include proper field names for frontend
         $transformedAppointments = $appointments->map(function($appointment) {
+            // Access joined columns from attributes (they should be preserved)
+            $attributes = $appointment->getAttributes();
+            
+            // Get patient name from joined data
+            $patientName = 'Unknown Patient';
+            $patientFirstName = $attributes['patient_first_name'] ?? $appointment->patient_first_name ?? null;
+            $patientMiddleName = $attributes['patient_middle_name'] ?? $appointment->patient_middle_name ?? null;
+            $patientLastName = $attributes['patient_last_name'] ?? $appointment->patient_last_name ?? null;
+            
+            if ($patientFirstName || $patientLastName) {
+                $firstName = $patientFirstName ?? '';
+                $middleName = $patientMiddleName ?? '';
+                $lastName = $patientLastName ?? '';
+                $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+            }
+            
+            if (empty(trim($patientName))) {
+                $patientName = 'Unknown Patient';
+            }
+            
+            // Get patient ID display (patient_no like P0001) from joined data
+            $patientIdDisplay = $attributes['patient_no'] ?? $appointment->patient_no ?? $attributes['patient_code'] ?? $appointment->patient_code ?? 'N/A';
+            
+            // Get contact number from joined data
+            $contactNumber = $attributes['patient_mobile_no'] ?? $appointment->patient_mobile_no ?? $attributes['patient_telephone_no'] ?? $appointment->patient_telephone_no ?? 'N/A';
+            
+            // Get specialist name from joined data - check both attributes and direct property access
+            $specialistName = $attributes['specialist_name_from_table'] ?? $appointment->specialist_name_from_table ?? null;
+            
+            // If still null, try to get from relationships as fallback
+            if (empty($specialistName) || $specialistName === 'NULL') {
+                // Try appointment specialist relationship - always get fresh data
+                if ($appointment->specialist_id) {
+                    // Always reload to get the latest specialist data
+                    $freshSpecialist = \App\Models\Specialist::find($appointment->specialist_id);
+                    if ($freshSpecialist) {
+                        $specialistName = $freshSpecialist->name;
+                        $appointment->setRelation('specialist', $freshSpecialist);
+                    } else {
+                        // Fallback to relationship if direct find fails
+                        if (!$appointment->relationLoaded('specialist')) {
+                            $appointment->load('specialist');
+                        }
+                        if ($appointment->specialist) {
+                            $specialistName = $appointment->specialist->name;
+                        }
+                    }
+                }
+                
+                // Try visit relationships (check all possible specialist fields)
+                if (empty($specialistName) && $appointment->relationLoaded('visit') && $appointment->visit) {
+                    $visit = $appointment->visit;
+                    // Check doctor_id
+                    if (empty($specialistName) && $visit->doctor_id) {
+                        $visitDoctor = \App\Models\Specialist::find($visit->doctor_id);
+                        if ($visitDoctor) {
+                            $specialistName = $visitDoctor->name;
+                        }
+                    }
+                    // Check nurse_id
+                    if (empty($specialistName) && $visit->nurse_id) {
+                        $visitNurse = \App\Models\Specialist::find($visit->nurse_id);
+                        if ($visitNurse) {
+                            $specialistName = $visitNurse->name;
+                        }
+                    }
+                    // Check medtech_id
+                    if (empty($specialistName) && $visit->medtech_id) {
+                        $visitMedtech = \App\Models\Specialist::find($visit->medtech_id);
+                        if ($visitMedtech) {
+                            $specialistName = $visitMedtech->name;
+                        }
+                    }
+                }
+                
+                // If visit is not loaded, try to load it and check
+                if (empty($specialistName) && !$appointment->relationLoaded('visit')) {
+                    $visit = \App\Models\Visit::where('appointment_id', $appointment->id)->first();
+                    if ($visit) {
+                        if ($visit->doctor_id) {
+                            $visitDoctor = \App\Models\Specialist::find($visit->doctor_id);
+                            if ($visitDoctor) {
+                                $specialistName = $visitDoctor->name;
+                            }
+                        }
+                        if (empty($specialistName) && $visit->nurse_id) {
+                            $visitNurse = \App\Models\Specialist::find($visit->nurse_id);
+                            if ($visitNurse) {
+                                $specialistName = $visitNurse->name;
+                            }
+                        }
+                        if (empty($specialistName) && $visit->medtech_id) {
+                            $visitMedtech = \App\Models\Specialist::find($visit->medtech_id);
+                            if ($visitMedtech) {
+                                $specialistName = $visitMedtech->name;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Final fallback - use default specialist name when specialist is deleted or missing
+            if (empty($specialistName) || $specialistName === 'NULL') {
+                $specialistName = 'Paul Henry N. Parrotina, MD.';
+            }
+            
+            // Get specialist data for the appointment
+            $specialistData = null;
+            if ($appointment->specialist_id) {
+                // Load specialist if not already loaded
+                if (!$appointment->relationLoaded('specialist')) {
+                    $appointment->load('specialist');
+                }
+                if ($appointment->specialist) {
+                    $specialistData = [
+                        'specialist_id' => $appointment->specialist->specialist_id,
+                        'id' => $appointment->specialist->specialist_id, // For backward compatibility
+                        'name' => $appointment->specialist->name,
+                        'role' => $appointment->specialist->role ?? 'Doctor',
+                        'employee_id' => $appointment->specialist->specialist_code ?? null,
+                    ];
+                }
+            }
+            
+            // Get patient data for the appointment
+            $patientData = null;
+            if ($appointment->patient_id) {
+                // Load patient if not already loaded
+                if (!$appointment->relationLoaded('patient')) {
+                    $appointment->load('patient');
+                }
+                if ($appointment->patient) {
+                    $patientData = [
+                        'id' => $appointment->patient->patient_id ?? $appointment->patient->id,
+                        'patient_id' => $appointment->patient->patient_id ?? $appointment->patient->id,
+                        'first_name' => $appointment->patient->first_name ?? '',
+                        'last_name' => $appointment->patient->last_name ?? '',
+                        'patient_no' => $appointment->patient->patient_no ?? '',
+                    ];
+                }
+            }
+            
             return [
                 'id' => $appointment->id,
                 'appointment_code' => 'A' . str_pad($appointment->id, 4, '0', STR_PAD_LEFT),
-                'patient_id' => $appointment->patient_id,
-                'patient_name' => $appointment->patient ? trim($appointment->patient->first_name . ' ' . $appointment->patient->last_name) : 'Unknown Patient',
-                'patient_id_display' => $appointment->patient ? $appointment->patient->patient_no : 'N/A',
-                'contact_number' => $appointment->patient ? $appointment->patient->mobile_no : 'N/A',
-                'specialist_id' => $appointment->specialist_id,
-                'specialist_name' => $appointment->specialist ? $appointment->specialist->name : 'Unknown Specialist',
-                'doctor' => $appointment->specialist ? $appointment->specialist->name : 'Unknown Specialist',
-                'appointment_type' => $appointment->appointment_type,
-                'specialist_type' => $appointment->specialist_type,
+                'patient_id' => $appointment->patient_id ?? ($patientData['id'] ?? null),
+                'patient_name' => $patientName,
+                'patient_id_display' => $patientIdDisplay,
+                'contact_number' => $contactNumber,
+                'specialist_id' => $appointment->specialist_id ?? ($specialistData['specialist_id'] ?? null),
+                'specialist_name' => $specialistName,
+                'doctor' => $specialistName,
+                'appointment_type' => $appointment->appointment_type ?? 'N/A',
+                'specialist_type' => $appointment->specialist_type ?? 'N/A',
                 'appointment_date' => $appointment->appointment_date,
                 'appointment_time' => $appointment->appointment_time,
-                'duration' => $appointment->duration,
-                'price' => $appointment->price,
+                'duration' => $appointment->duration ?? 'N/A',
+                'price' => $appointment->price ?? 0,
                 'total_lab_amount' => $appointment->total_lab_amount ?? 0,
-                'final_total_amount' => $appointment->final_total_amount ?? $appointment->price,
+                'final_total_amount' => $appointment->final_total_amount ?? $appointment->price ?? 0,
+                'billing_status' => $appointment->billing_status ?? 'pending',
                 'additional_info' => $appointment->additional_info,
-                'source' => $appointment->source,
-                'status' => $appointment->status,
+                'notes' => $appointment->admin_notes ?? $appointment->additional_info ?? '',
+                'special_requirements' => $appointment->additional_info ?? '',
+                'source' => $appointment->source ?? 'N/A',
+                'status' => $appointment->status ?? 'N/A',
                 'admin_notes' => $appointment->admin_notes,
+                'specialist' => $specialistData,
+                'patient' => $patientData,
                 'billing_transactions' => $appointment->billingTransactions ? $appointment->billingTransactions->map(function($transaction) {
                     return [
                         'id' => $transaction->id,
@@ -130,6 +346,14 @@ class AppointmentController extends Controller
                         'created_at' => $transaction->created_at,
                     ];
                 }) : [],
+                'visit_id' => $appointment->visit ? $appointment->visit->id : null,
+                'visit' => $appointment->visit ? [
+                    'id' => $appointment->visit->id,
+                    'visit_code' => $appointment->visit->visit_code,
+                    'status' => $appointment->visit->status,
+                    'visit_date_time_time' => $appointment->visit->visit_date_time_time,
+                ] : null,
+                'has_visit' => $appointment->visit ? true : false,
                 'created_at' => $appointment->created_at,
                 'updated_at' => $appointment->updated_at,
             ];
@@ -141,32 +365,252 @@ class AppointmentController extends Controller
         // Debug: Log appointments count and details
         \Log::info('Appointments found: ' . $appointments->count());
         \Log::info('Search applied:', ['search' => $request->search, 'count' => $appointments->count()]);
-        \Log::info('Transformed appointments data:', $transformedAppointments->toArray());
+        
+        // Debug: Log first transformed appointment to verify data
+        if ($transformedAppointments->count() > 0) {
+            $firstTransformed = $transformedAppointments->first();
+            \Log::info('First transformed appointment data', [
+                'id' => $firstTransformed['id'],
+                'patient_name' => $firstTransformed['patient_name'],
+                'patient_id_display' => $firstTransformed['patient_id_display'],
+                'specialist_name' => $firstTransformed['specialist_name'],
+                'contact_number' => $firstTransformed['contact_number'],
+            ]);
+        }
 
         // Get next available patient ID with smart reset logic
         $nextPatientId = $this->getNextAvailablePatientId();
 
-        // Get doctors and medtechs for the component
+        // Get doctors and medtechs for the component (include schedule_data)
         $doctors = \App\Models\Specialist::where('role', 'Doctor')
-            ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id')
-            ->get();
+            ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id', 'schedule_data')
+            ->get()
+            ->map(function($doctor) {
+                return [
+                    'id' => $doctor->id,
+                    'name' => $doctor->name,
+                    'specialization' => $doctor->specialization,
+                    'employee_id' => $doctor->employee_id,
+                    'schedule_data' => $doctor->schedule_data ?? []
+                ];
+            });
 
         $medtechs = \App\Models\Specialist::where('role', 'MedTech')
-            ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id')
+            ->select('specialist_id as id', 'name', 'specialization', 'specialist_code as employee_id', 'schedule_data')
+            ->get()
+            ->map(function($medtech) {
+                return [
+                    'id' => $medtech->id,
+                    'name' => $medtech->name,
+                    'specialization' => $medtech->specialization,
+                    'employee_id' => $medtech->employee_id,
+                    'schedule_data' => $medtech->schedule_data ?? []
+                ];
+            });
+
+        // Get patients for walk-in appointment modal
+        $patients = \App\Models\Patient::select('id', 'first_name', 'last_name', 'middle_name', 'patient_no', 'mobile_no', 'telephone_no', 'email')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
             ->get();
+
+        // Convert collection to array for Inertia
+        $appointmentsArray = $allAppointments->values()->toArray();
+
+        // Helper function to clean and format appointment type names
+        $formatAppointmentTypeName = function($name) {
+            // Remove common prefixes/suffixes and clean up
+            $name = trim($name);
+            // Replace underscores and hyphens with spaces
+            $name = str_replace(['_', '-'], ' ', $name);
+            // Capitalize first letter of each word
+            $name = ucwords(strtolower($name));
+            
+            // Clean up common variations and standardize names
+            $replacements = [
+                // Test names
+                'Cbc' => 'CBC',
+                'CBC (Complete Blood Count)' => 'CBC (Complete Blood Count)',
+                'Complete Blood Count' => 'CBC (Complete Blood Count)',
+                'Urinalysis Test' => 'Urinalysis',
+                'Urinarysis' => 'Urinalysis',
+                'Urinarysis Test' => 'Urinalysis',
+                'Fecalysis Test' => 'Fecalysis',
+                'X Ray' => 'X-Ray',
+                'Xray' => 'X-Ray',
+                'X-Ray' => 'X-Ray',
+                
+                // Consultation types
+                'General Consultation' => 'General Consultation',
+                'Consultation' => 'General Consultation',
+                'Follow Up' => 'Follow-up',
+                'Follow-Up' => 'Follow-up',
+                'Check Up' => 'Check-up',
+                'Check-Up' => 'Check-up',
+                'Routine Checkup' => 'Routine Check-up',
+                'Routine Check Up' => 'Routine Check-up',
+            ];
+            
+            // Apply replacements
+            foreach ($replacements as $old => $new) {
+                if (stripos($name, $old) !== false) {
+                    $name = $new;
+                    break;
+                }
+            }
+            
+            return $name;
+        };
+
+        // Get active lab tests (test templates) - this is the primary scalable source
+        // ONLY fetch from actual test templates, NO duplicates
+        $appointmentTypesFromLabTests = [];
+        if (Schema::hasTable('lab_tests')) {
+            // First get all DISTINCT names from database (removes exact duplicates at DB level)
+            $uniqueTestNames = DB::table('lab_tests')
+                ->where('is_active', true)
+                ->select('name')
+                ->distinct()
+                ->orderBy('name')
+                ->pluck('name')
+                ->toArray();
+            
+            // Then map to appointment type format
+            $appointmentTypesFromLabTests = collect($uniqueTestNames)
+                ->map(function($name) use ($formatAppointmentTypeName) {
+                    return [
+                        'value' => $name, // Use the actual name from database
+                        'label' => $formatAppointmentTypeName($name), // Clean formatted name for display
+                        'source' => 'lab_test'
+                    ];
+                })
+                ->unique('value') // Remove duplicates by value (shouldn't be any, but just in case)
+                ->values()
+                ->toArray();
+        }
+
+        // Get active clinic procedures
+        $appointmentTypesFromProcedures = [];
+        if (Schema::hasTable('clinic_procedures')) {
+            $appointmentTypesFromProcedures = DB::table('clinic_procedures')
+                ->where('is_active', true)
+                ->select('name', 'code')
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get()
+                ->map(function($procedure) use ($formatAppointmentTypeName) {
+                    return [
+                        'value' => $procedure->name,
+                        'label' => $formatAppointmentTypeName($procedure->name),
+                        'source' => 'clinic_procedure'
+                    ];
+                })
+                ->toArray();
+        }
+
+        // Helper function to normalize appointment type names for comparison
+        // This is used to catch duplicates like "Fecalysis" vs "Fecalysis Test"
+        $normalizeTypeName = function($name) {
+            $name = strtolower(trim($name));
+            // Remove common suffixes
+            $name = preg_replace('/\s+(test|examination|exam)$/i', '', $name);
+            // Normalize variations
+            $name = str_replace(['_', '-'], ' ', $name);
+            $name = preg_replace('/\s+/', ' ', $name); // Multiple spaces to single space
+            return trim($name);
+        };
+
+        // Log for debugging - check what we're getting from database
+        \Log::info('Appointment Types Debug', [
+            'lab_tests_count' => count($appointmentTypesFromLabTests),
+            'lab_tests' => $appointmentTypesFromLabTests,
+            'clinic_procedures_count' => count($appointmentTypesFromProcedures),
+            'clinic_procedures' => $appointmentTypesFromProcedures
+        ]);
+
+        // REMOVED: No longer fetching from appointments table to avoid duplicates
+        // Only use lab_tests and clinic_procedures as the source of truth
+        $appointmentTypesFromAppointments = [];
+
+        // Add default appointment types (consultations)
+        $defaultAppointmentTypes = [
+            [
+                'value' => 'general_consultation',
+                'label' => 'General Consultation',
+                'source' => 'default'
+            ],
+            [
+                'value' => 'follow-up',
+                'label' => 'Follow-up',
+                'source' => 'default'
+            ],
+            [
+                'value' => 'check-up',
+                'label' => 'Check-up',
+                'source' => 'default'
+            ]
+        ];
+
+        // Merge all sources: default types, lab_tests (primary), clinic_procedures
+        // Deduplicate by normalized value FIRST to catch "Fecalysis" vs "Fecalysis Test"
+        // Then deduplicate by exact value to catch exact duplicates
+        $allAppointmentTypes = collect(array_merge($defaultAppointmentTypes, $appointmentTypesFromLabTests, $appointmentTypesFromProcedures))
+            ->unique(function($item) use ($normalizeTypeName) {
+                // Use normalized name for deduplication - this catches "Fecalysis" vs "Fecalysis Test"
+                return $normalizeTypeName($item['value']);
+            })
+            ->unique('value') // Also deduplicate by exact value to catch exact duplicates
+            ->values()
+            ->sortBy('label')
+            ->values()
+            ->toArray();
+        
+        // Final aggressive pass: ensure absolutely no duplicates
+        // Check both normalized AND exact values to be 100% sure
+        $seenNormalized = [];
+        $seenExact = [];
+        $finalTypes = [];
+        
+        foreach ($allAppointmentTypes as $type) {
+            $normalized = $normalizeTypeName($type['value']);
+            $exact = $type['value'];
+            
+            // Skip if we've seen this normalized name OR exact value before
+            // This ensures we only keep the FIRST occurrence
+            if (!isset($seenNormalized[$normalized]) && !isset($seenExact[$exact])) {
+                $seenNormalized[$normalized] = true;
+                $seenExact[$exact] = true;
+                $finalTypes[] = $type;
+            }
+        }
+        
+        // Sort final types by label
+        usort($finalTypes, function($a, $b) {
+            return strcmp($a['label'], $b['label']);
+        });
+        
+        // Log final result for debugging
+        \Log::info('Final Appointment Types', [
+            'count' => count($finalTypes),
+            'types' => array_map(function($t) { return $t['label']; }, $finalTypes)
+        ]);
+        
+        $allAppointmentTypes = $finalTypes;
 
         return Inertia::render('admin/appointments/index', [
             'appointments' => [
-                'data' => $allAppointments,
+                'data' => $appointmentsArray,
                 'current_page' => 1,
                 'last_page' => 1,
-                'per_page' => $allAppointments->count(),
-                'total' => $allAppointments->count()
+                'per_page' => count($appointmentsArray),
+                'total' => count($appointmentsArray)
             ],
             'filters' => $request->only(['search', 'status', 'date', 'specialist']),
             'nextPatientId' => $nextPatientId,
             'doctors' => $doctors,
-            'medtechs' => $medtechs
+            'medtechs' => $medtechs,
+            'appointmentTypes' => $allAppointmentTypes,
+            'patients' => $patients
         ]);
     }
 
@@ -474,22 +918,105 @@ class AppointmentController extends Controller
             'request_headers' => request()->headers->all()
         ]);
         
-        // Load relationships
-        $appointment->load(['patient', 'specialist', 'labTests.labTest', 'visits', 'billingTransactions']);
+        // Log raw appointment data for debugging
+        \Log::info('AppointmentController@show - Raw Appointment Data', [
+            'appointment_id' => $appointment->id,
+            'appointment_patient_id' => $appointment->patient_id,
+            'appointment_specialist_id' => $appointment->specialist_id,
+            'appointment_attributes' => $appointment->getAttributes(),
+        ]);
+        
+        // Load relationships - try multiple approaches due to database inconsistencies
+        // But don't rely on them - use fallback methods instead
+        try {
+            $appointment->load(['labTests.labTest', 'visits', 'billingTransactions']);
+            // Don't load patient/specialist relationships here - use fallback methods instead
+        } catch (\Exception $e) {
+            \Log::warning('Failed to load relationships via eager loading', ['error' => $e->getMessage()]);
+        }
+        
+        // Get patient information using fallback method (handles all cases)
+        $patientName = 'N/A';
+        $patientIdDisplay = 'N/A';
+        $contactNumber = 'N/A';
+        
+        // Use the fallback method to get patient (always use this, don't rely on relationship)
+        $patient = $appointment->getPatientWithFallback();
+        
+        if ($patient) {
+            $firstName = $patient->first_name ?? '';
+            $middleName = $patient->middle_name ?? '';
+            $lastName = $patient->last_name ?? '';
+            $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+            $patientIdDisplay = $patient->patient_no ?? $patient->patient_code ?? 'N/A';
+            $contactNumber = $patient->mobile_no ?? $patient->telephone_no ?? 'N/A';
+            
+            \Log::info('AppointmentController@show - Patient found', [
+                'patient_id' => $patient->id ?? $patient->patient_id ?? 'unknown',
+                'patient_name' => $patientName,
+                'method' => $appointment->relationLoaded('patient') && $appointment->patient ? 'relationship' : 'fallback'
+            ]);
+        } else {
+            \Log::warning('AppointmentController@show - No patient_id on appointment', [
+                'appointment_id' => $appointment->id,
+            ]);
+        }
+        
+        // Get specialist information using fallback method (handles all cases)
+        $specialistName = 'N/A';
+        $specialistIdDisplay = 'N/A';
+        
+        // Use the fallback method to get specialist (always use this, don't rely on relationship)
+        $specialist = $appointment->getSpecialistWithFallback();
+        
+        if ($specialist) {
+            $specialistName = $specialist->name ?? 'N/A';
+            $specialistIdDisplay = $specialist->specialist_id ?? $appointment->specialist_id ?? 'N/A';
+            
+            \Log::info('AppointmentController@show - Specialist found', [
+                'specialist_id' => $specialist->specialist_id,
+                'specialist_name' => $specialistName,
+                'method' => $appointment->relationLoaded('specialist') && $appointment->specialist ? 'relationship' : 'fallback'
+            ]);
+        } elseif ($appointment->specialist_id) {
+            // At least show the ID if we can't find the specialist
+            $specialistIdDisplay = $appointment->specialist_id;
+            \Log::warning('AppointmentController@show - Specialist not found', [
+                'appointment_specialist_id' => $appointment->specialist_id,
+            ]);
+        } else {
+            \Log::warning('AppointmentController@show - No specialist_id on appointment', [
+                'appointment_id' => $appointment->id,
+            ]);
+        }
+        
+        // Log for debugging
+        \Log::info('AppointmentController@show - Patient and Specialist Data', [
+            'appointment_id' => $appointment->id,
+            'appointment_patient_id' => $appointment->patient_id,
+            'appointment_specialist_id' => $appointment->specialist_id,
+            'patient_name' => $patientName,
+            'patient_id_display' => $patientIdDisplay,
+            'contact_number' => $contactNumber,
+            'specialist_name' => $specialistName,
+            'specialist_id_display' => $specialistIdDisplay,
+            'has_patient_relationship' => $appointment->patient ? 'yes' : 'no',
+            'has_specialist_relationship' => $appointment->specialist ? 'yes' : 'no',
+        ]);
         
         // Format the appointment data for frontend display
         $formattedAppointment = [
             'id' => $appointment->id,
-            'patient_name' => $appointment->patient_name,
-            'patient_id' => $appointment->patient_id,
-            'contact_number' => $appointment->contact_number,
+            'patient_name' => $patientName,
+            'patient_id' => $patientIdDisplay,
+            'contact_number' => $contactNumber,
             'appointment_type' => $appointment->appointment_type,
             'price' => $appointment->price,
             'total_lab_amount' => $appointment->total_lab_amount ?? 0,
             'final_total_amount' => $appointment->final_total_amount ?? $appointment->price,
             'specialist_type' => $appointment->specialist_type,
-            'specialist_name' => $appointment->specialist_name,
-            'specialist_id' => $appointment->specialist_id,
+            'specialist_name' => $specialistName,
+            'specialist_id' => $specialistIdDisplay,
             'appointment_date' => $appointment->appointment_date ? $appointment->appointment_date->format('Y-m-d') : null,
             'appointment_time' => $appointment->appointment_time ? $appointment->appointment_time->format('H:i:s') : null,
             'duration' => $appointment->duration,
@@ -514,8 +1041,11 @@ class AppointmentController extends Controller
             }),
         ];
 
-        // Return JSON for API requests (modals)
-        if (request()->wantsJson() || request()->ajax()) {
+        // Check if this is an Inertia request
+        $isInertiaRequest = request()->header('X-Inertia') !== null;
+        
+        // Return JSON for API requests (modals) - but not for Inertia requests
+        if ((request()->wantsJson() || request()->ajax()) && !$isInertiaRequest) {
             \Log::info('Returning JSON response for appointment', [
                 'appointment_id' => $appointment->id,
                 'formatted_data' => $formattedAppointment
@@ -525,6 +1055,8 @@ class AppointmentController extends Controller
             ]);
         }
 
+        // For Inertia requests, always return Inertia response
+        // The 'only' parameter in the frontend will handle partial data
         return Inertia::render('admin/appointments/show', [
             'appointment' => $formattedAppointment
         ]);
@@ -549,33 +1081,167 @@ class AppointmentController extends Controller
         \Log::info('Appointment update request data:', $request->all());
         \Log::info('Current appointment data:', $appointment->toArray());
         
+        // Check if this is an Inertia request
+        $isInertiaRequest = request()->header('X-Inertia') !== null;
+        
+        // If patient_id or specialist_id are missing, try to get them from relationships
+        // Do this BEFORE validation so validation can check the merged values
+        // Note: The database shows patient_id and specialist_id can be NULL, so we need to handle that
+        
+        // Load relationships if not already loaded
+        if (!$appointment->relationLoaded('patient')) {
+            $appointment->load('patient');
+        }
+        if (!$appointment->relationLoaded('specialist')) {
+            $appointment->load('specialist');
+        }
+        
+        if (empty($request->patient_id)) {
+            // Try to get from appointment's patient_id field first
+            if ($appointment->patient_id) {
+                $request->merge(['patient_id' => $appointment->patient_id]);
+                \Log::info('Appointment update: Merged patient_id from appointment field', [
+                    'appointment_id' => $appointment->id,
+                    'patient_id' => $appointment->patient_id
+                ]);
+            } 
+            // If still empty, try to get from patient relationship
+            // The relationship uses patient_id -> patients.id, so we need patients.id
+            elseif ($appointment->patient) {
+                // Patient model uses 'id' as primary key, so get that
+                $patientId = $appointment->patient->id ?? null;
+                if ($patientId) {
+                    $request->merge(['patient_id' => $patientId]);
+                    \Log::info('Appointment update: Merged patient_id from patient relationship', [
+                        'appointment_id' => $appointment->id,
+                        'patient_id' => $patientId
+                    ]);
+                }
+            } else {
+                \Log::info('Appointment update: Cannot determine patient_id', [
+                    'appointment_id' => $appointment->id,
+                    'appointment_patient_id' => $appointment->patient_id,
+                    'has_patient_relationship' => $appointment->relationLoaded('patient') && $appointment->patient !== null
+                ]);
+            }
+        }
+        
+        if (empty($request->specialist_id)) {
+            // Try to get from appointment's specialist_id field first
+            if ($appointment->specialist_id) {
+                $request->merge(['specialist_id' => $appointment->specialist_id]);
+            }
+            // If still empty, try to get from specialist relationship
+            // The relationship uses specialist_id -> specialists.specialist_id
+            elseif ($appointment->specialist) {
+                // Specialist model uses 'specialist_id' as primary key
+                $specialistId = $appointment->specialist->specialist_id ?? null;
+                if ($specialistId) {
+                    $request->merge(['specialist_id' => $specialistId]);
+                }
+            }
+        }
+        
+        // Check if we can determine patient_id and specialist_id from relationships
+        // This is calculated AFTER the merge above, so it reflects the merged state
+        $canDeterminePatientId = !empty($request->patient_id) || 
+                                  $appointment->patient_id !== null || 
+                                  ($appointment->patient && $appointment->patient->id);
+        
+        $canDetermineSpecialistId = !empty($request->specialist_id) || 
+                                     $appointment->specialist_id !== null || 
+                                     ($appointment->specialist && $appointment->specialist->specialist_id);
+        
         $validator = Validator::make($request->all(), [
-            'patient_name' => 'required|string|max:255',
-            'patient_id' => 'required|string|max:50',
-            'contact_number' => 'nullable|string|max:20',
+            // NOTE: patient_name, contact_number, and specialist_name are NOT database columns
+            // They were dropped in migration 2025_10_17_000000_comprehensive_database_restructure
+            // They are derived from relationships and should NOT be validated or updated
+            // patient_id: 
+            // - If appointment has NULL patient_id in DB, allow NULL (no requirement)
+            // - If appointment has patient_id, require it to be provided (can't remove it)
+            // - If we can determine it from relationships, that's fine too
+            'patient_id' => [
+                'nullable',
+                function ($attribute, $value, $fail) use ($request, $appointment) {
+                    // Check the merged request value
+                    $mergedValue = $request->input('patient_id');
+                    
+                    \Log::info('Appointment update: Validating patient_id', [
+                        'appointment_id' => $appointment->id,
+                        'request_patient_id' => $value,
+                        'merged_patient_id' => $mergedValue,
+                        'appointment_patient_id' => $appointment->patient_id,
+                        'has_patient_relationship' => $appointment->relationLoaded('patient') && $appointment->patient !== null,
+                        'patient_id_from_relationship' => $appointment->patient ? $appointment->patient->id : null
+                    ]);
+                    
+                    // If appointment already has NULL patient_id in DB, allow NULL
+                    if ($appointment->patient_id === null) {
+                        // Allow NULL - no validation needed
+                        \Log::info('Appointment update: Allowing NULL patient_id (appointment has NULL in DB)');
+                        return;
+                    }
+                    
+                    // If appointment has a patient_id, we need to ensure it's provided
+                    // But if we can get it from relationships, that's fine
+                    if (empty($mergedValue)) {
+                        // Check if we can get it from relationships
+                        $canGetFromRelationship = ($appointment->patient && $appointment->patient->id);
+                        
+                        if (!$canGetFromRelationship) {
+                            // Appointment has patient_id but we can't determine it - require it
+                            \Log::warning('Appointment update: patient_id validation failed', [
+                                'appointment_id' => $appointment->id,
+                                'appointment_patient_id' => $appointment->patient_id
+                            ]);
+                            $fail('The patient id field is required.');
+                        } else {
+                            \Log::info('Appointment update: patient_id can be determined from relationship');
+                        }
+                    } else {
+                        \Log::info('Appointment update: patient_id provided in request', ['patient_id' => $mergedValue]);
+                    }
+                }
+            ],
             'appointment_type' => 'required|string',
-            'specialist_type' => 'nullable|string|in:doctor,medtech',
-            'specialist_name' => 'required|string|max:255',
-            'specialist_id' => 'required|string|max:50',
+            'specialist_type' => 'nullable|string|in:doctor,medtech,Doctor,MedTech',
+            // Accept both string and integer since database uses bigint but frontend may send string
+            // Note: specialist_id can be null in database, so make it nullable for updates
+            'specialist_id' => ['nullable', function ($attribute, $value, $fail) {
+                // Only validate if a value is provided
+                if ($value !== null && $value !== '' && empty($value)) {
+                    $fail('The specialist id field must be a valid value if provided.');
+                }
+            }],
             'appointment_date' => 'required|date',
             'appointment_time' => 'required|string',
             'duration' => 'nullable|string|max:20',
-            'status' => 'nullable|string',
-            'billing_status' => 'nullable|string|in:pending,approved,cancelled,completed',
-            'source' => 'nullable|string|in:online,walk_in,phone',
+            'status' => 'nullable|string|in:Pending,Confirmed,Completed,Cancelled,pending,confirmed,completed,cancelled',
+            'billing_status' => 'nullable|string|in:pending,approved,cancelled,completed,in_transaction,paid',
+            'source' => 'nullable|string|in:online,walk_in,phone,Online,Walk-in',
             'price' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
             'special_requirements' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
-            \Log::error('Appointment update validation failed:', $validator->errors()->toArray());
-            \Log::error('Request data:', $request->all());
+            \Log::error('Appointment update validation failed:', [
+                'errors' => $validator->errors()->toArray(),
+                'request_data' => $request->all(),
+                'appointment_id' => $appointment->id
+            ]);
             
-            // Return JSON for API requests (modals)
+            // For Inertia requests, always return Inertia response
+            if ($isInertiaRequest) {
+                // Return with validation errors - Inertia will handle this
+                return back()->withErrors($validator->errors()->toArray())->withInput();
+            }
+            
+            // Return JSON only for non-Inertia API requests
             if (request()->wantsJson() || request()->ajax()) {
                 return response()->json([
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
+                    'message' => 'Validation failed'
                 ], 422);
             }
             
@@ -583,11 +1249,150 @@ class AppointmentController extends Controller
         }
 
         try {
-            // Prepare update data
-            $updateData = $request->all();
+            // Prepare update data - only include fields that exist in the database
+            // Based on the actual database schema, these are the valid columns:
+            $updateData = [];
+            
+            // Core appointment fields (only update fields that ACTUALLY exist in the database)
+            // NOTE: patient_name, contact_number, specialist_name, notes, and special_requirements 
+            // were DROPPED from the database in migration 2025_10_17_000000_comprehensive_database_restructure
+            // They are derived from relationships or replaced by other fields
+            // Based on actual database schema from migrations:
+            // - notes -> use admin_notes or additional_info
+            // - special_requirements -> use additional_info
+            // - patient_name, contact_number, specialist_name -> derived from relationships, do NOT update
+            $fillableFields = [
+                'appointment_code', 'sequence_number', 'patient_id',
+                'appointment_type', 'price', 'total_lab_amount',
+                'final_total_amount', 'specialist_type',
+                'specialist_id', 'appointment_date', 'appointment_time', 'duration',
+                'status', 'appointment_source', 'billing_status',
+                'billing_reference', 'source', 'patient_id_fk', 
+                'unique_appointment_key', 'additional_info', 'admin_notes'
+                // NOTE: Removed 'patient_name', 'contact_number', 'specialist_name', 
+                // 'notes', 'special_requirements', 'booking_method', 'confirmation_sent'
+                // as they were dropped in migration 2025_10_17_000000_comprehensive_database_restructure
+            ];
+            
+            // Only include fields that are in the fillable array and in the request
+            // Convert empty strings to null for nullable fields
+            foreach ($fillableFields as $field) {
+                if ($request->has($field)) {
+                    $value = $request->input($field);
+                    // Skip null, undefined, and empty string values (except for patient_id and specialist_id which are handled separately)
+                    // Also skip if value is the string 'undefined'
+                    if ($value !== null && $value !== '' && $value !== 'undefined') {
+                        $updateData[$field] = $value;
+                    }
+                }
+            }
+            
+            // Handle notes field - map to admin_notes (frontend sends 'admin_notes', database uses 'admin_notes')
+            // Frontend is now sending 'admin_notes' directly, but we also check 'notes' for backward compatibility
+            if ($request->has('admin_notes') && $request->input('admin_notes') !== null && $request->input('admin_notes') !== '' && $request->input('admin_notes') !== 'undefined') {
+                $updateData['admin_notes'] = $request->input('admin_notes');
+            }
+            // Also check for 'notes' field from frontend (backward compatibility)
+            elseif ($request->has('notes') && $request->input('notes') !== null && $request->input('notes') !== '' && $request->input('notes') !== 'undefined') {
+                $updateData['admin_notes'] = $request->input('notes');
+            }
+            
+            // Handle special_requirements field - map to additional_info
+            // Frontend is now sending 'additional_info' directly, but we also check 'special_requirements' for backward compatibility
+            if ($request->has('additional_info') && $request->input('additional_info') !== null && $request->input('additional_info') !== '' && $request->input('additional_info') !== 'undefined') {
+                $updateData['additional_info'] = $request->input('additional_info');
+            }
+            // Also check for 'special_requirements' field from frontend (backward compatibility)
+            elseif ($request->has('special_requirements') && $request->input('special_requirements') !== null && $request->input('special_requirements') !== '' && $request->input('special_requirements') !== 'undefined') {
+                $updateData['additional_info'] = $request->input('special_requirements');
+            }
+            
+            \Log::info('Update data after fillable fields loop:', [
+                'updateData' => $updateData,
+                'request_keys' => array_keys($request->all())
+            ]);
+            
+            // Ensure patient_id and specialist_id are integers (database uses bigint)
+            // Only update these if they're provided in the request or can be determined
+            // The database allows NULL for both, so we don't need to force them
+            
+            // Handle patient_id - check if it exists in request (even if null)
+            // Use array_key_exists to check if the key exists, regardless of value
+            $requestData = $request->all();
+            if (array_key_exists('patient_id', $requestData)) {
+                $requestPatientId = $request->input('patient_id');
+                // If request has a valid patient_id value, use it
+                if ($requestPatientId !== null && $requestPatientId !== '' && $requestPatientId !== 0) {
+                    $updateData['patient_id'] = (int) $requestPatientId;
+                } else {
+                    // If null/empty in request, try to preserve existing value
+                    if ($appointment->patient_id) {
+                        $updateData['patient_id'] = (int) $appointment->patient_id;
+                    } elseif ($appointment->patient) {
+                        $patientId = $appointment->patient->id ?? null;
+                        if ($patientId) {
+                            $updateData['patient_id'] = (int) $patientId;
+                        }
+                    }
+                    // If still can't determine, don't include (database allows NULL)
+                }
+            } else {
+                // Request doesn't have patient_id key, try to preserve existing value
+                if ($appointment->patient_id) {
+                    $updateData['patient_id'] = (int) $appointment->patient_id;
+                } elseif ($appointment->patient) {
+                    $patientId = $appointment->patient->id ?? null;
+                    if ($patientId) {
+                        $updateData['patient_id'] = (int) $patientId;
+                    }
+                }
+            }
+            
+            // Handle specialist_id (can be NULL in database)
+            if (array_key_exists('specialist_id', $requestData)) {
+                $requestSpecialistId = $request->input('specialist_id');
+                // If request has a valid specialist_id value, use it
+                if ($requestSpecialistId !== null && $requestSpecialistId !== '' && $requestSpecialistId !== 0) {
+                    $updateData['specialist_id'] = (int) $requestSpecialistId;
+                } else {
+                    // If null/empty in request, try to preserve existing value
+                    if ($appointment->specialist_id) {
+                        $updateData['specialist_id'] = (int) $appointment->specialist_id;
+                    } elseif ($appointment->specialist) {
+                        $specialistId = $appointment->specialist->specialist_id ?? $appointment->specialist->id ?? null;
+                        if ($specialistId) {
+                            $updateData['specialist_id'] = (int) $specialistId;
+                        }
+                    }
+                    // If still can't determine, don't include (database allows NULL)
+                }
+            } else {
+                // Request doesn't have specialist_id key, try to preserve existing value
+                if ($appointment->specialist_id) {
+                    $updateData['specialist_id'] = (int) $appointment->specialist_id;
+                } elseif ($appointment->specialist) {
+                    $specialistId = $appointment->specialist->specialist_id ?? $appointment->specialist->id ?? null;
+                    if ($specialistId) {
+                        $updateData['specialist_id'] = (int) $specialistId;
+                    }
+                }
+            }
+            
+            // Normalize enum values to match database
+            if (isset($updateData['status'])) {
+                $updateData['status'] = ucfirst(strtolower($updateData['status']));
+            }
+            if (isset($updateData['source'])) {
+                // Normalize source: 'online' -> 'Online', 'walk_in' -> 'Walk-in'
+                $source = strtolower($updateData['source']);
+                if ($source === 'online' || $source === 'walk_in' || $source === 'walk-in') {
+                    $updateData['source'] = $source === 'online' ? 'Online' : 'Walk-in';
+                }
+            }
             
             // Format the time properly for time field
-            $time = $request->appointment_time;
+            if (isset($updateData['appointment_time'])) {
+                $time = $updateData['appointment_time'];
             if (strpos($time, ':') === false) {
                 // If time doesn't have colon, assume it's in HHMM format
                 $time = substr($time, 0, 2) . ':' . substr($time, 2, 2);
@@ -598,9 +1403,10 @@ class AppointmentController extends Controller
                 $time .= ':00'; // Add seconds if not present
             }
             $updateData['appointment_time'] = $time;
+            }
             
             // Recalculate price if appointment type changed
-            if ($request->appointment_type !== $appointment->appointment_type) {
+            if (isset($updateData['appointment_type']) && $updateData['appointment_type'] !== $appointment->appointment_type) {
                 $tempAppointment = new Appointment($updateData);
                 $updateData['price'] = $tempAppointment->calculatePrice();
             }
@@ -608,8 +1414,93 @@ class AppointmentController extends Controller
             // Store old status for comparison
             $oldStatus = $appointment->status;
             
-            // Update the appointment
-            $appointment->update($updateData);
+            // Log what we're updating
+            \Log::info('Appointment update data prepared:', [
+                'updateData' => $updateData,
+                'appointment_id' => $appointment->id,
+                'current_patient_id' => $appointment->patient_id,
+                'current_specialist_id' => $appointment->specialist_id,
+            ]);
+            
+            // Ensure we have at least one field to update
+            if (empty($updateData)) {
+                \Log::warning('No fields to update for appointment', [
+                    'appointment_id' => $appointment->id,
+                    'request_data' => $request->all(),
+                    'fillable_fields' => $fillableFields
+                ]);
+                
+                // For Inertia requests, return error response
+                if ($isInertiaRequest) {
+                    return back()->withErrors(['error' => 'No valid fields to update.']);
+                }
+                
+                throw new \Exception('No valid fields to update.');
+            }
+            
+            // Update the appointment - only update fields that are in $updateData
+            try {
+                $result = $appointment->update($updateData);
+                \Log::info('Appointment update successful', [
+                    'appointment_id' => $appointment->id,
+                    'updated_fields' => array_keys($updateData),
+                    'update_result' => $result
+                ]);
+            } catch (\Illuminate\Database\QueryException $queryException) {
+                \Log::error('Database query exception during update', [
+                    'appointment_id' => $appointment->id,
+                    'updateData' => $updateData,
+                    'error' => $queryException->getMessage(),
+                    'sql' => $queryException->getSql(),
+                    'bindings' => $queryException->getBindings(),
+                    'trace' => $queryException->getTraceAsString()
+                ]);
+                
+                // For Inertia requests, return error response
+                if ($isInertiaRequest) {
+                    return back()->withErrors(['error' => 'Database error: ' . $queryException->getMessage()]);
+                }
+                
+                throw $queryException;
+            } catch (\Exception $updateException) {
+                \Log::error('Database update failed', [
+                    'appointment_id' => $appointment->id,
+                    'updateData' => $updateData,
+                    'error' => $updateException->getMessage(),
+                    'trace' => $updateException->getTraceAsString()
+                ]);
+                
+                // For Inertia requests, return error response
+                if ($isInertiaRequest) {
+                    return back()->withErrors(['error' => 'Update failed: ' . $updateException->getMessage()]);
+                }
+                
+                throw $updateException;
+            }
+            
+            // Refresh appointment to get updated status
+            $appointment->refresh();
+            
+            // If status changed to Confirmed, create visit if it doesn't exist
+            if ($oldStatus !== $appointment->status && $appointment->status === 'Confirmed') {
+                // Check if visit already exists (refresh relationship)
+                $appointment->load('visit');
+                if (!$appointment->visit) {
+                    try {
+                        $automationService = new AppointmentAutomationService();
+                        $visit = $automationService->createVisit($appointment);
+                        \Log::info('Visit created for confirmed appointment', [
+                            'appointment_id' => $appointment->id,
+                            'visit_id' => $visit->id
+                        ]);
+                    } catch (\Exception $e) {
+                        \Log::error('Failed to create visit for confirmed appointment', [
+                            'appointment_id' => $appointment->id,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
+                }
+            }
             
             // If status changed, broadcast to patient
             if ($oldStatus !== $appointment->status) {
@@ -623,7 +1514,18 @@ class AppointmentController extends Controller
             
             \Log::info('Appointment updated successfully:', ['id' => $appointment->id]);
 
-            // Return JSON for API requests (modals)
+            // For Inertia requests, always return Inertia response
+            // Reload the appointment with relationships to ensure fresh data
+            $appointment->refresh();
+            $appointment->load(['patient', 'specialist', 'visit']);
+            
+            if ($isInertiaRequest) {
+                // Return back to the same page with success message
+                // Inertia will handle the redirect and the frontend will reload
+                return back()->with('success', 'Appointment updated successfully!');
+            }
+            
+            // Return JSON only for non-Inertia API requests
             if (request()->wantsJson() || request()->ajax()) {
                 return response()->json([
                     'success' => true,
@@ -635,9 +1537,25 @@ class AppointmentController extends Controller
             return redirect()->route('admin.appointments.index')
                             ->with('success', 'Appointment updated successfully!');
         } catch (\Exception $e) {
-            \Log::error('Failed to update appointment:', ['error' => $e->getMessage()]);
+            \Log::error('Failed to update appointment:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'appointment_id' => $appointment->id ?? null,
+                'request_data' => $request->all()
+            ]);
             
-            // Return JSON for API requests (modals)
+            // For Inertia requests, always return Inertia response
+            if ($isInertiaRequest) {
+                // Return with error - Inertia will pass this to onError callback
+                return back()->withErrors([
+                    'error' => 'Failed to update appointment. Please try again.',
+                    'message' => $e->getMessage()
+                ]);
+            }
+            
+            // Return JSON only for non-Inertia API requests
             if (request()->wantsJson() || request()->ajax()) {
                 return response()->json([
                     'error' => 'Failed to update appointment. Please try again.',
@@ -663,9 +1581,35 @@ class AppointmentController extends Controller
             return back()->withErrors($validator);
         }
 
+        $oldStatus = $appointment->status;
+
         $appointment->update([
             'status' => $request->status,
         ]);
+
+        // Refresh appointment to get updated status
+        $appointment->refresh();
+
+        // If status changed to Confirmed, create visit if it doesn't exist
+        if ($oldStatus !== $appointment->status && $appointment->status === 'Confirmed') {
+            // Check if visit already exists (refresh relationship)
+            $appointment->load('visit');
+            if (!$appointment->visit) {
+                try {
+                    $automationService = new AppointmentAutomationService();
+                    $visit = $automationService->createVisit($appointment);
+                    \Log::info('Visit created for confirmed appointment via updateStatus', [
+                        'appointment_id' => $appointment->id,
+                        'visit_id' => $visit->id
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to create visit for confirmed appointment via updateStatus', [
+                        'appointment_id' => $appointment->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+        }
 
         return back()->with('success', 'Appointment status updated successfully!');
     }
@@ -732,101 +1676,58 @@ class AppointmentController extends Controller
         try {
             DB::beginTransaction();
 
-            // Validate the request
+            // Validate the request - only appointment fields, patient must exist
             $validator = Validator::make($request->all(), [
-                // Patient fields
-                'last_name' => 'required|string|max:255',
-                'first_name' => 'required|string|max:255',
-                'middle_name' => 'nullable|string|max:255',
-                'birthdate' => 'required|date',
-                'age' => 'required|integer|min:0',
-                'sex' => 'required|in:male,female',
-                'civil_status' => 'required|string',
-                'nationality' => 'nullable|string|max:255',
-                'present_address' => 'required|string',
-                'telephone_no' => 'nullable|string|max:20',
-                'mobile_no' => 'required|string|max:20',
-                'emergency_name' => 'nullable|string|max:255',
-                'emergency_relation' => 'nullable|string|max:255',
-                'informant_name' => 'nullable|string|max:255',
-                'relationship' => 'nullable|string|max:255',
-                'company_name' => 'nullable|string|max:255',
-                'hmo_name' => 'nullable|string|max:255',
-                'hmo_company_id_no' => 'nullable|string|max:255',
-                'validation_approval_code' => 'nullable|string|max:255',
-                'validity' => 'nullable|string|max:255',
-                'drug_allergies' => 'nullable|string',
-                'food_allergies' => 'nullable|string',
-                'past_medical_history' => 'nullable|string',
-                'family_history' => 'nullable|string',
-                'social_personal_history' => 'nullable|string',
-                'obstetrics_gynecology_history' => 'nullable|string',
+                // Patient must exist
+                'patient_id' => 'required|integer|exists:patients,id',
                 
                 // Appointment fields
                 'appointment_type' => 'required|string',
                 'specialist_type' => 'required|in:doctor,medtech',
-                'specialist_id' => 'required|integer',
+                'specialist_id' => 'required|integer|exists:specialists,specialist_id',
                 'appointment_date' => 'required|date',
                 'appointment_time' => 'required|string',
-                'notes' => 'nullable|string',
-                'special_requirements' => 'nullable|string',
+                'status' => 'nullable|string|in:Confirmed,Pending,Cancelled,Completed',
+                'duration' => 'nullable|string',
+                'contact_number' => 'nullable|string|max:20',
+                'additional_info' => 'nullable|string|max:1000',
+                'notes' => 'nullable|string|max:1000',
             ]);
 
             if ($validator->fails()) {
                 return back()->withErrors($validator)->withInput();
             }
 
+            // Get patient - must exist
+            $patient = \App\Models\Patient::findOrFail($request->patient_id);
+
             // Get specialist info
-            $specialist = \App\Models\Staff::findOrFail($request->specialist_id);
+            $specialist = \App\Models\Specialist::findOrFail($request->specialist_id);
             
             // Convert time format from "3:30 PM" to "15:30:00"
             $timeFormatted = Carbon::createFromFormat('g:i A', $request->appointment_time)->format('H:i:s');
             
-            // Prepare patient data
-            $patientData = [
-                'last_name' => $request->last_name,
-                'first_name' => $request->first_name,
-                'middle_name' => $request->middle_name,
-                'birthdate' => $request->birthdate,
-                'age' => $request->age,
-                'sex' => $request->sex,
-                'civil_status' => $request->civil_status,
-                'nationality' => $request->nationality,
-                'present_address' => $request->present_address,
-                'telephone_no' => $request->telephone_no,
-                'mobile_no' => $request->mobile_no,
-                'emergency_name' => $request->emergency_name ?? $request->informant_name,
-                'emergency_relation' => $request->emergency_relation ?? $request->relationship,
-                'company_name' => $request->company_name,
-                'hmo_name' => $request->hmo_name,
-                'hmo_company_id_no' => $request->hmo_company_id_no,
-                'validation_approval_code' => $request->validation_approval_code,
-                'validity' => $request->validity,
-                'drug_allergies' => $request->drug_allergies,
-                'food_allergies' => $request->food_allergies,
-                'past_medical_history' => $request->past_medical_history,
-                'family_history' => $request->family_history,
-                'social_personal_history' => $request->social_personal_history,
-                'obstetrics_gynecology_history' => $request->obstetrics_gynecology_history,
-            ];
-
-            // Create patient directly
-            $patient = \App\Models\Patient::create($patientData);
+            // Generate appointment_code before creation
+            $lastAppointment = \App\Models\Appointment::orderBy('id', 'desc')->first();
+            $nextId = $lastAppointment ? $lastAppointment->id + 1 : 1;
+            $appointmentCode = 'A' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
 
             // Create appointment data
             $appointmentData = [
-                'patient_id' => $patient->patient_id,
+                'appointment_code' => $appointmentCode,
+                'patient_id' => $patient->id, // Use id as primary key
                 'specialist_id' => $request->specialist_id,
                 'appointment_type' => $request->appointment_type,
                 'specialist_type' => $request->specialist_type,
                 'appointment_date' => $request->appointment_date,
                 'appointment_time' => $timeFormatted,
-                'duration' => '30 min',
+                'duration' => $request->duration ?? '30 min',
                 'price' => null, // Will be calculated using Appointment model's calculatePrice method
-                'additional_info' => $request->notes,
-                'admin_notes' => $request->special_requirements,
+                'additional_info' => $request->additional_info,
+                'notes' => $request->notes,
+                'contact_number' => $request->contact_number,
                 'source' => 'Walk-in',
-                'status' => 'Confirmed',
+                'status' => $request->status ?? 'Pending',
             ];
 
             // Create appointment
@@ -834,11 +1735,16 @@ class AppointmentController extends Controller
 
             // Calculate and set price using the model's calculatePrice method
             $calculatedPrice = $appointment->calculatePrice();
-            $appointment->update(['price' => $calculatedPrice]);
+            $appointment->update([
+                'price' => $calculatedPrice,
+                'final_total_amount' => $calculatedPrice,
+                'total_lab_amount' => 0
+            ]);
 
             // Generate visit code before creation
-            $nextId = \App\Models\Visit::max('id') + 1;
-            $visitCode = 'V' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+            $lastVisit = \App\Models\Visit::orderBy('id', 'desc')->first();
+            $nextVisitId = $lastVisit ? $lastVisit->id + 1 : 1;
+            $visitCode = 'V' . str_pad($nextVisitId, 4, '0', STR_PAD_LEFT);
 
             // Create visit automatically for walk-in appointments
             // Format the visit date properly - combine appointment date and time
@@ -860,30 +1766,142 @@ class AppointmentController extends Controller
             
             $visitDateTime = $appointmentDate . ' ' . $appointmentTime;
             
+            // Map specialist to user for attending_staff_id
+            $attendingStaffId = null;
+            if ($specialist) {
+                // Try to find a user that matches the specialist
+                $normalizeName = function($name) {
+                    // Remove titles (MD, Dr., Doctor, etc.)
+                    $name = preg_replace('/\b(MD\.?|Dr\.?|Doctor|Mr\.?|Mrs\.?|Ms\.?)\b\.?/i', '', $name);
+                    // Remove commas and extra spaces
+                    $name = str_replace(',', '', $name);
+                    $name = preg_replace('/\s+/', ' ', trim($name));
+                    return $name;
+                };
+                
+                $normalizedSpecialistName = $normalizeName($specialist->name);
+                $nameParts = array_filter(explode(' ', $normalizedSpecialistName));
+                $firstName = $nameParts[0] ?? '';
+                $lastName = end($nameParts) ?? '';
+                
+                \Log::info('Attempting to match specialist to user', [
+                    'specialist_name' => $specialist->name,
+                    'normalized_name' => $normalizedSpecialistName,
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'specialist_role' => $specialist->role
+                ]);
+                
+                // Try to match by role
+                $roleMapping = [
+                    'Doctor' => 'doctor',
+                    'MedTech' => 'medtech',
+                ];
+                
+                $userRole = $roleMapping[$specialist->role] ?? null;
+                if ($userRole) {
+                    $usersWithRole = \App\Models\User::where('role', $userRole)->get();
+                    
+                    // Strategy 1: Exact normalized name match
+                    foreach ($usersWithRole as $user) {
+                        $normalizedUserName = $normalizeName($user->name);
+                        if (strcasecmp($normalizedSpecialistName, $normalizedUserName) === 0) {
+                            $attendingStaffId = $user->id;
+                            \Log::info('Matched specialist to user by exact name', [
+                                'specialist' => $specialist->name,
+                                'user' => $user->name,
+                                'user_id' => $user->id
+                            ]);
+                            break;
+                        }
+                    }
+                    
+                    // Strategy 2: First name + last name match
+                    if (!$attendingStaffId && $firstName && $lastName) {
+                        foreach ($usersWithRole as $user) {
+                            $normalizedUserName = $normalizeName($user->name);
+                            $userNameParts = array_filter(explode(' ', $normalizedUserName));
+                            $userFirstName = $userNameParts[0] ?? '';
+                            $userLastName = end($userNameParts) ?? '';
+                            
+                            if (strcasecmp($firstName, $userFirstName) === 0 && 
+                                strcasecmp($lastName, $userLastName) === 0) {
+                                $attendingStaffId = $user->id;
+                                \Log::info('Matched specialist to user by first+last name', [
+                                    'specialist' => $specialist->name,
+                                    'user' => $user->name,
+                                    'user_id' => $user->id
+                                ]);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Strategy 3: Last name only match
+                    if (!$attendingStaffId && $lastName) {
+                        foreach ($usersWithRole as $user) {
+                            $normalizedUserName = $normalizeName($user->name);
+                            $userNameParts = array_filter(explode(' ', $normalizedUserName));
+                            $userLastName = end($userNameParts) ?? '';
+                            
+                            if (strcasecmp($lastName, $userLastName) === 0) {
+                                $attendingStaffId = $user->id;
+                                \Log::info('Matched specialist to user by last name', [
+                                    'specialist' => $specialist->name,
+                                    'user' => $user->name,
+                                    'user_id' => $user->id
+                                ]);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Log if no match was found
+            if (!$attendingStaffId) {
+                \Log::warning('Could not match specialist to user, using fallback', [
+                    'specialist_id' => $specialist->specialist_id ?? null,
+                    'specialist_name' => $specialist->name ?? null,
+                    'specialist_role' => $specialist->role ?? null,
+                    'auth_user_id' => auth()->id()
+                ]);
+            }
+            
+            // Fallback to current user or admin
+            if (!$attendingStaffId) {
+                $attendingStaffId = auth()->id();
+                if (!$attendingStaffId) {
+                    $adminUser = \App\Models\User::where('role', 'admin')->first();
+                    $attendingStaffId = $adminUser ? $adminUser->id : 1;
+                }
+            }
+            
             $visit = \App\Models\Visit::create([
                 'appointment_id' => $appointment->id,
                 'patient_id' => $appointment->patient_id,
                 'visit_date_time_time' => $visitDateTime,
-                'visit_date_time' => $visitDateTime,
                 'purpose' => $appointment->appointment_type,
-                'attending_staff_id' => $appointment->specialist_id,
-                'status' => 'Ongoing',
+                'attending_staff_id' => $attendingStaffId,
+                'status' => 'scheduled',
                 'visit_code' => $visitCode,
             ]);
 
             // Billing transaction will be created by AppointmentAutomationService
             // to prevent duplicates and ensure proper specialist mapping
 
-            DB::commit();
-
             \Log::info('Walk-in appointment created successfully', [
                 'appointment_id' => $appointment->id,
-                'patient_id' => $patient->patient_id,
-                'visit_id' => $visit->visit_id
+                'appointment_code' => $appointment->appointment_code,
+                'patient_id' => $patient->id,
+                'visit_id' => $visit->id,
+                'visit_code' => $visit->visit_code
             ]);
 
+            DB::commit();
+
             return redirect()->route('admin.appointments.index')
-                ->with('success', 'Walk-in appointment created successfully for ' . $patient->first_name . ' ' . $patient->last_name . '. Visit has been created. Billing transaction can be created from the billing section.');
+                ->with('success', 'Walk-in appointment created successfully for ' . $patient->first_name . ' ' . $patient->last_name . '. Visit has been created.');
 
         } catch (\Exception $e) {
             DB::rollback();
@@ -892,16 +1910,39 @@ class AppointmentController extends Controller
     }
 
     /**
+     * Check appointment availability for a specialist on a specific date
+     */
+    public function checkAvailability(Request $request)
+    {
+        $request->validate([
+            'specialist_id' => 'required|integer|exists:specialists,specialist_id',
+            'date' => 'required|date',
+        ]);
+
+        // Get existing appointments for this specialist on this date
+        $bookedTimes = Appointment::where('specialist_id', $request->specialist_id)
+            ->where('appointment_date', $request->date)
+            ->whereIn('status', ['Pending', 'Confirmed', 'Completed'])
+            ->pluck('appointment_time')
+            ->toArray();
+
+        return response()->json($bookedTimes);
+    }
+
+    /**
      * Calculate price based on appointment type
      */
     private function calculatePrice($appointmentType)
     {
         $prices = [
-            'consultation' => 500.00,
+            'consultation' => 350.00,
+            'general_consultation' => 350.00,
             'checkup' => 300.00,
-            'fecalysis' => 150.00,
-            'cbc' => 200.00,
-            'urinalysis' => 100.00,
+            'fecalysis' => 90.00,
+            'fecalysis_test' => 90.00,
+            'cbc' => 245.00,
+            'urinalysis' => 140.00,
+            'urinarysis_test' => 140.00,
             'Follow-up' => 400.00,
         ];
 
@@ -924,9 +1965,10 @@ class AppointmentController extends Controller
                 'new_billing_status' => $request->billing_status
             ]);
 
-            $appointment->update([
-                'billing_status' => $request->billing_status
-            ]);
+            // Use direct DB update to completely bypass model events when updating billing_status
+            \DB::table('appointments')
+                ->where('id', $appointment->id)
+                ->update(['billing_status' => $request->billing_status]);
 
             \Log::info('Appointment billing status updated successfully', [
                 'appointment_id' => $appointment->id,

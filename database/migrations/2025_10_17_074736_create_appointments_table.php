@@ -11,7 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('appointments', function (Blueprint $table) {
+        if (!Schema::hasTable('appointments')) {
+            Schema::create('appointments', function (Blueprint $table) {
             $table->id('appointment_id');
             $table->string('appointment_code', 10)->unique();
             $table->unsignedBigInteger('patient_id');
@@ -40,7 +41,8 @@ return new class extends Migration
             $table->index('specialist_id');
             $table->index('status');
             $table->index('created_at');
-        });
+            });
+        }
     }
 
     /**

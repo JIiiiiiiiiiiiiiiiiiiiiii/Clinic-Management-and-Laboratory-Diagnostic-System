@@ -1,9 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { ArrowLeft, FileText, Hash, Calendar, Clock, User } from 'lucide-react';
 
 type Result = {
     id: number;
@@ -37,6 +38,18 @@ type Order = {
     status: string;
     created_at: string;
     patient: Patient | null;
+    visit?: {
+        id: number;
+        notes?: string;
+        attending_staff?: {
+            id: number;
+            name: string;
+        } | null;
+    } | null;
+    ordered_by?: {
+        id: number;
+        name: string;
+    } | null;
 };
 
 export default function ResultsShow({ order, patient, results }: { order: Order; patient: Patient | null; results: Result[] }) {
@@ -94,6 +107,104 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                 </div>
 
                 {/* removed Actions card */}
+
+                {/* Order Details Card */}
+                <Card className="shadow-lg mb-8">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-gray-100 rounded-lg">
+                                <Hash className="h-5 w-5 text-black" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-lg font-semibold text-gray-900">Order Details</CardTitle>
+                                <p className="text-sm text-gray-500 mt-1">Order information</p>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                                <Hash className="h-4 w-4 text-gray-500" />
+                                <div>
+                                    <p className="text-sm font-medium text-gray-900">Order ID</p>
+                                    <p className="text-sm text-gray-600">#{order.id}</p>
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-3">
+                                <Calendar className="h-4 w-4 text-gray-500" />
+                                <div>
+                                    <p className="text-sm font-medium text-gray-900">Ordered Date</p>
+                                    <p className="text-sm text-gray-600">
+                                        {new Date(order.created_at).toLocaleDateString('en-US', {
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            {order.ordered_by && (
+                                <div className="flex items-center gap-3">
+                                    <User className="h-4 w-4 text-gray-500" />
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-900">Requested By</p>
+                                        <p className="text-sm text-gray-600">{order.ordered_by.name}</p>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            <div className="flex items-center gap-3">
+                                <Clock className="h-4 w-4 text-gray-500" />
+                                <div>
+                                    <p className="text-sm font-medium text-gray-900">Last Updated</p>
+                                    <p className="text-sm text-gray-600">
+                                        {new Date(order.created_at).toLocaleDateString('en-US', {
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Doctor's Remarks Section */}
+                            <Separator className="my-4" />
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-gray-500" />
+                                    <p className="text-sm font-semibold text-gray-900">Doctor's Remarks</p>
+                                    {order.visit?.attending_staff?.name && (
+                                        <span className="text-xs text-gray-500">
+                                            (Dr. {order.visit.attending_staff.name})
+                                        </span>
+                                    )}
+                                    {!order.visit?.attending_staff?.name && order.visit?.attendingStaff?.name && (
+                                        <span className="text-xs text-gray-500">
+                                            (Dr. {order.visit.attendingStaff.name})
+                                        </span>
+                                    )}
+                                </div>
+                                {order.visit?.notes ? (
+                                    <div className="bg-blue-50 rounded-lg border border-blue-200 p-3 mt-2">
+                                        <p className="text-sm text-gray-800 whitespace-pre-wrap">{order.visit.notes}</p>
+                                    </div>
+                                ) : (
+                                    <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 mt-2">
+                                        <p className="text-sm text-gray-500 italic">
+                                            {order.visit ? 'No remarks available for this visit.' : 'This lab order is not linked to a patient visit. No doctor remarks available.'}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
 
                 {/* Results Cards */}
                 <div className="space-y-8">

@@ -22,7 +22,18 @@ class PatientAppointmentController extends Controller
     public function index(Request $request): Response
     {
         $user = auth()->user();
+        // Try to find patient by user_id, or by email if user_id doesn't match
         $patient = Patient::where('user_id', $user->id)->first();
+        
+        // If patient not found by user_id, try to find by email
+        if (!$patient && $user->email) {
+            \Log::info('Patient not found by user_id, trying to find by email', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+            ]);
+            // Check if there's a patient with matching email
+            $patient = Patient::where('email', $user->email)->first();
+        }
 
         $appointments = collect([]);
         $available_doctors = collect([]);
@@ -30,11 +41,23 @@ class PatientAppointmentController extends Controller
 
         // Load appointments if patient record exists, otherwise show empty state
         if ($patient) {
-            // Get patient's appointments from BOTH tables:
-            // 1. Pending appointments (waiting for admin approval)
-            // 2. Confirmed appointments (approved by admin)
+            \Log::info('Loading appointments for patient', [
+                'patient_id' => $patient->id,
+                'patient_no' => $patient->patient_no,
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'patient_email' => $patient->email ?? null,
+            ]);
             
-            $pendingAppointments = \App\Models\PendingAppointment::where('patient_id', (string)$patient->id)
+            // Get patient's appointments from BOTH tables:
+            // 1. Pending appointments (waiting for admin approval) - patient_id is a string, may be id or patient_no
+            // 2. Confirmed appointments (approved by admin) - patient_id is integer, references Patient.id
+            
+            // Try both patient->id and patient->patient_no for pending appointments
+            $pendingAppointments = \App\Models\PendingAppointment::where(function($query) use ($patient) {
+                $query->where('patient_id', (string)$patient->id)
+                      ->orWhere('patient_id', $patient->patient_no);
+            })
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->map(function ($appointment) {
@@ -43,46 +66,112 @@ class PatientAppointmentController extends Controller
                         'appointment_type' => $appointment->appointment_type,
                         'type' => $appointment->appointment_type,
                         'price' => $appointment->price ?? 0,
-                        'patient_name' => $appointment->patient_name,
-                        'specialist_name' => $appointment->specialist_name,
-                        'specialist' => $appointment->specialist_name,
-                        'appointment_date' => $appointment->appointment_date->format('Y-m-d'),
-                        'date' => $appointment->appointment_date->format('M d, Y'),
-                        'appointment_time' => $appointment->appointment_time->format('H:i:s'),
-                        'time' => $appointment->appointment_time->format('g:i A'),
-                        'status' => $appointment->status_approval,
+                        'patient_name' => $appointment->patient_name ?? 'Unknown Patient',
+                        'specialist_name' => $appointment->specialist_name ?? 'Unknown Specialist',
+                        'specialist' => $appointment->specialist_name ?? 'Unknown Specialist',
+                        'appointment_date' => $appointment->appointment_date ? $appointment->appointment_date->format('Y-m-d') : 'N/A',
+                        'date' => $appointment->appointment_date ? $appointment->appointment_date->format('M d, Y') : 'N/A',
+                        'appointment_time' => $appointment->appointment_time ? $appointment->appointment_time->format('H:i:s') : 'N/A',
+                        'time' => $appointment->appointment_time ? $appointment->appointment_time->format('g:i A') : 'N/A',
+                        'status' => $appointment->status_approval ?? 'pending',
                         'reason' => $appointment->appointment_type,
-                        'notes' => $appointment->notes,
-                        'created_at' => $appointment->created_at->format('Y-m-d H:i:s'),
+                        'notes' => $appointment->notes ?? '',
+                        'created_at' => $appointment->created_at ? $appointment->created_at->format('Y-m-d H:i:s') : 'N/A',
                         'source' => 'pending'
                     ];
                 });
 
             // Get confirmed appointments from appointments table
-            $confirmedAppointments = Appointment::where('patient_id', $patient->id)
-                ->with(['specialist', 'patient'])
-                ->orderBy('created_at', 'desc')
+            // Appointment.patient_id references Patient.id (integer)
+            // Also check appointments linked via visits table
+            $confirmedAppointments = Appointment::where(function($query) use ($patient) {
+                    $query->where('patient_id', $patient->id)
+                          ->orWhereHas('visit', function($q) use ($patient) {
+                              $q->where('patient_id', $patient->id);
+                          });
+                })
+                ->where('appointment_type', '!=', 'manual_transaction') // Exclude manual transactions from patient view
+                ->with(['specialist', 'patient', 'visit', 'visit.doctor', 'visit.nurse', 'visit.medtech']) // Eager load relationships including visit specialists
+                ->orderBy('appointment_date', 'desc')
+                ->orderBy('appointment_time', 'desc')
                 ->get()
                 ->map(function ($appointment) {
+                    // Get specialist name from relationship or fallback - enhanced lookup
+                    $specialistName = 'Unknown Specialist';
+                    
+                    // Try appointment specialist first
+                    if ($appointment->specialist) {
+                        $specialistName = $appointment->specialist->name;
+                    } elseif ($appointment->specialist_id) {
+                        // Direct lookup by specialist_id
+                        $specialist = \App\Models\Specialist::where('specialist_id', $appointment->specialist_id)->first();
+                        if ($specialist) $specialistName = $specialist->name;
+                    }
+                    
+                    // Try visit relationships if still unknown
+                    if ($specialistName === 'Unknown Specialist' && $appointment->visit) {
+                        // Try visit doctor relationship
+                        if ($appointment->visit->doctor) {
+                            $specialistName = $appointment->visit->doctor->name;
+                        } elseif ($appointment->visit->doctor_id) {
+                            $doctor = \App\Models\Specialist::where('specialist_id', $appointment->visit->doctor_id)->first();
+                            if ($doctor) $specialistName = $doctor->name;
+                        }
+                        
+                        // Try visit attending_staff_id
+                        if ($specialistName === 'Unknown Specialist' && $appointment->visit->attending_staff_id) {
+                            $staff = \App\Models\Specialist::where('specialist_id', $appointment->visit->attending_staff_id)->first();
+                            if ($staff) $specialistName = $staff->name;
+                        }
+                        
+                        // Try visit nurse relationship
+                        if ($specialistName === 'Unknown Specialist' && $appointment->visit->nurse) {
+                            $specialistName = $appointment->visit->nurse->name;
+                        } elseif ($specialistName === 'Unknown Specialist' && $appointment->visit->nurse_id) {
+                            $nurse = \App\Models\Specialist::where('specialist_id', $appointment->visit->nurse_id)->first();
+                            if ($nurse) $specialistName = $nurse->name;
+                        }
+                        
+                        // Try visit medtech relationship
+                        if ($specialistName === 'Unknown Specialist' && $appointment->visit->medtech) {
+                            $specialistName = $appointment->visit->medtech->name;
+                        } elseif ($specialistName === 'Unknown Specialist' && $appointment->visit->medtech_id) {
+                            $medtech = \App\Models\Specialist::where('specialist_id', $appointment->visit->medtech_id)->first();
+                            if ($medtech) $specialistName = $medtech->name;
+                        }
+                    }
+                    
                     return [
                         'id' => $appointment->id,
                         'appointment_type' => $appointment->appointment_type,
                         'type' => $appointment->appointment_type,
                         'price' => $appointment->price ?? 0,
                         'patient_name' => $appointment->patient ? trim($appointment->patient->first_name . ' ' . $appointment->patient->last_name) : 'Unknown Patient',
-                        'specialist_name' => $appointment->specialist ? $appointment->specialist->name : 'Unknown Specialist',
-                        'specialist' => $appointment->specialist ? $appointment->specialist->name : 'Unknown Specialist',
-                        'appointment_date' => $appointment->appointment_date->format('Y-m-d'),
-                        'date' => $appointment->appointment_date->format('M d, Y'),
-                        'appointment_time' => $appointment->appointment_time->format('H:i:s'),
-                        'time' => $appointment->appointment_time->format('g:i A'),
-                        'status' => $appointment->status,
+                        'specialist_name' => $specialistName,
+                        'specialist' => $specialistName,
+                        'appointment_date' => $appointment->appointment_date ? $appointment->appointment_date->format('Y-m-d') : 'N/A',
+                        'date' => $appointment->appointment_date ? $appointment->appointment_date->format('M d, Y') : 'N/A',
+                        'appointment_time' => $appointment->appointment_time ? $appointment->appointment_time->format('H:i:s') : 'N/A',
+                        'time' => $appointment->appointment_time ? $appointment->appointment_time->format('g:i A') : 'N/A',
+                        'status' => $appointment->status ?? 'Pending',
                         'reason' => $appointment->appointment_type,
-                        'notes' => $appointment->additional_info,
-                        'created_at' => $appointment->created_at->format('Y-m-d H:i:s'),
+                        'notes' => $appointment->additional_info ?? '',
+                        'created_at' => $appointment->created_at ? $appointment->created_at->format('Y-m-d H:i:s') : 'N/A',
                         'source' => 'confirmed'
                     ];
                 });
+            
+            \Log::info('Appointments loaded for patient', [
+                'patient_id' => $patient->id,
+                'patient_no' => $patient->patient_no,
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'patient_email' => $patient->email ?? null,
+                'pending_count' => $pendingAppointments->count(),
+                'confirmed_count' => $confirmedAppointments->count(),
+                'pending_ids' => $pendingAppointments->pluck('id')->toArray(),
+                'confirmed_ids' => $confirmedAppointments->pluck('id')->toArray(),
+            ]);
 
             // Combine both collections but filter out duplicates
             // A duplicate is when we have the same appointment in both pending and confirmed
@@ -107,16 +196,20 @@ class PatientAppointmentController extends Controller
             // Sort by creation date
             $allAppointments = $uniqueAppointments->sortByDesc('created_at');
 
-            \Log::info('Appointments loaded', [
+            \Log::info('Appointments loaded - final', [
                 'total_count' => $allAppointments->count(),
                 'pending_count' => $pendingAppointments->count(),
                 'confirmed_count' => $confirmedAppointments->count(),
                 'unique_count' => $uniqueAppointments->count(),
-                'patient_id' => $patient->patient_id,
-                'appointments_data' => $allAppointments->map(function($apt) {
+                'patient_id' => $patient->id,
+                'patient_no' => $patient->patient_no,
+                'appointments_data' => $allAppointments->take(10)->map(function($apt) {
                     return [
                         'id' => $apt['id'],
                         'type' => $apt['appointment_type'],
+                        'date' => $apt['date'],
+                        'time' => $apt['time'],
+                        'specialist' => $apt['specialist_name'],
                         'price' => $apt['price'],
                         'source' => $apt['source'],
                         'status' => $apt['status']
@@ -622,14 +715,14 @@ class PatientAppointmentController extends Controller
     private function calculatePrice($appointmentType)
     {
         $prices = [
-            'consultation' => 300,
-            'general_consultation' => 300,
+            'consultation' => 350,
+            'general_consultation' => 350,
             'checkup' => 300,
-            'fecalysis' => 500,
-            'fecalysis_test' => 500,
-            'cbc' => 500,
-            'urinalysis' => 500,
-            'urinarysis_test' => 500,
+            'fecalysis' => 90,
+            'fecalysis_test' => 90,
+            'cbc' => 245,
+            'urinalysis' => 140,
+            'urinarysis_test' => 140,
             'x-ray' => 700,
             'ultrasound' => 800,
         ];

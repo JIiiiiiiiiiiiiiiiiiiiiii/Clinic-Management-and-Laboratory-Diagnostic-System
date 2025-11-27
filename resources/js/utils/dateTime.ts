@@ -247,6 +247,27 @@ export function safeFormatTime(timeString: string | null | undefined): string {
         }
         
         // Handle different time formats with strict validation
+        // Handle datetime strings with space (e.g., "2025-11-21 08:00:00")
+        if (trimmedTime.includes(' ') && !trimmedTime.includes('T')) {
+            try {
+                // Convert "YYYY-MM-DD HH:MM:SS" to ISO format
+                const dateStr = trimmedTime.replace(' ', 'T');
+                const date = new Date(dateStr);
+                if (isNaN(date.getTime())) {
+                    console.warn('Invalid datetime format:', timeString);
+                    return 'Invalid time';
+                }
+                return date.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: true 
+                });
+            } catch (error) {
+                console.warn('Error parsing datetime:', timeString, error);
+                return 'Invalid time';
+            }
+        }
+        
         if (trimmedTime.includes('T')) {
             const timePart = trimmedTime.split('T')[1];
             if (timePart) {

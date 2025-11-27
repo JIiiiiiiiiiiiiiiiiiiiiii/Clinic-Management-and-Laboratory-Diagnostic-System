@@ -18,7 +18,10 @@ import {
     X,
     Stethoscope,
     Save,
-    AlertCircle
+    AlertCircle,
+    TestTube,
+    Phone,
+    MapPin
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useForm } from '@inertiajs/react';
@@ -67,6 +70,27 @@ type PendingAppointment = {
         lab_test_name: string;
         price: number;
         status: string;
+        source?: 'appointment' | 'visit';
+        ordered_by?: string;
+        lab_order_id?: number;
+    }>;
+    visit?: {
+        id: number;
+        visit_code: string;
+        visit_date_time_time: string;
+        status: string;
+        attending_staff?: {
+            id: number;
+            name: string;
+            role: string;
+        };
+    };
+    visit_lab_orders?: Array<{
+        id: number;
+        status: string;
+        ordered_by: string;
+        notes: string;
+        created_at: string;
     }>;
 };
 
@@ -99,7 +123,7 @@ const sourceOptions = [
 ];
 
 const appointmentTypeOptions = [
-    { value: 'general_consultation', label: 'General Consultation' },
+    { value: 'general_consultation', label: 'Consultation' },
     { value: 'follow_up', label: 'Follow-up' },
     { value: 'emergency', label: 'Emergency' },
     { value: 'check_up', label: 'Check-up' },
@@ -131,15 +155,18 @@ export default function PendingAppointmentEditModal({
         special_requirements: '',
     });
 
-    // Update form data when appointment changes
+    // Update form data when appointment changes - AUTO-FETCH all data from appointment
     useEffect(() => {
         if (appointment) {
             setAppointmentData(appointment);
+            // CRITICAL: Auto-fetch all data from appointment object to ensure consistency with view modal
             setData({
-                patient_name: appointment.patient_name || '',
-                patient_id: appointment.patient_id || '',
+                patient_name: appointment.patient_name || (appointment.patient?.first_name && appointment.patient?.last_name 
+                    ? `${appointment.patient.first_name} ${appointment.patient.last_name}`.trim() 
+                    : ''),
+                patient_id: appointment.patient_id?.toString() || appointment.patient?.patient_no || appointment.patient_id || '',
                 appointment_type: appointment.appointment_type || '',
-                specialist_name: appointment.specialist_name || '',
+                specialist_name: appointment.specialist_name || appointment.specialist?.name || '',
                 specialist_id: appointment.specialist?.id?.toString() || appointment.specialist_id?.toString() || '',
                 appointment_date: appointment.appointment_date || '',
                 appointment_time: appointment.appointment_time || '',
@@ -150,7 +177,7 @@ export default function PendingAppointmentEditModal({
                 special_requirements: appointment.special_requirements || '',
             });
         }
-    }, [appointment]);
+    }, [appointment, setData]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -255,6 +282,24 @@ export default function PendingAppointmentEditModal({
                                             required
                                         />
                                     </div>
+                                    {appointment?.contact_number && (
+                                        <div>
+                                            <Label>Contact Number</Label>
+                                            <p className="text-sm text-gray-700 bg-gray-50 p-2 rounded mt-1 flex items-center gap-2">
+                                                <Phone className="h-4 w-4" />
+                                                {appointment.contact_number}
+                                            </p>
+                                        </div>
+                                    )}
+                                    {appointment?.patient?.present_address && (
+                                        <div>
+                                            <Label>Address</Label>
+                                            <p className="text-sm text-gray-700 bg-gray-50 p-2 rounded mt-1 flex items-center gap-2">
+                                                <MapPin className="h-4 w-4" />
+                                                {appointment.patient.present_address}
+                                            </p>
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
 
@@ -379,7 +424,7 @@ export default function PendingAppointmentEditModal({
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     <div>
-                                        <Label htmlFor="price">Price (₱)</Label>
+                                        <Label htmlFor="price">Base Price (₱)</Label>
                                         <Input
                                             id="price"
                                             type="number"
@@ -391,8 +436,121 @@ export default function PendingAppointmentEditModal({
                                             required
                                         />
                                     </div>
+                                    {appointment && (
+                                        <>
+                                            <div>
+                                                <Label>Lab Tests Amount</Label>
+                                                <p className="text-lg font-semibold text-blue-600 mt-1">
+                                                    ₱{appointment.total_lab_amount?.toLocaleString() || '0.00'}
+                                                </p>
+                                            </div>
+                                            <div className="border-t pt-3">
+                                                <Label>Total Amount</Label>
+                                                <p className="text-xl font-bold text-green-600 mt-1">
+                                                    ₱{((data.price || 0) + (appointment.total_lab_amount || 0)).toLocaleString()}
+                                                </p>
+                                            </div>
+                                        </>
+                                    )}
                                 </CardContent>
                             </Card>
+
+                            {/* Visit Information */}
+                            {appointment?.visit && (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Stethoscope className="h-5 w-5" />
+                                            Visit Information
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <div className="space-y-3">
+                                            <div>
+                                                <label className="text-sm font-medium text-gray-500">Visit Code</label>
+                                                <p className="text-sm font-semibold">{appointment.visit.visit_code}</p>
+                                            </div>
+                                            {appointment.visit.visit_date_time_time && (
+                                                <div>
+                                                    <label className="text-sm font-medium text-gray-500">Visit Date & Time</label>
+                                                    <p className="text-sm text-gray-700">{safeFormatDate(appointment.visit.visit_date_time_time)} {safeFormatTime(appointment.visit.visit_date_time_time)}</p>
+                                                </div>
+                                            )}
+                                            {appointment.visit.attending_staff && (
+                                                <div>
+                                                    <label className="text-sm font-medium text-gray-500">Attending Staff</label>
+                                                    <p className="text-sm text-gray-700">{appointment.visit.attending_staff.name} ({appointment.visit.attending_staff.role})</p>
+                                                </div>
+                                            )}
+                                            <div>
+                                                <label className="text-sm font-medium text-gray-500">Visit Status</label>
+                                                <p className="text-sm text-gray-700">{appointment.visit.status}</p>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Lab Tests Breakdown */}
+                            {appointment?.labTests && appointment.labTests.length > 0 && (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <TestTube className="h-5 w-5" />
+                                            Lab Tests Breakdown ({appointment.labTests.length})
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-3">
+                                            {/* Lab Tests from Appointment */}
+                                            {appointment.labTests.filter((test: any) => test.source === 'appointment').length > 0 && (
+                                                <div>
+                                                    <h4 className="text-xs font-semibold text-gray-600 mb-2">From Appointment</h4>
+                                                    <div className="space-y-2">
+                                                        {appointment.labTests.filter((test: any) => test.source === 'appointment').map((test: any) => (
+                                                            <div key={test.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                                <span className="text-sm">{test.lab_test_name}</span>
+                                                                <span className="text-sm font-semibold">₱{test.price.toLocaleString()}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            {/* Lab Tests from Visit */}
+                                            {appointment.labTests.filter((test: any) => test.source === 'visit').length > 0 && (
+                                                <div>
+                                                    <h4 className="text-xs font-semibold text-gray-600 mb-2">From Visit Consultation (Ordered by Doctor/Staff)</h4>
+                                                    <div className="space-y-2">
+                                                        {appointment.labTests.filter((test: any) => test.source === 'visit').map((test: any) => (
+                                                            <div key={test.id} className="flex justify-between items-start p-2 bg-blue-50 rounded border border-blue-200">
+                                                                <div className="flex-1">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-sm font-medium">{test.lab_test_name}</span>
+                                                                        <Badge className="bg-blue-100 text-blue-800 text-xs">Visit</Badge>
+                                                                    </div>
+                                                                    {test.ordered_by && (
+                                                                        <p className="text-xs text-gray-600 mt-1">Ordered by: {test.ordered_by}</p>
+                                                                    )}
+                                                                </div>
+                                                                <span className="text-sm font-semibold">₱{test.price.toLocaleString()}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            {/* Total Lab Amount */}
+                                            <div className="pt-3 border-t">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-semibold text-gray-700">Total Lab Tests Amount:</span>
+                                                    <span className="text-base font-bold text-blue-600">₱{appointment.total_lab_amount.toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
 
                             {/* Additional Information */}
                             <Card>
@@ -427,6 +585,34 @@ export default function PendingAppointmentEditModal({
                                     </div>
                                 </CardContent>
                             </Card>
+
+                            {/* Timestamps */}
+                            {appointment && (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Clock className="h-5 w-5" />
+                                            Timestamps
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <Label>Created At</Label>
+                                                <p className="text-sm text-gray-700 mt-1">
+                                                    {safeFormatDate(appointment.created_at)} {safeFormatTime(appointment.created_at)}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <Label>Last Updated</Label>
+                                                <p className="text-sm text-gray-700 mt-1">
+                                                    {safeFormatDate(appointment.updated_at)} {safeFormatTime(appointment.updated_at)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
                         </div>
                     </div>
 

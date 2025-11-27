@@ -312,10 +312,13 @@ class UpdatedAppointmentController extends Controller
     private function calculatePrice($appointmentType)
     {
         return match($appointmentType) {
-            'general_consultation' => 500.00,
-            'cbc' => 300.00,
-            'fecalysis_test' => 200.00,
-            'urinarysis_test' => 200.00,
+            'general_consultation' => 350.00,
+            'consultation' => 350.00,
+            'cbc' => 245.00,
+            'fecalysis_test' => 90.00,
+            'fecalysis' => 90.00,
+            'urinarysis_test' => 140.00,
+            'urinalysis' => 140.00,
             default => 0.00
         };
     }

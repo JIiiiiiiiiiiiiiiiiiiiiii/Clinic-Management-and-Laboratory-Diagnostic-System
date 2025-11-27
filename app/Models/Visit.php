@@ -23,10 +23,36 @@ class Visit extends Model
         'visit_type',
         'visit_code',
         'visit_date_time',
+        // Clinical/Visit-specific fields (not basic patient info)
+        'arrival_date',
+        'arrival_time',
+        'mode_of_arrival',
+        'blood_pressure',
+        'heart_rate',
+        'respiratory_rate',
+        'temperature',
+        'weight_kg',
+        'height_cm',
+        'pain_assessment_scale',
+        'oxygen_saturation',
+        'reason_for_consult',
+        'time_seen',
+        'history_of_present_illness',
+        'pertinent_physical_findings',
+        'assessment_diagnosis',
+        'plan_management',
+        'transfer_required',
+        'transfer_reason_notes',
     ];
 
     protected $casts = [
         'visit_date_time_time' => 'datetime',
+        'arrival_date' => 'date',
+        'arrival_time' => 'datetime:H:i:s',
+        'time_seen' => 'datetime:H:i:s',
+        'weight_kg' => 'decimal:2',
+        'height_cm' => 'decimal:2',
+        'transfer_required' => 'boolean',
     ];
 
     /**
@@ -73,6 +99,11 @@ class Visit extends Model
     public function medtech()
     {
         return $this->belongsTo(\App\Models\User::class, 'attending_staff_id', 'id');
+    }
+
+    public function labOrders()
+    {
+        return $this->hasMany(\App\Models\LabOrder::class, 'patient_visit_id', 'id');
     }
 
     public function billingTransaction()
