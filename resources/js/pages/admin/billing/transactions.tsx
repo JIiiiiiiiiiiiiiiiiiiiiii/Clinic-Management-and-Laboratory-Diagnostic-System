@@ -10,7 +10,6 @@ import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { toast } from 'sonner';
 import TransactionViewModal from '@/components/modals/transaction-view-modal';
-import TransactionEditModal from '@/components/modals/transaction-edit-modal';
 import { 
     AlertCircle, 
     CheckCircle, 
@@ -24,7 +23,6 @@ import {
     Receipt,
     Coins,
     Filter,
-    Edit,
     ArrowUpDown,
     ChevronDown,
     ChevronLeft,
@@ -144,7 +142,7 @@ export default function BillingTransactions({
     }, [flash]);
     
     // Column definitions for the transactions table
-    const createTransactionColumns = (handleViewTransaction: (id: number) => void, handleEditTransaction: (id: number) => void): ColumnDef<BillingTransaction>[] => [
+    const createTransactionColumns = (handleViewTransaction: (id: number) => void): ColumnDef<BillingTransaction>[] => [
     {
         accessorKey: "transaction_id",
         header: ({ column }) => {
@@ -296,14 +294,6 @@ export default function BillingTransactions({
                         <Eye className="h-4 w-4 mr-1" />
                         View
                     </Button>
-                    <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleEditTransaction(transaction.id)}
-                    >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
-                    </Button>
                 </div>
             )
         },
@@ -321,7 +311,6 @@ export default function BillingTransactions({
     
     // Modal state
     const [viewModalOpen, setViewModalOpen] = useState(false);
-    const [editModalOpen, setEditModalOpen] = useState(false);
     const [selectedTransactionId, setSelectedTransactionId] = useState<number | null>(null);
 
     useEffect(() => {
@@ -371,20 +360,9 @@ export default function BillingTransactions({
         setViewModalOpen(false);
         setSelectedTransactionId(null);
     };
-
-    // Edit modal handlers
-    const handleEditTransaction = (transactionId: number) => {
-        setSelectedTransactionId(transactionId);
-        setEditModalOpen(true);
-    };
-
-    const handleEditModalClose = () => {
-        setEditModalOpen(false);
-        setSelectedTransactionId(null);
-    };
     
     // Initialize transactions table
-    const columns = createTransactionColumns(handleViewTransaction, handleEditTransaction);
+    const columns = createTransactionColumns(handleViewTransaction);
     const table = useReactTable({
         data: transactionsData || [],
         columns,
@@ -758,19 +736,6 @@ export default function BillingTransactions({
                 isOpen={viewModalOpen}
                 onClose={handleViewModalClose}
                 transactionId={selectedTransactionId}
-                onEdit={handleEditTransaction}
-            />
-
-            {/* Transaction Edit Modal */}
-            <TransactionEditModal
-                isOpen={editModalOpen}
-                onClose={handleEditModalClose}
-                onSuccess={handleModalSuccess}
-                transactionId={selectedTransactionId}
-                patients={patients}
-                doctors={doctors}
-                labTests={labTests}
-                hmoProviders={hmoProviders}
             />
         </AppLayout>
     );

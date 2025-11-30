@@ -354,12 +354,26 @@ class LabOrderResultsExport extends BaseExport implements FromArray, WithHeading
                 return 'N/A';
             }
             
-            // Check for reference_range (for dropdowns)
+            $fieldType = $field['type'] ?? 'text';
+            
+            // For number and text fields, prioritize patient-type-specific ranges
+            if (($fieldType === 'number' || $fieldType === 'text') && isset($field['ranges']) && is_array($field['ranges']) && $patientType) {
+                if (isset($field['ranges'][$patientType])) {
+                    $range = $field['ranges'][$patientType];
+                    $min = $range['min'] ?? '';
+                    $max = $range['max'] ?? '';
+                    if ($min !== '' || $max !== '') {
+                        return trim($min . '-' . $max);
+                    }
+                }
+            }
+            
+            // Check for reference_range (for dropdowns and text fields as fallback)
             if (isset($field['reference_range']) && is_string($field['reference_range']) && !empty($field['reference_range'])) {
                 return $field['reference_range'];
             }
             
-            // Check for patient-type-specific ranges (for numbers)
+            // Fallback: Check for patient-type-specific ranges (for any field type)
             if (isset($field['ranges']) && is_array($field['ranges']) && $patientType) {
                 if (isset($field['ranges'][$patientType])) {
                     $range = $field['ranges'][$patientType];
@@ -470,6 +484,55 @@ class LabOrderResultsExport extends BaseExport implements FromArray, WithHeading
                     return ($numValue >= $min && $numValue <= $max) ? 'Normal' : 'Abnormal';
                 }
                 
+                // If no range defined, return N/A
+                return 'N/A';
+            }
+            
+            // For text fields, check if value is numeric and compare with ranges or reference_range
+            if ($fieldType === 'text' && is_numeric($resultValue)) {
+                $numValue = (float) $resultValue;
+                // First check dynamic ranges (patient-type-specific)
+                if (isset($field['ranges']) && is_array($field['ranges']) && $patientType) {
+                    if (isset($field['ranges'][$patientType])) {
+                        $range = $field['ranges'][$patientType];
+                        $min = isset($range['min']) && $range['min'] !== '' ? (float) $range['min'] : null;
+                        $max = isset($range['max']) && $range['max'] !== '' ? (float) $range['max'] : null;
+                        
+                        if ($min !== null && $max !== null) {
+                            if ($numValue < $min) {
+                                return 'Low';
+                            } elseif ($numValue > $max) {
+                                return 'High';
+                            } else {
+                                return 'Normal';
+                            }
+                        }
+                    }
+                }
+                // Fallback to static reference_range
+                if (isset($field['reference_range']) && !empty($field['reference_range'])) {
+                    $refRange = trim($field['reference_range']);
+                    // Parse range like "7.9 - 20" or "7.9-20"
+                    if (preg_match('/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/', $refRange, $matches)) {
+                        $min = (float) $matches[1];
+                        $max = (float) $matches[2];
+                        if ($numValue < $min) {
+                            return 'Low';
+                        } elseif ($numValue > $max) {
+                            return 'High';
+                        } else {
+                            return 'Normal';
+                        }
+                    } elseif (preg_match('/<\s*(\d+\.?\d*)/', $refRange, $matches)) {
+                        // Handle "<5" format
+                        $max = (float) $matches[1];
+                        return ($numValue < $max) ? 'Normal' : 'High';
+                    } elseif (preg_match('/>\s*(\d+\.?\d*)/', $refRange, $matches)) {
+                        // Handle ">5" format
+                        $min = (float) $matches[1];
+                        return ($numValue > $min) ? 'Normal' : 'Low';
+                    }
+                }
                 // If no range defined, return N/A
                 return 'N/A';
             }

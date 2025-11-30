@@ -283,46 +283,163 @@
                                                 if ($field) {
                                                     $fieldType = $field['type'] ?? 'text';
                                                     
-                                                    // Get reference range
-                                                    if (!empty($value->reference_text)) {
-                                                        $referenceRange = $value->reference_text;
-                                                    } elseif (!empty($value->reference_min) || !empty($value->reference_max)) {
-                                                        $referenceRange = trim(($value->reference_min ?? '') . '-' . ($value->reference_max ?? ''));
-                                                    } elseif (isset($field['reference_range']) && !empty($field['reference_range'])) {
-                                                        $referenceRange = $field['reference_range'];
-                                                    } elseif (isset($field['ranges']) && is_array($field['ranges']) && $patientType && isset($field['ranges'][$patientType])) {
+                                                    // Get reference range - prioritize dynamic ranges based on patient type
+                                                    // For number/text fields: ONLY use dynamic ranges, never use value->reference_text
+                                                    // For select/textarea fields: use static reference_range
+                                                    if (($fieldType === 'number' || $fieldType === 'text') && isset($field['ranges']) && is_array($field['ranges']) && $patientType && isset($field['ranges'][$patientType])) {
+                                                        // For number/text fields, use dynamic ranges from template
                                                         $range = $field['ranges'][$patientType];
                                                         $min = $range['min'] ?? '';
                                                         $max = $range['max'] ?? '';
-                                                        if ($min !== '' || $max !== '') {
-                                                            $referenceRange = trim($min . '-' . $max);
+                                                        // Only use if both min and max are provided and not empty
+                                                        if ($min !== '' && $min !== null && $max !== '' && $max !== null) {
+                                                            $referenceRange = trim($min . ' - ' . $max);
+                                                        } else {
+                                                            $referenceRange = 'N/A';
                                                         }
+                                                    } elseif ($fieldType === 'select' || $fieldType === 'textarea') {
+                                                        // For select/textarea fields, use static reference_range
+                                                        if (isset($field['reference_range']) && !empty($field['reference_range'])) {
+                                                        $referenceRange = $field['reference_range'];
+                                                        } else {
+                                                            $referenceRange = 'N/A';
+                                                        }
+                                                    } else {
+                                                        // Fallback for other cases
+                                                        $referenceRange = 'N/A';
                                                     }
                                                     
-                                                    // Determine status
+                                                    // Determine status - match frontend logic exactly
                                                     if ($fieldType === 'number' && is_numeric($resultValue)) {
                                                         $numValue = (float) $resultValue;
+                                                        // First try patient-type-specific dynamic ranges
                                                         if (isset($field['ranges']) && is_array($field['ranges']) && $patientType && isset($field['ranges'][$patientType])) {
                                                             $range = $field['ranges'][$patientType];
                                                             $min = isset($range['min']) && $range['min'] !== '' ? (float) $range['min'] : null;
                                                             $max = isset($range['max']) && $range['max'] !== '' ? (float) $range['max'] : null;
-                                                            if ($min !== null && $max !== null) {
-                                                                $status = ($numValue >= $min && $numValue <= $max) ? 'Normal' : 'Abnormal';
+                                                            if ($min !== null && $max !== null && !is_nan($min) && !is_nan($max)) {
+                                                                if ($numValue < $min) {
+                                                                    $status = 'Low';
+                                                                } elseif ($numValue > $max) {
+                                                                    $status = 'High';
+                                                                } else {
+                                                                    $status = 'Normal';
+                                                                }
                                                             }
-                                                        } elseif (isset($field['min']) && isset($field['max'])) {
-                                                            $min = (float) ($field['min'] ?? 0);
-                                                            $max = (float) ($field['max'] ?? 0);
-                                                            if ($min > 0 || $max > 0) {
-                                                                $status = ($numValue >= $min && $numValue <= $max) ? 'Normal' : 'Abnormal';
+                                                        } elseif (isset($field['reference_range']) && !empty($field['reference_range'])) {
+                                                            // Fallback to static reference_range if dynamic ranges not available
+                                                            $refRange = trim($field['reference_range']);
+                                                            // Parse range like "7.9 - 20" or "7.9-20" or "1, 2, 3"
+                                                            if (preg_match('/^([\d.]+)\s*,\s*[\d.\s,]*,\s*([\d.]+)$/', $refRange, $matches)) {
+                                                                // Handle comma-separated like "1, 2, 3"
+                                                                $min = (float) $matches[1];
+                                                                $max = (float) $matches[2];
+                                                                if ($numValue < $min) {
+                                                                    $status = 'Low';
+                                                                } elseif ($numValue > $max) {
+                                                                    $status = 'High';
+                                                                } else {
+                                                                    $status = 'Normal';
+                                                                }
+                                                            } elseif (preg_match('/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/', $refRange, $matches)) {
+                                                                // Handle range format "7.9 - 20"
+                                                                $min = (float) $matches[1];
+                                                                $max = (float) $matches[2];
+                                                                if ($numValue < $min) {
+                                                                    $status = 'Low';
+                                                                } elseif ($numValue > $max) {
+                                                                    $status = 'High';
+                                                                } else {
+                                                                    $status = 'Normal';
+                                                                }
+                                                            } elseif (preg_match('/<\s*(\d+\.?\d*)/', $refRange, $matches)) {
+                                                                // Handle "<5" format
+                                                                $max = (float) $matches[1];
+                                                                $status = ($numValue < $max) ? 'Normal' : 'High';
+                                                            } elseif (preg_match('/>\s*(\d+\.?\d*)/', $refRange, $matches)) {
+                                                                // Handle ">5" format
+                                                                $min = (float) $matches[1];
+                                                                $status = ($numValue > $min) ? 'Normal' : 'Low';
+                                                            }
+                                                        }
+                                                    } elseif ($fieldType === 'text' && is_numeric($resultValue)) {
+                                                        // For text fields with numeric values, check dynamic ranges first
+                                                        $numValue = (float) $resultValue;
+                                                        // First check dynamic ranges (patient-type-specific)
+                                                        if (isset($field['ranges']) && is_array($field['ranges']) && $patientType && isset($field['ranges'][$patientType])) {
+                                                            $range = $field['ranges'][$patientType];
+                                                            $min = isset($range['min']) && $range['min'] !== '' ? (float) $range['min'] : null;
+                                                            $max = isset($range['max']) && $range['max'] !== '' ? (float) $range['max'] : null;
+                                                            if ($min !== null && $max !== null && !is_nan($min) && !is_nan($max)) {
+                                                                if ($numValue < $min) {
+                                                                    $status = 'Low';
+                                                                } elseif ($numValue > $max) {
+                                                                    $status = 'High';
+                                                                } else {
+                                                                    $status = 'Normal';
+                                                                }
+                                                            }
+                                                        } elseif (isset($field['reference_range']) && !empty($field['reference_range'])) {
+                                                            // Fallback to static reference_range
+                                                            $refRange = trim($field['reference_range']);
+                                                            // Parse range like "7.9 - 20" or "7.9-20" or "1, 2, 3"
+                                                            if (preg_match('/^([\d.]+)\s*,\s*[\d.\s,]*,\s*([\d.]+)$/', $refRange, $matches)) {
+                                                                // Handle comma-separated like "1, 2, 3"
+                                                                $min = (float) $matches[1];
+                                                                $max = (float) $matches[2];
+                                                                if ($numValue < $min) {
+                                                                    $status = 'Low';
+                                                                } elseif ($numValue > $max) {
+                                                                    $status = 'High';
+                                                                } else {
+                                                                    $status = 'Normal';
+                                                                }
+                                                            } elseif (preg_match('/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/', $refRange, $matches)) {
+                                                                // Handle range format "7.9 - 20"
+                                                                $min = (float) $matches[1];
+                                                                $max = (float) $matches[2];
+                                                                if ($numValue < $min) {
+                                                                    $status = 'Low';
+                                                                } elseif ($numValue > $max) {
+                                                                    $status = 'High';
+                                                                } else {
+                                                                    $status = 'Normal';
+                                                                }
+                                                            } elseif (preg_match('/<\s*(\d+\.?\d*)/', $refRange, $matches)) {
+                                                                // Handle "<5" format
+                                                                $max = (float) $matches[1];
+                                                                $status = ($numValue < $max) ? 'Normal' : 'High';
+                                                            } elseif (preg_match('/>\s*(\d+\.?\d*)/', $refRange, $matches)) {
+                                                                // Handle ">5" format
+                                                                $min = (float) $matches[1];
+                                                                $status = ($numValue > $min) ? 'Normal' : 'Low';
                                                             }
                                                         }
                                                     } elseif ($fieldType === 'select' && isset($field['options']) && is_array($field['options'])) {
+                                                        // For dropdowns, check the status of the selected option
                                                         foreach ($field['options'] as $option) {
                                                             $optionValue = is_string($option) ? $option : ($option['value'] ?? '');
                                                             if ($optionValue === $resultValue) {
                                                                 $optionStatus = is_string($option) ? 'normal' : ($option['status'] ?? 'normal');
+                                                                // Capitalize first letter to show Normal, Abnormal, Positive, Negative, etc.
                                                                 $status = ucfirst($optionStatus);
                                                                 break;
+                                                            }
+                                                        }
+                                                        // If select field has numeric value and reference range, treat as number
+                                                        if ($status === 'N/A' && is_numeric($resultValue) && isset($field['reference_range']) && !empty($field['reference_range'])) {
+                                                            $numValue = (float) $resultValue;
+                                                            $refRange = trim($field['reference_range']);
+                                                            if (preg_match('/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/', $refRange, $matches)) {
+                                                                $min = (float) $matches[1];
+                                                                $max = (float) $matches[2];
+                                                                if ($numValue < $min) {
+                                                                    $status = 'Low';
+                                                                } elseif ($numValue > $max) {
+                                                                    $status = 'High';
+                                                                } else {
+                                                                    $status = 'Normal';
+                                                                }
                                                             }
                                                         }
                                                     }
@@ -338,9 +455,12 @@
                                             <td>{{ $parameterLabel }}</td>
                                             <td>{{ $resultValue }}</td>
                                             <td>{{ $unit !== 'N/A' ? $unit : '' }}</td>
-                                            <td>{{ $referenceRange }}</td>
-                                            <td class="{{ strtolower($status) === 'normal' ? 'normal' : (strtolower($status) === 'abnormal' ? 'abnormal' : '') }}">
-                                                {{ $status }}
+                                            <td>{{ $referenceRange ? $referenceRange : 'N/A' }}</td>
+                                            <td class="{{ 
+                                                strtolower($status) === 'normal' || strtolower($status) === 'negative' ? 'normal' : 
+                                                (strtolower($status) === 'abnormal' || strtolower($status) === 'high' || strtolower($status) === 'low' || strtolower($status) === 'positive' ? 'abnormal' : '') 
+                                            }}">
+                                                {{ $status ? $status : 'N/A' }}
                                             </td>
                                         </tr>
                                     @endforeach

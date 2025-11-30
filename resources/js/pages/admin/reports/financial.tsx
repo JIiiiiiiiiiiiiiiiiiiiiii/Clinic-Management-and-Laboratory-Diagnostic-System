@@ -845,11 +845,6 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                     {currentReportType === 'all' ? (
                                         <>
                                             <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Transactions</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_transactions || 0}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
-                                            </tr>
-                                            <tr>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Pending Transactions</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.pending_transactions || 0}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -862,6 +857,11 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                     {(filteredData.total_transactions || 0) > 0 ? (((filteredData.completed_transactions || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0}%
                                                 </td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Transactions</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_transactions || 0}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
                                             </tr>
                                         </>
                                     ) : currentReportType === 'cash' ? (

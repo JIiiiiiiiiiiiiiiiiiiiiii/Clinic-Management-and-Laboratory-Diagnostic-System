@@ -1174,13 +1174,6 @@ export default function InventoryReports({
                                         {currentReportType === 'all' ? (
                                             <>
                                                 <tr>
-                                                    <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">Total Products</td>
-                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
-                                                        {filteredData.total_products || 0}
-                                                    </td>
-                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">100%</td>
-                                                </tr>
-                                                <tr>
                                                     <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">Low Stock Items</td>
                                                     <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
                                                         {filteredData.low_stock_items || 0}
@@ -1208,6 +1201,13 @@ export default function InventoryReports({
                                                             : 0}
                                                         %
                                                     </td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">Total Products</td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
+                                                        {filteredData.total_products || 0}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">100%</td>
                                                 </tr>
                                             </>
                                         ) : currentReportType === 'used_rejected' ? (

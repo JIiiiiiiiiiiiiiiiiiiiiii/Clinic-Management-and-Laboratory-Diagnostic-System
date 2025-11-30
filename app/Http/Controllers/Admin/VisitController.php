@@ -321,9 +321,63 @@ class VisitController extends Controller
             $visit->follow_up_visits = [];
         }
 
+        // Load lab orders for this visit
+        $labOrders = \App\Models\LabOrder::where('patient_visit_id', $visit->id)
+            ->with(['results.test', 'orderedBy'])
+            ->get()
+            ->map(function ($order) {
+                return [
+                    'id' => $order->id,
+                    'status' => $order->status,
+                    'notes' => $order->notes,
+                    'created_at' => $order->created_at,
+                    'ordered_by' => $order->orderedBy ? [
+                        'name' => $order->orderedBy->name
+                    ] : null,
+                    'tests' => $order->results->map(function ($result) {
+                        return $result->test ? [
+                            'id' => $result->test->id,
+                            'name' => $result->test->name,
+                            'code' => $result->test->code
+                        ] : null;
+                    })->filter()
+                ];
+            });
+
+        // Load patient transfers related to this visit or patient
+        $transfers = [];
+        try {
+            $patientId = $visit->patient_id ?? $visit->patient->id ?? null;
+            if ($patientId) {
+                $transfers = \App\Models\PatientTransfer::where('patient_id', $patientId)
+                    ->orWhere('visit_id', $visit->id)
+                    ->with(['requestedBy:id,name', 'approvedBy:id,name'])
+                    ->latest()
+                    ->get()
+                    ->map(function ($transfer) {
+                        return [
+                            'id' => $transfer->id,
+                            'transfer_type' => $transfer->transfer_type ?? 'Unknown',
+                            'status' => $transfer->status ?? 'pending',
+                            'requested_at' => $transfer->created_at,
+                            'requested_by' => $transfer->requestedBy ? $transfer->requestedBy->name : null,
+                            'approved_by' => $transfer->approvedBy ? $transfer->approvedBy->name : null,
+                        ];
+                    });
+            }
+        } catch (\Exception $e) {
+            \Log::warning('Failed to load transfers for visit', [
+                'visit_id' => $visit->id,
+                'patient_id' => $visit->patient_id ?? $visit->patient->id ?? null,
+                'error' => $e->getMessage()
+            ]);
+        }
+
         return Inertia::render('admin/visits/show', [
             'visit' => $visit,
-            'patient' => $visit->patient // Pass full patient data for display
+            'patient' => $visit->patient, // Pass full patient data for display
+            'labOrders' => $labOrders,
+            'transfers' => $transfers
         ]);
     }
 
@@ -643,11 +697,41 @@ class VisitController extends Controller
                 ];
             });
 
+        // Load patient transfers related to this visit or patient
+        $transfers = [];
+        try {
+            $patientId = $visit->patient_id ?? $visit->patient->id ?? null;
+            if ($patientId) {
+                $transfers = \App\Models\PatientTransfer::where('patient_id', $patientId)
+                    ->orWhere('visit_id', $visit->id)
+                    ->with(['requestedBy:id,name', 'approvedBy:id,name'])
+                    ->latest()
+                    ->get()
+                    ->map(function ($transfer) {
+                        return [
+                            'id' => $transfer->id,
+                            'transfer_type' => $transfer->transfer_type ?? 'Unknown',
+                            'status' => $transfer->status ?? 'pending',
+                            'requested_at' => $transfer->created_at,
+                            'requested_by' => $transfer->requestedBy ? $transfer->requestedBy->name : null,
+                            'approved_by' => $transfer->approvedBy ? $transfer->approvedBy->name : null,
+                        ];
+                    });
+            }
+        } catch (\Exception $e) {
+            \Log::warning('Failed to load transfers for visit edit', [
+                'visit_id' => $visit->id,
+                'patient_id' => $visit->patient_id ?? $visit->patient->id ?? null,
+                'error' => $e->getMessage()
+            ]);
+        }
+
         return Inertia::render('admin/visits/edit-consultation', [
             'visit' => $visitData,
             'patient' => $visit->patient, // Pass full patient data for read-only display
             'staff' => $staff,
             'labOrders' => $labOrders,
+            'transfers' => $transfers,
             'availableLabTests' => $availableLabTests,
             'status_options' => [
                 'scheduled' => 'Scheduled',

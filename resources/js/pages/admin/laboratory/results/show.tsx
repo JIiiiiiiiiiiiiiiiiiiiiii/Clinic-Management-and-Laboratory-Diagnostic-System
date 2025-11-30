@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -12,7 +13,7 @@ type Result = {
     results: Record<string, any> | null;
     verified_by?: number | null;
     verified_at?: string | null;
-    test?: { id: number; name: string; code: string } | null;
+    test?: { id: number; name: string; code: string; fields_schema?: any } | null;
     values?: Array<{
         id: number;
         parameter_key: string;
@@ -227,13 +228,132 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                         </Card>
                     ) : (
                         results.map((r) => {
+                            // Helper function to get field data from test schema
+                            const getFieldData = (value: any) => {
+                                if (!r.test?.fields_schema?.sections) return null;
+                                const fieldName = value.parameter_label;
+                                const parameterKey = value.parameter_key;
+                                
+                                for (const section of Object.values(r.test.fields_schema.sections) as any[]) {
+                                    if (section.fields) {
+                                        for (const [fieldKey, field] of Object.entries(section.fields)) {
+                                            const fieldData = field as any;
+                                            if (fieldData.label === fieldName || 
+                                                fieldKey === fieldName || 
+                                                fieldKey === parameterKey ||
+                                                parameterKey?.includes(fieldKey)) {
+                                                return {
+                                                    ranges: fieldData.ranges,
+                                                    reference_range: fieldData.reference_range,
+                                                    unit: fieldData.unit,
+                                                    type: fieldData.type,
+                                                    options: fieldData.options,
+                                                };
+                                            }
+                                        }
+                                    }
+                                }
+                                return null;
+                            };
+                            
+                            // Helper to determine status
+                            const getStatus = (value: any, fieldData: any) => {
+                                if (!fieldData) return null;
+                                const fieldType = fieldData.type || 'text';
+                                
+                                if (fieldType === 'number' && value.value) {
+                                    const numValue = parseFloat(value.value);
+                                    if (isNaN(numValue)) return null;
+                                    
+                                    // Check dynamic ranges
+                                    if (fieldData.ranges && patient) {
+                                        const age = patient.age || 0;
+                                        const gender = patient.sex || '';
+                                        let patientType = 'adult';
+                                        
+                                        if (age < 18) patientType = 'child';
+                                        else if (age >= 60) patientType = 'senior';
+                                        else if (gender?.toLowerCase() === 'male') patientType = 'male';
+                                        else if (gender?.toLowerCase() === 'female') patientType = 'female';
+                                        
+                                        const range = fieldData.ranges[patientType];
+                                        if (range?.min !== '' && range?.max !== '') {
+                                            const min = parseFloat(range.min);
+                                            const max = parseFloat(range.max);
+                                            if (numValue < min) return 'Low';
+                                            if (numValue > max) return 'High';
+                                            return 'Normal';
+                                        }
+                                    }
+                                    
+                                    // Check reference_text
+                                    if (value.reference_text) {
+                                        const refText = value.reference_text.trim();
+                                        const rangeMatch = refText.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                        if (rangeMatch) {
+                                            const min = parseFloat(rangeMatch[1]);
+                                            const max = parseFloat(rangeMatch[2]);
+                                            if (numValue < min) return 'Low';
+                                            if (numValue > max) return 'High';
+                                            return 'Normal';
+                                        }
+                                    }
+                                    
+                                    // Check reference_min/max
+                                    if (value.reference_min && value.reference_max) {
+                                        const min = parseFloat(value.reference_min);
+                                        const max = parseFloat(value.reference_max);
+                                        if (numValue < min) return 'Low';
+                                        if (numValue > max) return 'High';
+                                        return 'Normal';
+                                    }
+                                } else if (fieldType === 'select' && value.value) {
+                                    const options = fieldData.options || [];
+                                    const selectedOption = options.find((opt: any) => {
+                                        const optValue = typeof opt === 'string' ? opt : (opt?.value || '');
+                                        return optValue === value.value;
+                                    });
+                                    if (selectedOption) {
+                                        const status = typeof selectedOption === 'string' ? 'normal' : (selectedOption?.status || 'normal');
+                                        // Capitalize first letter and return as-is (Normal, Abnormal, Positive, Negative, etc.)
+                                        return status ? status.charAt(0).toUpperCase() + status.slice(1) : null;
+                                    }
+                                }
+                                
+                                return null;
+                            };
+                            
+                            // Helper to get reference range display
+                            const getReferenceRange = (value: any, fieldData: any) => {
+                                if (value.reference_text) return value.reference_text;
+                                if (value.reference_min && value.reference_max) {
+                                    return `${value.reference_min} - ${value.reference_max}`;
+                                }
+                                if (fieldData?.reference_range) return fieldData.reference_range;
+                                return 'N/A';
+                            };
+                            
                             const rows =
                                 r.values && r.values.length > 0
-                                    ? r.values.map((v) => ({
+                                    ? r.values.map((v) => {
+                                          const fieldData = getFieldData(v);
+                                          const status = getStatus(v, fieldData);
+                                          const referenceRange = getReferenceRange(v, fieldData);
+                                          return {
                                           key: v.parameter_label || v.parameter_key,
-                                          value: [v.value, v.unit].filter(Boolean).join(' '),
-                                      }))
-                                    : flatten(r.results);
+                                              value: v.value || '',
+                                              unit: v.unit || '',
+                                              referenceRange,
+                                              status,
+                                          };
+                                      })
+                                    : flatten(r.results).map((row) => ({
+                                          key: row.key,
+                                          value: row.value,
+                                          unit: '',
+                                          referenceRange: 'N/A',
+                                          status: null,
+                                      }));
                             
                             return (
                                 <Card key={r.id} className="shadow-lg">
@@ -271,20 +391,36 @@ export default function ResultsShow({ order, patient, results }: { order: Order;
                                                                 <th className="px-4 py-4 font-bold text-base">Value</th>
                                                                 <th className="px-4 py-4 font-bold text-base">Unit</th>
                                                                 <th className="px-4 py-4 font-bold text-base">Reference Range</th>
+                                                                <th className="px-4 py-4 font-bold text-base">Status</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
-                                                            {rows.map((row) => {
-                                                                const [value, unit] = row.value.split(' ');
-                                                                return (
-                                                                    <tr key={row.key} className="border-b last:border-0 hover:bg-gray-50">
+                                                            {rows.map((row, idx) => (
+                                                                    <tr key={idx} className="border-b last:border-0 hover:bg-gray-50">
                                                                         <td className="px-4 py-3 font-medium text-gray-900 text-sm">{row.key}</td>
-                                                                        <td className="px-4 py-3 text-gray-700 text-sm">{value || row.value}</td>
-                                                                        <td className="px-4 py-3 text-gray-500 text-sm">{unit || '—'}</td>
-                                                                        <td className="px-4 py-3 text-gray-500 text-sm">—</td>
+                                                                        <td className="px-4 py-3 text-gray-700 text-sm">{row.value || '—'}</td>
+                                                                        <td className="px-4 py-3 text-gray-500 text-sm">{row.unit || '—'}</td>
+                                                                        <td className="px-4 py-3 text-gray-500 text-sm">{row.referenceRange || '—'}</td>
+                                                                        <td className="px-4 py-3 text-gray-500 text-sm">
+                                                                            {row.status ? (
+                                                                                <Badge 
+                                                                                    variant={['Normal', 'Negative'].includes(row.status) ? 'default' : 'destructive'}
+                                                                                    className={
+                                                                                        row.status === 'Normal' || row.status === 'Negative'
+                                                                                            ? 'bg-green-100 text-green-800 border-green-200' 
+                                                                                            : row.status === 'Low' || row.status === 'High'
+                                                                                            ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                                                                                            : 'bg-red-100 text-red-800 border-red-200'
+                                                                                    }
+                                                                                >
+                                                                                    {row.status}
+                                                                                </Badge>
+                                                                            ) : (
+                                                                                '—'
+                                                                            )}
+                                                                        </td>
                                                                     </tr>
-                                                                );
-                                                            })}
+                                                                ))}
                                                         </tbody>
                                                     </table>
                                                 </div>

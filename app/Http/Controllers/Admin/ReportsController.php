@@ -3778,7 +3778,7 @@ class ReportsController extends Controller
                 $query->where('payment_method', 'hmo');
             }
             
-            $transactions = $query->with(['patient', 'doctor', 'appointment.specialist'])
+            $transactions = $query->with(['patient', 'doctor', 'appointment.specialist', 'appointmentLinks.appointment.specialist', 'appointmentLinks.appointment.visit'])
                 ->orderBy($dateField, 'desc')
                 ->get();
             
@@ -3820,7 +3820,7 @@ class ReportsController extends Controller
                 $query->where('payment_method', 'hmo');
             }
             
-            $transactions = $query->with(['patient', 'doctor', 'appointment.specialist'])
+            $transactions = $query->with(['patient', 'doctor', 'appointment.specialist', 'appointmentLinks.appointment.specialist', 'appointmentLinks.appointment.visit'])
                 ->orderBy($dateField, 'desc')
                 ->get();
             

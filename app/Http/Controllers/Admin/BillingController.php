@@ -446,7 +446,9 @@ class BillingController extends Controller
                     DB::raw('COALESCE(appointment_patients.patient_no, visit_patients.patient_no) as patient_no'),
                     DB::raw('COALESCE(appointment_patients.mobile_no, visit_patients.mobile_no) as patient_mobile_no'),
                     DB::raw('COALESCE(appointment_patients.telephone_no, visit_patients.telephone_no) as patient_telephone_no'),
-                    // CRITICAL: Include HMO fields from patient
+                    // CRITICAL: Include HMO fields from patient (using actual database column names)
+                    // Map: insurance_company -> company_name, hmo_id_no -> hmo_company_id_no, approval_code -> validation_approval_code
+                    DB::raw('COALESCE(appointment_patients.insurance_company, visit_patients.insurance_company) as patient_insurance_company'),
                     DB::raw('COALESCE(appointment_patients.hmo_name, visit_patients.hmo_name) as patient_hmo_name'),
                     DB::raw('COALESCE(appointment_patients.hmo_id_no, visit_patients.hmo_id_no) as patient_hmo_id_no'),
                     DB::raw('COALESCE(appointment_patients.approval_code, visit_patients.approval_code) as patient_approval_code'),
@@ -752,7 +754,11 @@ class BillingController extends Controller
                             'is_senior_citizen' => $appointment->patient ? ($appointment->patient->is_senior_citizen ?? ($appointment->patient->shouldBeSeniorCitizen() ?? false)) : false,
                             'age' => $appointment->patient ? ($appointment->patient->getAge() ?? null) : null,
                             // CRITICAL: Get HMO information from patient - try from joined data first, then from relationship
+                            // Map database column names (insurance_company, hmo_id_no, approval_code) to frontend expected names
+                            'company_name' => $appointment->patient_insurance_company ?? ($appointment->patient ? ($appointment->patient->insurance_company ?? null) : null),
                             'hmo_name' => $appointment->patient_hmo_name ?? ($appointment->patient ? ($appointment->patient->hmo_name ?? null) : null),
+                            'hmo_company_id_no' => $appointment->patient_hmo_id_no ?? ($appointment->patient ? ($appointment->patient->hmo_id_no ?? null) : null),
+                            'validation_approval_code' => $appointment->patient_approval_code ?? ($appointment->patient ? ($appointment->patient->approval_code ?? null) : null),
                             'hmo_id_no' => $appointment->patient_hmo_id_no ?? ($appointment->patient ? ($appointment->patient->hmo_id_no ?? null) : null),
                             'approval_code' => $appointment->patient_approval_code ?? ($appointment->patient ? ($appointment->patient->approval_code ?? null) : null),
                             'validity' => $appointment->patient_validity ?? ($appointment->patient ? ($appointment->patient->validity ?? null) : null),

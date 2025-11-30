@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { safeFormatDate } from '@/utils/dateTime';
 import { 
-    Edit,
     Printer,
     CreditCard,
     User,
@@ -76,7 +75,6 @@ interface TransactionViewModalProps {
     isOpen: boolean;
     onClose: () => void;
     transactionId: number | null;
-    onEdit?: (transactionId: number) => void;
 }
 
 const statusConfig = {
@@ -95,8 +93,7 @@ const paymentMethodConfig = {
 export default function TransactionViewModal({
     isOpen,
     onClose,
-    transactionId,
-    onEdit
+    transactionId
 }: TransactionViewModalProps) {
     const [transaction, setTransaction] = useState<BillingTransaction | null>(null);
     const [loading, setLoading] = useState(false);
@@ -178,13 +175,6 @@ export default function TransactionViewModal({
         });
     };
 
-    const handleEdit = (transactionId: number) => {
-        // Close the view modal and open edit modal
-        onClose();
-        if (onEdit) {
-            onEdit(transactionId);
-        }
-    };
 
     const handlePrintReceipt = (transactionId: number) => {
         // Navigate to print receipt page
@@ -367,9 +357,7 @@ export default function TransactionViewModal({
                                                     <TableRow className="hover:bg-gray-100">
                                                         <TableHead className="font-semibold text-gray-700 py-4">Item</TableHead>
                                                         <TableHead className="font-semibold text-gray-700 py-4">Description</TableHead>
-                                                        <TableHead className="font-semibold text-gray-700 py-4 text-center">Qty</TableHead>
                                                         <TableHead className="font-semibold text-gray-700 py-4 text-right">Unit Price</TableHead>
-                                                        <TableHead className="font-semibold text-gray-700 py-4 text-right">Total</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
@@ -377,9 +365,7 @@ export default function TransactionViewModal({
                                                         <TableRow key={item.id} className="hover:bg-gray-50 border-b border-gray-100">
                                                             <TableCell className="font-medium py-4">{item.item_name}</TableCell>
                                                             <TableCell className="text-sm text-gray-600 py-4">{item.item_description}</TableCell>
-                                                            <TableCell className="text-center py-4 font-medium">{item.quantity}</TableCell>
                                                             <TableCell className="text-right py-4">₱{(item.unit_price || 0).toLocaleString()}</TableCell>
-                                                            <TableCell className="text-right font-semibold py-4 text-blue-600">₱{(item.total_price || 0).toLocaleString()}</TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>
@@ -566,13 +552,6 @@ export default function TransactionViewModal({
                                         )}
                                     </Button>
                                 )}
-                                <Button 
-                                    onClick={() => handleEdit(transaction.id)}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2"
-                                >
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Edit
-                                </Button>
                                 <Button 
                                     onClick={() => handlePrintReceipt(transaction.id)}
                                     className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2"

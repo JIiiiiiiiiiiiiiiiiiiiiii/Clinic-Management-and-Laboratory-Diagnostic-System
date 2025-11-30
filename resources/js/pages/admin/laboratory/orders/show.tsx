@@ -40,7 +40,8 @@ type LabOrder = {
         last_name: string;
         middle_name?: string;
         birthdate: string;
-        gender: string;
+        gender?: string;
+        sex?: string;
         telephone_no?: string;
         mobile_no?: string;
         email?: string;
@@ -143,14 +144,15 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
     };
 
     // Determine patient type based on age and gender
-    const getPatientType = (age: number, gender: string): 'child' | 'male' | 'female' | 'senior' => {
+    const getPatientType = (age: number, gender: string | undefined): 'child' | 'male' | 'female' | 'senior' => {
         if (age < 18) {
             return 'child';
         }
         if (age >= 60) {
             return 'senior';
         }
-        if (gender?.toLowerCase() === 'male' || gender?.toLowerCase() === 'm') {
+        const genderValue = gender?.toLowerCase();
+        if (genderValue === 'male' || genderValue === 'm') {
             return 'male';
         }
         return 'female';
@@ -173,12 +175,24 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
         return numValue >= min && numValue <= max;
     };
 
-    // Get range for display
+    // Get range for display - prioritize dynamic ranges from template
     const getRangeForDisplay = (ranges: any, patientType: string): string | null => {
-        if (!ranges || !ranges[patientType] || !ranges[patientType].min || !ranges[patientType].max) {
+        if (!ranges || !ranges[patientType]) {
             return null;
         }
-        return `${ranges[patientType].min} - ${ranges[patientType].max}`;
+        const range = ranges[patientType];
+        const min = range?.min;
+        const max = range?.max;
+        
+        // Convert to string and trim whitespace
+        const minStr = min !== null && min !== undefined ? String(min).trim() : '';
+        const maxStr = max !== null && max !== undefined ? String(max).trim() : '';
+        
+        // Only return range if both min and max are provided and not empty
+        if (minStr !== '' && maxStr !== '') {
+            return `${minStr} - ${maxStr}`;
+        }
+        return null;
     };
 
     return (
@@ -252,12 +266,20 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                                 {order.patient.first_name} {order.patient.middle_name} {order.patient.last_name}
                                             </p>
                                             <p className="text-sm text-gray-600">
-                                                {order.patient.gender} • {formatAge(order.patient.birthdate)} years old
+                                                {(order.patient.gender || order.patient.sex) ? `${(order.patient.gender || order.patient.sex)} • ` : ''}{formatAge(order.patient.birthdate)} years old
                                             </p>
                                         </div>
                                     </div>
                                     
                                     <Separator />
+                                    
+                                    <div className="flex items-center gap-3">
+                                        <User className="h-4 w-4 text-gray-500" />
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-900">Gender</p>
+                                            <p className="text-sm text-gray-700 capitalize">{order.patient.gender || order.patient.sex || 'N/A'}</p>
+                                        </div>
+                                    </div>
                                     
                                     {order.patient.telephone_no && (
                                         <div className="flex items-center gap-3">
@@ -452,7 +474,8 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                                         {(() => {
                                                             // Get patient type
                                                             const patientAge = formatAge(order.patient.birthdate);
-                                                            const patientType = getPatientType(patientAge, order.patient.gender);
+                                                            const patientGender = order.patient.gender || order.patient.sex;
+                                                            const patientType = getPatientType(patientAge, patientGender);
                                                             
                                                             // Get field data from test schema
                                                             const testSchema = result.test?.fields_schema;
@@ -461,7 +484,27 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                                                 const fieldName = value.parameter_label || value.field_name;
                                                                 const parameterKey = value.parameter_key;
                                                                 
-                                                                for (const section of Object.values(testSchema.sections) as any[]) {
+                                                                // Strategy 1: Try to match by parameter_key path (section.field)
+                                                                if (parameterKey) {
+                                                                    const parts = parameterKey.split('.');
+                                                                    if (parts.length >= 2) {
+                                                                        const sectionKey = parts[0];
+                                                                        const fieldKey = parts[1];
+                                                                        if (testSchema.sections[sectionKey]?.fields?.[fieldKey]) {
+                                                                            const fieldData = testSchema.sections[sectionKey].fields[fieldKey];
+                                                                            return {
+                                                                                ranges: fieldData.ranges,
+                                                                                reference_range: fieldData.reference_range,
+                                                                                unit: fieldData.unit,
+                                                                                type: fieldData.type,
+                                                                                options: fieldData.options,
+                                                                            };
+                                                                        }
+                                                                    }
+                                                                }
+                                                                
+                                                                // Strategy 2: Search through all sections and fields
+                                                                for (const [sectionKey, section] of Object.entries(testSchema.sections) as any[]) {
                                                                     if (section.fields) {
                                                                         for (const [fieldKey, field] of Object.entries(section.fields)) {
                                                                             const fieldData = field as any;
@@ -469,7 +512,8 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                                                             if (fieldData.label === fieldName || 
                                                                                 fieldKey === fieldName || 
                                                                                 fieldKey === parameterKey ||
-                                                                                parameterKey?.includes(fieldKey)) {
+                                                                                (parameterKey && parameterKey.includes(fieldKey)) ||
+                                                                                (parameterKey && fieldKey.includes(parameterKey.split('.').pop() || ''))) {
                                                                                 return {
                                                                                     ranges: fieldData.ranges,
                                                                                     reference_range: fieldData.reference_range,
@@ -501,14 +545,190 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                                                         {values.map((value: any) => {
                                                                             const fieldName = value.parameter_label || value.field_name;
                                                                             const fieldData = getFieldData(value);
+                                                                            // Get dynamic ranges from template - these are patient-type-specific (child, male, female, senior)
                                                                             const ranges = fieldData?.ranges || null;
-                                                                            const referenceRange = fieldData?.reference_range || null;
+                                                                            // Get static reference range as fallback (only for non-number fields like select)
+                                                                            // For number/text fields, we should use dynamic ranges, not static reference_range
+                                                                            const referenceRange = (fieldData?.type === 'select' || fieldData?.type === 'textarea') 
+                                                                                ? (fieldData?.reference_range || null)
+                                                                                : null;
                                                                             const fieldType = fieldData?.type || 'text';
                                                                             
                                                                             // Determine status based on field type
                                                                             let isNormal: boolean | null = null;
-                                                                            if (fieldType === 'number') {
-                                                                                isNormal = isValueNormal(value.value, ranges, patientType);
+                                                                            let statusText: string | null = null;
+                                                                            
+                                                                            // Extract numeric value from the value string (handles cases like "2 (N/a)" or "10 (g/l)")
+                                                                            const extractNumericValue = (val: string): number | null => {
+                                                                                // Try to parse the value directly
+                                                                                const directParse = parseFloat(val);
+                                                                                if (!isNaN(directParse)) {
+                                                                                    return directParse;
+                                                                                }
+                                                                                // Try to extract number from strings like "2 (N/a)" or "10 (g/l)"
+                                                                                const match = val.match(/(\d+\.?\d*)/);
+                                                                                if (match) {
+                                                                                    return parseFloat(match[1]);
+                                                                                }
+                                                                                return null;
+                                                                            };
+                                                                            
+                                                                            // Parse reference range from various formats
+                                                                            const parseReferenceRange = (refRange: string | null): { min: number | null; max: number | null } => {
+                                                                                if (!refRange) return { min: null, max: null };
+                                                                                
+                                                                                const trimmed = refRange.trim();
+                                                                                
+                                                                                // Handle comma-separated values like "1, 2, 3" - treat as min and max
+                                                                                const commaMatch = trimmed.match(/^([\d.]+)\s*,\s*[\d.\s,]*,\s*([\d.]+)$/);
+                                                                                if (commaMatch) {
+                                                                                    return {
+                                                                                        min: parseFloat(commaMatch[1]),
+                                                                                        max: parseFloat(commaMatch[2])
+                                                                                    };
+                                                                                }
+                                                                                
+                                                                                // Handle range format like "1 - 3" or "1-3"
+                                                                                const rangeMatch = trimmed.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                                                                if (rangeMatch) {
+                                                                                    return {
+                                                                                        min: parseFloat(rangeMatch[1]),
+                                                                                        max: parseFloat(rangeMatch[2])
+                                                                                    };
+                                                                                }
+                                                                                
+                                                                                // Handle "<5" format
+                                                                                const lessThanMatch = trimmed.match(/<\s*(\d+\.?\d*)/);
+                                                                                if (lessThanMatch) {
+                                                                                    return {
+                                                                                        min: null,
+                                                                                        max: parseFloat(lessThanMatch[1])
+                                                                                    };
+                                                                                }
+                                                                                
+                                                                                // Handle ">5" format
+                                                                                const greaterThanMatch = trimmed.match(/>\s*(\d+\.?\d*)/);
+                                                                                if (greaterThanMatch) {
+                                                                                    return {
+                                                                                        min: parseFloat(greaterThanMatch[1]),
+                                                                                        max: null
+                                                                                    };
+                                                                                }
+                                                                                
+                                                                                return { min: null, max: null };
+                                                                            };
+                                                                            
+                                                                            const numValue = extractNumericValue(value.value);
+                                                                            
+                                                                            if (fieldType === 'number' && numValue !== null) {
+                                                                                // First try patient-type-specific ranges
+                                                                                if (ranges && ranges[patientType] && ranges[patientType].min !== '' && ranges[patientType].max !== '') {
+                                                                                    const min = parseFloat(ranges[patientType].min);
+                                                                                    const max = parseFloat(ranges[patientType].max);
+                                                                                    if (!isNaN(min) && !isNaN(max)) {
+                                                                                        if (numValue < min) {
+                                                                                            statusText = 'Low';
+                                                                                            isNormal = false;
+                                                                                        } else if (numValue > max) {
+                                                                                            statusText = 'High';
+                                                                                            isNormal = false;
+                                                                                        } else {
+                                                                                            statusText = 'Normal';
+                                                                                            isNormal = true;
+                                                                                        }
+                                                                                    }
+                                                                                } else if (referenceRange) {
+                                                                                    // Try parsing reference_range for number fields
+                                                                                    const parsedRange = parseReferenceRange(referenceRange);
+                                                                                    if (parsedRange.min !== null && parsedRange.max !== null) {
+                                                                                        if (numValue < parsedRange.min) {
+                                                                                            statusText = 'Low';
+                                                                                            isNormal = false;
+                                                                                        } else if (numValue > parsedRange.max) {
+                                                                                            statusText = 'High';
+                                                                                            isNormal = false;
+                                                                                        } else {
+                                                                                            statusText = 'Normal';
+                                                                                            isNormal = true;
+                                                                                        }
+                                                                                    } else if (parsedRange.min !== null) {
+                                                                                        statusText = numValue > parsedRange.min ? 'Normal' : 'Low';
+                                                                                        isNormal = numValue > parsedRange.min;
+                                                                                    } else if (parsedRange.max !== null) {
+                                                                                        statusText = numValue < parsedRange.max ? 'Normal' : 'High';
+                                                                                        isNormal = numValue < parsedRange.max;
+                                                                                    }
+                                                                                } else if (value.reference_text) {
+                                                                                    // Try parsing reference_text as fallback
+                                                                                    const parsedRange = parseReferenceRange(value.reference_text);
+                                                                                    if (parsedRange.min !== null && parsedRange.max !== null) {
+                                                                                        if (numValue < parsedRange.min) {
+                                                                                            statusText = 'Low';
+                                                                                            isNormal = false;
+                                                                                        } else if (numValue > parsedRange.max) {
+                                                                                            statusText = 'High';
+                                                                                            isNormal = false;
+                                                                                        } else {
+                                                                                            statusText = 'Normal';
+                                                                                            isNormal = true;
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            } else if (fieldType === 'text' && numValue !== null) {
+                                                                                // For text fields with numeric values, check dynamic ranges first, then static reference_range
+                                                                                // First check dynamic ranges (patient-type-specific)
+                                                                                if (ranges && ranges[patientType] && ranges[patientType].min !== '' && ranges[patientType].max !== '') {
+                                                                                    const min = parseFloat(ranges[patientType].min);
+                                                                                    const max = parseFloat(ranges[patientType].max);
+                                                                                    if (!isNaN(min) && !isNaN(max)) {
+                                                                                        if (numValue < min) {
+                                                                                            statusText = 'Low';
+                                                                                            isNormal = false;
+                                                                                        } else if (numValue > max) {
+                                                                                            statusText = 'High';
+                                                                                            isNormal = false;
+                                                                                        } else {
+                                                                                            statusText = 'Normal';
+                                                                                            isNormal = true;
+                                                                                        }
+                                                                                    }
+                                                                                } else if (referenceRange) {
+                                                                                    // Parse reference_range
+                                                                                    const parsedRange = parseReferenceRange(referenceRange);
+                                                                                    if (parsedRange.min !== null && parsedRange.max !== null) {
+                                                                                        if (numValue < parsedRange.min) {
+                                                                                            statusText = 'Low';
+                                                                                            isNormal = false;
+                                                                                        } else if (numValue > parsedRange.max) {
+                                                                                            statusText = 'High';
+                                                                                            isNormal = false;
+                                                                                        } else {
+                                                                                            statusText = 'Normal';
+                                                                                            isNormal = true;
+                                                                                        }
+                                                                                    } else if (parsedRange.min !== null) {
+                                                                                        statusText = numValue > parsedRange.min ? 'Normal' : 'Low';
+                                                                                        isNormal = numValue > parsedRange.min;
+                                                                                    } else if (parsedRange.max !== null) {
+                                                                                        statusText = numValue < parsedRange.max ? 'Normal' : 'High';
+                                                                                        isNormal = numValue < parsedRange.max;
+                                                                                    }
+                                                                                } else if (value.reference_text) {
+                                                                                    // Parse reference_text as fallback
+                                                                                    const parsedRange = parseReferenceRange(value.reference_text);
+                                                                                    if (parsedRange.min !== null && parsedRange.max !== null) {
+                                                                                        if (numValue < parsedRange.min) {
+                                                                                            statusText = 'Low';
+                                                                                            isNormal = false;
+                                                                                        } else if (numValue > parsedRange.max) {
+                                                                                            statusText = 'High';
+                                                                                            isNormal = false;
+                                                                                        } else {
+                                                                                            statusText = 'Normal';
+                                                                                            isNormal = true;
+                                                                                        }
+                                                                                    }
+                                                                                }
                                                                             } else if (fieldType === 'select') {
                                                                                 // For dropdowns, check the status of the selected option
                                                                                 const selectedValue = value.value;
@@ -519,26 +739,82 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                                                                 });
                                                                                 if (selectedOption) {
                                                                                     const optionStatus = typeof selectedOption === 'string' ? 'normal' : (selectedOption?.status || 'normal');
-                                                                                    isNormal = optionStatus === 'normal';
+                                                                                    isNormal = optionStatus === 'normal' || optionStatus === 'negative';
+                                                                                    // Capitalize first letter to show Normal, Abnormal, Positive, Negative, etc.
+                                                                                    statusText = optionStatus ? optionStatus.charAt(0).toUpperCase() + optionStatus.slice(1) : null;
+                                                                                } else if (numValue !== null && referenceRange) {
+                                                                                    // If select field has numeric value and reference range, treat as number
+                                                                                    const parsedRange = parseReferenceRange(referenceRange);
+                                                                                    if (parsedRange.min !== null && parsedRange.max !== null) {
+                                                                                        if (numValue < parsedRange.min) {
+                                                                                            statusText = 'Low';
+                                                                                            isNormal = false;
+                                                                                        } else if (numValue > parsedRange.max) {
+                                                                                            statusText = 'High';
+                                                                                            isNormal = false;
+                                                                                        } else {
+                                                                                            statusText = 'Normal';
+                                                                                            isNormal = true;
+                                                                                        }
+                                                                                    }
                                                                                 }
                                                                             }
                                                                             
-                                                                            const rangeDisplay = fieldType === 'number' 
-                                                                                ? getRangeForDisplay(ranges, patientType)
-                                                                                : (referenceRange || value.reference_text || 'N/A');
+                                                                            // Final fallback: if we have a numeric value and reference range but no status yet, try to determine it
+                                                                            if (statusText === null && numValue !== null) {
+                                                                                // Check reference_text
+                                                                                if (value.reference_text) {
+                                                                                    const parsedRange = parseReferenceRange(value.reference_text);
+                                                                                    if (parsedRange.min !== null && parsedRange.max !== null) {
+                                                                                        if (numValue < parsedRange.min) {
+                                                                                            statusText = 'Low';
+                                                                                            isNormal = false;
+                                                                                        } else if (numValue > parsedRange.max) {
+                                                                                            statusText = 'High';
+                                                                                            isNormal = false;
+                                                                                        } else {
+                                                                                            statusText = 'Normal';
+                                                                                            isNormal = true;
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                            
+                                                                            // Prioritize dynamic range from template based on patient type
+                                                                            const dynamicRange = getRangeForDisplay(ranges, patientType);
+                                                                            
+                                                                            // For number/text fields, ONLY use dynamic range - never use static reference_range or value.reference_text
+                                                                            // For other fields (select), use static reference_range
+                                                                            const rangeDisplay = (fieldType === 'number' || fieldType === 'text')
+                                                                                ? (dynamicRange || 'N/A')
+                                                                                : (referenceRange || 'N/A');
                                                                             const unitDisplay = value.unit || fieldData?.unit || 'N/A';
+                                                                            
+                                                                            // Never show value.reference_text for number/text fields - it's outdated static data
+                                                                            // Only show it for select fields if it's different from the template's reference_range
+                                                                            const shouldShowReferenceText = (fieldType !== 'number' && fieldType !== 'text') && 
+                                                                                value.reference_text && 
+                                                                                value.reference_text !== rangeDisplay && 
+                                                                                value.reference_text !== dynamicRange &&
+                                                                                value.reference_text !== referenceRange;
                                                                             
                                                                             return (
                                                                             <div key={value.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                                                                                 <div className="flex-1">
                                                                                         <div className="flex items-center gap-2 mb-1">
                                                                                             <p className="font-medium text-gray-900">{fieldName}</p>
-                                                                                            {(isNormal !== null || fieldType === 'select') && (
+                                                                                            {statusText && (
                                                                                                 <Badge 
-                                                                                                    variant={isNormal === true ? 'default' : 'destructive'}
-                                                                                                    className={isNormal === true ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}
+                                                                                                    variant={['Normal', 'Negative'].includes(statusText) ? 'default' : 'destructive'}
+                                                                                                    className={
+                                                                                                        statusText === 'Normal' || statusText === 'Negative'
+                                                                                                            ? 'bg-green-100 text-green-800 border-green-200'
+                                                                                                            : statusText === 'Low' || statusText === 'High'
+                                                                                                            ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                                                                                                            : 'bg-red-100 text-red-800 border-red-200'
+                                                                                                    }
                                                                                                 >
-                                                                                                    {isNormal === true ? 'Normal' : (isNormal === false ? 'Abnormal' : 'N/A')}
+                                                                                                    {statusText}
                                                                                                 </Badge>
                                                                                             )}
                                                                                         </div>
@@ -547,15 +823,19 @@ export default function LabOrderShow({ order }: LabOrderShowProps): React.ReactE
                                                                                     </p>
                                                                                         {rangeDisplay && rangeDisplay !== 'N/A' && (
                                                                                             <p className="text-xs text-gray-500 mt-1">
-                                                                                                {fieldType === 'number' ? `Normal Range (${patientType}): ` : 'Reference Range: '}{rangeDisplay}
+                                                                                                {fieldType === 'number' && dynamicRange 
+                                                                                                    ? `Reference Range (${patientType}): ` 
+                                                                                                    : fieldType === 'number' 
+                                                                                                    ? 'Reference Range: ' 
+                                                                                                    : 'Reference Range: '}{rangeDisplay}
                                                                                             </p>
                                                                                         )}
-                                                                                    {value.reference_text && (
+                                                                                    {shouldShowReferenceText && (
                                                                                         <p className="text-xs text-gray-500 mt-1">
                                                                                             Reference: {value.reference_text}
                                                                                         </p>
                                                                                     )}
-                                                                                        {(value.reference_min && value.reference_max) && !rangeDisplay && (
+                                                                                        {(value.reference_min && value.reference_max) && !rangeDisplay && rangeDisplay === 'N/A' && (
                                                                                         <p className="text-xs text-gray-500 mt-1">
                                                                                             Range: {value.reference_min} - {value.reference_max}
                                                                                         </p>

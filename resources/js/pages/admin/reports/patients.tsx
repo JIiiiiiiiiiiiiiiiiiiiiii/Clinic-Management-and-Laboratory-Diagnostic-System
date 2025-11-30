@@ -546,18 +546,6 @@ export default function PatientReports({ filter, date, data, patients, summary, 
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     <tr>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Patients</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_patients || 0}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">New Patients</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.new_patients || 0}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {(filteredData.total_patients || 0) > 0 ? (((filteredData.new_patients || 0) / (filteredData.total_patients || 1)) * 100).toFixed(1) : 0}%
-                                        </td>
-                                    </tr>
-                                    <tr>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Male Patients</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.male_patients || 0}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -570,6 +558,11 @@ export default function PatientReports({ filter, date, data, patients, summary, 
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             {(filteredData.total_patients || 0) > 0 ? (((filteredData.female_patients || 0) / (filteredData.total_patients || 1)) * 100).toFixed(1) : 0}%
                                         </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Patients</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_patients || 0}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
                                     </tr>
                                 </tbody>
                             </table>

@@ -67,10 +67,11 @@ export default function TestCreate(): React.ReactElement {
                         ...prev.sections[sectionKey].fields,
                         [fieldKey]: {
                             label: 'New Field',
-                            type: 'text',
-                            placeholder: 'Enter value',
+                            type: 'select',
+                            placeholder: 'Select option',
                             unit: '',
-                            options: [], // For select type: array of { value: string, status: 'normal' | 'abnormal' }
+                            options: [],
+                            reference_range: '',
                             ranges: {
                                 child: { min: '', max: '' },
                                 male: { min: '', max: '' },
@@ -340,7 +341,7 @@ export default function TestCreate(): React.ReactElement {
                                                             variant="ghost"
                                                             size="sm"
                                                             onClick={() => deleteSection(sectionKey)}
-                                                            className="bg-green-600 text-white hover:bg-green-700"
+                                                            className="text-red-600 hover:bg-red-50 hover:text-red-700"
                                                         >
                                                             <Trash2 className="mr-2 h-4 w-4" />
                                                             Delete
@@ -356,7 +357,7 @@ export default function TestCreate(): React.ReactElement {
                                                     <Input
                                                         id={`section-${sectionKey}-title`}
                                                         type="text"
-                                                        value={section.title}
+                                                                    value={section.title || ''}
                                                         onChange={(e) => {
                                                             setSchema((prev) => ({
                                                                 ...prev,
@@ -376,8 +377,15 @@ export default function TestCreate(): React.ReactElement {
                                                 {Object.entries(section.fields || {}).map(([fieldKey, field]: [string, any]) => (
                                                     <div key={fieldKey} className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
                                                         <div className="mb-2 flex items-center justify-between">
-                                                            <h5 className="text-sm font-semibold text-gray-700">Field: {field.label}</h5>
-                                                            <Button variant="ghost" size="sm" onClick={() => deleteField(sectionKey, fieldKey)}>
+                                                            <h5 className="text-sm font-semibold text-gray-700">
+                                                                Field: {field.label || 'Unnamed Field'}
+                                                            </h5>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => deleteField(sectionKey, fieldKey)}
+                                                                className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                                                            >
                                                                 <Trash2 className="h-4 w-4" />
                                                             </Button>
                                                         </div>
@@ -385,7 +393,7 @@ export default function TestCreate(): React.ReactElement {
                                                             <div>
                                                                 <Label className="mb-2 block text-sm font-semibold text-gray-700">Field Type *</Label>
                                                                 <Select
-                                                                    value={field.type || 'text'}
+                                                                    value={field.type || 'select'}
                                                                     onValueChange={(value) => {
                                                                         setSchema((prev) => ({
                                                                             ...prev,
@@ -411,7 +419,6 @@ export default function TestCreate(): React.ReactElement {
                                                                         <SelectValue />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="text">Text</SelectItem>
                                                                         <SelectItem value="number">Number</SelectItem>
                                                                         <SelectItem value="select">Dropdown</SelectItem>
                                                                         <SelectItem value="textarea">Text Area</SelectItem>
@@ -471,8 +478,8 @@ export default function TestCreate(): React.ReactElement {
                                                             </div>
                                                         </div>
                                                         
-                                                        {/* Unit field for number, text, and select types */}
-                                                        {(field.type === 'number' || field.type === 'text' || field.type === 'select') && (
+                                                        {/* Unit field for number and select types */}
+                                                        {(field.type === 'number' || field.type === 'select') && (
                                                             <div className="mt-4">
                                                                 <Label className="mb-2 block text-sm font-semibold text-gray-700">
                                                                     Unit {field.type === 'select' && '(e.g., N/A, or leave empty)'}
@@ -507,78 +514,115 @@ export default function TestCreate(): React.ReactElement {
                                                         {/* Dropdown options configuration */}
                                                         {field.type === 'select' && (
                                                             <div className="mt-4 space-y-3">
-                                                                <Label className="mb-2 block text-sm font-semibold text-gray-700">Dropdown Options *</Label>
-                                                                <p className="text-xs text-gray-500 mb-3">Set the status (Normal/Abnormal) for each option</p>
+                                                                <Label className="mb-2 block text-sm font-semibold text-gray-700">
+                                                                    Dropdown Options *
+                                                                </Label>
+                                                                <p className="mb-3 text-xs text-gray-500">
+                                                                    Set the status (Normal/Abnormal/Positive/Negative or custom) for each option -
+                                                                    this will be used as the reference range
+                                                                </p>
                                                                 <div className="space-y-2">
                                                                     {(field.options || []).map((option: any, optionIndex: number) => {
                                                                         // Handle both old format (string) and new format (object)
-                                                                        const optionValue = typeof option === 'string' ? option : (option?.value || '');
-                                                                        const optionStatus = typeof option === 'string' ? 'normal' : (option?.status || 'normal');
-                                                                        
+                                                                        const optionValue = typeof option === 'string' ? option : option?.value || '';
+                                                                        const optionStatus = typeof option === 'string' ? '' : (option?.status ?? '');
+
                                                                         return (
-                                                                            <div key={optionIndex} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
-                                                                                <Input
-                                                                                    value={optionValue}
-                                                                                    onChange={(e) => {
-                                                                                        const newOptions = [...(field.options || [])];
-                                                                                        newOptions[optionIndex] = { value: e.target.value, status: optionStatus };
-                                                                                        setSchema((prev) => ({
-                                                                                            ...prev,
-                                                                                            sections: {
-                                                                                                ...prev.sections,
-                                                                                                [sectionKey]: {
-                                                                                                    ...prev.sections[sectionKey],
-                                                                                                    fields: {
-                                                                                                        ...prev.sections[sectionKey].fields,
-                                                                                                        [fieldKey]: {
-                                                                                                            ...prev.sections[sectionKey].fields[fieldKey],
-                                                                                                            options: newOptions,
+                                                                            <div
+                                                                                key={optionIndex}
+                                                                                className="flex items-end gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3"
+                                                                            >
+                                                                                <div className="flex-1">
+                                                                                    <Label className="mb-1 block text-xs font-medium text-gray-600">
+                                                                                        Option Value
+                                                                                    </Label>
+                                                                                    <Input
+                                                                                        type="text"
+                                                                                        autoComplete="off"
+                                                                                        value={optionValue}
+                                                                                        onChange={(e) => {
+                                                                                            const newOptions = [...(field.options || [])];
+                                                                                            newOptions[optionIndex] = {
+                                                                                                value: e.target.value,
+                                                                                                status: optionStatus,
+                                                                                            };
+                                                                                            setSchema((prev: any) => ({
+                                                                                                ...prev,
+                                                                                                sections: {
+                                                                                                    ...prev.sections,
+                                                                                                    [sectionKey]: {
+                                                                                                        ...prev.sections[sectionKey],
+                                                                                                        fields: {
+                                                                                                            ...prev.sections[sectionKey].fields,
+                                                                                                            [fieldKey]: {
+                                                                                                                ...prev.sections[sectionKey].fields[
+                                                                                                                    fieldKey
+                                                                                                                ],
+                                                                                                                options: newOptions,
+                                                                                                            },
                                                                                                         },
                                                                                                     },
                                                                                                 },
-                                                                                            },
-                                                                                        }));
-                                                                                    }}
-                                                                                    placeholder="Option value"
-                                                                                    className="h-10 flex-1 rounded-xl border-gray-300 shadow-sm focus:border-gray-500 focus:ring-gray-500"
-                                                                                />
-                                                                                <Select
-                                                                                    value={optionStatus}
-                                                                                    onValueChange={(value) => {
-                                                                                        const newOptions = [...(field.options || [])];
-                                                                                        newOptions[optionIndex] = { value: optionValue, status: value };
-                                                                                        setSchema((prev) => ({
-                                                                                            ...prev,
-                                                                                            sections: {
-                                                                                                ...prev.sections,
-                                                                                                [sectionKey]: {
-                                                                                                    ...prev.sections[sectionKey],
-                                                                                                    fields: {
-                                                                                                        ...prev.sections[sectionKey].fields,
-                                                                                                        [fieldKey]: {
-                                                                                                            ...prev.sections[sectionKey].fields[fieldKey],
-                                                                                                            options: newOptions,
+                                                                                            }));
+                                                                                        }}
+                                                                                        placeholder="e.g., Test Result"
+                                                                                        className="h-10 w-full rounded-xl border-gray-300 shadow-sm focus:border-gray-500 focus:ring-gray-500"
+                                                                                    />
+                                                                                </div>
+                                                                                <div className="w-48">
+                                                                                    <Label className="mb-1 block text-xs font-medium text-gray-600">
+                                                                                        Status
+                                                                                    </Label>
+                                                                                    <div className="relative">
+                                                                                        <Input
+                                                                                            type="text"
+                                                                                            autoComplete="off"
+                                                                                            list={`status-options-${fieldKey}-${optionIndex}`}
+                                                                                            value={optionStatus || ''}
+                                                                                            onChange={(e) => {
+                                                                                                const inputValue = e.target.value;
+                                                                                                const newOptions = [...(field.options || [])];
+                                                                                                newOptions[optionIndex] = {
+                                                                                                    value: optionValue,
+                                                                                                    status: inputValue, // Store exactly what user types
+                                                                                                };
+                                                                                                setSchema((prev: any) => ({
+                                                                                                    ...prev,
+                                                                                                    sections: {
+                                                                                                        ...prev.sections,
+                                                                                                        [sectionKey]: {
+                                                                                                            ...prev.sections[sectionKey],
+                                                                                                            fields: {
+                                                                                                                ...prev.sections[sectionKey].fields,
+                                                                                                                [fieldKey]: {
+                                                                                                                    ...prev.sections[sectionKey]
+                                                                                                                        .fields[fieldKey],
+                                                                                                                    options: newOptions,
+                                                                                                                },
+                                                                                                            },
                                                                                                         },
                                                                                                     },
-                                                                                                },
-                                                                                            },
-                                                                                        }));
-                                                                                    }}
-                                                                                >
-                                                                                    <SelectTrigger className="h-10 w-32">
-                                                                                        <SelectValue />
-                                                                                    </SelectTrigger>
-                                                                                    <SelectContent>
-                                                                                        <SelectItem value="normal">Normal</SelectItem>
-                                                                                        <SelectItem value="abnormal">Abnormal</SelectItem>
-                                                                                    </SelectContent>
-                                                                                </Select>
+                                                                                                }));
+                                                                                            }}
+                                                                                            placeholder="Normal, Abnormal..."
+                                                                                            className="h-10 w-full rounded-xl border-gray-300 shadow-sm focus:border-gray-500 focus:ring-gray-500"
+                                                                                        />
+                                                                                        <datalist id={`status-options-${fieldKey}-${optionIndex}`}>
+                                                                                            <option value="normal">Normal</option>
+                                                                                            <option value="abnormal">Abnormal</option>
+                                                                                            <option value="positive">Positive</option>
+                                                                                            <option value="negative">Negative</option>
+                                                                                        </datalist>
+                                                                                    </div>
+                                                                                </div>
                                                                                 <Button
                                                                                     type="button"
                                                                                     variant="ghost"
                                                                                     size="sm"
                                                                                     onClick={() => {
-                                                                                        const newOptions = (field.options || []).filter((_: any, idx: number) => idx !== optionIndex);
+                                                                                        const newOptions = (field.options || []).filter(
+                                                                                            (_: any, idx: number) => idx !== optionIndex,
+                                                                                        );
                                                                                         setSchema((prev) => ({
                                                                                             ...prev,
                                                                                             sections: {
@@ -588,7 +632,9 @@ export default function TestCreate(): React.ReactElement {
                                                                                                     fields: {
                                                                                                         ...prev.sections[sectionKey].fields,
                                                                                                         [fieldKey]: {
-                                                                                                            ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                                            ...prev.sections[sectionKey].fields[
+                                                                                                                fieldKey
+                                                                                                            ],
                                                                                                             options: newOptions,
                                                                                                         },
                                                                                                     },
@@ -608,8 +654,11 @@ export default function TestCreate(): React.ReactElement {
                                                                         variant="outline"
                                                                         size="sm"
                                                                         onClick={() => {
-                                                                            const newOptions = [...(field.options || []), { value: '', status: 'normal' }];
-                                                                            setSchema((prev) => ({
+                                                                            const newOptions = [
+                                                                                ...(field.options || []),
+                                                                                { value: '', status: 'normal' },
+                                                                            ];
+                                                                            setSchema((prev: any) => ({
                                                                                 ...prev,
                                                                                 sections: {
                                                                                     ...prev.sections,
@@ -635,19 +684,24 @@ export default function TestCreate(): React.ReactElement {
                                                             </div>
                                                         )}
                                                         
-                                                        {/* Reference Range Configuration - For number and select fields */}
-                                                        {(field.type === 'number' || field.type === 'select') && (
-                                                        <div className="mt-4 space-y-4">
-                                                            <Label className="mb-3 block text-sm font-semibold text-gray-700">
-                                                                {field.type === 'number' ? 'Normal Range by Patient Type' : 'Reference Range (Optional)'}
-                                                            </Label>
-                                                            {field.type === 'select' ? (
-                                                                <div className="space-y-2">
-                                                                    <Label className="text-xs font-medium text-gray-600">Reference Range (e.g., N/A, or specific range)</Label>
+                                                        {/* Reference Range Configuration - For dropdown fields */}
+                                                        {field.type === 'select' && (
+                                                            <div className="mt-4 space-y-2">
+                                                                <Label className="mb-2 block text-sm font-semibold text-gray-700">
+                                                                    Reference Range * (Displayed in reports)
+                                                                </Label>
+                                                                <p className="mb-2 text-xs text-gray-500">
+                                                                    Enter the reference range text that will appear in lab reports (e.g., "Normal,
+                                                                    Abnormal" or "Positive, Negative")
+                                                                </p>
+                                                                <div className="flex gap-2">
                                                                     <Input
-                                                                        value={field.reference_range || ''}
+                                                                        type="text"
+                                                                        autoComplete="off"
+                                                                        value={field.reference_range ?? ''}
                                                                         onChange={(e) => {
-                                                                            setSchema((prev) => ({
+                                                                            const newValue = e.target.value;
+                                                                            setSchema((prev: any) => ({
                                                                                 ...prev,
                                                                                 sections: {
                                                                                     ...prev.sections,
@@ -657,19 +711,80 @@ export default function TestCreate(): React.ReactElement {
                                                                                             ...prev.sections[sectionKey].fields,
                                                                                             [fieldKey]: {
                                                                                                 ...prev.sections[sectionKey].fields[fieldKey],
-                                                                                                reference_range: e.target.value,
+                                                                                                reference_range: newValue,
                                                                                             },
                                                                                         },
                                                                                     },
                                                                                 },
                                                                             }));
                                                                         }}
-                                                                        placeholder="Reference Range (e.g., N/A, Normal, etc.)"
-                                                                        className="h-12 rounded-xl border-gray-300 shadow-sm focus:border-gray-500 focus:ring-gray-500"
+                                                                        placeholder={
+                                                                            field.options && field.options.length > 0
+                                                                                ? `e.g., ${field.options
+                                                                                      .map((opt: any) => {
+                                                                                          const val =
+                                                                                              typeof opt === 'string' ? opt : opt?.value || '';
+                                                                                          return val;
+                                                                                      })
+                                                                                      .filter((v: string) => v)
+                                                                                      .slice(0, 3)
+                                                                                      .join(', ')}`
+                                                                                : 'e.g., Normal, Abnormal'
+                                                                        }
+                                                                        className="h-12 flex-1 rounded-xl border-gray-300 shadow-sm focus:border-gray-500 focus:ring-gray-500"
                                                                     />
+                                                                    {field.options && field.options.length > 0 && (
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            onClick={() => {
+                                                                                // Auto-generate reference range from option values
+                                                                                const optionValues = field.options
+                                                                                    .map((opt: any) => {
+                                                                                        const val = typeof opt === 'string' ? opt : opt?.value || '';
+                                                                                        return val;
+                                                                                    })
+                                                                                    .filter((v: string) => v);
+                                                                                const autoRange = optionValues.join(', ');
+                                                                                setSchema((prev: any) => ({
+                                                                                    ...prev,
+                                                                                    sections: {
+                                                                                        ...prev.sections,
+                                                                                        [sectionKey]: {
+                                                                                            ...prev.sections[sectionKey],
+                                                                                            fields: {
+                                                                                                ...prev.sections[sectionKey].fields,
+                                                                                                [fieldKey]: {
+                                                                                                    ...prev.sections[sectionKey].fields[fieldKey],
+                                                                                                    reference_range: autoRange,
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                }));
+                                                                            }}
+                                                                            className="whitespace-nowrap"
+                                                                        >
+                                                                            Auto-fill from options
+                                                                        </Button>
+                                                                    )}
                                                                 </div>
-                                                            ) : (
-                                                            <div className="grid gap-4 md:grid-cols-2">
+                                                                <p className="text-xs text-gray-400">
+                                                                    💡 Tip: Click "Auto-fill from options" to automatically generate the reference
+                                                                    range from your dropdown options
+                                                                </p>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Reference Range Configuration - For number fields only */}
+                                                        {field.type === 'number' && (
+                                                            <div className="mt-4 space-y-4">
+                                                                <Label className="mb-3 block text-sm font-semibold text-gray-700">
+                                                                    Normal Range by Patient Type
+                                                                </Label>
+                                                                <div>
+                                                                    <div className="grid gap-4 md:grid-cols-2">
                                                                 {/* Child Range */}
                                                                 <div className="space-y-2">
                                                                     <Label className="text-xs font-medium text-gray-600">Child (&lt;18 years)</Label>
@@ -691,9 +806,9 @@ export default function TestCreate(): React.ReactElement {
                                                                                                 [fieldKey]: {
                                                                                                     ...prev.sections[sectionKey].fields[fieldKey],
                                                                                                     ranges: {
-                                                                                                        ...prev.sections[sectionKey].fields[fieldKey].ranges,
+                                                                                                        ...(prev.sections[sectionKey].fields[fieldKey].ranges || {}),
                                                                                                         child: {
-                                                                                                            ...prev.sections[sectionKey].fields[fieldKey].ranges?.child,
+                                                                                                            ...(prev.sections[sectionKey].fields[fieldKey].ranges?.child || {}),
                                                                                                             min: e.target.value,
                                                                                                         },
                                                                                                     },
@@ -722,9 +837,9 @@ export default function TestCreate(): React.ReactElement {
                                                                                                 [fieldKey]: {
                                                                                                     ...prev.sections[sectionKey].fields[fieldKey],
                                                                                                     ranges: {
-                                                                                                        ...prev.sections[sectionKey].fields[fieldKey].ranges,
+                                                                                                        ...(prev.sections[sectionKey].fields[fieldKey].ranges || {}),
                                                                                                         child: {
-                                                                                                            ...prev.sections[sectionKey].fields[fieldKey].ranges?.child,
+                                                                                                            ...(prev.sections[sectionKey].fields[fieldKey].ranges?.child || {}),
                                                                                                             max: e.target.value,
                                                                                                         },
                                                                                                     },
@@ -760,9 +875,9 @@ export default function TestCreate(): React.ReactElement {
                                                                                                 [fieldKey]: {
                                                                                                     ...prev.sections[sectionKey].fields[fieldKey],
                                                                                                     ranges: {
-                                                                                                        ...prev.sections[sectionKey].fields[fieldKey].ranges,
+                                                                                                        ...(prev.sections[sectionKey].fields[fieldKey].ranges || {}),
                                                                                                         male: {
-                                                                                                            ...prev.sections[sectionKey].fields[fieldKey].ranges?.male,
+                                                                                                            ...(prev.sections[sectionKey].fields[fieldKey].ranges?.male || {}),
                                                                                                             min: e.target.value,
                                                                                                         },
                                                                                                     },
@@ -791,9 +906,9 @@ export default function TestCreate(): React.ReactElement {
                                                                                                 [fieldKey]: {
                                                                                                     ...prev.sections[sectionKey].fields[fieldKey],
                                                                                                     ranges: {
-                                                                                                        ...prev.sections[sectionKey].fields[fieldKey].ranges,
+                                                                                                        ...(prev.sections[sectionKey].fields[fieldKey].ranges || {}),
                                                                                                         male: {
-                                                                                                            ...prev.sections[sectionKey].fields[fieldKey].ranges?.male,
+                                                                                                            ...(prev.sections[sectionKey].fields[fieldKey].ranges?.male || {}),
                                                                                                             max: e.target.value,
                                                                                                         },
                                                                                                     },
@@ -829,9 +944,9 @@ export default function TestCreate(): React.ReactElement {
                                                                                                 [fieldKey]: {
                                                                                                     ...prev.sections[sectionKey].fields[fieldKey],
                                                                                                     ranges: {
-                                                                                                        ...prev.sections[sectionKey].fields[fieldKey].ranges,
+                                                                                                        ...(prev.sections[sectionKey].fields[fieldKey].ranges || {}),
                                                                                                         female: {
-                                                                                                            ...prev.sections[sectionKey].fields[fieldKey].ranges?.female,
+                                                                                                            ...(prev.sections[sectionKey].fields[fieldKey].ranges?.female || {}),
                                                                                                             min: e.target.value,
                                                                                                         },
                                                                                                     },
@@ -860,9 +975,9 @@ export default function TestCreate(): React.ReactElement {
                                                                                                 [fieldKey]: {
                                                                                                     ...prev.sections[sectionKey].fields[fieldKey],
                                                                                                     ranges: {
-                                                                                                        ...prev.sections[sectionKey].fields[fieldKey].ranges,
+                                                                                                        ...(prev.sections[sectionKey].fields[fieldKey].ranges || {}),
                                                                                                         female: {
-                                                                                                            ...prev.sections[sectionKey].fields[fieldKey].ranges?.female,
+                                                                                                            ...(prev.sections[sectionKey].fields[fieldKey].ranges?.female || {}),
                                                                                                             max: e.target.value,
                                                                                                         },
                                                                                                     },
@@ -898,9 +1013,9 @@ export default function TestCreate(): React.ReactElement {
                                                                                                 [fieldKey]: {
                                                                                                     ...prev.sections[sectionKey].fields[fieldKey],
                                                                                                     ranges: {
-                                                                                                        ...prev.sections[sectionKey].fields[fieldKey].ranges,
+                                                                                                        ...(prev.sections[sectionKey].fields[fieldKey].ranges || {}),
                                                                                                         senior: {
-                                                                                                            ...prev.sections[sectionKey].fields[fieldKey].ranges?.senior,
+                                                                                                            ...(prev.sections[sectionKey].fields[fieldKey].ranges?.senior || {}),
                                                                                                             min: e.target.value,
                                                                                                         },
                                                                                                     },
@@ -929,9 +1044,9 @@ export default function TestCreate(): React.ReactElement {
                                                                                                 [fieldKey]: {
                                                                                                     ...prev.sections[sectionKey].fields[fieldKey],
                                                                                                     ranges: {
-                                                                                                        ...prev.sections[sectionKey].fields[fieldKey].ranges,
+                                                                                                        ...(prev.sections[sectionKey].fields[fieldKey].ranges || {}),
                                                                                                         senior: {
-                                                                                                            ...prev.sections[sectionKey].fields[fieldKey].ranges?.senior,
+                                                                                                            ...(prev.sections[sectionKey].fields[fieldKey].ranges?.senior || {}),
                                                                                                             max: e.target.value,
                                                                                                         },
                                                                                                     },
@@ -945,9 +1060,9 @@ export default function TestCreate(): React.ReactElement {
                                                                         />
                                                                     </div>
                                                                 </div>
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                            )}
-                                                        </div>
                                                         )}
                                                     </div>
                                                 ))}

@@ -627,11 +627,6 @@ export default function LaboratoryReportsIndex({
                                 </thead>
                                 <tbody className="divide-y divide-gray-200 bg-white">
                                     <tr>
-                                        <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">Total Orders</td>
-                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">{data.total_orders}</td>
-                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">100%</td>
-                                    </tr>
-                                    <tr>
                                         <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">Pending Orders</td>
                                         <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">{data.pending_orders}</td>
                                         <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
@@ -639,11 +634,9 @@ export default function LaboratoryReportsIndex({
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">Completed Orders</td>
-                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">{data.completed_orders}</td>
-                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
-                                            {data.total_orders > 0 ? ((data.completed_orders / data.total_orders) * 100).toFixed(1) : 0}%
-                                        </td>
+                                        <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">Total Orders</td>
+                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">{data.total_orders}</td>
+                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">100%</td>
                                     </tr>
                                     <tr>
                                         <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">Completion Rate</td>

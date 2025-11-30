@@ -87,10 +87,43 @@ class LabOrderController extends Controller
 
     public function index(Request $request, Patient $patient)
     {
-        $orders = LabOrder::with(['results.test', 'visit.attendingStaff', 'orderedBy'])
+        // Load lab orders with full relationships
+        $orders = LabOrder::with([
+            'results.test', 
+            'results.values',
+            'visit.attendingStaff',
+            'visit.appointment' => function($query) {
+                $query->with('specialist');
+            },
+            'appointments.specialist',
+            'orderedBy'
+        ])
             ->where('patient_id', $patient->id)
             ->latest()
             ->get();
+        
+        // Load appointments with their visits and lab orders for history view
+        $appointments = \App\Models\Appointment::with([
+            'specialist',
+            'visit.attendingStaff',
+            'visit.labOrders' => function($query) {
+                $query->with([
+                    'results.test',
+                    'results.values'
+                ]);
+            },
+            'labOrders' => function($query) {
+                $query->with([
+                    'results.test',
+                    'results.values'
+                ]);
+            },
+        ])
+            ->where('patient_id', $patient->id)
+            ->orderBy('appointment_date', 'desc')
+            ->orderBy('appointment_time', 'desc')
+            ->get();
+
         $labTests = LabTest::where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'is_active']);
 
         $normalizedPatientOrders = $orders->map(function ($o) {
@@ -104,6 +137,7 @@ class LabOrderController extends Controller
         return Inertia::render('admin/laboratory/patients/orders', [
             'patient' => $patient,
             'orders' => $normalizedPatientOrders,
+            'appointments' => $appointments,
             'labTests' => $labTests,
             'patient_visit_id' => $request->integer('patient_visit_id') ?: null,
         ]);
@@ -150,6 +184,12 @@ class LabOrderController extends Controller
             'orderedBy',
             'visit.attendingStaff'
         ]);
+
+        // Ensure patient gender/sex is available
+        if ($order->patient) {
+            // The gender accessor should work automatically, but ensure sex is available
+            $order->patient->makeVisible(['sex']);
+        }
 
         // Get lab tests through results with category/type and fields_schema
         $labTests = $order->results->map(function ($result) {

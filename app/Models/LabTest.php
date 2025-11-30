@@ -12,6 +12,19 @@ class LabTest extends Model
     public $incrementing = false; // Set to false to allow manual ID assignment
     protected $keyType = 'int';
 
+    /**
+     * Retrieve the model for route model binding.
+     * 
+     * @param  mixed  $value
+     * @param  string|null  $field
+     * @return \Illuminate\Database\Eloquent\Model|null
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        $field = $field ?: $this->getRouteKeyName();
+        return $this->where($field, $value)->first();
+    }
+
     protected $fillable = [
         'id',
         'name',

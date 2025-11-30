@@ -107,10 +107,18 @@ interface VisitEditProps {
         role: string;
     }>;
     labOrders?: LabOrder[];
+    transfers?: Array<{
+        id: number;
+        transfer_type: string;
+        status: string;
+        requested_at: string;
+        requested_by?: string;
+        approved_by?: string;
+    }>;
     availableLabTests?: LabTest[];
 }
 
-export default function VisitEditConsultation({ visit, patient, staff, labOrders = [], availableLabTests = [] }: VisitEditProps) {
+export default function VisitEditConsultation({ visit, patient, staff, labOrders = [], transfers = [], availableLabTests = [] }: VisitEditProps) {
     const { hasPermission } = useRoleAccess();
     
     // Format time for input (HH:mm)
@@ -1082,6 +1090,58 @@ export default function VisitEditConsultation({ visit, patient, staff, labOrders
                                 </div>
                             </CardContent>
                         </Card>
+
+                        {/* Patient Transfers Section */}
+                        {transfers && transfers.length > 0 && (
+                            <Card className="border-orange-200 bg-orange-50">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <ArrowRightLeft className="h-5 w-5 text-orange-600" />
+                                        Patient Transfers
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Transfer records associated with this patient
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    {transfers.map((transfer) => (
+                                        <div key={transfer.id} className="bg-white border border-orange-200 rounded-lg p-4">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <div>
+                                                    <p className="font-medium">Transfer #{transfer.id}</p>
+                                                    <p className="text-sm text-gray-500">
+                                                        {new Date(transfer.requested_at).toLocaleDateString('en-US', {
+                                                            year: 'numeric',
+                                                            month: 'long',
+                                                            day: 'numeric',
+                                                        })}
+                                                    </p>
+                                                </div>
+                                                <Badge variant="outline" className="text-xs">
+                                                    {transfer.status}
+                                                </Badge>
+                                            </div>
+                                            <div className="space-y-1 text-sm">
+                                                <p><strong>Type:</strong> {transfer.transfer_type}</p>
+                                                {transfer.requested_by && (
+                                                    <p><strong>Requested by:</strong> {transfer.requested_by}</p>
+                                                )}
+                                                {transfer.approved_by && (
+                                                    <p><strong>Approved by:</strong> {transfer.approved_by}</p>
+                                                )}
+                                            </div>
+                                            <div className="mt-3">
+                                                <Link href={`/admin/patient-transfers/transfers/${transfer.id}`}>
+                                                    <Button variant="outline" size="sm" className="w-full">
+                                                        View Transfer Details
+                                                    </Button>
+                                                </Link>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </CardContent>
+                            </Card>
+                        )}
 
                         {/* Form Actions */}
                         <div className="flex items-center gap-4 pt-4">

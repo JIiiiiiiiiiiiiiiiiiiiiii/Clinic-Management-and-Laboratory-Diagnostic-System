@@ -127,6 +127,11 @@ class Patient extends Model
         return $this->birthdate ? $this->birthdate->format('M d, Y') : 'N/A';
     }
 
+    public function getGenderAttribute()
+    {
+        return $this->sex;
+    }
+
     // Boot method to generate patient number
     protected static function boot()
     {

@@ -8,7 +8,7 @@ import { PatientInfoCard } from '@/components/patient/PatientPageLayout';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
-import { ArrowLeft, FileText, Plus, TestTube } from 'lucide-react';
+import { ArrowLeft, Calendar, FileText, Plus, TestTube, TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { useState } from 'react';
 
 type Patient = {
@@ -28,24 +28,85 @@ type LabTest = {
     is_active: boolean;
 };
 
+type LabResultValue = {
+    id: number;
+    parameter: string;
+    value: string | number;
+    unit?: string;
+    reference_range?: string;
+    status?: string;
+};
+
+type LabResult = {
+    id: number;
+    lab_test_id: number;
+    test?: LabTest;
+    results?: any;
+    values?: LabResultValue[];
+    verified_at?: string;
+};
+
 type LabOrder = {
     id: number;
     status: string;
     created_at: string;
     notes?: string;
     lab_tests: LabTest[];
+    results?: LabResult[];
     visit?: {
         id: number;
         notes?: string;
+        appointment?: {
+            id: number;
+            appointment_date: string;
+            appointment_time: string;
+            appointment_type: string;
+            specialist?: {
+                name: string;
+            };
+        };
         attending_staff?: {
             id: number;
             name: string;
         } | null;
     } | null;
+    appointments?: Array<{
+        id: number;
+        appointment_date: string;
+        appointment_time: string;
+        appointment_type: string;
+        specialist?: {
+            name: string;
+        };
+    }>;
     ordered_by?: {
         id: number;
         name: string;
     } | null;
+};
+
+type Appointment = {
+    id: number;
+    appointment_code: string;
+    appointment_date: string;
+    appointment_time: string;
+    appointment_type: string;
+    status: string;
+    specialist?: {
+        name: string;
+        specialization?: string;
+    };
+    visit?: {
+        id: number;
+        notes?: string;
+        visit_date_time_time?: string;
+        attending_staff?: {
+            id: number;
+            name: string;
+        };
+        lab_orders?: LabOrder[];
+    };
+    lab_orders?: LabOrder[];
 };
 
 const breadcrumbs = (patient: Patient): BreadcrumbItem[] => [
@@ -58,11 +119,13 @@ export default function PatientLabOrders({
     patient,
     labTests,
     orders = [],
+    appointments = [],
     patient_visit_id = null,
 }: {
     patient: Patient;
     labTests: LabTest[];
     orders?: LabOrder[];
+    appointments?: Appointment[];
     patient_visit_id?: number | null;
 }) {
     const [selectedTests, setSelectedTests] = useState<number[]>([]);
@@ -114,6 +177,75 @@ export default function PatientLabOrders({
             </Badge>
         );
     };
+
+    // Build timeline of appointments and lab orders
+    const buildTimeline = () => {
+        const timelineItems: Array<{
+            date: Date;
+            type: 'appointment' | 'lab_order';
+            data: Appointment | LabOrder;
+        }> = [];
+
+        // Add appointments to timeline
+        appointments.forEach((apt) => {
+            const date = new Date(`${apt.appointment_date}T${apt.appointment_time}`);
+            timelineItems.push({
+                date,
+                type: 'appointment',
+                data: apt,
+            });
+        });
+
+        // Add lab orders to timeline
+        orders.forEach((order) => {
+            const date = new Date(order.created_at);
+            timelineItems.push({
+                date,
+                type: 'lab_order',
+                data: order,
+            });
+        });
+
+        // Sort by date (newest first)
+        return timelineItems.sort((a, b) => b.date.getTime() - a.date.getTime());
+    };
+
+    // Get lab results history for a specific test
+    const getTestHistory = (testName: string) => {
+        const history: Array<{
+            date: Date;
+            orderId: number;
+            appointment?: Appointment;
+            values: LabResultValue[];
+        }> = [];
+
+        orders.forEach((order) => {
+            const testResults = order.results?.filter((r) => r.test?.name === testName || r.test?.code === testName);
+            if (testResults && testResults.length > 0) {
+                testResults.forEach((result) => {
+                    if (result.values && result.values.length > 0) {
+                        const date = new Date(order.created_at);
+                        // Find associated appointment
+                        const appointment = appointments.find((apt) => 
+                            apt.visit?.lab_orders?.some((lo) => lo.id === order.id) ||
+                            apt.lab_orders?.some((lo) => lo.id === order.id) ||
+                            order.visit?.appointment?.id === apt.id
+                        );
+                        history.push({
+                            date,
+                            orderId: order.id,
+                            appointment,
+                            values: result.values,
+                        });
+                    }
+                });
+            }
+        });
+
+        return history.sort((a, b) => a.date.getTime() - b.date.getTime());
+    };
+
+    const timeline = buildTimeline();
 
     return (
         <AppLayout breadcrumbs={breadcrumbs(patient)}>
@@ -202,6 +334,205 @@ export default function PatientLabOrders({
                                         </div>
                                     </div>
                                 </form>
+                            </PatientInfoCard>
+                        )}
+
+                        {/* Patient History Timeline */}
+                        {timeline.length > 0 && (
+                            <PatientInfoCard
+                                title="Patient History - Appointments & Lab Results"
+                                icon={<Calendar className="h-5 w-5 text-black" />}
+                            >
+                                <div className="space-y-6">
+                                    {timeline.map((item, index) => {
+                                        const isAppointment = item.type === 'appointment';
+                                        const appointment = isAppointment ? (item.data as Appointment) : null;
+                                        const order = !isAppointment ? (item.data as LabOrder) : null;
+                                        
+                                        return (
+                                            <div key={`${item.type}-${item.data.id}-${index}`} className="relative pl-8 pb-6 border-l-2 border-green-300 last:border-l-0 last:pb-0">
+                                                <div className="absolute -left-2 top-0 w-4 h-4 bg-green-600 rounded-full border-2 border-white"></div>
+                                                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                                                    {isAppointment && appointment ? (
+                                                        <div>
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Calendar className="h-4 w-4 text-blue-600" />
+                                                                    <h4 className="font-semibold text-gray-900">Appointment</h4>
+                                                                    <Badge variant="outline" className="text-xs">
+                                                                        {appointment.appointment_code}
+                                                                    </Badge>
+                                                                </div>
+                                                                <span className="text-sm text-gray-500">
+                                                                    {item.date.toLocaleDateString('en-US', {
+                                                                        year: 'numeric',
+                                                                        month: 'short',
+                                                                        day: 'numeric',
+                                                                        hour: '2-digit',
+                                                                        minute: '2-digit',
+                                                                    })}
+                                                                </span>
+                                                            </div>
+                                                            <div className="space-y-1 text-sm">
+                                                                <p><strong>Type:</strong> {appointment.appointment_type}</p>
+                                                                {appointment.specialist && (
+                                                                    <p><strong>Doctor:</strong> {appointment.specialist.name}</p>
+                                                                )}
+                                                                {appointment.visit?.notes && (
+                                                                    <p className="mt-2 text-gray-700"><strong>Notes:</strong> {appointment.visit.notes}</p>
+                                                                )}
+                                                            </div>
+                                                            {/* Show lab orders from this appointment */}
+                                                            {((appointment.visit?.lab_orders && appointment.visit.lab_orders.length > 0) ||
+                                                              (appointment.lab_orders && appointment.lab_orders.length > 0)) && (
+                                                                <div className="mt-3 pt-3 border-t border-gray-200">
+                                                                    <p className="text-sm font-semibold text-gray-700 mb-2">Lab Tests:</p>
+                                                                    <div className="space-y-2">
+                                                                        {(appointment.visit?.lab_orders || appointment.lab_orders || []).map((lo) => (
+                                                                            <div key={lo.id} className="bg-gray-50 rounded p-2">
+                                                                                <div className="flex items-center justify-between mb-1">
+                                                                                    <span className="text-sm font-medium">Order #{lo.id}</span>
+                                                                                    {getStatusBadge(lo.status)}
+                                                                                </div>
+                                                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                                                    {(lo.lab_tests || []).map((test) => (
+                                                                                        <Badge key={test.id} variant="outline" className="text-xs">
+                                                                                            {test.name}
+                                                                                        </Badge>
+                                                                                    ))}
+                                                                                </div>
+                                                                                {/* Show results if available */}
+                                                                                {lo.results && lo.results.length > 0 && (
+                                                                                    <div className="mt-2 pt-2 border-t border-gray-200">
+                                                                                        {lo.results.map((result) => (
+                                                                                            <div key={result.id} className="mb-2 last:mb-0">
+                                                                                                <p className="text-xs font-semibold text-gray-700">{result.test?.name || 'Unknown Test'}</p>
+                                                                                                {result.values && result.values.length > 0 ? (
+                                                                                                    <div className="mt-1 space-y-1">
+                                                                                                        {result.values.map((val, idx) => (
+                                                                                                            <div key={idx} className="text-xs text-gray-600 flex items-center gap-2">
+                                                                                                                <span className="font-medium">{val.parameter}:</span>
+                                                                                                                <span>{val.value}</span>
+                                                                                                                {val.unit && <span className="text-gray-500">{val.unit}</span>}
+                                                                                                                {val.reference_range && (
+                                                                                                                    <span className="text-gray-500">({val.reference_range})</span>
+                                                                                                                )}
+                                                                                                                {val.status && (
+                                                                                                                    <Badge 
+                                                                                                                        variant="outline" 
+                                                                                                                        className={`text-xs ${
+                                                                                                                            val.status.toLowerCase().includes('high') || val.status.toLowerCase().includes('abnormal') 
+                                                                                                                                ? 'bg-red-100 text-red-800 border-red-200' 
+                                                                                                                                : val.status.toLowerCase().includes('low') 
+                                                                                                                                ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                                                                                                                                : 'bg-green-100 text-green-800 border-green-200'
+                                                                                                                        }`}
+                                                                                                                    >
+                                                                                                                        {val.status}
+                                                                                                                    </Badge>
+                                                                                                                )}
+                                                                                                            </div>
+                                                                                                        ))}
+                                                                                                    </div>
+                                                                                                ) : (
+                                                                                                    <p className="text-xs text-gray-500 italic">Results pending</p>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        order && (
+                                                            <div>
+                                                                <div className="flex items-center justify-between mb-2">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <TestTube className="h-4 w-4 text-green-600" />
+                                                                        <h4 className="font-semibold text-gray-900">Lab Order #{order.id}</h4>
+                                                                        {getStatusBadge(order.status)}
+                                                                    </div>
+                                                                    <span className="text-sm text-gray-500">
+                                                                        {item.date.toLocaleDateString('en-US', {
+                                                                            year: 'numeric',
+                                                                            month: 'short',
+                                                                            day: 'numeric',
+                                                                            hour: '2-digit',
+                                                                            minute: '2-digit',
+                                                                        })}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="space-y-1 text-sm mb-2">
+                                                                    {order.visit?.appointment && (
+                                                                        <p><strong>From Appointment:</strong> {order.visit.appointment.appointment_code} - {order.visit.appointment.appointment_type}</p>
+                                                                    )}
+                                                                    {(order.appointments && order.appointments.length > 0) && (
+                                                                        <p>
+                                                                            <strong>Linked Appointments:</strong>{' '}
+                                                                            {order.appointments.map((apt) => apt.appointment_code).join(', ')}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex flex-wrap gap-1 mb-2">
+                                                                    {(order.lab_tests || []).map((test) => (
+                                                                        <Badge key={test.id} variant="outline" className="text-xs">
+                                                                            {test.name}
+                                                                        </Badge>
+                                                                    ))}
+                                                                </div>
+                                                                {/* Show results if available */}
+                                                                {order.results && order.results.length > 0 && (
+                                                                    <div className="mt-2 pt-2 border-t border-gray-200">
+                                                                        <p className="text-xs font-semibold text-gray-700 mb-2">Results:</p>
+                                                                        {order.results.map((result) => (
+                                                                            <div key={result.id} className="mb-2 last:mb-0 bg-gray-50 rounded p-2">
+                                                                                <p className="text-xs font-semibold text-gray-700">{result.test?.name || 'Unknown Test'}</p>
+                                                                                {result.values && result.values.length > 0 ? (
+                                                                                    <div className="mt-1 space-y-1">
+                                                                                        {result.values.map((val, idx) => (
+                                                                                            <div key={idx} className="text-xs text-gray-600 flex items-center gap-2">
+                                                                                                <span className="font-medium">{val.parameter}:</span>
+                                                                                                <span>{val.value}</span>
+                                                                                                {val.unit && <span className="text-gray-500">{val.unit}</span>}
+                                                                                                {val.reference_range && (
+                                                                                                    <span className="text-gray-500">({val.reference_range})</span>
+                                                                                                )}
+                                                                                                {val.status && (
+                                                                                                    <Badge 
+                                                                                                        variant="outline" 
+                                                                                                        className={`text-xs ${
+                                                                                                            val.status.toLowerCase().includes('high') || val.status.toLowerCase().includes('abnormal') 
+                                                                                                                ? 'bg-red-100 text-red-800 border-red-200' 
+                                                                                                                : val.status.toLowerCase().includes('low') 
+                                                                                                                ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                                                                                                                : 'bg-green-100 text-green-800 border-green-200'
+                                                                                                        }`}
+                                                                                                    >
+                                                                                                        {val.status}
+                                                                                                    </Badge>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <p className="text-xs text-gray-500 italic">Results pending</p>
+                                                                                )}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </PatientInfoCard>
                         )}
 
