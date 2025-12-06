@@ -179,11 +179,14 @@ const createTransactionColumns = (): ColumnDef<BillingTransaction>[] => [
         header: "Patient",
         cell: ({ row }) => {
             const patient = row.getValue("patient") as any;
+            if (patient && patient.first_name && patient.last_name) {
             return (
                 <div className="font-medium">
-                    {patient ? `${patient.last_name}, ${patient.first_name}` : 'Loading...'}
+                        {`${patient.last_name}, ${patient.first_name}`}
                 </div>
             );
+            }
+            return <div className="font-medium">—</div>;
         },
     },
     {
@@ -203,16 +206,28 @@ const createTransactionColumns = (): ColumnDef<BillingTransaction>[] => [
                     onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
                     className="h-8 px-2 lg:px-3"
                 >
-                    Amount
+                    Final Amount
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
             )
         },
-        cell: ({ row }) => (
+        cell: ({ row }) => {
+            const transaction = row.original as any;
+            // Use amount which should be the final amount after all discounts
+            const finalAmount = transaction.amount ?? transaction.total_amount ?? 0;
+            return (
             <div className="font-semibold text-green-600">
-                ₱{row.getValue("amount")?.toLocaleString()}
+                    ₱{Number(finalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-        ),
+            );
+        },
+        sortingFn: (rowA, rowB) => {
+            const a = rowA.original as any;
+            const b = rowB.original as any;
+            const amountA = a.amount ?? a.total_amount ?? 0;
+            const amountB = b.amount ?? b.total_amount ?? 0;
+            return Number(amountA) - Number(amountB);
+        },
     },
     {
         accessorKey: "payment_method",

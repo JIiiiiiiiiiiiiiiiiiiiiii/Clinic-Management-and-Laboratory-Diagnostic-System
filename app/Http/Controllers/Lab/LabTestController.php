@@ -66,6 +66,15 @@ class LabTestController extends Controller
 
     public function edit(LabTest $labTest)
     {
+        // Log for debugging
+        \Log::info('Lab test edit accessed', [
+            'test_id' => $labTest->id,
+            'test_name' => $labTest->name,
+            'has_price' => isset($labTest->price),
+            'price_value' => $labTest->price ?? null,
+            'all_attributes' => $labTest->getAttributes(),
+        ]);
+        
         return Inertia::render('admin/laboratory/tests/edit', [
             'test' => $labTest,
         ]);

@@ -239,14 +239,14 @@ export default function Dashboard() {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                             <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-all duration-300">
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium text-blue-800">New Patients Today</CardTitle>
+                                    <CardTitle className="text-sm font-medium text-blue-800">Total Patients</CardTitle>
                                     <UserPlus className="h-5 w-5 text-blue-600" />
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="text-3xl font-bold text-blue-900">{stats.new_patients_today || 0}</div>
+                                    <div className="text-3xl font-bold text-blue-900">{stats.total_patients || 0}</div>
                                     <p className="text-xs text-blue-700 mt-1">
                                         <TrendingUp className="inline h-3 w-3 mr-1" />
-                                        {stats.new_patients_today > 0 ? 'New registrations today' : 'No new patients today'}
+                                        {stats.new_patients_today > 0 ? `${stats.new_patients_today} new today` : 'All registered patients'}
                                     </p>
                                 </CardContent>
                             </Card>
@@ -267,14 +267,14 @@ export default function Dashboard() {
 
                             <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-all duration-300">
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium text-purple-800">Revenue Today</CardTitle>
+                                    <CardTitle className="text-sm font-medium text-purple-800">Total Revenue</CardTitle>
                                     <Coins className="h-5 w-5 text-purple-600" />
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="text-3xl font-bold text-purple-900">₱{(stats.today_revenue || 0).toLocaleString()}</div>
+                                    <div className="text-3xl font-bold text-purple-900">₱{(stats.total_revenue || 0).toLocaleString()}</div>
                                     <p className="text-xs text-purple-700 mt-1">
                                         <TrendingUp className="inline h-3 w-3 mr-1" />
-                                        Total: ₱{(stats.total_revenue || 0).toLocaleString()}
+                                        {stats.today_revenue > 0 ? `₱${(stats.today_revenue || 0).toLocaleString()} today` : 'All paid transactions'}
                                     </p>
                                 </CardContent>
                             </Card>

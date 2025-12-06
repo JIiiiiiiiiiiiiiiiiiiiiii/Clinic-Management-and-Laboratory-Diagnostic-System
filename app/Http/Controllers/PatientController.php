@@ -62,6 +62,10 @@ class PatientController extends Controller
             $sortDir = $request->get('p_sort_dir', 'desc');
             $query->orderBy($sortBy, $sortDir);
 
+            // Get pagination per_page from request, default to 100 to show all patients at once
+            // This allows client-side table pagination to work properly with all data
+            $perPage = min($request->get('per_page', 100), 500); // Cap at 500 for safety
+            
             $patients = $query->select([
                 'id',
                 'patient_no', 
@@ -76,7 +80,7 @@ class PatientController extends Controller
                 'address',
                 'created_at',
                 'updated_at'
-            ])->paginate(15);
+            ])->paginate($perPage);
 
             // Transform the data to ensure address is properly displayed
             $patients->getCollection()->transform(function ($patient) {

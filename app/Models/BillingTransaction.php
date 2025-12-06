@@ -15,16 +15,15 @@ class BillingTransaction extends Model
         'patient_id',
         'specialist_id', // Use specialist_id which exists in database (not doctor_id)
         'amount', // Only 'amount' exists in database (not 'total_amount')
-        'is_senior_citizen',
-        'senior_discount_amount',
-        'senior_discount_percentage',
+        // Note: discount_amount, discount_percentage, is_senior_citizen, senior_discount_amount, 
+        // senior_discount_percentage columns don't exist in database - stored in notes as JSON
         'hmo_provider_id',
         'hmo_reference_number',
         'payment_method',
         'reference_no',
         'status',
         'is_itemized',
-        'notes',
+        'notes', // Discount info stored here as [BILLING_DATA:...] JSON
         'visit_id',
         'is_visit_based',
         'consultation_amount',
@@ -37,9 +36,8 @@ class BillingTransaction extends Model
 
     protected $casts = [
         'amount' => 'decimal:2', // Only 'amount' exists in database (not 'total_amount')
-        'is_senior_citizen' => 'boolean',
-        'senior_discount_amount' => 'decimal:2',
-        'senior_discount_percentage' => 'decimal:2',
+        // Note: discount_amount, discount_percentage, is_senior_citizen, senior_discount_amount, 
+        // senior_discount_percentage are accessors (parsed from notes), not database columns
         'is_itemized' => 'boolean',
         'is_visit_based' => 'boolean',
         'consultation_amount' => 'decimal:2',
@@ -50,7 +48,7 @@ class BillingTransaction extends Model
     ];
 
     // Append accessors to JSON output for backward compatibility
-    protected $appends = ['transaction_id', 'transaction_date', 'total_amount'];
+    protected $appends = ['transaction_id', 'transaction_date', 'total_amount', 'discount_amount', 'discount_percentage', 'is_senior_citizen', 'senior_discount_amount', 'senior_discount_percentage', 'notes_display'];
     
     // Accessor: Map amount to total_amount for backward compatibility
     // Since total_amount column doesn't exist in database, use amount
@@ -64,6 +62,105 @@ class BillingTransaction extends Model
         
         // Use amount as the total amount
         return $this->amount ?? 0;
+    }
+    
+    /**
+     * Parse discount information from notes field
+     * Format: [BILLING_DATA:{"discount_amount":50,"discount_percentage":null,...}]
+     */
+    private function parseBillingDataFromNotes()
+    {
+        if (!$this->notes) {
+            return null;
+        }
+        
+        // Look for [BILLING_DATA:...] pattern in notes
+        if (preg_match('/\[BILLING_DATA:(.+?)\]/', $this->notes, $matches)) {
+            try {
+                $data = json_decode($matches[1], true);
+                return $data ?: null;
+            } catch (\Exception $e) {
+                \Log::warning('Failed to parse billing data from notes', [
+                    'transaction_id' => $this->id,
+                    'notes' => $this->notes,
+                    'error' => $e->getMessage()
+                ]);
+                return null;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Accessor: Get discount_amount from notes or calculate from difference
+     */
+    public function getDiscountAmountAttribute()
+    {
+        $billingData = $this->parseBillingDataFromNotes();
+        if ($billingData && isset($billingData['discount_amount'])) {
+            return (float) $billingData['discount_amount'];
+        }
+        
+        // Fallback: Calculate from difference if items exist
+        if ($this->relationLoaded('items') && $this->items->isNotEmpty()) {
+            $subtotal = $this->items->sum('total_price');
+            $seniorDiscount = $this->getSeniorDiscountAmountAttribute();
+            $calculatedDiscount = $subtotal - $seniorDiscount - $this->amount;
+            if ($calculatedDiscount > 0.01) {
+                return $calculatedDiscount;
+            }
+        }
+        
+        return 0.0;
+    }
+    
+    /**
+     * Accessor: Get discount_percentage from notes
+     */
+    public function getDiscountPercentageAttribute()
+    {
+        $billingData = $this->parseBillingDataFromNotes();
+        if ($billingData && isset($billingData['discount_percentage'])) {
+            return $billingData['discount_percentage'] ? (float) $billingData['discount_percentage'] : null;
+        }
+        return null;
+    }
+    
+    /**
+     * Accessor: Get is_senior_citizen from notes
+     */
+    public function getIsSeniorCitizenAttribute()
+    {
+        $billingData = $this->parseBillingDataFromNotes();
+        if ($billingData && isset($billingData['is_senior_citizen'])) {
+            return (bool) $billingData['is_senior_citizen'];
+        }
+        return false;
+    }
+    
+    /**
+     * Accessor: Get senior_discount_amount from notes
+     */
+    public function getSeniorDiscountAmountAttribute()
+    {
+        $billingData = $this->parseBillingDataFromNotes();
+        if ($billingData && isset($billingData['senior_discount_amount'])) {
+            return (float) $billingData['senior_discount_amount'];
+        }
+        return 0.0;
+    }
+    
+    /**
+     * Accessor: Get senior_discount_percentage from notes
+     */
+    public function getSeniorDiscountPercentageAttribute()
+    {
+        $billingData = $this->parseBillingDataFromNotes();
+        if ($billingData && isset($billingData['senior_discount_percentage'])) {
+            return (float) $billingData['senior_discount_percentage'];
+        }
+        return null;
     }
 
     // Relationships
@@ -203,31 +300,62 @@ class BillingTransaction extends Model
     // Helper methods for getting related data
     public function getPatientInfo()
     {
+        // Method 1: Direct patient relationship
         if ($this->patient) {
             return $this->patient;
         }
         
-        // Try to get patient from appointment links (preferred method)
+        // Method 2: Try to get patient from appointment links using getPatientWithFallback
         if ($this->relationLoaded('appointmentLinks')) {
             foreach ($this->appointmentLinks as $link) {
-                if ($link->appointment && $link->appointment->patient) {
-                    return $link->appointment->patient;
+                if ($link->appointment) {
+                    // Use appointment's getPatientWithFallback which extracts from unique_appointment_key
+                    $patient = $link->appointment->getPatientWithFallback();
+                    if ($patient) {
+                        return $patient;
+                    }
                 }
             }
         } else {
             // Load appointment links if not already loaded
-            $this->load('appointmentLinks.appointment.patient');
+            $this->load('appointmentLinks.appointment');
             foreach ($this->appointmentLinks as $link) {
-                if ($link->appointment && $link->appointment->patient) {
-                    return $link->appointment->patient;
+                if ($link->appointment) {
+                    // Use appointment's getPatientWithFallback which extracts from unique_appointment_key
+                    $patient = $link->appointment->getPatientWithFallback();
+                    if ($patient) {
+                        return $patient;
+                    }
                 }
             }
         }
         
-        // Fallback: Try to get patient from appointments relationship
+        // Method 3: Try to get patient from appointments relationship using getPatientWithFallback
         $appointment = $this->appointments()->first();
-        if ($appointment && $appointment->patient) {
-            return $appointment->patient;
+        if ($appointment) {
+            $patient = $appointment->getPatientWithFallback();
+            if ($patient) {
+                return $patient;
+            }
+        }
+        
+        // Method 4: Try direct appointment relationship (if appointment_id exists)
+        if ($this->appointment_id) {
+            $appointment = \App\Models\Appointment::find($this->appointment_id);
+            if ($appointment) {
+                $patient = $appointment->getPatientWithFallback();
+                if ($patient) {
+                    return $patient;
+                }
+            }
+        }
+        
+        // Method 5: Final fallback - Load patient directly from patient_id if it exists
+        if ($this->patient_id) {
+            $patient = \App\Models\Patient::find($this->patient_id);
+            if ($patient) {
+                return $patient;
+            }
         }
         
         return null;
@@ -278,6 +406,24 @@ class BillingTransaction extends Model
         // Use created_at as the transaction date
         return $this->created_at;
     }
+    
+    /**
+     * Accessor: Get clean notes without [BILLING_DATA:...] JSON for display
+     */
+    public function getNotesDisplayAttribute()
+    {
+        if (!$this->notes) {
+            return '';
+        }
+        
+        // Remove [BILLING_DATA:...] pattern from notes for display
+        $cleanNotes = preg_replace('/\[BILLING_DATA:.+?\]/', '', $this->notes);
+        
+        // Clean up any extra whitespace or newlines
+        $cleanNotes = trim($cleanNotes);
+        
+        return $cleanNotes;
+    }
 
     // Methods
     public function markAsPaid($paymentMethod = 'cash', $referenceNo = null)
@@ -318,7 +464,7 @@ class BillingTransaction extends Model
     }
     
     /**
-     * Override toArray to ensure doctor relationship is always included, even when null
+     * Override toArray to ensure doctor relationship and discount fields are always included
      */
     public function toArray()
     {
@@ -331,6 +477,23 @@ class BillingTransaction extends Model
             } else {
                 $array['doctor'] = null;
             }
+        }
+        
+        // Ensure discount fields are always included, even if null or 0
+        if (!isset($array['discount_amount'])) {
+            $array['discount_amount'] = $this->discount_amount ?? 0;
+        }
+        if (!isset($array['discount_percentage'])) {
+            $array['discount_percentage'] = $this->discount_percentage ?? null;
+        }
+        if (!isset($array['senior_discount_amount'])) {
+            $array['senior_discount_amount'] = $this->senior_discount_amount ?? 0;
+        }
+        if (!isset($array['senior_discount_percentage'])) {
+            $array['senior_discount_percentage'] = $this->senior_discount_percentage ?? null;
+        }
+        if (!isset($array['is_senior_citizen'])) {
+            $array['is_senior_citizen'] = $this->is_senior_citizen ?? false;
         }
         
         return $array;

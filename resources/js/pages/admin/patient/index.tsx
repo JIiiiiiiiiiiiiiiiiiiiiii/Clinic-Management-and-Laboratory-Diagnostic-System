@@ -295,6 +295,11 @@ export default function Patient(props: {
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
         onGlobalFilterChange: setGlobalFilter,
+        initialState: {
+            pagination: {
+                pageSize: 100, // Default to 100 to show all patients initially
+            },
+        },
         globalFilterFn: (row, columnId, value) => {
             const search = value.toLowerCase();
             const patient = row.original;
@@ -534,7 +539,7 @@ export default function Patient(props: {
                                                 <SelectValue placeholder={table.getState().pagination.pageSize} />
                                             </SelectTrigger>
                                             <SelectContent side="top">
-                                                {[10, 20, 30, 40, 50].map((pageSize) => (
+                                                {[10, 20, 30, 50, 100, 200].map((pageSize) => (
                                                     <SelectItem key={pageSize} value={`${pageSize}`}>
                                                         {pageSize}
                                                     </SelectItem>

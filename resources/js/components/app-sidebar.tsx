@@ -288,11 +288,6 @@ const getPermissionBasedNavigation = (permissions: any, userRole: string) => {
           show: getSubItemAccess('billing', 'Doctor Payments'),
         },
         {
-          title: "Reports",
-          url: "/admin/billing/reports",
-          show: getSubItemAccess('billing', 'Reports'),
-        },
-        {
           title: "HMO Providers",
           url: "/admin/billing/hmo-providers",
           show: getSubItemAccess('billing', 'HMO Providers'),

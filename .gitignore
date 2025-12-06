@@ -55,3 +55,4 @@ node_modules/
 TASKS.md
 .env.taskmaster
 .env.taskmaster.local
+Dockerfile

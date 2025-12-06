@@ -11,7 +11,6 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { safeFormatDate, safeFormatTime } from '@/utils/dateTime';
 import { toast } from 'sonner';
 import PendingAppointmentViewModal from '@/components/modals/pending-appointment-view-modal';
-import PendingAppointmentEditModal from '@/components/modals/pending-appointment-edit-modal';
 import PendingAppointmentDeleteModal from '@/components/modals/pending-appointment-delete-modal';
 import PendingAppointmentPaymentModal from '@/components/modals/pending-appointment-payment-modal';
 import { 
@@ -28,7 +27,6 @@ import {
     Users,
     Search,
     Download,
-    Edit,
     CreditCard,
     DollarSign,
     Receipt,
@@ -164,7 +162,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 // Column definitions for the pending appointments table
-const createPendingAppointmentsColumns = (handleViewAppointment: (id: number) => void, handleEditAppointment: (id: number) => void, handleDeleteAppointment: (id: number) => void, handlePaymentAppointment: (id: number) => void): ColumnDef<PendingAppointment>[] => [
+const createPendingAppointmentsColumns = (handleViewAppointment: (id: number) => void, handleDeleteAppointment: (id: number) => void, handlePaymentAppointment: (id: number) => void): ColumnDef<PendingAppointment>[] => [
     {
         accessorKey: "patient_name",
         header: ({ column }) => {
@@ -272,14 +270,6 @@ const createPendingAppointmentsColumns = (handleViewAppointment: (id: number) =>
                     <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => handleEditAppointment(appointment.id)}
-                    >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
-                    </Button>
-                    <Button 
-                        variant="outline" 
-                        size="sm"
                         onClick={() => handleDeleteAppointment(appointment.id)}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
@@ -339,7 +329,6 @@ export default function PendingAppointments({
     
     // Modal state
     const [viewModalOpen, setViewModalOpen] = useState(false);
-    const [editModalOpen, setEditModalOpen] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
     const [selectedAppointmentId, setSelectedAppointmentId] = useState<number | null>(null);
@@ -379,19 +368,6 @@ export default function PendingAppointments({
         setSelectedAppointmentId(null);
     };
 
-    // Edit modal handlers
-    const handleEditAppointment = (appointmentId: number) => {
-        console.log('Edit appointment clicked with ID:', appointmentId);
-        console.log('Appointment data:', appointmentsData.find(apt => apt.id === appointmentId));
-        setSelectedAppointmentId(appointmentId);
-        setEditModalOpen(true);
-    };
-
-    const handleEditModalClose = () => {
-        setEditModalOpen(false);
-        setSelectedAppointmentId(null);
-    };
-
     // Delete modal handlers
     const handleDeleteAppointment = (appointmentId: number) => {
         setSelectedAppointmentId(appointmentId);
@@ -424,7 +400,7 @@ export default function PendingAppointments({
     };
     
     // Initialize appointments table
-    const columns = createPendingAppointmentsColumns(handleViewAppointment, handleEditAppointment, handleDeleteAppointment, handlePaymentAppointment);
+    const columns = createPendingAppointmentsColumns(handleViewAppointment, handleDeleteAppointment, handlePaymentAppointment);
     const table = useReactTable({
         data: appointmentsData || [],
         columns,
@@ -795,16 +771,6 @@ export default function PendingAppointments({
                 isOpen={viewModalOpen}
                 onClose={handleViewModalClose}
                 appointment={appointmentsData.find(apt => apt.id === selectedAppointmentId) as any || null}
-                onEdit={handleEditAppointment}
-            />
-
-            {/* Pending Appointment Edit Modal */}
-            <PendingAppointmentEditModal
-                isOpen={editModalOpen}
-                onClose={handleEditModalClose}
-                onSuccess={handleModalSuccess}
-                appointment={appointmentsData.find(apt => apt.id === selectedAppointmentId) as any || null}
-                doctors={doctors}
             />
 
             {/* Pending Appointment Delete Modal */}

@@ -32,17 +32,24 @@ class FinancialReportExport implements WithMultipleSheets, WithEvents
     {
         $sheets = [];
 
+        // Calculate summary from transactions collection to ensure accuracy
+        $totalRevenue = $this->transactions->sum('amount') ?? 0; // Final amount after discounts
+        $totalTransactions = $this->transactions->count();
+        $cashTotal = $this->transactions->where('payment_method', 'cash')->sum('amount') ?? 0;
+        $hmoTotal = $this->transactions->where('payment_method', 'hmo')->sum('amount') ?? 0;
+        $pendingAmount = $this->transactions->where('status', 'pending')->sum('amount') ?? 0;
+        
         // Summary Sheet
         $summaryRows = [
             ['Metric', 'Value'],
             ['Report Type', ucfirst($this->reportType)],
             ['Filter', ucfirst($this->filter)],
             ['Date', $this->date],
-            ['Total Revenue', '₱' . number_format($this->data['summary']['total_revenue'] ?? 0, 2)],
-            ['Total Transactions', $this->data['summary']['total_transactions'] ?? 0],
-            ['Cash Total', '₱' . number_format($this->data['summary']['cash_total'] ?? 0, 2)],
-            ['HMO Total', '₱' . number_format($this->data['summary']['hmo_total'] ?? 0, 2)],
-            ['Pending Amount', '₱' . number_format($this->data['summary']['pending_amount'] ?? 0, 2)],
+            ['Total Revenue', 'PHP ' . number_format($totalRevenue, 2)],
+            ['Total Transactions', $totalTransactions],
+            ['Cash Total', 'PHP ' . number_format($cashTotal, 2)],
+            ['HMO Total', 'PHP ' . number_format($hmoTotal, 2)],
+            ['Pending Amount', 'PHP ' . number_format($pendingAmount, 2)],
         ];
         $sheets[] = new ArrayExport($summaryRows, [], 'Financial Summary', true);
 
@@ -51,17 +58,95 @@ class FinancialReportExport implements WithMultipleSheets, WithEvents
             ['Transaction ID', 'Patient Name', 'Specialist Name', 'Final Amount', 'Original Amount', 'Discount Amount', 'Senior Discount', 'Payment Method', 'Status', 'Date']
         ];
         foreach ($this->transactions as $transaction) {
+            // Calculate original amount: final amount + all discounts
+            $finalAmount = $transaction->amount ?? 0; // Final amount after discounts
+            $discountAmount = $transaction->discount_amount ?? 0;
+            $seniorDiscountAmount = $transaction->senior_discount_amount ?? 0;
+            $originalAmount = $finalAmount + $discountAmount + $seniorDiscountAmount; // Original amount before discounts
+            
+            // Get patient name
+            $patientName = 'N/A';
+            if ($transaction->patient) {
+                $firstName = $transaction->patient->first_name ?? '';
+                $middleName = $transaction->patient->middle_name ?? '';
+                $lastName = $transaction->patient->last_name ?? '';
+                $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName]))) ?: 'N/A';
+            }
+            
+            // Get specialist name - use same logic as billing transactions
+            // Default to 'Paul Henry N. Parrotina, MD.' to match billing transactions behavior
+            $specialistName = 'Paul Henry N. Parrotina, MD.';
+            
+            // Try from transaction's doctor relationship
+            if ($transaction->doctor) {
+                $specialistName = $transaction->doctor->name ?? 'Paul Henry N. Parrotina, MD.';
+            }
+            
+            // Try from appointment relationship
+            if (($specialistName === 'Paul Henry N. Parrotina, MD.' || empty($specialistName)) && $transaction->appointment && $transaction->appointment->specialist) {
+                $specialistName = $transaction->appointment->specialist->name ?? 'Paul Henry N. Parrotina, MD.';
+            }
+            
+            // Try from appointment links if still not found
+            // Always query appointment links directly to ensure we check even if relationship is empty
+            if (($specialistName === 'Paul Henry N. Parrotina, MD.' || empty($specialistName))) {
+                $appointmentLinks = \App\Models\AppointmentBillingLink::where('billing_transaction_id', $transaction->id)->get();
+                if ($appointmentLinks->isNotEmpty()) {
+                    foreach ($appointmentLinks as $link) {
+                        if ($link->appointment_id) {
+                            $appointment = \App\Models\Appointment::find($link->appointment_id);
+                            if ($appointment && $appointment->specialist_id) {
+                                $appointmentSpecialist = \App\Models\Specialist::where('specialist_id', $appointment->specialist_id)->first();
+                                if ($appointmentSpecialist && $appointmentSpecialist->name) {
+                                    $specialistName = $appointmentSpecialist->name;
+                                    break;
+                                }
+                            }
+                            
+                            // Try visit relationships
+                            if (($specialistName === 'Paul Henry N. Parrotina, MD.' || empty($specialistName))) {
+                                $visit = \App\Models\Visit::where('appointment_id', $link->appointment_id)->first();
+                                if ($visit) {
+                                    // Try doctor_id, then attending_staff_id, then nurse_id, then medtech_id
+                                    $visitSpecialistId = $visit->doctor_id ?? $visit->attending_staff_id ?? $visit->nurse_id ?? $visit->medtech_id ?? null;
+                                    if ($visitSpecialistId) {
+                                        $visitSpecialist = \App\Models\Specialist::where('specialist_id', $visitSpecialistId)->first();
+                                        if ($visitSpecialist && $visitSpecialist->name) {
+                                            $specialistName = $visitSpecialist->name;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Try from specialist_id if still not found
+            if (($specialistName === 'Paul Henry N. Parrotina, MD.' || empty($specialistName)) && $transaction->specialist_id) {
+                $specialist = \App\Models\Specialist::where('specialist_id', $transaction->specialist_id)->first();
+                if ($specialist && $specialist->name) {
+                    $specialistName = $specialist->name;
+                }
+            }
+            
+            // Ensure we have a default value
+            if (empty($specialistName)) {
+                $specialistName = 'Paul Henry N. Parrotina, MD.';
+            }
+            
             $transactionRows[] = [
                 $transaction->transaction_id,
-                $transaction->patient->name ?? 'N/A',
-                $transaction->doctor->name ?? ($transaction->appointment->specialist->name ?? 'N/A'),
-                '₱' . number_format($transaction->total_amount, 2),
-                '₱' . number_format($transaction->original_amount ?? $transaction->total_amount, 2),
-                '₱' . number_format($transaction->discount_amount ?? 0, 2),
-                '₱' . number_format($transaction->senior_discount_amount ?? 0, 2),
-                ucfirst($transaction->payment_method),
-                ucfirst($transaction->status),
-                \Carbon\Carbon::parse($transaction->transaction_date)->format('M d, Y'),
+                $patientName,
+                $specialistName,
+                'PHP ' . number_format($finalAmount, 2),
+                'PHP ' . number_format($originalAmount, 2),
+                'PHP ' . number_format($discountAmount, 2),
+                'PHP ' . number_format($seniorDiscountAmount, 2),
+                ucfirst($transaction->payment_method ?? 'cash'),
+                ucfirst($transaction->status ?? 'pending'),
+                $transaction->transaction_date ? \Carbon\Carbon::parse($transaction->transaction_date)->format('M d, Y') : 'N/A',
             ];
         }
         $sheets[] = new ArrayExport($transactionRows, [], 'Financial Transactions', true);

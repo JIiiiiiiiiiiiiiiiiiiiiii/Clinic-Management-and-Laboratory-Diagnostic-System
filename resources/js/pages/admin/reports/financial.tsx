@@ -338,8 +338,14 @@ export default function FinancialReports({ filter, date, reportType, data, trans
         const completionRate = total > 0 ? (completed / total) * 100 : 0;
         
         // Calculate revenue based on filtered transactions
+        // CRITICAL: Use 'amount' field (final amount after discounts) for consistency
+        // The backend sends 'total_amount' which is mapped from 'amount' field
         const totalRevenue = currentTransactions.reduce((sum, t) => {
-            const amount = typeof t.total_amount === 'string' ? parseFloat(t.total_amount) : (t.total_amount || 0);
+            // Try 'amount' first (direct field), then 'total_amount' (mapped field), then fallback to 0
+            const amount = typeof t.amount === 'string' ? parseFloat(t.amount) : 
+                          (typeof t.amount === 'number' ? t.amount : 
+                          (typeof t.total_amount === 'string' ? parseFloat(t.total_amount) : 
+                          (typeof t.total_amount === 'number' ? t.total_amount : 0)));
             return sum + amount;
         }, 0);
         const averageTransaction = total > 0 ? totalRevenue / total : 0;
@@ -845,11 +851,6 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                     {currentReportType === 'all' ? (
                                         <>
                                             <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Transactions</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_transactions || 0}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
-                                            </tr>
-                                            <tr>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Pending Transactions</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.pending_transactions || 0}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -862,6 +863,11 @@ export default function FinancialReports({ filter, date, reportType, data, trans
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                     {(filteredData.total_transactions || 0) > 0 ? (((filteredData.completed_transactions || 0) / (filteredData.total_transactions || 1)) * 100).toFixed(1) : 0}%
                                                 </td>
+                                            </tr>
+                                            <tr>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Transactions</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_transactions || 0}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
                                             </tr>
                                         </>
                                     ) : currentReportType === 'cash' ? (

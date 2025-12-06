@@ -6,7 +6,7 @@ import { useRoleAccess } from '@/hooks/useRoleAccess';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { Calendar, CheckCircle, Clock, Edit, ArrowRight, User, Stethoscope, FileText, ArrowLeft, Trash2, Activity, ClipboardList, Heart, ArrowRightLeft, AlertCircle } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, Edit, ArrowRight, User, Stethoscope, FileText, ArrowLeft, Trash2, Activity, ClipboardList, Heart, ArrowRightLeft, AlertCircle, TestTube } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/admin/dashboard' },
@@ -88,9 +88,31 @@ interface VisitShowProps {
         }>;
     };
     patient?: any; // Full patient data
+    labOrders?: Array<{
+        id: number;
+        status: string;
+        notes?: string;
+        created_at: string;
+        ordered_by?: {
+            name: string;
+        };
+        tests?: Array<{
+            id: number;
+            name: string;
+            code: string;
+        }>;
+    }>;
+    transfers?: Array<{
+        id: number;
+        transfer_type: string;
+        status: string;
+        requested_at: string;
+        requested_by?: string;
+        approved_by?: string;
+    }>;
 }
 
-export default function VisitShow({ visit, patient }: VisitShowProps) {
+export default function VisitShow({ visit, patient, labOrders = [], transfers = [] }: VisitShowProps) {
     const { hasPermission } = useRoleAccess();
 
     const getStatusColor = (status: string) => {
@@ -655,6 +677,108 @@ export default function VisitShow({ visit, patient }: VisitShowProps) {
                                                     <Link href={`/admin/visits/${followUp.id}`}>
                                                         <Button variant="outline" size="sm">
                                                             View Details
+                                                        </Button>
+                                                    </Link>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Lab Orders */}
+                        {labOrders && labOrders.length > 0 && (
+                            <Card className="shadow-sm">
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="flex items-center gap-2">
+                                        <TestTube className="h-5 w-5" />
+                                        Lab Orders
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-0">
+                                    <div className="space-y-4">
+                                        {labOrders.map((order) => (
+                                            <div key={order.id} className="border rounded-lg p-4">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div>
+                                                        <p className="font-medium">Order #{order.id}</p>
+                                                        {order.ordered_by && (
+                                                            <p className="text-sm text-gray-500">
+                                                                Ordered by {order.ordered_by.name}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <Badge className={getStatusColor(order.status)}>
+                                                        {order.status}
+                                                    </Badge>
+                                                </div>
+                                                {order.tests && order.tests.length > 0 && (
+                                                    <div className="mt-2 space-y-1">
+                                                        <p className="text-xs font-semibold text-gray-700 mb-1">Tests:</p>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {order.tests.map((test) => (
+                                                                <Badge key={test.id} variant="outline" className="text-xs">
+                                                                    {test.name} ({test.code})
+                                                                </Badge>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {order.notes && (
+                                                    <p className="text-sm text-gray-600 mt-2">{order.notes}</p>
+                                                )}
+                                                <div className="mt-2">
+                                                    <Link href={`/admin/laboratory/orders/${order.id}`}>
+                                                        <Button variant="outline" size="sm" className="w-full">
+                                                            View Lab Order
+                                                        </Button>
+                                                    </Link>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Patient Transfers */}
+                        {transfers && transfers.length > 0 && (
+                            <Card className="shadow-sm">
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="flex items-center gap-2">
+                                        <ArrowRightLeft className="h-5 w-5" />
+                                        Patient Transfers
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-0">
+                                    <div className="space-y-4">
+                                        {transfers.map((transfer) => (
+                                            <div key={transfer.id} className="border rounded-lg p-4">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div>
+                                                        <p className="font-medium">Transfer #{transfer.id}</p>
+                                                        <p className="text-sm text-gray-500">
+                                                            {new Date(transfer.requested_at).toLocaleDateString()}
+                                                        </p>
+                                                    </div>
+                                                    <Badge className={getStatusColor(transfer.status)}>
+                                                        {transfer.status}
+                                                    </Badge>
+                                                </div>
+                                                <div className="space-y-1 text-sm">
+                                                    <p><strong>Type:</strong> {transfer.transfer_type}</p>
+                                                    {transfer.requested_by && (
+                                                        <p><strong>Requested by:</strong> {transfer.requested_by}</p>
+                                                    )}
+                                                    {transfer.approved_by && (
+                                                        <p><strong>Approved by:</strong> {transfer.approved_by}</p>
+                                                    )}
+                                                </div>
+                                                <div className="mt-2">
+                                                    <Link href={`/admin/patient-transfers/transfers/${transfer.id}`}>
+                                                        <Button variant="outline" size="sm" className="w-full">
+                                                            View Transfer Details
                                                         </Button>
                                                     </Link>
                                                 </div>

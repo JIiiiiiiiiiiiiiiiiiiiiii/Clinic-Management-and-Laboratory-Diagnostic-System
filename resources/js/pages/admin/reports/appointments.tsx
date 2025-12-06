@@ -837,7 +837,7 @@ export default function AppointmentReports({
                                     </CardContent>
                                 </Card>
                             </>
-                        ) : currentReportType === 'online_walkin' ? (
+                        ) : currentReportType === 'online_only' ? (
 						<>
 							<Card className="shadow-sm">
                                     <CardContent className="p-6">
@@ -859,6 +859,56 @@ export default function AppointmentReports({
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
+											<p className="text-gray-500 text-sm font-medium">Completed</p>
+                                                <p className="text-3xl font-bold">{(filteredData.completed_appointments || 0).toLocaleString()}</p>
+											<p className="text-gray-500 text-xs mt-1">
+                                                    {currentFilter === 'daily' ? 'Today' : 
+                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
+                                                </p>
+                                            </div>
+										<CheckCircle className="h-8 w-8 text-gray-400" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+							<Card className="shadow-sm">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+											<p className="text-gray-500 text-sm font-medium">Pending</p>
+                                                <p className="text-3xl font-bold">{(filteredData.pending_appointments || 0).toLocaleString()}</p>
+											<p className="text-gray-500 text-xs mt-1">
+                                                    {currentFilter === 'daily' ? 'Today' : 
+                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
+                                                </p>
+                                            </div>
+										<Clock className="h-8 w-8 text-gray-400" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+							<Card className="shadow-sm">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+											<p className="text-gray-500 text-sm font-medium">Total Revenue</p>
+                                                <p className="text-3xl font-bold">₱{(filteredData.total_revenue || 0).toLocaleString()}</p>
+											<p className="text-gray-500 text-xs mt-1">
+                                                    {currentFilter === 'daily' ? 'Today' : 
+                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
+                                                </p>
+                                            </div>
+										<Coins className="h-8 w-8 text-gray-400" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </>
+                        ) : currentReportType === 'walkin_only' ? (
+						<>
+							<Card className="shadow-sm">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
 											<p className="text-gray-500 text-sm font-medium">Walk-in Appointments</p>
                                                 <p className="text-3xl font-bold">{(filteredData.walk_in_appointments || 0).toLocaleString()}</p>
 											<p className="text-gray-500 text-xs mt-1">
@@ -875,14 +925,30 @@ export default function AppointmentReports({
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-											<p className="text-gray-500 text-sm font-medium">Total Appointments</p>
-                                                <p className="text-3xl font-bold">{(filteredData.total_appointments || 0).toLocaleString()}</p>
+											<p className="text-gray-500 text-sm font-medium">Completed</p>
+                                                <p className="text-3xl font-bold">{(filteredData.completed_appointments || 0).toLocaleString()}</p>
 											<p className="text-gray-500 text-xs mt-1">
                                                     {currentFilter === 'daily' ? 'Today' : 
                                                      currentFilter === 'monthly' ? 'This Month' : 'This Year'}
                                                 </p>
                                             </div>
-										<CalendarIcon className="h-8 w-8 text-gray-400" />
+										<CheckCircle className="h-8 w-8 text-gray-400" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+							<Card className="shadow-sm">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+											<p className="text-gray-500 text-sm font-medium">Pending</p>
+                                                <p className="text-3xl font-bold">{(filteredData.pending_appointments || 0).toLocaleString()}</p>
+											<p className="text-gray-500 text-xs mt-1">
+                                                    {currentFilter === 'daily' ? 'Today' : 
+                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
+                                                </p>
+                                            </div>
+										<Clock className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -909,54 +975,6 @@ export default function AppointmentReports({
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
-											<p className="text-gray-500 text-sm font-medium">Doctor Appointments</p>
-                                                <p className="text-3xl font-bold">{(filteredData.doctor_appointments || 0).toLocaleString()}</p>
-											<p className="text-gray-500 text-xs mt-1">
-                                                    {currentFilter === 'daily' ? 'Today' : 
-                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
-                                                </p>
-                                            </div>
-										<Stethoscope className="h-8 w-8 text-gray-400" />
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-							<Card className="shadow-sm">
-                                    <CardContent className="p-6">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-											<p className="text-gray-500 text-sm font-medium">MedTech Appointments</p>
-                                                <p className="text-3xl font-bold">{(filteredData.medtech_appointments || 0).toLocaleString()}</p>
-											<p className="text-gray-500 text-xs mt-1">
-                                                    {currentFilter === 'daily' ? 'Today' : 
-                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
-                                                </p>
-                                            </div>
-										<UserCheck className="h-8 w-8 text-gray-400" />
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-							<Card className="shadow-sm">
-                                    <CardContent className="p-6">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-											<p className="text-gray-500 text-sm font-medium">Nurse Appointments</p>
-                                                <p className="text-3xl font-bold">{(filteredData.nurse_appointments || 0).toLocaleString()}</p>
-											<p className="text-gray-500 text-xs mt-1">
-                                                    {currentFilter === 'daily' ? 'Today' : 
-                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
-                                                </p>
-                                            </div>
-										<Users className="h-8 w-8 text-gray-400" />
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-							<Card className="shadow-sm">
-                                    <CardContent className="p-6">
-                                        <div className="flex items-center justify-between">
-                                            <div>
 											<p className="text-gray-500 text-sm font-medium">Total Appointments</p>
                                                 <p className="text-3xl font-bold">{(filteredData.total_appointments || 0).toLocaleString()}</p>
 											<p className="text-gray-500 text-xs mt-1">
@@ -965,6 +983,54 @@ export default function AppointmentReports({
                                                 </p>
                                             </div>
 										<CalendarIcon className="h-8 w-8 text-gray-400" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+							<Card className="shadow-sm">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+											<p className="text-gray-500 text-sm font-medium">Completed</p>
+                                                <p className="text-3xl font-bold">{(filteredData.completed_appointments || 0).toLocaleString()}</p>
+											<p className="text-gray-500 text-xs mt-1">
+                                                    {currentFilter === 'daily' ? 'Today' : 
+                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
+                                                </p>
+                                            </div>
+										<CheckCircle className="h-8 w-8 text-gray-400" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+							<Card className="shadow-sm">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+											<p className="text-gray-500 text-sm font-medium">Pending</p>
+                                                <p className="text-3xl font-bold">{(filteredData.pending_appointments || 0).toLocaleString()}</p>
+											<p className="text-gray-500 text-xs mt-1">
+                                                    {currentFilter === 'daily' ? 'Today' : 
+                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
+                                                </p>
+                                            </div>
+										<Clock className="h-8 w-8 text-gray-400" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+							<Card className="shadow-sm">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+											<p className="text-gray-500 text-sm font-medium">Total Revenue</p>
+                                                <p className="text-3xl font-bold">₱{(filteredData.total_revenue || 0).toLocaleString()}</p>
+											<p className="text-gray-500 text-xs mt-1">
+                                                    {currentFilter === 'daily' ? 'Today' : 
+                                                     currentFilter === 'monthly' ? 'This Month' : 'This Year'}
+                                                </p>
+                                            </div>
+										<Coins className="h-8 w-8 text-gray-400" />
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -992,24 +1058,9 @@ export default function AppointmentReports({
                                         onChange={(e) => handleReportTypeChange(e.target.value)}
                                         disabled={isLoading}
                                     >
-                                        <optgroup label="All Appointments">
                                             <option value="all">All Appointments</option>
-                                        </optgroup>
-                                        <optgroup label="By Specialist Type">
-                                            <option value="doctor_only">Doctor Appointments Only</option>
-                                            <option value="medtech_only">MedTech Appointments Only</option>
-                                            <option value="nurse_only">Nurse Appointments Only</option>
-                                        </optgroup>
-                                        <optgroup label="By Source">
-                                            <option value="online_only">Online Appointments Only</option>
-                                            <option value="walkin_only">Walk-in Appointments Only</option>
-                                        </optgroup>
-                                        <optgroup label="By Appointment Type">
-                                            <option value="consultation">Consultation Appointments</option>
-                                            <option value="follow_up">Follow-up Appointments</option>
-                                            <option value="emergency">Emergency Appointments</option>
-                                            <option value="routine_checkup">Routine Checkup Appointments</option>
-                                        </optgroup>
+                                        <option value="online_only">Online Appointment</option>
+                                        <option value="walkin_only">Walk-in Appointment</option>
                                     </select>
                                 </div>
 
@@ -1082,11 +1133,6 @@ export default function AppointmentReports({
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     <tr>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Appointments</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_appointments || 0}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
-                                    </tr>
-                                    <tr>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Pending Appointments</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.pending_appointments || 0}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -1115,55 +1161,9 @@ export default function AppointmentReports({
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Revenue</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₱{(filteredData.total_revenue || 0).toLocaleString()}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    {/* Status Summary Table */}
-                    <div className="mb-8">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Summary</h3>
-                        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                            <table className="w-full">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    <tr>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Pending</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.pending_appointments || 0}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {(filteredData.total_appointments || 0) > 0 ? (((filteredData.pending_appointments || 0) / (filteredData.total_appointments || 1)) * 100).toFixed(1) : 0}%
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Confirmed</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.confirmed_appointments || 0}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {(filteredData.total_appointments || 0) > 0 ? (((filteredData.confirmed_appointments || 0) / (filteredData.total_appointments || 1)) * 100).toFixed(1) : 0}%
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Completed</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.completed_appointments || 0}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {(filteredData.total_appointments || 0) > 0 ? (((filteredData.completed_appointments || 0) / (filteredData.total_appointments || 1)) * 100).toFixed(1) : 0}%
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Cancelled</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.cancelled_appointments || 0}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {(filteredData.total_appointments || 0) > 0 ? (((filteredData.cancelled_appointments || 0) / (filteredData.total_appointments || 1)) * 100).toFixed(1) : 0}%
-                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Total Appointments</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{filteredData.total_appointments || 0}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">100%</td>
                                     </tr>
                                 </tbody>
                             </table>

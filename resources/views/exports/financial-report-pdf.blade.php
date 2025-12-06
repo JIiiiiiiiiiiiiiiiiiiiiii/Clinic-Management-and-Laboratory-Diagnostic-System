@@ -171,25 +171,33 @@
                 </tr>
             </thead>
             <tbody>
+                @php
+                    // Calculate summary from transactions collection to ensure accuracy
+                    $totalRevenue = $transactions->sum('amount') ?? 0; // Final amount after discounts
+                    $totalTransactions = $transactions->count();
+                    $cashTotal = $transactions->where('payment_method', 'cash')->sum('amount') ?? 0;
+                    $hmoTotal = $transactions->where('payment_method', 'hmo')->sum('amount') ?? 0;
+                    $pendingAmount = $transactions->where('status', 'pending')->sum('amount') ?? 0;
+                @endphp
                 <tr>
                     <td><strong>Total Revenue</strong></td>
-                    <td>₱{{ number_format($data['summary']['total_revenue'] ?? 0, 2) }}</td>
+                    <td>PHP {{ number_format($totalRevenue, 2) }}</td>
                 </tr>
                 <tr>
                     <td><strong>Total Transactions</strong></td>
-                    <td>{{ $data['summary']['total_transactions'] ?? 0 }}</td>
+                    <td>{{ $totalTransactions }}</td>
                 </tr>
                 <tr>
                     <td><strong>Cash Total</strong></td>
-                    <td>₱{{ number_format($data['summary']['cash_total'] ?? 0, 2) }}</td>
+                    <td>PHP {{ number_format($cashTotal, 2) }}</td>
                 </tr>
                 <tr>
                     <td><strong>HMO Total</strong></td>
-                    <td>₱{{ number_format($data['summary']['hmo_total'] ?? 0, 2) }}</td>
+                    <td>PHP {{ number_format($hmoTotal, 2) }}</td>
                 </tr>
                 <tr>
                     <td><strong>Pending Amount</strong></td>
-                    <td>₱{{ number_format($data['summary']['pending_amount'] ?? 0, 2) }}</td>
+                    <td>PHP {{ number_format($pendingAmount, 2) }}</td>
                 </tr>
             </tbody>
         </table>
@@ -217,27 +225,104 @@
                 </thead>
                 <tbody>
                     @foreach($transactions as $transaction)
+                        @php
+                            // Calculate original amount: final amount + all discounts
+                            $finalAmount = $transaction->amount ?? 0; // Final amount after discounts
+                            $discountAmount = $transaction->discount_amount ?? 0;
+                            $seniorDiscountAmount = $transaction->senior_discount_amount ?? 0;
+                            $originalAmount = $finalAmount + $discountAmount + $seniorDiscountAmount; // Original amount before discounts
+                            
+                            // Get patient name
+                            $patientName = 'N/A';
+                            if ($transaction->patient) {
+                                $firstName = $transaction->patient->first_name ?? '';
+                                $middleName = $transaction->patient->middle_name ?? '';
+                                $lastName = $transaction->patient->last_name ?? '';
+                                $patientName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName]))) ?: 'N/A';
+                            }
+                            
+                            // Get specialist name - use same logic as billing transactions
+                            // Default to 'Paul Henry N. Parrotina, MD.' to match billing transactions behavior
+                            $specialistName = 'Paul Henry N. Parrotina, MD.';
+                            
+                            // Try from transaction's doctor relationship
+                            if ($transaction->doctor) {
+                                $specialistName = $transaction->doctor->name ?? 'Paul Henry N. Parrotina, MD.';
+                            }
+                            
+                            // Try from appointment relationship
+                            if (($specialistName === 'Paul Henry N. Parrotina, MD.' || empty($specialistName)) && $transaction->appointment && $transaction->appointment->specialist) {
+                                $specialistName = $transaction->appointment->specialist->name ?? 'Paul Henry N. Parrotina, MD.';
+                            }
+                            
+                            // Try from appointment links if still not found
+                            // Always query appointment links directly to ensure we check even if relationship is empty
+                            if (($specialistName === 'Paul Henry N. Parrotina, MD.' || empty($specialistName))) {
+                                $appointmentLinks = \App\Models\AppointmentBillingLink::where('billing_transaction_id', $transaction->id)->get();
+                                if ($appointmentLinks->isNotEmpty()) {
+                                    foreach ($appointmentLinks as $link) {
+                                        if ($link->appointment_id) {
+                                            $appointment = \App\Models\Appointment::find($link->appointment_id);
+                                            if ($appointment && $appointment->specialist_id) {
+                                                $appointmentSpecialist = \App\Models\Specialist::where('specialist_id', $appointment->specialist_id)->first();
+                                                if ($appointmentSpecialist && $appointmentSpecialist->name) {
+                                                    $specialistName = $appointmentSpecialist->name;
+                                                    break;
+                                                }
+                                            }
+                                            
+                                            // Try visit relationships
+                                            if (($specialistName === 'Paul Henry N. Parrotina, MD.' || empty($specialistName))) {
+                                                $visit = \App\Models\Visit::where('appointment_id', $link->appointment_id)->first();
+                                                if ($visit) {
+                                                    // Try doctor_id, then attending_staff_id, then nurse_id, then medtech_id
+                                                    $visitSpecialistId = $visit->doctor_id ?? $visit->attending_staff_id ?? $visit->nurse_id ?? $visit->medtech_id ?? null;
+                                                    if ($visitSpecialistId) {
+                                                        $visitSpecialist = \App\Models\Specialist::where('specialist_id', $visitSpecialistId)->first();
+                                                        if ($visitSpecialist && $visitSpecialist->name) {
+                                                            $specialistName = $visitSpecialist->name;
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Try from specialist_id if still not found
+                            if (($specialistName === 'Paul Henry N. Parrotina, MD.' || empty($specialistName)) && $transaction->specialist_id) {
+                                $specialist = \App\Models\Specialist::where('specialist_id', $transaction->specialist_id)->first();
+                                if ($specialist && $specialist->name) {
+                                    $specialistName = $specialist->name;
+                                }
+                            }
+                            
+                            // Ensure we have a default value
+                            if (empty($specialistName)) {
+                                $specialistName = 'Paul Henry N. Parrotina, MD.';
+                            }
+                        @endphp
                         <tr>
                             <td>{{ $transaction->transaction_id }}</td>
+                            <td>{{ $patientName }}</td>
+                            <td>{{ $specialistName }}</td>
+                            <td>PHP {{ number_format($finalAmount, 2) }}</td>
+                            <td>PHP {{ number_format($originalAmount, 2) }}</td>
+                            <td>PHP {{ number_format($discountAmount, 2) }}</td>
+                            <td>PHP {{ number_format($seniorDiscountAmount, 2) }}</td>
                             <td>
-                                {{ optional(method_exists($transaction, 'getPatientInfo') ? $transaction->getPatientInfo() : $transaction->patient)->full_name ?? 'N/A' }}
-                            </td>
-                            <td>{{ $transaction->doctor->name ?? ($transaction->appointment->specialist->name ?? 'N/A') }}</td>
-                            <td>₱{{ number_format($transaction->total_amount, 2) }}</td>
-                            <td>₱{{ number_format($transaction->original_amount ?? $transaction->total_amount, 2) }}</td>
-                            <td>₱{{ number_format($transaction->discount_amount ?? 0, 2) }}</td>
-                            <td>₱{{ number_format($transaction->senior_discount_amount ?? 0, 2) }}</td>
-                            <td>
-                                <span class="payment-method {{ strtolower($transaction->payment_method) }}">
-                                    {{ ucfirst($transaction->payment_method) }}
+                                <span class="payment-method {{ strtolower($transaction->payment_method ?? 'cash') }}">
+                                    {{ ucfirst($transaction->payment_method ?? 'cash') }}
                                 </span>
                             </td>
                             <td>
-                                <span class="status {{ strtolower($transaction->status) }}">
-                                    {{ ucfirst($transaction->status) }}
+                                <span class="status {{ strtolower($transaction->status ?? 'pending') }}">
+                                    {{ ucfirst($transaction->status ?? 'pending') }}
                                 </span>
                             </td>
-                            <td>{{ \Carbon\Carbon::parse($transaction->transaction_date)->format('M d, Y') }}</td>
+                            <td>{{ $transaction->transaction_date ? \Carbon\Carbon::parse($transaction->transaction_date)->format('M d, Y') : 'N/A' }}</td>
                         </tr>
                     @endforeach
                 </tbody>

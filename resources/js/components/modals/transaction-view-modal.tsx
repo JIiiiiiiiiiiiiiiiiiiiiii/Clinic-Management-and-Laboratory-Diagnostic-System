@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { safeFormatDate } from '@/utils/dateTime';
 import { 
-    Edit,
     Printer,
     CreditCard,
     User,
@@ -54,9 +53,14 @@ type BillingTransaction = {
     status: 'draft' | 'pending' | 'paid' | 'cancelled' | 'refunded';
     description: string | null;
     notes: string | null;
+    notes_display?: string;
     transaction_date: string;
     due_date: string | null;
     created_at: string;
+    consultation_amount?: number | null;
+    lab_amount?: number | null;
+    follow_up_amount?: number | null;
+    total_visits?: number | null;
     items: Array<{
         id: number;
         item_type: string;
@@ -76,7 +80,6 @@ interface TransactionViewModalProps {
     isOpen: boolean;
     onClose: () => void;
     transactionId: number | null;
-    onEdit?: (transactionId: number) => void;
 }
 
 const statusConfig = {
@@ -95,8 +98,7 @@ const paymentMethodConfig = {
 export default function TransactionViewModal({
     isOpen,
     onClose,
-    transactionId,
-    onEdit
+    transactionId
 }: TransactionViewModalProps) {
     const [transaction, setTransaction] = useState<BillingTransaction | null>(null);
     const [loading, setLoading] = useState(false);
@@ -123,7 +125,18 @@ export default function TransactionViewModal({
                 const data = await response.json();
                 console.log('Transaction response:', data);
                 if (data.transaction) {
-                    console.log('Setting transaction:', data.transaction);
+                    const itemsTotal = data.transaction.items?.reduce((sum: number, item: any) => sum + (parseFloat(item.total_price) || 0), 0) || 0;
+                    console.log('Transaction data:', {
+                        id: data.transaction.id,
+                        amount: data.transaction.amount,
+                        total_amount: data.transaction.total_amount,
+                        discount_amount: data.transaction.discount_amount,
+                        discount_percentage: data.transaction.discount_percentage,
+                        senior_discount_amount: data.transaction.senior_discount_amount,
+                        items_count: data.transaction.items?.length,
+                        items_total: itemsTotal,
+                        calculated_discount: itemsTotal - (parseFloat(data.transaction.amount) || 0) - (parseFloat(data.transaction.senior_discount_amount) || 0)
+                    });
                 setTransaction(data.transaction);
                 } else {
                     console.error('Transaction data not found in response:', data);
@@ -178,13 +191,6 @@ export default function TransactionViewModal({
         });
     };
 
-    const handleEdit = (transactionId: number) => {
-        // Close the view modal and open edit modal
-        onClose();
-        if (onEdit) {
-            onEdit(transactionId);
-        }
-    };
 
     const handlePrintReceipt = (transactionId: number) => {
         // Navigate to print receipt page
@@ -248,13 +254,39 @@ export default function TransactionViewModal({
 
     const calculateNetAmount = () => {
         if (!transaction) return 0;
-        // Use amount or total_amount, ensuring it's a number
-        const amount = transaction.amount || transaction.total_amount || 0;
-        if (typeof amount === 'string') {
-            const parsed = parseFloat(amount);
-            return isNaN(parsed) ? 0 : parsed;
+        // Calculate net amount from subtotal minus all discounts
+        const subtotal = calculateSubtotal();
+        const regularDiscount = (() => {
+            let discount = 0;
+            if (transaction.discount_amount !== undefined && transaction.discount_amount !== null) {
+                discount = typeof transaction.discount_amount === 'string' 
+                    ? parseFloat(transaction.discount_amount) 
+                    : (typeof transaction.discount_amount === 'number' ? transaction.discount_amount : 0);
+                if (isNaN(discount)) discount = 0;
+            } else if (transaction.discount_percentage && transaction.discount_percentage > 0) {
+                discount = (subtotal * transaction.discount_percentage) / 100;
+            }
+            return discount;
+        })();
+        const seniorDiscount = calculateSeniorDiscount();
+        const calculatedNet = subtotal - regularDiscount - seniorDiscount;
+        
+        // Use calculated net if it differs from stored amount (for data integrity)
+        // Otherwise use stored amount
+        const storedAmount = transaction.amount || transaction.total_amount || 0;
+        const parsedStored = typeof storedAmount === 'string' ? parseFloat(storedAmount) : (typeof storedAmount === 'number' ? storedAmount : 0);
+        
+        // If calculated net differs significantly from stored, use calculated (more accurate)
+        if (Math.abs(calculatedNet - parsedStored) > 0.01) {
+            console.log('Net amount mismatch - using calculated:', {
+                calculated: calculatedNet,
+                stored: parsedStored,
+                difference: Math.abs(calculatedNet - parsedStored)
+            });
+            return isNaN(calculatedNet) ? 0 : calculatedNet;
         }
-        return typeof amount === 'number' ? amount : 0;
+        
+        return isNaN(parsedStored) ? 0 : parsedStored;
     };
 
     const handleStatusUpdate = (newStatus: string) => {
@@ -367,9 +399,7 @@ export default function TransactionViewModal({
                                                     <TableRow className="hover:bg-gray-100">
                                                         <TableHead className="font-semibold text-gray-700 py-4">Item</TableHead>
                                                         <TableHead className="font-semibold text-gray-700 py-4">Description</TableHead>
-                                                        <TableHead className="font-semibold text-gray-700 py-4 text-center">Qty</TableHead>
                                                         <TableHead className="font-semibold text-gray-700 py-4 text-right">Unit Price</TableHead>
-                                                        <TableHead className="font-semibold text-gray-700 py-4 text-right">Total</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
@@ -377,9 +407,7 @@ export default function TransactionViewModal({
                                                         <TableRow key={item.id} className="hover:bg-gray-50 border-b border-gray-100">
                                                             <TableCell className="font-medium py-4">{item.item_name}</TableCell>
                                                             <TableCell className="text-sm text-gray-600 py-4">{item.item_description}</TableCell>
-                                                            <TableCell className="text-center py-4 font-medium">{item.quantity}</TableCell>
                                                             <TableCell className="text-right py-4">₱{(item.unit_price || 0).toLocaleString()}</TableCell>
-                                                            <TableCell className="text-right font-semibold py-4 text-blue-600">₱{(item.total_price || 0).toLocaleString()}</TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>
@@ -404,10 +432,10 @@ export default function TransactionViewModal({
                                                     <p className="text-gray-700">{transaction.description}</p>
                                                 </div>
                                             )}
-                                            {transaction.notes && (
+                                            {(transaction.notes_display || transaction.notes) && (
                                                 <div>
                                                     <h3 className="text-lg font-semibold text-gray-900 mb-2">Notes</h3>
-                                                    <p className="text-gray-700">{transaction.notes}</p>
+                                                    <p className="text-gray-700">{transaction.notes_display || transaction.notes}</p>
                                                 </div>
                                             )}
                                         </CardContent>
@@ -477,17 +505,132 @@ export default function TransactionViewModal({
                                     </CardHeader>
                                     <CardContent className="p-6">
                                         <div className="space-y-4">
+                                            {/* Services Applied - Computed from transaction items */}
+                                            {(() => {
+                                                if (!transaction.items || !Array.isArray(transaction.items) || transaction.items.length === 0) {
+                                                    return null;
+                                                }
+                                                
+                                                // Group items by type and calculate totals
+                                                const serviceTotals: Record<string, number> = {};
+                                                
+                                                transaction.items.forEach((item: any) => {
+                                                    const itemType = item.item_type || 'other';
+                                                    const totalPrice = typeof item.total_price === 'string' 
+                                                        ? parseFloat(item.total_price) 
+                                                        : (typeof item.total_price === 'number' ? item.total_price : 0);
+                                                    
+                                                    if (!isNaN(totalPrice) && totalPrice > 0) {
+                                                        serviceTotals[itemType] = (serviceTotals[itemType] || 0) + totalPrice;
+                                                    }
+                                                });
+                                                
+                                                // Map item types to display labels
+                                                const typeLabels: Record<string, string> = {
+                                                    'consultation': 'Consultation',
+                                                    'laboratory': 'Laboratory Test',
+                                                    'medicine': 'Medicine',
+                                                    'procedure': 'Procedure',
+                                                    'other': 'Other Services'
+                                                };
+                                                
+                                                // Sort by common order: consultation, laboratory, then others
+                                                const orderedTypes = ['consultation', 'laboratory', 'medicine', 'procedure', 'other'];
+                                                const sortedServices = orderedTypes
+                                                    .filter(type => serviceTotals[type] > 0)
+                                                    .map(type => ({
+                                                        type,
+                                                        label: typeLabels[type] || type,
+                                                        total: serviceTotals[type]
+                                                    }));
+                                                
+                                                if (sortedServices.length === 0) return null;
+                                                
+                                                return (
+                                                    <div className="space-y-2 pb-3 border-b border-gray-200">
+                                                        <h4 className="text-sm font-semibold text-gray-700 mb-2">Services Applied:</h4>
+                                                        {sortedServices.map((service) => (
+                                                            <div key={service.type} className="flex justify-between py-1 text-sm">
+                                                                <span className="text-gray-600">{service.label}:</span>
+                                                                <span className="font-medium text-gray-900">₱{service.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            })()}
+                                            
                                             <div className="flex justify-between py-2 border-b border-gray-100">
                                                 <span className="text-gray-600 font-medium">Subtotal:</span>
                                                 <span className="font-semibold text-gray-900">₱{(calculateSubtotal() || 0).toLocaleString()}</span>
                                             </div>
                                             
-                                            {transaction.discount_amount > 0 && (
-                                                <div className="flex justify-between text-red-600 py-2 border-b border-gray-100">
-                                                    <span className="font-medium">Regular Discount {transaction.discount_percentage ? `(${transaction.discount_percentage}%)` : ''}:</span>
-                                                    <span className="font-semibold">-₱{(transaction.discount_amount || 0).toLocaleString()}</span>
-                                                </div>
-                                            )}
+                                            {(() => {
+                                                // Calculate discount - try multiple methods
+                                                let discountAmount = 0;
+                                                
+                                                // Method 1: Use discount_amount if available (check for existence, not truthiness)
+                                                if (transaction.discount_amount !== undefined && transaction.discount_amount !== null) {
+                                                    discountAmount = typeof transaction.discount_amount === 'string' 
+                                                        ? parseFloat(transaction.discount_amount) 
+                                                        : (typeof transaction.discount_amount === 'number' ? transaction.discount_amount : 0);
+                                                    if (isNaN(discountAmount)) discountAmount = 0;
+                                                }
+                                                
+                                                // Method 2: Calculate from discount_percentage if no direct amount
+                                                if (discountAmount === 0 && transaction.discount_percentage && transaction.discount_percentage > 0) {
+                                                    discountAmount = (calculateSubtotal() * transaction.discount_percentage) / 100;
+                                                }
+                                                
+                                                // Method 3: Calculate from difference if discount not saved (fallback for old transactions)
+                                                // Only use this if we haven't found a discount yet
+                                                if (discountAmount === 0) {
+                                                    const subtotal = calculateSubtotal();
+                                                    const seniorDiscount = calculateSeniorDiscount();
+                                                    // Get the stored amount (before our calculation fix)
+                                                    const storedAmount = transaction.amount || transaction.total_amount || 0;
+                                                    const parsedStored = typeof storedAmount === 'string' ? parseFloat(storedAmount) : (typeof storedAmount === 'number' ? storedAmount : 0);
+                                                    const calculatedDiscount = subtotal - seniorDiscount - parsedStored;
+                                                    
+                                                    console.log('Discount calculation fallback:', {
+                                                        subtotal,
+                                                        seniorDiscount,
+                                                        storedAmount: parsedStored,
+                                                        calculatedDiscount,
+                                                        transaction_discount_amount: transaction.discount_amount,
+                                                        transaction_discount_percentage: transaction.discount_percentage,
+                                                        transaction_amount: transaction.amount,
+                                                        transaction_total_amount: transaction.total_amount
+                                                    });
+                                                    
+                                                    // Only use calculated discount if it's positive and makes sense
+                                                    if (calculatedDiscount > 0.01 && parsedStored < subtotal) {
+                                                        discountAmount = calculatedDiscount;
+                                                    }
+                                                }
+                                                
+                                                console.log('Final discount amount:', discountAmount, {
+                                                    from_discount_amount: transaction.discount_amount,
+                                                    from_percentage: transaction.discount_percentage,
+                                                    subtotal: calculateSubtotal(),
+                                                    stored_amount: transaction.amount || transaction.total_amount || 0
+                                                });
+                                                
+                                                // Always show discount if it exists (even if 0, but we check > 0.01 to avoid floating point issues)
+                                                // CRITICAL: Check discount_amount directly from transaction, not just calculated
+                                                const directDiscount = transaction.discount_amount !== undefined && transaction.discount_amount !== null
+                                                    ? (typeof transaction.discount_amount === 'string' ? parseFloat(transaction.discount_amount) : transaction.discount_amount)
+                                                    : 0;
+                                                
+                                                // Use the larger of calculated or direct discount
+                                                const finalDiscount = Math.max(discountAmount, directDiscount);
+                                                
+                                                return finalDiscount > 0.01 ? (
+                                                    <div className="flex justify-between text-red-600 py-2 border-b border-gray-100">
+                                                        <span className="font-medium">Regular Discount {transaction.discount_percentage ? `(${transaction.discount_percentage}%)` : ''}:</span>
+                                                        <span className="font-semibold">-₱{finalDiscount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                    </div>
+                                                ) : null;
+                                            })()}
 
                                             {calculateSeniorDiscount() > 0 && (
                                                 <div className="flex justify-between text-red-600 py-2 border-b border-gray-100">
@@ -566,13 +709,6 @@ export default function TransactionViewModal({
                                         )}
                                     </Button>
                                 )}
-                                <Button 
-                                    onClick={() => handleEdit(transaction.id)}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2"
-                                >
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Edit
-                                </Button>
                                 <Button 
                                     onClick={() => handlePrintReceipt(transaction.id)}
                                     className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2"

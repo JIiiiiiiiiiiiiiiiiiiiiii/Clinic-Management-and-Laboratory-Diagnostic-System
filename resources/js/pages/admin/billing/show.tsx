@@ -129,7 +129,16 @@ export default function BillingShow({
     };
 
     const calculateSubtotal = () => {
-        // Use total_amount from transaction for accurate subtotal
+        // Calculate subtotal from items (before discounts)
+        if (transaction.items && Array.isArray(transaction.items) && transaction.items.length > 0) {
+            return transaction.items.reduce((sum: number, item: any) => {
+                const price = typeof item.total_price === 'string' 
+                    ? parseFloat(item.total_price) 
+                    : (typeof item.total_price === 'number' ? item.total_price : 0);
+                return sum + (isNaN(price) ? 0 : price);
+            }, 0);
+        }
+        // Fallback to total_amount if items not available
         return typeof transaction.total_amount === 'string' ? parseFloat(transaction.total_amount) : transaction.total_amount || 0;
     };
 
@@ -376,12 +385,52 @@ export default function BillingShow({
                                         <span className="font-semibold">₱{(calculateSubtotal() || 0).toLocaleString()}</span>
                                     </div>
                                     
-                                    {transaction.discount_amount > 0 && (
-                                        <div className="flex justify-between text-red-600">
-                                            <span>Regular Discount {transaction.discount_percentage ? `(${transaction.discount_percentage}%)` : ''}:</span>
-                                            <span className="font-semibold">-₱{(transaction.discount_amount || 0).toLocaleString()}</span>
-                                        </div>
-                                    )}
+                                    {(() => {
+                                        // Calculate discount - try multiple methods
+                                        let discountAmount = 0;
+                                        
+                                        // Method 1: Use discount_amount if available (check for existence, not truthiness)
+                                        if (transaction.discount_amount !== undefined && transaction.discount_amount !== null) {
+                                            discountAmount = typeof transaction.discount_amount === 'string' 
+                                                ? parseFloat(transaction.discount_amount) 
+                                                : (typeof transaction.discount_amount === 'number' ? transaction.discount_amount : 0);
+                                            if (isNaN(discountAmount)) discountAmount = 0;
+                                        }
+                                        
+                                        // Method 2: Calculate from discount_percentage if no direct amount
+                                        if (discountAmount === 0 && transaction.discount_percentage && transaction.discount_percentage > 0) {
+                                            discountAmount = (calculateSubtotal() * transaction.discount_percentage) / 100;
+                                        }
+                                        
+                                        // Method 3: Calculate from difference if discount not saved (fallback for old transactions)
+                                        if (discountAmount === 0) {
+                                            const subtotal = calculateSubtotal();
+                                            const seniorDiscount = calculateSeniorDiscount();
+                                            const finalAmount = calculateNetAmount();
+                                            const calculatedDiscount = subtotal - seniorDiscount - finalAmount;
+                                            console.log('Show page - Discount calculation fallback:', {
+                                                subtotal,
+                                                seniorDiscount,
+                                                finalAmount,
+                                                calculatedDiscount,
+                                                transaction_discount_amount: transaction.discount_amount,
+                                                transaction_amount: transaction.amount,
+                                                transaction_total_amount: transaction.total_amount
+                                            });
+                                            if (calculatedDiscount > 0.01) { // Use small threshold to avoid floating point errors
+                                                discountAmount = calculatedDiscount;
+                                            }
+                                        }
+                                        
+                                        console.log('Show page - Final discount amount:', discountAmount);
+                                        
+                                        return discountAmount > 0 ? (
+                                            <div className="flex justify-between text-red-600">
+                                                <span>Regular Discount {transaction.discount_percentage ? `(${transaction.discount_percentage}%)` : ''}:</span>
+                                                <span className="font-semibold">-₱{discountAmount.toLocaleString()}</span>
+                                            </div>
+                                        ) : null;
+                                    })()}
 
                                     {calculateSeniorDiscount() > 0 && (
                                         <div className="flex justify-between text-red-600">

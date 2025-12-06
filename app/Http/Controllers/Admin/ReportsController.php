@@ -32,11 +32,25 @@ class ReportsController extends Controller
 
         try {
             // Get summary statistics with proper error handling
+            // CRITICAL: Use exact same recalculation logic as billing transactions page and dashboard for consistency
+            // This ensures reports page matches the billing transactions page (items total - discounts)
+            $allPaidTransactions = BillingTransaction::where('status', 'paid')
+                ->with('items')
+                ->get();
+            
+            $totalRevenue = $allPaidTransactions->sum(function ($transaction) {
+                $itemsTotal = $transaction->items->sum('total_price');
+                $discountAmount = (float) $transaction->discount_amount; // Accessor parses from notes
+                $seniorDiscountAmount = (float) $transaction->senior_discount_amount; // Accessor parses from notes
+                $calculatedFinalAmount = $itemsTotal - $discountAmount - $seniorDiscountAmount;
+                return max(0, $calculatedFinalAmount); // Ensure non-negative
+            }) ?? 0.0;
+            
             $summary = [
                 'total_patients' => Patient::count(),
                 'total_appointments' => Appointment::count(),
                 'total_transactions' => BillingTransaction::count(),
-                'total_revenue' => BillingTransaction::sum('amount') ?? 0,
+                'total_revenue' => (float) $totalRevenue,
                 'total_lab_orders' => LabOrder::count(),
                 'total_products' => Supply::count(),
             ];
@@ -109,6 +123,9 @@ class ReportsController extends Controller
             
             // Get paginated transactions for the table - use same filters as getFinancialReportData
             $query = BillingTransaction::query();
+            
+            // CRITICAL: Only include paid transactions for revenue calculations (consistent with Dashboard and Billing pages)
+            $query->where('status', 'paid');
             
             // Always apply date filter to match the selected filter (daily/monthly/yearly)
             $query->whereBetween($dateField, [$startDate, $endDate]);
@@ -412,9 +429,15 @@ class ReportsController extends Controller
                 ]
             );
 
+            // Calculate patients with appointments from the filtered data
+            $patientsWithAppointments = $allPatients->filter(function($patient) {
+                return $patient->appointments_count > 0;
+            })->count();
+            
             $summary = [
                 'total_patients' => $allPatients->count(),
-                'new_patients' => $allPatients->where('created_at', '>=', now()->startOfMonth())->count(),
+                'new_patients' => $allPatients->count(), // Keep for backward compatibility
+                'patients_with_appointments' => $patientsWithAppointments,
                 'male_patients' => $allPatients->where('sex', 'male')->count(),
                 'female_patients' => $allPatients->where('sex', 'female')->count(),
                 'age_groups' => $this->getAgeGroupDistribution($allPatients),
@@ -1476,6 +1499,9 @@ class ReportsController extends Controller
             // Get transactions for the period - use eager loading like BillingController
             $query = BillingTransaction::with(['patient', 'doctor', 'appointmentLinks.appointment.visit']);
             
+            // CRITICAL: Only include paid transactions for revenue calculations (consistent with Dashboard and Billing pages)
+            $query->where('status', 'paid');
+            
             // Apply date filter - always apply to match the selected filter (daily/monthly/yearly)
             // This ensures users see data for the selected time period
             $query->whereBetween($dateColumn, [$startDate, $endDate]);
@@ -1830,12 +1856,8 @@ class ReportsController extends Controller
 
             // Calculate statistics
             $totalPatients = $patients->count();
-            $newPatients = $patients->filter(function($patient) {
-                $createdDate = $patient->created_at;
-                $now = now();
-                $startOfMonth = $now->copy()->startOfMonth();
-                return $createdDate->gte($startOfMonth);
-            })->count();
+            // All patients in the filtered range are "new" for that period
+            $newPatients = $totalPatients;
             $malePatients = $patients->where('sex', 'male')->count();
             $femalePatients = $patients->where('sex', 'female')->count();
             
@@ -1868,10 +1890,16 @@ class ReportsController extends Controller
                     'lab_orders_count' => $patient->labOrders()->count(),
                 ];
             });
+            
+            // Calculate patients with appointments
+            $patientsWithAppointments = $patients->filter(function($patient) {
+                return $patient->appointments()->count() > 0;
+            })->count();
 
             return [
                 'total_patients' => $totalPatients,
                 'new_patients' => $newPatients,
+                'patients_with_appointments' => $patientsWithAppointments,
                 'male_patients' => $malePatients,
                 'female_patients' => $femalePatients,
                 'age_groups' => $ageGroups,
@@ -3778,7 +3806,7 @@ class ReportsController extends Controller
                 $query->where('payment_method', 'hmo');
             }
             
-            $transactions = $query->with(['patient', 'doctor', 'appointment.specialist'])
+            $transactions = $query->with(['patient', 'doctor', 'appointment.specialist', 'appointmentLinks.appointment.specialist', 'appointmentLinks.appointment.visit'])
                 ->orderBy($dateField, 'desc')
                 ->get();
             
@@ -3820,7 +3848,7 @@ class ReportsController extends Controller
                 $query->where('payment_method', 'hmo');
             }
             
-            $transactions = $query->with(['patient', 'doctor', 'appointment.specialist'])
+            $transactions = $query->with(['patient', 'doctor', 'appointment.specialist', 'appointmentLinks.appointment.specialist', 'appointmentLinks.appointment.visit'])
                 ->orderBy($dateField, 'desc')
                 ->get();
             
