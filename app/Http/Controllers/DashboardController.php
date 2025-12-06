@@ -67,7 +67,21 @@ class DashboardController extends Controller
                     'total_billing_transactions' => \App\Models\BillingTransaction::count(),
                     'pending_billing' => \App\Models\BillingTransaction::where('status', 'pending')->count(),
                     'paid_transactions' => \App\Models\BillingTransaction::where('status', 'paid')->count(),
-                    'total_revenue' => $this->sumBillingAmount(\App\Models\BillingTransaction::where('status', 'paid')),
+                    // CRITICAL: Use exact same recalculation logic as billing transactions page for consistency
+                    // This ensures dashboard matches the billing transactions page (items total - discounts)
+                    'total_revenue' => (function() {
+                        $allPaidTransactions = \App\Models\BillingTransaction::where('status', 'paid')
+                            ->with('items')
+                            ->get();
+                        
+                        return (float) $allPaidTransactions->sum(function ($transaction) {
+                            $itemsTotal = $transaction->items->sum('total_price');
+                            $discountAmount = (float) $transaction->discount_amount; // Accessor parses from notes
+                            $seniorDiscountAmount = (float) $transaction->senior_discount_amount; // Accessor parses from notes
+                            $calculatedFinalAmount = $itemsTotal - $discountAmount - $seniorDiscountAmount;
+                            return max(0, $calculatedFinalAmount); // Ensure non-negative
+                        }) ?? 0.0;
+                    })(),
                     'today_revenue' => $this->sumBillingAmount(
                         \App\Models\BillingTransaction::where('status', 'paid')
                             ->where(function($query) {
@@ -1282,23 +1296,13 @@ class DashboardController extends Controller
     private function sumBillingAmount($query)
     {
         try {
-            // Try total_amount first
-            if (\Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'total_amount')) {
-                return $query->sum('total_amount');
-            }
-            // Fallback to amount
-            if (\Illuminate\Support\Facades\Schema::hasColumn('billing_transactions', 'amount')) {
-                return $query->sum('amount');
-            }
-            // If neither exists, return 0
-            return 0;
+            // CRITICAL: Always use 'amount' field which contains the final amount after discounts
+            // The 'amount' field is the final amount that should be used for all revenue calculations
+            // This ensures consistency across Dashboard, Reports, and Billing pages
+            return (float) $query->sum('amount') ?? 0.0;
         } catch (\Exception $e) {
-            // If there's an error, try the alternative column
-            try {
-                return $query->sum('amount');
-            } catch (\Exception $e2) {
-                return 0;
-            }
+            \Log::error('sumBillingAmount error: ' . $e->getMessage());
+            return 0.0;
         }
     }
 

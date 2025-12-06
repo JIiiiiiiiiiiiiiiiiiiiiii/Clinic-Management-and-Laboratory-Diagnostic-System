@@ -48,9 +48,14 @@ type BillingTransaction = {
     status: 'draft' | 'pending' | 'paid' | 'cancelled' | 'refunded';
     description: string | null;
     notes: string | null;
+    notes_display?: string;
     transaction_date: string;
     due_date: string | null;
     created_at: string;
+    consultation_amount?: number | null;
+    lab_amount?: number | null;
+    follow_up_amount?: number | null;
+    total_visits?: number | null;
     items: Array<{
         id: number;
         item_type: string;
@@ -93,16 +98,69 @@ export default function BillingReceipt({
     };
 
     const calculateSubtotal = () => {
-        // Use total_amount from transaction for accurate subtotal
+        // Calculate subtotal from items (before discounts)
+        if (transaction.items && Array.isArray(transaction.items) && transaction.items.length > 0) {
+            return transaction.items.reduce((sum: number, item: any) => {
+                const price = typeof item.total_price === 'string' 
+                    ? parseFloat(item.total_price) 
+                    : (typeof item.total_price === 'number' ? item.total_price : 0);
+                return sum + (isNaN(price) ? 0 : price);
+            }, 0);
+        }
+        // Fallback to total_amount if items not available
         return typeof transaction.total_amount === 'string' ? parseFloat(transaction.total_amount) : transaction.total_amount || 0;
     };
 
     const calculateDiscount = () => {
-        if (transaction.discount_percentage) {
-            return (calculateSubtotal() * transaction.discount_percentage) / 100;
+        // Method 1: Use discount_amount if available (check for existence, not truthiness)
+        let discountAmount = 0;
+        if (transaction.discount_amount !== undefined && transaction.discount_amount !== null) {
+            discountAmount = typeof transaction.discount_amount === 'string' 
+                ? parseFloat(transaction.discount_amount) 
+                : (typeof transaction.discount_amount === 'number' ? transaction.discount_amount : 0);
+            if (isNaN(discountAmount)) discountAmount = 0;
         }
-        const discountAmount = typeof transaction.discount_amount === 'string' ? parseFloat(transaction.discount_amount) : transaction.discount_amount;
-        return isNaN(discountAmount) ? 0 : discountAmount;
+        
+        // Method 2: Calculate from discount_percentage if no direct amount
+        if (discountAmount === 0 && transaction.discount_percentage && transaction.discount_percentage > 0) {
+            discountAmount = (calculateSubtotal() * transaction.discount_percentage) / 100;
+        }
+        
+        // Method 3: Calculate from difference if discount not saved (fallback for old transactions)
+        // Only use this if we haven't found a discount yet
+        if (discountAmount === 0) {
+            const subtotal = calculateSubtotal();
+            const seniorDiscount = calculateSeniorDiscount();
+            // Get the stored amount (before our calculation fix)
+            const storedAmount = transaction.amount || transaction.total_amount || 0;
+            const parsedStored = typeof storedAmount === 'string' ? parseFloat(storedAmount) : (typeof storedAmount === 'number' ? storedAmount : 0);
+            const calculatedDiscount = subtotal - seniorDiscount - parsedStored;
+            
+            console.log('Receipt - Discount calculation fallback:', {
+                subtotal,
+                seniorDiscount,
+                storedAmount: parsedStored,
+                calculatedDiscount,
+                transaction_discount_amount: transaction.discount_amount,
+                transaction_discount_percentage: transaction.discount_percentage,
+                transaction_amount: transaction.amount,
+                transaction_total_amount: transaction.total_amount
+            });
+            
+            // Only use calculated discount if it's positive and makes sense
+            if (calculatedDiscount > 0.01 && parsedStored < subtotal) {
+                discountAmount = calculatedDiscount;
+            }
+        }
+        
+        console.log('Receipt - Final discount amount:', discountAmount, {
+            from_discount_amount: transaction.discount_amount,
+            from_percentage: transaction.discount_percentage,
+            subtotal: calculateSubtotal(),
+            stored_amount: transaction.amount || transaction.total_amount || 0
+        });
+        
+        return discountAmount;
     };
 
     const calculateSeniorDiscount = () => {
@@ -115,8 +173,41 @@ export default function BillingReceipt({
     };
 
     const calculateNetAmount = () => {
-        // Use the final amount from the transaction, not calculated
-        return typeof transaction.amount === 'string' ? parseFloat(transaction.amount) : transaction.amount || 0;
+        if (!transaction) return 0;
+        // Calculate net amount from subtotal minus all discounts
+        // Calculate discount inline to avoid circular dependency
+        const subtotal = calculateSubtotal();
+        const regularDiscount = (() => {
+            let discount = 0;
+            if (transaction.discount_amount !== undefined && transaction.discount_amount !== null) {
+                discount = typeof transaction.discount_amount === 'string' 
+                    ? parseFloat(transaction.discount_amount) 
+                    : (typeof transaction.discount_amount === 'number' ? transaction.discount_amount : 0);
+                if (isNaN(discount)) discount = 0;
+            } else if (transaction.discount_percentage && transaction.discount_percentage > 0) {
+                discount = (subtotal * transaction.discount_percentage) / 100;
+            }
+            return discount;
+        })();
+        const seniorDiscount = calculateSeniorDiscount();
+        const calculatedNet = subtotal - regularDiscount - seniorDiscount;
+        
+        // Use calculated net if it differs from stored amount (for data integrity)
+        // Otherwise use stored amount
+        const storedAmount = transaction.amount || transaction.total_amount || 0;
+        const parsedStored = typeof storedAmount === 'string' ? parseFloat(storedAmount) : (typeof storedAmount === 'number' ? storedAmount : 0);
+        
+        // If calculated net differs significantly from stored, use calculated (more accurate)
+        if (Math.abs(calculatedNet - parsedStored) > 0.01) {
+            console.log('Receipt - Net amount mismatch - using calculated:', {
+                calculated: calculatedNet,
+                stored: parsedStored,
+                difference: Math.abs(calculatedNet - parsedStored)
+            });
+            return isNaN(calculatedNet) ? 0 : calculatedNet;
+        }
+        
+        return isNaN(parsedStored) ? 0 : parsedStored;
     };
 
     const getPaymentMethodLabel = (method: string) => {
@@ -293,19 +384,84 @@ export default function BillingReceipt({
                                 <div className="flex justify-end">
                                     <div className="w-full max-w-md">
                                         <div className="space-y-3">
+                                            {/* Services Applied - Computed from transaction items */}
+                                            {(() => {
+                                                if (!transaction.items || !Array.isArray(transaction.items) || transaction.items.length === 0) {
+                                                    return null;
+                                                }
+                                                
+                                                // Group items by type and calculate totals
+                                                const serviceTotals: Record<string, number> = {};
+                                                
+                                                transaction.items.forEach((item: any) => {
+                                                    const itemType = item.item_type || 'other';
+                                                    const totalPrice = typeof item.total_price === 'string' 
+                                                        ? parseFloat(item.total_price) 
+                                                        : (typeof item.total_price === 'number' ? item.total_price : 0);
+                                                    
+                                                    if (!isNaN(totalPrice) && totalPrice > 0) {
+                                                        serviceTotals[itemType] = (serviceTotals[itemType] || 0) + totalPrice;
+                                                    }
+                                                });
+                                                
+                                                // Map item types to display labels
+                                                const typeLabels: Record<string, string> = {
+                                                    'consultation': 'Consultation',
+                                                    'laboratory': 'Laboratory Test',
+                                                    'medicine': 'Medicine',
+                                                    'procedure': 'Procedure',
+                                                    'other': 'Other Services'
+                                                };
+                                                
+                                                // Sort by common order: consultation, laboratory, then others
+                                                const orderedTypes = ['consultation', 'laboratory', 'medicine', 'procedure', 'other'];
+                                                const sortedServices = orderedTypes
+                                                    .filter(type => serviceTotals[type] > 0)
+                                                    .map(type => ({
+                                                        type,
+                                                        label: typeLabels[type] || type,
+                                                        total: serviceTotals[type]
+                                                    }));
+                                                
+                                                if (sortedServices.length === 0) return null;
+                                                
+                                                return (
+                                                    <div className="space-y-2 pb-3 border-b border-gray-300">
+                                                        <h4 className="text-sm font-semibold text-gray-700 mb-2">Services Applied:</h4>
+                                                        {sortedServices.map((service) => (
+                                                            <div key={service.type} className="flex justify-between text-sm">
+                                                                <span className="text-gray-600">{service.label}:</span>
+                                                                <span className="font-medium text-gray-900">₱{service.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            })()}
+                                            
                                             <div className="flex justify-between text-lg">
                                                 <span className="font-medium">Subtotal:</span>
                                                 <span className="font-semibold">₱{calculateSubtotal().toLocaleString()}</span>
                                             </div>
                                             
-                                            {calculateDiscount() > 0 && (
-                                                <div className="flex justify-between text-lg text-red-600">
-                                                    <span className="font-medium">
-                                                        Regular Discount {transaction.discount_percentage ? `(${transaction.discount_percentage}%)` : ''}:
-                                                    </span>
-                                                    <span className="font-semibold">-₱{calculateDiscount().toLocaleString()}</span>
-                                                </div>
-                                            )}
+                                            {(() => {
+                                                const discount = calculateDiscount();
+                                                // CRITICAL: Also check discount_amount directly from transaction
+                                                const directDiscount = transaction.discount_amount !== undefined && transaction.discount_amount !== null
+                                                    ? (typeof transaction.discount_amount === 'string' ? parseFloat(transaction.discount_amount) : transaction.discount_amount)
+                                                    : 0;
+                                                
+                                                // Use the larger of calculated or direct discount
+                                                const finalDiscount = Math.max(discount, directDiscount);
+                                                
+                                                return finalDiscount > 0.01 ? (
+                                                    <div className="flex justify-between text-lg text-red-600">
+                                                        <span className="font-medium">
+                                                            Regular Discount {transaction.discount_percentage ? `(${transaction.discount_percentage}%)` : ''}:
+                                                        </span>
+                                                        <span className="font-semibold">-₱{finalDiscount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                    </div>
+                                                ) : null;
+                                            })()}
 
                                             {calculateSeniorDiscount() > 0 && (
                                                 <div className="flex justify-between text-lg text-red-600">
@@ -335,10 +491,10 @@ export default function BillingReceipt({
                                 )}
 
                                 {/* Notes */}
-                                {transaction.notes && (
+                                {(transaction.notes_display || transaction.notes) && (
                                     <div className="mt-6">
                                         <h3 className="text-lg font-semibold text-gray-900 mb-2">Notes</h3>
-                                        <p className="text-gray-700">{transaction.notes}</p>
+                                        <p className="text-gray-700">{transaction.notes_display || transaction.notes}</p>
                                     </div>
                                 )}
                             </div>

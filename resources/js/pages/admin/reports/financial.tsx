@@ -338,8 +338,14 @@ export default function FinancialReports({ filter, date, reportType, data, trans
         const completionRate = total > 0 ? (completed / total) * 100 : 0;
         
         // Calculate revenue based on filtered transactions
+        // CRITICAL: Use 'amount' field (final amount after discounts) for consistency
+        // The backend sends 'total_amount' which is mapped from 'amount' field
         const totalRevenue = currentTransactions.reduce((sum, t) => {
-            const amount = typeof t.total_amount === 'string' ? parseFloat(t.total_amount) : (t.total_amount || 0);
+            // Try 'amount' first (direct field), then 'total_amount' (mapped field), then fallback to 0
+            const amount = typeof t.amount === 'string' ? parseFloat(t.amount) : 
+                          (typeof t.amount === 'number' ? t.amount : 
+                          (typeof t.total_amount === 'string' ? parseFloat(t.total_amount) : 
+                          (typeof t.total_amount === 'number' ? t.total_amount : 0)));
             return sum + amount;
         }, 0);
         const averageTransaction = total > 0 ? totalRevenue / total : 0;

@@ -6,8 +6,12 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { route as ziggyRoute } from 'ziggy-js';
 import type { RouteName } from 'ziggy-js';
+import { initializeTheme } from './hooks/use-appearance';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Patient Management';
+
+// Initialize theme on app load (dark mode is disabled - always light mode)
+initializeTheme();
 
 createInertiaApp({
     title: (title) => title || appName,

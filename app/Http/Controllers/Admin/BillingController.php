@@ -34,6 +34,7 @@ class BillingController extends Controller
             $query = BillingTransaction::query()
                 ->with([
                     'patient', // CRITICAL: Load patient relationship directly
+                    'items', // CRITICAL: Load items to calculate final amount
                     'appointments', 
                     'appointmentLinks.appointment.visit',
                     'appointmentLinks.appointment.labTests.labTest',
@@ -66,9 +67,9 @@ class BillingController extends Controller
             // Get table name for proper column references
             $tableName = (new \App\Models\BillingTransaction())->getTable();
             
-            if ($request->filled('status') && $request->status !== 'all') {
-                $query->where("{$tableName}.status", $request->status);
-            }
+            // CRITICAL: Only show paid transactions on the transactions page
+            // This page is specifically for viewing completed/paid transactions only
+            $query->where("{$tableName}.status", 'paid');
 
             if ($request->filled('payment_method') && $request->payment_method !== 'all') {
                 $query->where("{$tableName}.payment_method", $request->payment_method);
@@ -206,9 +207,30 @@ class BillingController extends Controller
 
                 // Get the base array representation
                 $data = $transaction->toArray();
+                
+                // CRITICAL: Ensure amount is the final amount after all discounts
+                // Calculate from items and discounts to ensure accuracy
+                // Ensure items are loaded
+                if (!$transaction->relationLoaded('items')) {
+                    $transaction->load('items');
+                }
+                
+                $itemsTotal = $transaction->items->sum('total_price');
+                $discountAmount = (float) $transaction->discount_amount; // Accessor parses from notes
+                $seniorDiscountAmount = (float) $transaction->senior_discount_amount; // Accessor parses from notes
+                $calculatedFinalAmount = $itemsTotal - $discountAmount - $seniorDiscountAmount;
+                
+                // Always use the calculated final amount to ensure accuracy
+                // This ensures the table always shows the correct final amount after all discounts
+                $finalAmount = max(0, $calculatedFinalAmount); // Ensure non-negative
+                
+                // Always set the final amount explicitly
+                $data['amount'] = (float) $finalAmount;
+                $data['total_amount'] = (float) $finalAmount; // For backward compatibility
 
                 // ALWAYS explicitly set patient in the array to ensure it's present
                 // This is critical because Laravel's toArray() may not include null relationships
+                // Use the same fallback logic as show and printReceipt methods
                 $patientData = null;
                 
                 // Method 1: Try direct patient relationship
@@ -221,22 +243,55 @@ class BillingController extends Controller
                     ];
                 }
                 
-                // Method 2: Try from appointment links if patient not loaded
+                // Method 2: Try from appointment links using getPatientWithFallback (extracts from unique_appointment_key)
                 if (!$patientData && $transaction->relationLoaded('appointmentLinks')) {
                     foreach ($transaction->appointmentLinks as $link) {
-                        if ($link->appointment && $link->appointment->patient) {
-                            $patientData = [
-                                'id' => $link->appointment->patient->id,
-                                'first_name' => $link->appointment->patient->first_name ?? '',
-                                'last_name' => $link->appointment->patient->last_name ?? '',
-                                'patient_no' => $link->appointment->patient->patient_no ?? '',
-                            ];
-                            break;
+                        if ($link->appointment) {
+                            // Use appointment's getPatientWithFallback which extracts from unique_appointment_key
+                            $patient = $link->appointment->getPatientWithFallback();
+                            if ($patient) {
+                                $patientData = [
+                                    'id' => $patient->id,
+                                    'first_name' => $patient->first_name ?? '',
+                                    'last_name' => $patient->last_name ?? '',
+                                    'patient_no' => $patient->patient_no ?? '',
+                                ];
+                                break;
+                            }
                         }
                     }
                 }
                 
-                // Method 3: Try direct database query using patient_id
+                // Method 3: Try direct appointment query using getPatientWithFallback
+                if (!$patientData && $transaction->appointment_id) {
+                    $appointment = \App\Models\Appointment::find($transaction->appointment_id);
+                    if ($appointment) {
+                        $patient = $appointment->getPatientWithFallback();
+                        if ($patient) {
+                            $patientData = [
+                                'id' => $patient->id,
+                                'first_name' => $patient->first_name ?? '',
+                                'last_name' => $patient->last_name ?? '',
+                                'patient_no' => $patient->patient_no ?? '',
+                            ];
+                        }
+                    }
+                }
+                
+                // Method 4: Try getPatientInfo helper (uses getPatientWithFallback internally)
+                if (!$patientData) {
+                    $patient = $transaction->getPatientInfo();
+                    if ($patient) {
+                        $patientData = [
+                            'id' => $patient->id,
+                            'first_name' => $patient->first_name ?? '',
+                            'last_name' => $patient->last_name ?? '',
+                            'patient_no' => $patient->patient_no ?? '',
+                        ];
+                    }
+                }
+                
+                // Method 5: Try direct database query using patient_id (last resort)
                 if (!$patientData && $transaction->patient_id) {
                     $patient = \App\Models\Patient::find($transaction->patient_id);
                     if ($patient) {
@@ -404,7 +459,23 @@ class BillingController extends Controller
                 ->orderBy('name')
                 ->get();
 
+            // CRITICAL: Calculate total revenue using the SAME recalculation logic as displayed transactions
+            // This ensures the total matches what's shown in the table (items total - discounts)
+            // Load all paid transactions with items to recalculate final amounts
+            $allPaidTransactions = BillingTransaction::where('status', 'paid')
+                ->with('items')
+                ->get();
+            
+            $totalRevenue = $allPaidTransactions->sum(function ($transaction) {
+                $itemsTotal = $transaction->items->sum('total_price');
+                $discountAmount = (float) $transaction->discount_amount; // Accessor parses from notes
+                $seniorDiscountAmount = (float) $transaction->senior_discount_amount; // Accessor parses from notes
+                $calculatedFinalAmount = $itemsTotal - $discountAmount - $seniorDiscountAmount;
+                return max(0, $calculatedFinalAmount); // Ensure non-negative
+            });
+            
             return Inertia::render('admin/billing/transactions', [
+                'totalRevenue' => (float) $totalRevenue, // Pass total revenue from all paid transactions
                 'transactions' => $transactions,
                 'doctors' => $doctors,
                 'patients' => $patients,
@@ -1064,7 +1135,8 @@ class BillingController extends Controller
     {
         try {
             // Calculate summary data for reports
-            $totalRevenue = BillingTransaction::where('status', 'paid')->sum('total_amount');
+            // CRITICAL: Use 'amount' field (final amount after discounts) for consistency
+            $totalRevenue = BillingTransaction::where('status', 'paid')->sum('amount');
             $totalDoctorPayments = \App\Models\DoctorPayment::where('status', 'paid')->sum('net_payment');
             $netProfit = $totalRevenue - $totalDoctorPayments;
 
@@ -1221,6 +1293,8 @@ class BillingController extends Controller
             'hmo_provider' => 'nullable|string|max:255',
             'hmo_reference_number' => 'nullable|string|max:255',
             'is_senior_citizen' => 'nullable|boolean',
+            'discount_amount' => 'nullable|numeric|min:0',
+            'discount_percentage' => 'nullable|numeric|min:0|max:100',
             'notes' => 'nullable|string',
         ]);
 
@@ -1316,12 +1390,22 @@ class BillingController extends Controller
             \Log::info('Total amount (including lab tests):', ['amount' => $totalAmount]);
             \Log::info('Lab test amount:', ['amount' => $totalLabAmount]);
 
+            // Calculate regular discount
+            $discountAmount = 0;
+            $discountPercentage = null;
+            if ($request->has('discount_amount') && $request->discount_amount > 0) {
+                $discountAmount = (float) $request->discount_amount;
+            } elseif ($request->has('discount_percentage') && $request->discount_percentage > 0) {
+                $discountPercentage = (float) $request->discount_percentage;
+                $discountAmount = $totalAmount * ($discountPercentage / 100);
+            }
+
             // Calculate senior citizen discount
             $isSeniorCitizen = $request->boolean('is_senior_citizen', false);
 
             // Calculate senior citizen discount as 20% of TOTAL amount (consultation + lab tests)
             $seniorDiscountAmount = $isSeniorCitizen && $request->payment_method !== 'hmo' ? ($totalAmount * 0.20) : 0;
-            $finalAmount = $totalAmount - $seniorDiscountAmount;
+            $finalAmount = $totalAmount - $discountAmount - $seniorDiscountAmount;
 
             // Generate unique transaction ID (increment like patient ID)
             $transactionId = $this->getNextAvailableTransactionId();
@@ -1344,10 +1428,33 @@ class BillingController extends Controller
                 }
             }
             
-            $patientId = $firstAppointment->patient_id;
+            // CRITICAL: Also try to load patient from patient_id_fk if patient_id doesn't work
+            if (!$firstAppointment->patient) {
+                // Try patient_id_fk if it exists as an attribute
+                $patientIdFk = $firstAppointment->getAttribute('patient_id_fk') ?? null;
+                if ($patientIdFk) {
+                    $patient = \App\Models\Patient::find($patientIdFk);
+                    if ($patient) {
+                        $firstAppointment->setRelation('patient', $patient);
+                        \Log::info('Loaded patient from patient_id_fk', [
+                            'patient_id_fk' => $patientIdFk,
+                            'patient_name' => $patient->first_name . ' ' . $patient->last_name
+                        ]);
+                    }
+                }
+            }
+            
+            // Get patient_id - try both patient_id and patient_id_fk
+            $patientId = $firstAppointment->patient_id ?? $firstAppointment->getAttribute('patient_id_fk') ?? null;
+            
+            // If still no patient_id, try to get from patient relationship
+            if (!$patientId && $firstAppointment->patient) {
+                $patientId = $firstAppointment->patient->id;
+            }
             
             \Log::info('Patient ID for transaction', [
                 'patient_id' => $patientId,
+                'patient_id_fk' => $firstAppointment->patient_id_fk ?? null,
                 'has_patient_relation' => $firstAppointment->patient ? 'YES' : 'NO',
                 'patient_name' => $firstAppointment->patient ? ($firstAppointment->patient->first_name . ' ' . $firstAppointment->patient->last_name) : 'N/A'
             ]);
@@ -1392,18 +1499,45 @@ class BillingController extends Controller
                 // Note: 'amount_paid' column doesn't exist in billing_transactions table - use 'amount' instead
                 'status' => 'paid', // Payment is successful, so status should be 'paid'
                 // Note: 'description' column doesn't exist in billing_transactions table - use 'notes' instead
-                'notes' => $request->notes ?: 'Payment for ' . $appointments->count() . ' appointment(s)',
                 // Note: transaction_date, transaction_date_only, transaction_time_only don't exist in DB
                 // The model uses created_at as transaction_date via accessor
                 // Note: created_by and updated_by columns don't exist in billing_transactions table
             ];
-
-            // Add optional fields only if they have values
-            if ($isSeniorCitizen) {
-                $transactionData['is_senior_citizen'] = $isSeniorCitizen;
-                $transactionData['senior_discount_amount'] = $seniorDiscountAmount;
-                $transactionData['senior_discount_percentage'] = $seniorDiscountAmount > 0 ? 20.00 : 0;
+            
+            // CRITICAL: discount_amount and discount_percentage columns don't exist in database
+            // Store discount information in notes field as JSON for data integrity
+            $notes = $request->notes ?: 'Payment for ' . $appointments->count() . ' appointment(s)';
+            
+            // Append discount info to notes in structured format
+            if ($discountAmount > 0 || $isSeniorCitizen) {
+                $discountInfo = [
+                    'discount_amount' => $discountAmount,
+                    'discount_percentage' => $discountPercentage,
+                    'senior_discount_amount' => $seniorDiscountAmount,
+                    'is_senior_citizen' => $isSeniorCitizen,
+                    'subtotal' => $totalAmount,
+                    'final_amount' => $finalAmount
+                ];
+                
+                // Append discount info to notes (will be parsed by model accessors)
+                $notes .= "\n[BILLING_DATA:" . json_encode($discountInfo) . "]";
             }
+            
+            $transactionData['notes'] = $notes;
+            
+            \Log::info('Discount data being saved to transaction notes', [
+                'discount_amount' => $discountAmount,
+                'discount_percentage' => $discountPercentage,
+                'senior_discount_amount' => $seniorDiscountAmount,
+                'request_discount_amount' => $request->discount_amount ?? 'NOT_SET',
+                'request_discount_percentage' => $request->discount_percentage ?? 'NOT_SET',
+                'total_amount' => $totalAmount,
+                'final_amount' => $finalAmount,
+                'notes_preview' => substr($notes, 0, 200)
+            ]);
+
+            // Note: is_senior_citizen, senior_discount_amount, senior_discount_percentage columns don't exist
+            // These are stored in notes as JSON and accessed via model accessors
 
             // Mark as itemized if lab tests exist
             if ($totalLabAmount > 0) {
@@ -1465,8 +1599,10 @@ class BillingController extends Controller
             // Debug logging for amount calculations
             \Log::info('Transaction amount debug:', [
                 'total_amount' => $totalAmount,
-                'final_amount' => $finalAmount,
+                'discount_amount' => $discountAmount,
+                'discount_percentage' => $discountPercentage,
                 'senior_discount_amount' => $seniorDiscountAmount,
+                'final_amount' => $finalAmount,
                 'is_senior_citizen' => $isSeniorCitizen,
                 'hmo_provider' => $request->hmo_provider,
                 'hmo_reference_number' => $request->hmo_reference_number
@@ -2107,6 +2243,29 @@ class BillingController extends Controller
 
         if ($patientInfo) {
             $transaction->setRelation('patient', $patientInfo);
+            \Log::info('Patient loaded via getPatientInfo in show method', [
+                'transaction_id' => $transaction->id,
+                'patient_id' => $patientInfo->id,
+                'patient_name' => $patientInfo->first_name . ' ' . $patientInfo->last_name
+            ]);
+        } else {
+            // CRITICAL: If getPatientInfo returns null, try direct query as final fallback
+            if ($transaction->patient_id) {
+                $directPatient = \App\Models\Patient::find($transaction->patient_id);
+                if ($directPatient) {
+                    $transaction->setRelation('patient', $directPatient);
+                    \Log::info('Patient loaded via direct query fallback in show method', [
+                        'transaction_id' => $transaction->id,
+                        'patient_id' => $directPatient->id,
+                        'patient_name' => $directPatient->first_name . ' ' . $directPatient->last_name
+                    ]);
+                } else {
+                    \Log::warning('Patient not found even with direct query in show method', [
+                        'transaction_id' => $transaction->id,
+                        'patient_id' => $transaction->patient_id
+                    ]);
+                }
+            }
         }
 
         if ($doctorInfo) {
@@ -2823,7 +2982,7 @@ class BillingController extends Controller
             }
         }
 
-            // Ensure items are loaded
+            // Ensure items are loaded - CRITICAL for discount accessors to work properly
             if (!$transaction->relationLoaded('items')) {
                 $transaction->load('items');
             }
@@ -2832,8 +2991,9 @@ class BillingController extends Controller
             if (request()->header('Accept') === 'application/json' || request()->ajax()) {
                 // Load all relationships for JSON response (don't use fresh() as it may reload before items are saved)
                 // CRITICAL: Load patient from multiple sources
+                // CRITICAL: Items must be loaded for discount accessors to calculate fallback
                 $transaction->load([
-                    'items',
+                    'items', // Must be loaded for discount calculation fallback
                     'patient', // Direct patient relationship
                     'doctor',
                     'appointmentLinks.appointment.labTests.labTest',
@@ -2867,16 +3027,32 @@ class BillingController extends Controller
                     }
                 }
 
+            // CRITICAL: Access discount accessors AFTER items are loaded
+            // The accessors need items to calculate fallback discount
+            $discountAmount = $transaction->discount_amount; // Accessor parses from notes
+            $discountPercentage = $transaction->discount_percentage; // Accessor parses from notes
+            $seniorDiscountAmount = $transaction->senior_discount_amount; // Accessor parses from notes
+            $isSeniorCitizen = $transaction->is_senior_citizen; // Accessor parses from notes
+            
             \Log::info('Returning transaction for API', [
                 'transaction_id' => $transaction->id,
+                'transaction_code' => $transaction->transaction_code,
                 'patient_id' => $transaction->patient_id,
                 'items_count' => $transaction->items->count(),
                 'has_patient' => $transaction->patient !== null,
                 'has_doctor' => $transaction->doctor !== null,
-                'appointment_links_count' => $transaction->appointmentLinks->count()
+                'appointment_links_count' => $transaction->appointmentLinks->count(),
+                'amount' => $transaction->amount,
+                'discount_amount' => $discountAmount,
+                'discount_percentage' => $discountPercentage,
+                'senior_discount_amount' => $seniorDiscountAmount,
+                'is_senior_citizen' => $isSeniorCitizen,
+                'notes_preview' => substr($transaction->notes ?? '', 0, 200),
+                'attributes' => $transaction->getAttributes()
             ]);
 
             // Map specialist_id to doctor_id for backward compatibility with frontend
+            // toArray() will automatically include accessors from $appends array
             $transactionData = $transaction->toArray();
             
             // Ensure items have proper numeric values
@@ -2916,19 +3092,24 @@ class BillingController extends Controller
                 $patientLoaded = true;
             }
             
-            // Method 2: Try from appointment links if not loaded
+            // Method 2: Try from appointment links if not loaded - use getPatientWithFallback
             if (!$patientLoaded) {
-                $transaction->load('appointmentLinks.appointment.patient');
+                $transaction->load('appointmentLinks.appointment');
                 foreach ($transaction->appointmentLinks as $link) {
-                    if ($link->appointment && $link->appointment->patient) {
-                        $transaction->setRelation('patient', $link->appointment->patient);
-                        $patientLoaded = true;
-                        \Log::info('Patient loaded from appointment link', [
-                            'appointment_id' => $link->appointment_id,
-                            'patient_id' => $link->appointment->patient->id,
-                            'patient_name' => $link->appointment->patient->first_name . ' ' . $link->appointment->patient->last_name
-                        ]);
-                        break;
+                    if ($link->appointment) {
+                        // Use appointment's getPatientWithFallback which extracts from unique_appointment_key
+                        $patient = $link->appointment->getPatientWithFallback();
+                        if ($patient) {
+                            $transaction->setRelation('patient', $patient);
+                            $patientLoaded = true;
+                            \Log::info('Patient loaded from appointment link using getPatientWithFallback', [
+                                'appointment_id' => $link->appointment_id,
+                                'patient_id' => $patient->id,
+                                'patient_name' => $patient->first_name . ' ' . $patient->last_name,
+                                'unique_appointment_key' => $link->appointment->unique_appointment_key
+                            ]);
+                            break;
+                        }
                     }
                 }
             }
@@ -2946,13 +3127,34 @@ class BillingController extends Controller
                 }
             }
             
-            // Method 4: Try getPatientInfo helper as last resort
+            // Method 4: Try direct appointment query using getPatientWithFallback
+            if (!$patientLoaded && $transaction->appointment_id) {
+                $appointment = \App\Models\Appointment::find($transaction->appointment_id);
+                if ($appointment) {
+                    $patient = $appointment->getPatientWithFallback();
+                    if ($patient) {
+                        $transaction->setRelation('patient', $patient);
+                        $patientLoaded = true;
+                        \Log::info('Patient loaded from direct appointment query using getPatientWithFallback', [
+                            'appointment_id' => $transaction->appointment_id,
+                            'patient_id' => $patient->id,
+                            'patient_name' => $patient->first_name . ' ' . $patient->last_name,
+                            'unique_appointment_key' => $appointment->unique_appointment_key
+                        ]);
+                    }
+                }
+            }
+            
+            // Method 5: Try getPatientInfo helper as last resort
             if (!$patientLoaded) {
                 $patientInfo = $transaction->getPatientInfo();
                 if ($patientInfo) {
                     $transaction->setRelation('patient', $patientInfo);
                     $patientLoaded = true;
-                    \Log::info('Patient loaded from getPatientInfo helper');
+                    \Log::info('Patient loaded from getPatientInfo helper', [
+                        'patient_id' => $patientInfo->id,
+                        'patient_name' => $patientInfo->first_name . ' ' . $patientInfo->last_name
+                    ]);
                 }
             }
             
@@ -3027,15 +3229,50 @@ class BillingController extends Controller
             $transactionData['total_amount'] = (float) $transaction->amount;
             $transactionData['amount'] = (float) $transaction->amount;
 
-            // FINAL CHECK: Log the final patient data being sent
+            // Ensure discount fields are explicitly included - these are accessors that parse from notes
+            // CRITICAL: Use accessor methods to get discount data (parsed from notes JSON)
+            $transactionData['discount_amount'] = (float) $transaction->discount_amount; // Accessor parses from notes
+            $transactionData['discount_percentage'] = $transaction->discount_percentage; // Accessor parses from notes
+            $transactionData['senior_discount_amount'] = (float) $transaction->senior_discount_amount; // Accessor parses from notes
+            $transactionData['senior_discount_percentage'] = $transaction->senior_discount_percentage; // Accessor parses from notes
+            $transactionData['is_senior_citizen'] = (bool) $transaction->is_senior_citizen; // Accessor parses from notes
+            
+            // Include service amounts for financial summary
+            $transactionData['consultation_amount'] = $transaction->consultation_amount !== null ? (float) $transaction->consultation_amount : null;
+            $transactionData['lab_amount'] = $transaction->lab_amount !== null ? (float) $transaction->lab_amount : null;
+            $transactionData['follow_up_amount'] = $transaction->follow_up_amount !== null ? (float) $transaction->follow_up_amount : null;
+            $transactionData['total_visits'] = $transaction->total_visits !== null ? (int) $transaction->total_visits : null;
+            
+            // Ensure notes_display is included (accessor that removes [BILLING_DATA:...] JSON)
+            $transactionData['notes_display'] = $transaction->notes_display;
+            
+            // Log discount data for debugging
+            \Log::info('Transaction discount data being sent to frontend', [
+                'transaction_id' => $transaction->id,
+                'discount_amount' => $transactionData['discount_amount'],
+                'discount_percentage' => $transactionData['discount_percentage'],
+                'senior_discount_amount' => $transactionData['senior_discount_amount'],
+                'amount' => $transactionData['amount'],
+                'total_amount' => $transactionData['total_amount']
+            ]);
+
+            // FINAL CHECK: Log the final transaction data being sent
             \Log::info('Final transaction data being sent to frontend', [
                 'transaction_id' => $transaction->id,
                 'transaction_code' => $transaction->transaction_code,
+                'amount' => $transactionData['amount'] ?? 'NOT_SET',
+                'total_amount' => $transactionData['total_amount'] ?? 'NOT_SET',
+                'discount_amount' => $transactionData['discount_amount'] ?? 'NOT_SET',
+                'discount_percentage' => $transactionData['discount_percentage'] ?? 'NOT_SET',
+                'senior_discount_amount' => $transactionData['senior_discount_amount'] ?? 'NOT_SET',
+                'items_count' => isset($transactionData['items']) ? count($transactionData['items']) : 0,
+                'items_total' => isset($transactionData['items']) ? array_sum(array_column($transactionData['items'], 'total_price')) : 0,
                 'patient_data' => $transactionData['patient'] ?? 'NOT_SET',
                 'has_patient_id' => isset($transactionData['patient']['id']) && $transactionData['patient']['id'] !== null,
                 'patient_name' => isset($transactionData['patient']['first_name']) && isset($transactionData['patient']['last_name']) 
                     ? ($transactionData['patient']['first_name'] . ' ' . $transactionData['patient']['last_name'])
-                    : 'EMPTY'
+                    : 'EMPTY',
+                'notes_display' => $transactionData['notes_display'] ?? 'NOT_SET'
             ]);
 
             return response()->json([
@@ -3286,8 +3523,15 @@ class BillingController extends Controller
     {
         \Log::info('Billing printReceipt method called for transaction ID: ' . $transaction->id);
 
-        // Load all necessary relationships
-        $transaction->load(['patient', 'doctor', 'items', 'appointmentLinks.appointment']);
+        // Load all necessary relationships with patient from multiple sources
+        $transaction->load([
+            'patient', // Direct patient relationship
+            'doctor',
+            'items',
+            'appointmentLinks.appointment' => function($query) {
+                $query->with('patient'); // Load patient from appointments
+            }
+        ]);
         // Note: createdBy relationship removed - column doesn't exist in database
 
         // Debug: Log the transaction details before processing
@@ -3296,16 +3540,90 @@ class BillingController extends Controller
             'amount' => $transaction->amount, // Use 'amount' since 'total_amount' doesn't exist
             'amount' => $transaction->amount,
             'is_itemized' => $transaction->is_itemized,
-            'items_count_before' => $transaction->items->count()
+            'items_count_before' => $transaction->items->count(),
+            'patient_id' => $transaction->patient_id,
+            'has_patient_relation' => $transaction->patient ? 'YES' : 'NO'
         ]);
 
-        // Use the new helper methods to get patient and doctor info
-        $patientInfo = $transaction->getPatientInfo();
-        $doctorInfo = $transaction->getDoctorInfo();
-
-        if ($patientInfo) {
-            $transaction->setRelation('patient', $patientInfo);
+        // CRITICAL: Load patient with multiple fallback methods (same as show method)
+        $patientLoaded = false;
+        
+        // Method 1: Try direct relationship
+        if ($transaction->patient && $transaction->patient->id) {
+            $patientLoaded = true;
+            \Log::info('Patient loaded from direct relationship in printReceipt', [
+                'patient_id' => $transaction->patient->id,
+                'patient_name' => $transaction->patient->first_name . ' ' . $transaction->patient->last_name
+            ]);
         }
+        
+        // Method 2: Try from appointment links if not loaded - use getPatientWithFallback
+        if (!$patientLoaded && $transaction->appointmentLinks->isNotEmpty()) {
+            foreach ($transaction->appointmentLinks as $link) {
+                if ($link->appointment) {
+                    // Use appointment's getPatientWithFallback which extracts from unique_appointment_key
+                    $patient = $link->appointment->getPatientWithFallback();
+                    if ($patient) {
+                        $transaction->setRelation('patient', $patient);
+                        $patientLoaded = true;
+                        \Log::info('Patient loaded from appointment link in printReceipt using getPatientWithFallback', [
+                            'appointment_id' => $link->appointment_id,
+                            'patient_id' => $patient->id,
+                            'patient_name' => $patient->first_name . ' ' . $patient->last_name,
+                            'unique_appointment_key' => $link->appointment->unique_appointment_key
+                        ]);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // Method 3: Try direct database query using patient_id
+        if (!$patientLoaded && $transaction->patient_id) {
+            $patient = \App\Models\Patient::find($transaction->patient_id);
+            if ($patient) {
+                $transaction->setRelation('patient', $patient);
+                $patientLoaded = true;
+                \Log::info('Patient loaded from direct database query in printReceipt', [
+                    'patient_id' => $patient->id,
+                    'patient_name' => $patient->first_name . ' ' . $patient->last_name
+                ]);
+            }
+        }
+        
+        // Method 4: Try direct appointment query using getPatientWithFallback
+        if (!$patientLoaded && $transaction->appointment_id) {
+            $appointment = \App\Models\Appointment::find($transaction->appointment_id);
+            if ($appointment) {
+                $patient = $appointment->getPatientWithFallback();
+                if ($patient) {
+                    $transaction->setRelation('patient', $patient);
+                    $patientLoaded = true;
+                    \Log::info('Patient loaded from direct appointment query in printReceipt using getPatientWithFallback', [
+                        'appointment_id' => $transaction->appointment_id,
+                        'patient_id' => $patient->id,
+                        'patient_name' => $patient->first_name . ' ' . $patient->last_name,
+                        'unique_appointment_key' => $appointment->unique_appointment_key
+                    ]);
+                }
+            }
+        }
+        
+        // Method 5: Try getPatientInfo helper as last resort
+        if (!$patientLoaded) {
+            $patientInfo = $transaction->getPatientInfo();
+            if ($patientInfo) {
+                $transaction->setRelation('patient', $patientInfo);
+                $patientLoaded = true;
+                \Log::info('Patient loaded from getPatientInfo helper in printReceipt', [
+                    'patient_id' => $patientInfo->id,
+                    'patient_name' => $patientInfo->first_name . ' ' . $patientInfo->last_name
+                ]);
+            }
+        }
+
+        // Use the new helper methods to get doctor info
+        $doctorInfo = $transaction->getDoctorInfo();
 
         if ($doctorInfo) {
             $transaction->setRelation('doctor', $doctorInfo);
@@ -3351,9 +3669,14 @@ class BillingController extends Controller
             'amount' => $transaction->amount, // Use 'amount' since 'total_amount' doesn't exist
             'items_count' => $transaction->items->count(),
             'patient' => $transaction->patient ? $transaction->patient->first_name . ' ' . $transaction->patient->last_name : 'No patient',
-            'doctor' => $transaction->doctor ? $transaction->doctor->name : 'No doctor'
+            'doctor' => $transaction->doctor ? $transaction->doctor->name : 'No doctor',
+            'patient_id' => $transaction->patient ? $transaction->patient->id : 'NO_PATIENT',
+            'patient_loaded' => $patientLoaded ? 'YES' : 'NO'
         ]);
 
+        // Ensure notes_display is available (accessor automatically included via $appends)
+        // The transaction model will automatically include notes_display in toArray() since it's in $appends
+        
         return Inertia::render('admin/billing/receipt', [
             'transaction' => $transaction,
         ]);

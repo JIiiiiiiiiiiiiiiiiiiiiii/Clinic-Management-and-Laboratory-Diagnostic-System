@@ -31,7 +31,7 @@ import {
 import { 
     Download, FileText, MoreHorizontal, TrendingUp, UserPlus, Users, 
     ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown,
-    FileDown, CalendarIcon, Clock, CheckCircle, TestTube
+    FileDown, CalendarIcon, Calendar, Clock, CheckCircle, TestTube
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { type BreadcrumbItem } from '@/types';
@@ -234,12 +234,8 @@ export default function PatientReports({ filter, date, data, patients, summary, 
         console.log('getFilteredData - currentPatients length:', currentPatients.length);
         
         const total = currentPatients.length;
-        const newPatients = currentPatients.filter(p => {
-            const createdDate = new Date(p.created_at);
-            const now = new Date();
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-            return createdDate >= startOfMonth;
-        }).length;
+        // Count patients with appointments
+        const patientsWithAppointments = currentPatients.filter(p => (p.appointments_count || 0) > 0).length;
         const malePatients = currentPatients.filter(p => p.sex === 'male').length;
         const femalePatients = currentPatients.filter(p => p.sex === 'female').length;
         
@@ -259,7 +255,8 @@ export default function PatientReports({ filter, date, data, patients, summary, 
 
         const result = {
             total_patients: total,
-            new_patients: newPatients,
+            new_patients: total, // Keep for backward compatibility
+            patients_with_appointments: patientsWithAppointments,
             male_patients: malePatients,
             female_patients: femalePatients,
             age_groups: ageGroups,
@@ -395,15 +392,16 @@ export default function PatientReports({ filter, date, data, patients, summary, 
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-medium text-gray-600">New Patients</p>
-                                        <p className="text-3xl font-bold text-gray-900">{(filteredData.new_patients || 0).toLocaleString()}</p>
+                                        <p className="text-sm font-medium text-gray-600">Patients with Appointments</p>
+                                        <p className="text-3xl font-bold text-gray-900">{(filteredData.patients_with_appointments || 0).toLocaleString()}</p>
                                         <p className="text-xs mt-1 text-gray-500">
-                                            {currentFilter === 'daily' ? 'Today\'s New' : 
-                                             currentFilter === 'monthly' ? 'This Month' : 'This Year'}
+                                            {(filteredData.total_patients || 0) > 0 ? 
+                                                (((filteredData.patients_with_appointments || 0) / (filteredData.total_patients || 1)) * 100).toFixed(1) : 0
+                                            }% of filtered patients
                                         </p>
                                     </div>
                                     <div className="p-3 rounded-full border">
-                                        <UserPlus className="h-6 w-6 text-gray-600" />
+                                        <Calendar className="h-6 w-6 text-gray-600" />
                                     </div>
                                 </div>
                             </CardContent>

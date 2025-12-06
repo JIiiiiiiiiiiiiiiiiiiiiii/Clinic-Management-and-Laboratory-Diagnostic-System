@@ -120,7 +120,18 @@ const getStatusBadge = (status: keyof typeof statusConfig) => {
     );
 };
 
+interface BillingTransactionsProps {
+    totalRevenue?: number;
+    transactions: any;
+    patients: any[];
+    doctors: any[];
+    labTests: any[];
+    hmoProviders: any[];
+    filters: any;
+}
+
 export default function BillingTransactions({
+    totalRevenue: totalRevenueFromBackend,
     transactions,
     patients,
     doctors,
@@ -302,7 +313,8 @@ export default function BillingTransactions({
 
     // Filter state
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
-    const [statusFilter, setStatusFilter] = useState(filters.status || 'all');
+    // Status filter removed - only paid transactions are shown
+    // const [statusFilter, setStatusFilter] = useState(filters.status || 'all');
     const [paymentMethodFilter, setPaymentMethodFilter] = useState(filters.payment_method || 'all');
     const [doctorFilter, setDoctorFilter] = useState(filters.doctor_id || 'all');
     
@@ -323,7 +335,7 @@ export default function BillingTransactions({
 
     useEffect(() => {
         handleFilter();
-    }, [debouncedSearchTerm, statusFilter, paymentMethodFilter, doctorFilter]);
+    }, [debouncedSearchTerm, paymentMethodFilter, doctorFilter]);
     
     // TanStack Table state
     const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -402,9 +414,7 @@ export default function BillingTransactions({
         if (debouncedSearchTerm && debouncedSearchTerm.trim() !== '') {
             params.search = debouncedSearchTerm;
         }
-        if (statusFilter && statusFilter !== 'all') {
-            params.status = statusFilter;
-        }
+        // Status filter removed - only paid transactions are shown
         if (paymentMethodFilter && paymentMethodFilter !== 'all') {
             params.payment_method = paymentMethodFilter;
         }
@@ -424,16 +434,26 @@ export default function BillingTransactions({
         router.reload({ only: ['transactions'] });
     };
 
-    // Calculate statistics
-    const totalTransactions = transactionsData.length;
-    const paidTransactions = transactionsData.filter((t: BillingTransaction) => t.status === 'paid').length;
-    const pendingTransactions = transactionsData.filter((t: BillingTransaction) => t.status === 'pending').length;
-    const totalRevenue = transactionsData
-        .filter((t: BillingTransaction) => t.status === 'paid')
-        .reduce((sum: number, t: BillingTransaction) => {
-            const amount = Number(t.amount) || 0;
-            return sum + amount;
-        }, 0);
+    // Calculate statistics based on currently displayed rows (paginated)
+    const displayedRows = table.getRowModel().rows;
+    
+    // Count of displayed transactions
+    const displayedTransactionsCount = displayedRows.length;
+    const totalTransactions = transactions?.total || transactionsData.length; // Total in database (from pagination)
+    
+    // CRITICAL: Use total revenue from ALL paid transactions (passed from backend)
+    // This ensures consistency with the Dashboard which shows the same value
+    const totalRevenue = totalRevenueFromBackend ?? 0;
+    
+    // Calculate payment method breakdown from displayed rows
+    const cashTransactions = displayedRows.filter((row) => {
+        const transaction = row.original as BillingTransaction;
+        return transaction.payment_method === 'cash';
+    }).length;
+    const hmoTransactions = displayedRows.filter((row) => {
+        const transaction = row.original as BillingTransaction;
+        return transaction.payment_method === 'hmo';
+    }).length;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -446,12 +466,12 @@ export default function BillingTransactions({
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-medium text-gray-600">Total Transactions</p>
-                                        <p className="text-3xl font-bold text-gray-900">{totalTransactions}</p>
-                                        <p className="text-sm text-gray-500">All billing records</p>
+                                        <p className="text-sm font-medium text-gray-600">Displayed Transactions</p>
+                                        <p className="text-3xl font-bold text-gray-900">{displayedTransactionsCount}</p>
+                                        <p className="text-sm text-gray-500">Currently visible</p>
                                     </div>
                                     <div className="p-3 bg-blue-100 rounded-full">
-                                        <Receipt className="h-6 w-6 text-blue-600" />
+                                        <FileText className="h-6 w-6 text-blue-600" />
                                     </div>
                                 </div>
                             </CardContent>
@@ -461,9 +481,9 @@ export default function BillingTransactions({
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-medium text-gray-600">Paid Transactions</p>
-                                        <p className="text-3xl font-bold text-gray-900">{paidTransactions}</p>
-                                        <p className="text-sm text-gray-500">Successfully completed</p>
+                                        <p className="text-sm font-medium text-gray-600">Total Transactions</p>
+                                        <p className="text-3xl font-bold text-gray-900">{totalTransactions}</p>
+                                        <p className="text-sm text-gray-500">All paid records</p>
                                     </div>
                                     <div className="p-3 bg-green-100 rounded-full">
                                         <CheckCircle className="h-6 w-6 text-green-600" />
@@ -476,12 +496,12 @@ export default function BillingTransactions({
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-medium text-gray-600">Pending Transactions</p>
-                                        <p className="text-3xl font-bold text-gray-900">{pendingTransactions}</p>
-                                        <p className="text-sm text-gray-500">Awaiting payment</p>
+                                        <p className="text-sm font-medium text-gray-600">Cash Transactions</p>
+                                        <p className="text-3xl font-bold text-gray-900">{cashTransactions}</p>
+                                        <p className="text-sm text-gray-500">Paid in cash</p>
                                     </div>
-                                    <div className="p-3 bg-yellow-100 rounded-full">
-                                        <Clock className="h-6 w-6 text-yellow-600" />
+                                    <div className="p-3 bg-purple-100 rounded-full">
+                                        <Coins className="h-6 w-6 text-purple-600" />
                                     </div>
                                 </div>
                             </CardContent>
@@ -492,11 +512,11 @@ export default function BillingTransactions({
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                                        <p className="text-3xl font-bold text-gray-900">₱{totalRevenue.toLocaleString()}</p>
-                                        <p className="text-sm text-gray-500">From paid transactions</p>
+                                        <p className="text-3xl font-bold text-gray-900">₱{totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                        <p className="text-sm text-gray-500">All paid transactions</p>
                                     </div>
                                     <div className="p-3 bg-green-100 rounded-full">
-                                        <Coins className="h-6 w-6 text-green-600" />
+                                        <CreditCard className="h-6 w-6 text-green-600" />
                                     </div>
                                 </div>
                             </CardContent>
@@ -518,18 +538,7 @@ export default function BillingTransactions({
                                             className="pl-10 h-12 border-gray-300 focus:border-gray-500 focus:ring-gray-500 rounded-xl shadow-sm"
                                         />
                                     </div>
-                                    <select
-                                        value={statusFilter}
-                                        onChange={(e) => setStatusFilter(e.target.value)}
-                                        className="h-12 px-4 border border-gray-200 rounded-xl focus:border-gray-500 focus:ring-gray-500"
-                                    >
-                                        <option value="all">All Status</option>
-                                        <option value="draft">Draft</option>
-                                        <option value="pending">Pending</option>
-                                        <option value="paid">Paid</option>
-                                        <option value="cancelled">Cancelled</option>
-                                        <option value="refunded">Refunded</option>
-                                    </select>
+                                    {/* Status filter removed - only paid transactions are shown on this page */}
                                     <select
                                         value={paymentMethodFilter}
                                         onChange={(e) => setPaymentMethodFilter(e.target.value)}

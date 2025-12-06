@@ -159,16 +159,6 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td><strong>Total Patients</strong></td>
-                        <td>{{ $data['total_patients'] ?? 0 }}</td>
-                        <td>100%</td>
-                    </tr>
-                    <tr>
-                        <td><strong>New Patients</strong></td>
-                        <td>{{ $data['new_patients'] ?? 0 }}</td>
-                        <td>{{ $data['total_patients'] > 0 ? number_format((($data['new_patients'] ?? 0) / $data['total_patients']) * 100, 1) : 0 }}%</td>
-                    </tr>
-                    <tr>
                         <td><strong>Male Patients</strong></td>
                         <td>{{ $data['male_patients'] ?? 0 }}</td>
                         <td>{{ $data['total_patients'] > 0 ? number_format((($data['male_patients'] ?? 0) / $data['total_patients']) * 100, 1) : 0 }}%</td>
@@ -177,6 +167,11 @@
                         <td><strong>Female Patients</strong></td>
                         <td>{{ $data['female_patients'] ?? 0 }}</td>
                         <td>{{ $data['total_patients'] > 0 ? number_format((($data['female_patients'] ?? 0) / $data['total_patients']) * 100, 1) : 0 }}%</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Total Patients</strong></td>
+                        <td>{{ $data['total_patients'] ?? 0 }}</td>
+                        <td>100%</td>
                     </tr>
                 </tbody>
             </table>
