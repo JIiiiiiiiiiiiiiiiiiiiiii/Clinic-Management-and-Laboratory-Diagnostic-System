@@ -83,25 +83,4 @@ php artisan serve
 php artisan optimize:clear
 ```
 
-## Usage Notes
 
-- Inventory → Reports: Each report page has an Export dropdown for Excel/PDF/Word.
-- Laboratory → Reports/Orders: Export dropdowns available for bulk orders and per-order results.
-- Patient Management: Create patients; visits are managed under the patient details tabs; lab orders can be created in context of a visit.
-
-## Tests
-
-```
-php artisan test
-```
-
-## License
-
-MIT
-
-## Taskmaster AI
-
-- Initialize (already done): `task-master init --yes --rules cursor`
-- Configure models: `task-master models --setup`
-- Add API keys in `.env.taskmaster` or set in `.cursor/mcp.json` env.
-- Example PRD template: `.taskmaster/templates/example_prd.txt`
